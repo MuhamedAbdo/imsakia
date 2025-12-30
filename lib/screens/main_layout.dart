@@ -6,6 +6,7 @@ import '../providers/settings_provider.dart';
 import '../services/prayer_times_service.dart';
 import '../services/athan_player_service.dart';
 import '../utils/app_constants.dart';
+import 'quran_screen.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -90,6 +91,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final PrayerTimesService _prayerService = PrayerTimesService.instance;
   final AthanPlayerService _athanPlayer = AthanPlayerService.instance;
+  late SettingsProvider _settingsProvider;
   
   Map<String, DateTime?> _prayerTimes = {};
   String? _nextPrayer;
@@ -102,30 +104,31 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     _loadPrayerTimes();
     _startCountdownTimer();
     
     // Listen to settings changes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<SettingsProvider>(context, listen: false).addListener(_onSettingsChanged);
-    });
+    _settingsProvider.addListener(_onSettingsChanged);
   }
 
   @override
   void dispose() {
     _countdownTimer?.cancel();
-    Provider.of<SettingsProvider>(context, listen: false).removeListener(_onSettingsChanged);
+    _settingsProvider.removeListener(_onSettingsChanged);
     super.dispose();
   }
 
   void _onSettingsChanged() {
-    // Refresh prayer times when settings change
-    _loadPrayerTimes();
+    if (mounted) {
+      // Refresh prayer times when settings change
+      _loadPrayerTimes();
+    }
   }
 
   Future<void> _loadPrayerTimes() async {
     final prayerTimes = await _prayerService.getCurrentPrayerTimes();
-    if (prayerTimes != null) {
+    if (prayerTimes != null && mounted) {
       setState(() {
         _prayerTimes = prayerTimes;
         _nextPrayer = _prayerService.getNextPrayer();
@@ -137,10 +140,12 @@ class _HomeScreenState extends State<HomeScreen> {
     // Load city information
     final cityName = await _prayerService.getCurrentCityName();
     final countryName = await _prayerService.getCurrentCountryName();
-    setState(() {
-      _currentCity = cityName;
-      _currentCountry = countryName;
-    });
+    if (mounted) {
+      setState(() {
+        _currentCity = cityName;
+        _currentCountry = countryName;
+      });
+    }
   }
 
   void _startCountdownTimer() {
@@ -675,29 +680,6 @@ class _HomeScreenState extends State<HomeScreen> {
       default:
         return Icons.access_time;
     }
-  }
-}
-
-class QuranScreen extends StatelessWidget {
-  const QuranScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'القرآن الكريم',
-          style: GoogleFonts.tajawal(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: const Center(
-        child: Text('قيد التطوير...'),
-      ),
-    );
   }
 }
 
