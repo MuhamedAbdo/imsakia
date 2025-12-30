@@ -17,6 +17,7 @@ class _QuranScreenState extends State<QuranScreen> {
   final QuranService _quranService = QuranService();
   List<Surah> _filteredSurahs = [];
   bool _isLoading = true;
+  Map<String, dynamic>? _lastReadAyah;
 
   @override
   void initState() {
@@ -34,6 +35,10 @@ class _QuranScreenState extends State<QuranScreen> {
 
   Future<void> _loadSurahs() async {
     await _quranService.loadSurahs();
+    
+    // Load last read ayah info
+    _lastReadAyah = await _quranService.getLastReadAyah();
+    
     setState(() {
       _filteredSurahs = List.from(_quranService.surahs);
       _isLoading = false;
@@ -85,20 +90,36 @@ class _QuranScreenState extends State<QuranScreen> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final pageNumber = int.tryParse(pageController.text);
+              print('🔄 Jump to page requested: $pageNumber');
+              
               if (pageNumber != null && pageNumber >= 1 && pageNumber <= 604) {
+                print('✅ Valid page number: $pageNumber, navigating...');
+                
+                // Ensure QuranService is loaded before navigation
+                if (!_quranService.isLoaded) {
+                  print('⏳ QuranService not loaded, loading before navigation...');
+                  await _quranService.loadSurahs();
+                }
+                
                 Navigator.pop(context);
                 final surah = _quranService.getSurahByPage(pageNumber);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SurahDetailScreen(
-                      surah: surah ?? _quranService.surahs.first,
-                      initialPage: pageNumber,
+                print('📖 Found surah for page $pageNumber: ${surah?.name ?? 'Unknown'}');
+                
+                if (mounted) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SurahDetailScreen(
+                        surah: surah ?? _quranService.surahs.first,
+                        initialVerse: pageNumber,
+                      ),
                     ),
-                  ),
-                );
+                  );
+                }
+              } else {
+                print('❌ Invalid page number: $pageNumber');
               }
             },
             child: Text(
@@ -150,23 +171,60 @@ class _QuranScreenState extends State<QuranScreen> {
                       ),
                     ],
                   ),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'ابحث عن سورة...',
-                      hintStyle: GoogleFonts.tajawal(),
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppConstants.mediumBorderRadius),
-                        borderSide: BorderSide.none,
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'ابحث عن سورة...',
+                          hintStyle: GoogleFonts.tajawal(),
+                          prefixIcon: const Icon(Icons.search),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppConstants.mediumBorderRadius),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: Colors.transparent,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: AppConstants.mediumPadding,
+                            vertical: 12,
+                          ),
+                        ),
                       ),
-                      filled: true,
-                      fillColor: Colors.transparent,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppConstants.mediumPadding,
-                        vertical: 12,
-                      ),
-                    ),
+                      
+                      // Last read info
+                      if (_lastReadAyah != null)
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.bookmark,
+                                size: 16,
+                                color: Colors.green[700],
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'آخر قراءة: ${_lastReadAyah!['surahName']}, آية ${_lastReadAyah!['ayahNumber']}',
+                                  style: GoogleFonts.tajawal(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.green[700],
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 
@@ -204,13 +262,26 @@ class _QuranScreenState extends State<QuranScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(AppConstants.mediumBorderRadius),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => SurahDetailScreen(surah: surah),
-              ),
-            );
+          onTap: () async {
+            print('📖 Tapped surah: ${surah.name} (${surah.number})');
+            
+            // Ensure QuranService is loaded before navigation
+            if (!_quranService.isLoaded) {
+              print('⏳ QuranService not loaded, loading before navigation...');
+              await _quranService.loadSurahs();
+              print('✅ QuranService loaded, navigating to SurahDetailScreen');
+            } else {
+              print('✅ QuranService already loaded, navigating to SurahDetailScreen');
+            }
+            
+            if (mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SurahDetailScreen(surah: surah),
+                ),
+              );
+            }
           },
           child: Padding(
             padding: const EdgeInsets.all(AppConstants.mediumPadding),

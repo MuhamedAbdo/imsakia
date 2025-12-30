@@ -72,6 +72,7 @@ class AppConstants {
   static const String dstKey = 'dst_enabled';
   static const String athanSoundKey = 'athan_sound';
   static const String notificationsKey = 'notifications_enabled';
+  static const String hijriAdjustmentKey = 'hijri_adjustment';
 
   // Default Settings
   static const double defaultLatitude = 30.0444; // Cairo

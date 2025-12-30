@@ -16,6 +16,10 @@ class PrayerTimesService {
   Timer? _updateTimer;
   Timer? _preloadTimer;
   String? _lastPreloadedPrayer;
+  
+  // Cache for Ramadan countdown to avoid repeated calculations
+  Duration? _cachedTimeUntilRamadan;
+  DateTime? _lastRamadanCalculation;
 
   Stream<Map<String, DateTime>> get prayerTimesStream => 
       (_prayerTimesController ??= StreamController<Map<String, DateTime>>.broadcast()).stream;
@@ -223,16 +227,30 @@ class PrayerTimesService {
   Duration? getTimeUntilRamadan() {
     final now = DateTime.now();
     
+    // Use cache if calculation was done recently (within last minute)
+    if (_lastRamadanCalculation != null && 
+        _cachedTimeUntilRamadan != null &&
+        now.difference(_lastRamadanCalculation!).inSeconds < 60) {
+      return _cachedTimeUntilRamadan;
+    }
+    
     // For 2026, Ramadan starts around February 18
     final ramadan2026 = DateTime(2026, 2, 18);
     
+    Duration result;
     if (now.isAfter(ramadan2026)) {
       // If we've passed Ramadan 2026, calculate until next year
       final ramadan2027 = DateTime(2027, 2, 7); // Approximate
-      return ramadan2027.difference(now);
+      result = ramadan2027.difference(now);
+    } else {
+      result = ramadan2026.difference(now);
     }
     
-    return ramadan2026.difference(now);
+    // Cache the result
+    _cachedTimeUntilRamadan = result;
+    _lastRamadanCalculation = now;
+    
+    return result;
   }
 
   void dispose() {

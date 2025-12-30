@@ -18,6 +18,7 @@ class SettingsProvider extends ChangeNotifier {
   String _selectedAthanSound = AppConstants.defaultAthanSound;
   bool _notificationsEnabled = true;
   bool _isFirstLaunch = true;
+  int _hijriAdjustment = 0; // New Hijri adjustment setting
 
   // Getters
   AppThemeMode get themeMode => _themeMode;
@@ -29,6 +30,7 @@ class SettingsProvider extends ChangeNotifier {
   bool get notificationsEnabled => _notificationsEnabled;
   bool get isFirstLaunch => _isFirstLaunch;
   bool get isInitialized => _isInitialized;
+  int get hijriAdjustment => _hijriAdjustment;
 
   /// Initialize all settings from SharedPreferences
   Future<void> initialize() async {
@@ -46,6 +48,7 @@ class SettingsProvider extends ChangeNotifier {
         _loadDST(),
         _loadAthanSound(),
         _loadNotifications(),
+        _loadHijriAdjustment(),
         _loadFirstLaunch(),
       ]);
 
@@ -98,6 +101,10 @@ class SettingsProvider extends ChangeNotifier {
 
   Future<void> _loadNotifications() async {
     _notificationsEnabled = _prefs?.getBool(AppConstants.notificationsKey) ?? true;
+  }
+
+  Future<void> _loadHijriAdjustment() async {
+    _hijriAdjustment = _prefs?.getInt(AppConstants.hijriAdjustmentKey) ?? 0;
   }
 
   Future<void> _loadFirstLaunch() async {
@@ -186,6 +193,14 @@ class SettingsProvider extends ChangeNotifier {
     await _prefs?.setBool(AppConstants.isFirstLaunchKey, false);
     notifyListeners();
     debugPrint('🎉 First launch completed');
+  }
+
+  // Hijri adjustment setter
+  Future<void> setHijriAdjustment(int adjustment) async {
+    _hijriAdjustment = adjustment;
+    await _prefs?.setInt(AppConstants.hijriAdjustmentKey, adjustment);
+    notifyListeners();
+    debugPrint('📅 Hijri adjustment changed to: $adjustment');
   }
 
   // Batch save all settings (useful for initial setup)

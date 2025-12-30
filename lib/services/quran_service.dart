@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/surah.dart';
+import '../models/surah_data.dart';
 
 class QuranService {
   static final QuranService _instance = QuranService._internal();
@@ -10,32 +11,52 @@ class QuranService {
 
   static const String _lastReadPageKey = 'last_read_page';
   static const String _lastReadSurahKey = 'last_read_surah';
+  static const String _lastReadAyahKey = 'last_read_ayah';
   static const String _bookmarksKey = 'quran_bookmarks';
 
+  List<SurahData> _surahDataList = [];
   List<Surah> _surahs = [];
   bool _isLoaded = false;
 
   List<Surah> get surahs => List.unmodifiable(_surahs);
+  List<SurahData> get surahDataList => List.unmodifiable(_surahDataList);
   bool get isLoaded => _isLoaded;
 
-  /// Load surahs data from assets
+  /// Load surahs data from metadata.json
   Future<void> loadSurahs() async {
-    if (_isLoaded) return;
+    if (_isLoaded) {
+      print('✅ Surahs already loaded, skipping...');
+      return;
+    }
 
     try {
-      // Try to load from JSON file first
-      final String jsonString = await rootBundle.loadString('assets/data/surahs.json');
-      final Map<String, dynamic> jsonData = json.decode(jsonString);
+      print('🔄 Loading metadata from assets/data/quran/metadata.json...');
       
-      _surahs = (jsonData['surahs'] as List)
-          .map((surahJson) => Surah.fromJson(surahJson))
-          .toList();
+      // Load metadata
+      final String metadataString = await rootBundle.loadString('assets/data/quran/metadata.json');
+      final List<dynamic> metadataList = json.decode(metadataString);
+      
+      // Convert metadata to Surah objects for compatibility
+      _surahs = metadataList.map((data) {
+        final revelationType = data['revelation_place']['en'] == 'meccan' ? 'Meccan' : 'Medinan';
+        return Surah(
+          number: data['number'],
+          name: data['name']['ar'],
+          englishName: data['name']['en'],
+          totalAyahs: data['verses_count'],
+          revelationType: revelationType,
+          startPage: 1, // Will be updated when we have page mapping
+        );
+      }).toList();
+      
+      _surahDataList = metadataList.map((data) => SurahData.fromJson(data)).toList();
       
       _isLoaded = true;
-      print('✅ Loaded ${_surahs.length} surahs from JSON');
+      print('✅ Loaded ${_surahs.length} surahs from metadata.json');
+      
     } catch (e) {
-      print('❌ Error loading surahs from JSON: $e');
-      // Fallback to hardcoded data if JSON fails
+      print('❌ Error loading surahs from metadata.json: $e');
+      print('🔄 Falling back to hardcoded data...');
       _loadFallbackSurahs();
     }
   }
@@ -161,7 +182,65 @@ class QuranService {
     print('✅ Loaded all ${_surahs.length} surahs from complete dataset');
   }
 
-  /// Get surah by number
+  /// Get surah data with verses by number
+  Future<SurahData?> getSurahDataByNumber(int number) async {
+    if (!_isLoaded) {
+      await loadSurahs();
+    }
+    
+    try {
+      // Try to load from individual surah file first
+      final String surahFile = 'assets/data/quran/surah/surah_$number.json';
+      final String surahString = await rootBundle.loadString(surahFile);
+      final Map<String, dynamic> surahJson = json.decode(surahString);
+      
+      return SurahData.fromJson(surahJson);
+    } catch (e) {
+      print('❌ Error loading surah $number from file: $e');
+      // Fallback to cached data
+      try {
+        return _surahDataList.firstWhere((surah) => surah.number == number);
+      } catch (e) {
+        print('❌ Surah $number not found in cached data');
+        return null;
+      }
+    }
+  }
+
+  /// Save last read ayah
+  Future<void> saveLastReadAyah(int surahNumber, String surahName, int ayahNumber) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_lastReadSurahKey, surahNumber);
+      await prefs.setString('last_read_surah_name', surahName);
+      await prefs.setInt(_lastReadAyahKey, ayahNumber);
+      print('💾 Saved last read: Surah $surahName, Ayah $ayahNumber');
+    } catch (e) {
+      print('❌ Error saving last read ayah: $e');
+    }
+  }
+
+  /// Get last read ayah info
+  Future<Map<String, dynamic>?> getLastReadAyah() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final surahNumber = prefs.getInt(_lastReadSurahKey);
+      final surahName = prefs.getString('last_read_surah_name');
+      final ayahNumber = prefs.getInt(_lastReadAyahKey);
+      
+      if (surahNumber != null && surahName != null && ayahNumber != null) {
+        return {
+          'surahNumber': surahNumber,
+          'surahName': surahName,
+          'ayahNumber': ayahNumber,
+        };
+      }
+      return null;
+    } catch (e) {
+      print('❌ Error getting last read ayah: $e');
+      return null;
+    }
+  }
   Surah? getSurahByNumber(int number) {
     try {
       return _surahs.firstWhere((surah) => surah.number == number);

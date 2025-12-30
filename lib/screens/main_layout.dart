@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/settings_provider.dart';
 import '../services/prayer_times_service.dart';
 import '../services/athan_player_service.dart';
+import '../services/hijri_date_service.dart';
 import '../utils/app_constants.dart';
 import 'quran_screen.dart';
 
@@ -28,54 +30,144 @@ class _MainLayoutState extends State<MainLayout> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _screens[_currentIndex],
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, -2),
-            ),
-          ],
+    print('App Reached MainLayout');
+    return PopScope(
+      canPop: false, // Always intercept back button
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        
+        // If we are NOT on the first tab (Prayer Times), go back to the first tab
+        if (_currentIndex != 0) {
+          setState(() {
+            _currentIndex = 0; // Go to Prayer Times tab
+          });
+        } else {
+          // If we ARE on the Prayer Times tab, show exit confirmation
+          await _showExitConfirmation(context);
+        }
+      },
+      child: Scaffold(
+        body: _screens[_currentIndex],
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 4,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            onTap: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            selectedItemColor: Theme.of(context).colorScheme.primary,
+            unselectedItemColor: Colors.grey,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.access_time),
+                label: 'مواقيت الصلاة',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.menu_book),
+                label: 'القرآن',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.fingerprint),
+                label: 'المسبحة',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.auto_stories),
+                label: 'الأذكار',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.help_outline),
+                label: 'فقه الصيام',
+              ),
+            ],
+          ),
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          selectedItemColor: Theme.of(context).colorScheme.primary,
-          unselectedItemColor: Colors.grey,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.access_time),
-              label: 'مواقيت الصلاة',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.menu_book),
-              label: 'القرآن',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.fingerprint),
-              label: 'المسبحة',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.auto_stories),
-              label: 'الأذكار',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.help_outline),
-              label: 'فقه الصيام',
-            ),
-          ],
+      ),
+    );
+  }
+
+  Future<void> _showExitConfirmation(BuildContext context) async {
+    await showDialog<bool?>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
+        backgroundColor: Theme.of(context).cardColor,
+        title: Text(
+          'تأكيد الخروج',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).brightness == Brightness.dark 
+                ? Colors.white 
+                : Colors.black87,
+          ),
+        ),
+        content: Text(
+          'هل تريد الخروج من التطبيق؟',
+          style: TextStyle(
+            fontSize: 16,
+            color: Theme.of(context).brightness == Brightness.dark 
+                ? Colors.white70 
+                : Colors.black87,
+          ),
+        ),
+        actions: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end, // RTL alignment for Arabic
+            children: [
+              // Cancel button - secondary action
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'إلغاء',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500, // Lighter weight for secondary action
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8), // Spacing between buttons
+              // Exit button - primary action
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  SystemNavigator.pop();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+                child: Text(
+                  'خروج',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600, // Bolder weight for primary action
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -149,22 +241,40 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startCountdownTimer() {
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _countdownTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       _updatePrayerInfo();
     });
   }
 
   void _updatePrayerInfo() {
-    if (mounted) {
+    if (!mounted) return;
+    
+    // Get current values
+    final newPrayerTimes = _prayerService.getAllPrayerTimes();
+    final newNextPrayer = _prayerService.getNextPrayer();
+    final newTimeUntilNextPrayer = _prayerService.getTimeUntilNextPrayer();
+    final newTimeUntilRamadan = _prayerService.getTimeUntilRamadan();
+    
+    // Only update state if values actually changed
+    bool shouldUpdate = false;
+    
+    if (_nextPrayer != newNextPrayer || 
+        _timeUntilNextPrayer?.inSeconds != newTimeUntilNextPrayer?.inSeconds ||
+        _timeUntilRamadan?.inSeconds != newTimeUntilRamadan?.inSeconds) {
+      shouldUpdate = true;
+    }
+    
+    if (shouldUpdate) {
       setState(() {
-        _prayerTimes = _prayerService.getAllPrayerTimes();
-        _nextPrayer = _prayerService.getNextPrayer();
-        _timeUntilNextPrayer = _prayerService.getTimeUntilNextPrayer();
-        _timeUntilRamadan = _prayerService.getTimeUntilRamadan();
+        _prayerTimes = newPrayerTimes;
+        _nextPrayer = newNextPrayer;
+        _timeUntilNextPrayer = newTimeUntilNextPrayer;
+        _timeUntilRamadan = newTimeUntilRamadan;
         
         // Check if countdown reaches 00:00:00 and trigger Athan
         if (_timeUntilNextPrayer != null && 
-            _timeUntilNextPrayer!.inSeconds <= 1 && 
+            _timeUntilNextPrayer!.inSeconds <= 5 && 
+            _timeUntilNextPrayer!.inSeconds > 0 &&
             !_athanPlayer.isMuted &&
             _nextPrayer != null) {
           _athanPlayer.playAthan(prayerName: _nextPrayer!);
@@ -218,6 +328,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_nextPrayer == null) return '';
     
     switch (_nextPrayer!) {
+      case 'imsak':
+        return 'الإمساك';
       case 'fajr':
         return 'الفجر';
       case 'sunrise':
@@ -233,12 +345,6 @@ class _HomeScreenState extends State<HomeScreen> {
       default:
         return _nextPrayer!;
     }
-  }
-
-  bool _isNextPrayer(String prayerKey) {
-    if (_nextPrayer == null) return false;
-    
-    return _nextPrayer == prayerKey;
   }
 
   @override
@@ -526,11 +632,50 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPrayerTimesList() {
-    final prayerKeys = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    // Get Hijri date with adjustment
+    final hijriAdjustment = Provider.of<SettingsProvider>(context, listen: false).hijriAdjustment;
+    final hijriDate = HijriDateService.getHijriDate(DateTime.now(), hijriAdjustment);
+    
+    final prayerKeys = ['imsak', 'fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Hijri Date Display
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: AppConstants.goldGradient,
+            borderRadius: BorderRadius.circular(AppConstants.mediumBorderRadius),
+            boxShadow: [
+              BoxShadow(
+                color: AppConstants.secondaryColor.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.calendar_today,
+                color: const Color(0xFF8B4513),
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                hijriDate['formatted'],
+                style: GoogleFonts.tajawal(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF8B4513),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
         Text(
           'مواقيت الصلاة اليوم',
           style: GoogleFonts.tajawal(
@@ -614,7 +759,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }),
         
         // Imsak time during Ramadan
-        if (_prayerService.isRamadan()) ...[
+        if (HijriDateService.isRamadan(DateTime.now(), Provider.of<SettingsProvider>(context, listen: false).hijriAdjustment)) ...[
           const SizedBox(height: 16),
           Container(
             decoration: BoxDecoration(
@@ -665,6 +810,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   IconData _getPrayerIcon(String prayerKey) {
     switch (prayerKey) {
+      case 'imsak':
+        return Icons.nights_stay;
       case 'fajr':
         return Icons.wb_sunny;
       case 'sunrise':
@@ -680,6 +827,17 @@ class _HomeScreenState extends State<HomeScreen> {
       default:
         return Icons.access_time;
     }
+  }
+
+  bool _isNextPrayer(String prayerKey) {
+    if (_nextPrayer == null) return false;
+    
+    // Special handling for Imsak during Ramadan
+    if (prayerKey == 'imsak' && _prayerService.isRamadan()) {
+      return true;
+    }
+    
+    return _nextPrayer == prayerKey;
   }
 }
 
