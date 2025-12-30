@@ -13,42 +13,112 @@ class AthanPlayerService {
   bool _isPlaying = false;
   bool _isMuted = false;
   String? _currentAthanSound;
+  String? _preloadedAthanPath;
+  DateTime? _triggerTime;
 
   bool get isPlaying => _isPlaying;
   bool get isMuted => _isMuted;
   String? get currentAthanSound => _currentAthanSound;
 
-  Future<void> playAthan({required String prayerName}) async {
-    try {
-      if (_isMuted) return;
+  /// Update the current athan sound preference (called by SettingsProvider)
+  void updateCurrentAthanSound(String sound) {
+    _currentAthanSound = sound;
+    debugPrint('🔊 AthanPlayerService updated with sound: $sound');
+  }
 
-      // Initialize AudioPlayer if needed
-      if (_audioPlayer == null) {
-        _audioPlayer = AudioPlayer();
-        // Listen for player completion
-        _audioPlayer!.onPlayerComplete.listen((_) {
-          _isPlaying = false;
-          debugPrint('Athan playback completed');
-        });
+  /// Initialize the audio player with low latency settings
+  Future<void> initialize() async {
+    if (_audioPlayer == null) {
+      _audioPlayer = AudioPlayer();
+      
+      // Configure for low latency
+      await _audioPlayer!.setPlayerMode(PlayerMode.lowLatency);
+      
+      // Listen for player completion
+      _audioPlayer!.onPlayerComplete.listen((_) {
+        _isPlaying = false;
+        final completionTime = DateTime.now();
+        final duration = _triggerTime != null 
+            ? completionTime.difference(_triggerTime!) 
+            : Duration.zero;
+        debugPrint('🎵 Athan playback completed - Total duration: ${duration.inMilliseconds}ms');
+      });
+      
+      // Load user preferences
+      await _loadAthanPreference();
+      
+      debugPrint('🔧 AudioPlayer initialized with low latency mode');
+    }
+  }
+
+  /// Preload athan audio for instant playback
+  Future<void> preloadAthan(String prayerName) async {
+    try {
+      await initialize();
+      
+      final athanPath = _getAthanPath(prayerName);
+      final audioSource = AssetSource('sounds/${athanPath.split('sounds/').last}');
+      
+      await _audioPlayer!.setSource(audioSource);
+      _preloadedAthanPath = athanPath;
+      
+      debugPrint('📦 Preloaded athan: $athanPath');
+    } catch (e) {
+      debugPrint('❌ Error preloading athan: $e');
+    }
+  }
+
+  Future<void> playAthan({required String prayerName}) async {
+    _triggerTime = DateTime.now();
+    debugPrint('⏰ Athan trigger started at: ${_triggerTime!.toIso8601String()}');
+    
+    try {
+      if (_isMuted) {
+        debugPrint('🔇 Athan muted - skipping playback');
+        return;
       }
 
-      // Load user's athan preference
-      await _loadAthanPreference();
-
+      await initialize();
+      
       // Determine the athan file to play
       String athanPath = _getAthanPath(prayerName);
-
+      final audioSource = AssetSource('sounds/${athanPath.split('sounds/').last}');
+      
       // Stop any currently playing athan
       await stopAthan();
-
+      
+      final prepareStartTime = DateTime.now();
+      
+      // Check if already preloaded
+      if (_preloadedAthanPath == athanPath) {
+        debugPrint('⚡ Using preloaded audio - instant playback');
+      } else {
+        // Set source for new audio
+        await _audioPlayer!.setSource(audioSource);
+        final prepareDuration = DateTime.now().difference(prepareStartTime);
+        debugPrint('🔄 Audio prepared in: ${prepareDuration.inMilliseconds}ms');
+      }
+      
+      final playStartTime = DateTime.now();
+      
       // Play the athan sound
-      await _audioPlayer!.play(AssetSource('sounds/${athanPath.split('sounds/').last}'));
+      await _audioPlayer!.play(audioSource);
+      
+      final playDuration = DateTime.now().difference(playStartTime);
+      final totalDuration = DateTime.now().difference(_triggerTime!);
       
       _isPlaying = true;
+      _preloadedAthanPath = athanPath;
 
-      debugPrint('Playing athan for $prayerName: $athanPath');
+      debugPrint('🎵 PLAYBACK STARTED:');
+      debugPrint('   ├─ Prayer: $prayerName');
+      debugPrint('   ├─ File: $athanPath');
+      debugPrint('   ├─ Play call duration: ${playDuration.inMilliseconds}ms');
+      debugPrint('   └─ Total delay: ${totalDuration.inMilliseconds}ms');
     } catch (e) {
-      debugPrint('Error playing athan: $e');
+      final errorDuration = DateTime.now().difference(_triggerTime!);
+      debugPrint('❌ Error playing athan: $e');
+      debugPrint('❌ Error occurred after: ${errorDuration.inMilliseconds}ms');
       _isPlaying = false;
     }
   }
@@ -121,30 +191,40 @@ class AthanPlayerService {
 
   // Legacy method for backward compatibility
   Future<void> playAthanLegacy({String athanPath = 'assets/sounds/default_athan.mp3'}) async {
+    _triggerTime = DateTime.now();
+    debugPrint('⏰ Legacy athan trigger started at: ${_triggerTime!.toIso8601String()}');
+    
     try {
-      if (_isMuted) return;
-
-      // Initialize AudioPlayer if needed
-      if (_audioPlayer == null) {
-        _audioPlayer = AudioPlayer();
-        // Listen for player completion
-        _audioPlayer!.onPlayerComplete.listen((_) {
-          _isPlaying = false;
-          debugPrint('Athan playback completed');
-        });
+      if (_isMuted) {
+        debugPrint('🔇 Athan muted - skipping legacy playback');
+        return;
       }
 
+      await initialize();
+      
+      final audioSource = AssetSource('sounds/${athanPath.split('sounds/').last}');
+      
       // Stop any currently playing athan
       await stopAthan();
-
+      
+      final playStartTime = DateTime.now();
+      
       // Play the athan sound
-      await _audioPlayer!.play(AssetSource('sounds/${athanPath.split('sounds/').last}'));
+      await _audioPlayer!.play(audioSource);
+      
+      final playDuration = DateTime.now().difference(playStartTime);
+      final totalDuration = DateTime.now().difference(_triggerTime!);
       
       _isPlaying = true;
 
-      debugPrint('Athan started playing: $athanPath');
+      debugPrint('🎵 LEGACY PLAYBACK STARTED:');
+      debugPrint('   ├─ File: $athanPath');
+      debugPrint('   ├─ Play call duration: ${playDuration.inMilliseconds}ms');
+      debugPrint('   └─ Total delay: ${totalDuration.inMilliseconds}ms');
     } catch (e) {
-      debugPrint('Error playing athan: $e');
+      final errorDuration = DateTime.now().difference(_triggerTime!);
+      debugPrint('❌ Error playing legacy athan: $e');
+      debugPrint('❌ Error occurred after: ${errorDuration.inMilliseconds}ms');
       _isPlaying = false;
     }
   }

@@ -3,6 +3,7 @@ import 'package:adhan/adhan.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_constants.dart';
+import 'athan_player_service.dart';
 
 class PrayerTimesService {
   static PrayerTimesService? _instance;
@@ -13,6 +14,8 @@ class PrayerTimesService {
   Map<String, DateTime>? _currentPrayerTimes;
   StreamController<Map<String, DateTime>>? _prayerTimesController;
   Timer? _updateTimer;
+  Timer? _preloadTimer;
+  String? _lastPreloadedPrayer;
 
   Stream<Map<String, DateTime>> get prayerTimesStream => 
       (_prayerTimesController ??= StreamController<Map<String, DateTime>>.broadcast()).stream;
@@ -49,6 +52,9 @@ class PrayerTimesService {
     
     // Start timer for updates
     _startUpdateTimer();
+    
+    // Start preloading timer
+    _startPreloadTimer();
 
     return _currentPrayerTimes;
   }
@@ -77,6 +83,34 @@ class PrayerTimesService {
     _updateTimer = Timer.periodic(AppConstants.countdownUpdateInterval, (timer) {
       _updatePrayerTimes();
     });
+  }
+
+  void _startPreloadTimer() {
+    _preloadTimer?.cancel();
+    _preloadTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _checkAndPreloadNextPrayer();
+    });
+  }
+
+  void _checkAndPreloadNextPrayer() {
+    if (_currentPrayerTimes == null) return;
+
+    final now = DateTime.now();
+    final nextPrayer = getNextPrayer();
+    if (nextPrayer == null || nextPrayer == _lastPreloadedPrayer) return;
+
+    final nextPrayerTime = _currentPrayerTimes![nextPrayer];
+    if (nextPrayerTime == null) return;
+
+    // Check if prayer is within 2 minutes
+    final timeUntilPrayer = nextPrayerTime.difference(now);
+    if (timeUntilPrayer.inMinutes <= 2 && timeUntilPrayer.inMinutes > 0) {
+      // Preload the athan
+      AthanPlayerService.instance.preloadAthan(nextPrayer);
+      _lastPreloadedPrayer = nextPrayer;
+      
+      print('🚀 Preloaded athan for $nextPrayer (prayer in ${timeUntilPrayer.inMinutes}:${(timeUntilPrayer.inSeconds % 60).toString().padLeft(2, '0')})');
+    }
   }
 
   Future<void> _updatePrayerTimes() async {
@@ -203,6 +237,7 @@ class PrayerTimesService {
 
   void dispose() {
     _updateTimer?.cancel();
+    _preloadTimer?.cancel();
     _prayerTimesController?.close();
   }
 }

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../providers/settings_provider.dart';
 import '../services/prayer_times_service.dart';
 import '../services/athan_player_service.dart';
 import '../utils/app_constants.dart';
@@ -102,12 +104,23 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadPrayerTimes();
     _startCountdownTimer();
+    
+    // Listen to settings changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<SettingsProvider>(context, listen: false).addListener(_onSettingsChanged);
+    });
   }
 
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    Provider.of<SettingsProvider>(context, listen: false).removeListener(_onSettingsChanged);
     super.dispose();
+  }
+
+  void _onSettingsChanged() {
+    // Refresh prayer times when settings change
+    _loadPrayerTimes();
   }
 
   Future<void> _loadPrayerTimes() async {

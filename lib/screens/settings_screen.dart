@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
+import '../services/prayer_times_service.dart';
 import '../utils/app_constants.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -18,13 +19,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  AppThemeMode _selectedTheme = AppThemeMode.system;
-  String _selectedCity = AppConstants.defaultCity;
-  String _selectedCalculationMethod = AppConstants.defaultCalculationMethod;
-  String _selectedMadhab = AppConstants.defaultMadhab;
-  bool _dstEnabled = AppConstants.defaultDST;
-  String _selectedAthanSound = AppConstants.defaultAthanSound;
-  bool _notificationsEnabled = true;
+  late SettingsProvider _settingsProvider;
   
   final Map<String, String> _calculationMethods = {
     'egyptian': 'Egyptian General Authority of Survey',
@@ -37,46 +32,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    if (!widget.isFirstTimeSetup) {
-      setState(() {
-        final themeMode = prefs.getString(AppConstants.themeModeKey) ?? 'system';
-        _selectedTheme = AppThemeMode.values.firstWhere(
-          (mode) => mode.toString().split('.').last == themeMode,
-          orElse: () => AppThemeMode.system,
-        );
-        _selectedCity = prefs.getString(AppConstants.selectedCityKey) ?? AppConstants.defaultCity;
-        _selectedCalculationMethod = prefs.getString(AppConstants.calculationMethodKey) ?? AppConstants.defaultCalculationMethod;
-        _selectedMadhab = prefs.getString(AppConstants.madhabKey) ?? AppConstants.defaultMadhab;
-        _dstEnabled = prefs.getBool(AppConstants.dstKey) ?? AppConstants.defaultDST;
-        _selectedAthanSound = prefs.getString(AppConstants.athanSoundKey) ?? AppConstants.defaultAthanSound;
-        _notificationsEnabled = prefs.getBool(AppConstants.notificationsKey) ?? true;
-      });
+    _settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    // Initialize settings if not already done
+    if (!_settingsProvider.isInitialized) {
+      _settingsProvider.initialize();
     }
   }
 
   Future<void> _saveSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    await prefs.setString(AppConstants.themeModeKey, _selectedTheme.toString().split('.').last);
-    await prefs.setString(AppConstants.selectedCityKey, _selectedCity);
-    await prefs.setString(AppConstants.calculationMethodKey, _selectedCalculationMethod);
-    await prefs.setString(AppConstants.madhabKey, _selectedMadhab);
-    await prefs.setBool(AppConstants.dstKey, _dstEnabled);
-    await prefs.setString(AppConstants.athanSoundKey, _selectedAthanSound);
-    await prefs.setBool(AppConstants.notificationsKey, _notificationsEnabled);
-    
-    if (widget.isFirstTimeSetup) {
-      await prefs.setBool(AppConstants.isFirstLaunchKey, false);
+    try {
+      // Mark first launch as complete if this is initial setup
+      if (widget.isFirstTimeSetup) {
+        await _settingsProvider.setFirstLaunchComplete();
+      }
+      
+      // Notify PrayerTimesService to recalculate with new settings
+      await PrayerTimesService.instance.getCurrentPrayerTimes();
+      
+      debugPrint('💾 Settings saved successfully');
+      debugPrint('🔄 PrayerTimesService updated with new settings');
+      
+      if (mounted) {
+        // Show success feedback
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'تم حفظ الإعدادات بنجاح',
+              style: GoogleFonts.tajawal(),
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        
+        // Navigate back to home screen after a brief delay to show the snackbar
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            if (widget.isFirstTimeSetup) {
+              // For first time setup, replace the entire stack with main screen
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/main',
+                (route) => false,
+              );
+            } else {
+              // For regular settings, just pop back to previous screen
+              Navigator.of(context).pop();
+            }
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error saving settings: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'حدث خطأ أثناء حفظ الإعدادات',
+              style: GoogleFonts.tajawal(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
-    
-    // Update theme provider
-    context.read<ThemeProvider>().setThemeMode(_selectedTheme);
   }
 
   @override
@@ -183,9 +201,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: ElevatedButton(
                     onPressed: () async {
                       await _saveSettings();
-                      if (mounted) {
-                        Navigator.of(context).pushReplacementNamed('/main');
-                      }
                     },
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -209,16 +224,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: ElevatedButton(
                     onPressed: () async {
                       await _saveSettings();
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'تم حفظ الإعدادات',
-                              style: GoogleFonts.tajawal(),
-                            ),
-                          ),
-                        );
-                      }
                     },
                     child: Text(
                       'حفظ الإعدادات',
@@ -295,179 +300,200 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildThemeSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'نوع المظهر',
-          style: GoogleFonts.tajawal(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        ...AppThemeMode.values.map((mode) => RadioListTile<AppThemeMode>(
-          title: Text(
-            _getThemeDisplayName(mode),
-            style: GoogleFonts.tajawal(),
-          ),
-          value: mode,
-          groupValue: _selectedTheme,
-          onChanged: (value) {
-            setState(() {
-              _selectedTheme = value!;
-            });
-          },
-          contentPadding: EdgeInsets.zero,
-        )),
-      ],
+    return Consumer2<SettingsProvider, ThemeProvider>(
+      builder: (context, settings, themeProvider, child) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'نوع المظهر',
+              style: GoogleFonts.tajawal(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...AppThemeMode.values.map((mode) => RadioListTile<AppThemeMode>(
+              title: Text(
+                _getThemeDisplayName(mode),
+                style: GoogleFonts.tajawal(),
+              ),
+              value: mode,
+              groupValue: settings.themeMode,
+              onChanged: (value) {
+                if (value != null) {
+                  settings.setThemeMode(value);
+                  themeProvider.syncWithSettingsProvider(value);
+                }
+              },
+              contentPadding: EdgeInsets.zero,
+            )),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildCalculationMethodSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'طريقة حساب مواقيت الصلاة',
-          style: GoogleFonts.tajawal(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedCalculationMethod,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppConstants.smallBorderRadius),
-            ),
-          ),
-          items: _calculationMethods.entries.map((entry) {
-            return DropdownMenuItem(
-              value: entry.key,
-              child: Text(
-                entry.value,
-                style: GoogleFonts.tajawal(fontSize: 14),
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, child) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'طريقة حساب مواقيت الصلاة',
+              style: GoogleFonts.tajawal(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
               ),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() {
-              _selectedCalculationMethod = value!;
-            });
-          },
-        ),
-      ],
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: settings.selectedCalculationMethod,
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.smallBorderRadius),
+                ),
+              ),
+              items: _calculationMethods.entries.map((entry) {
+                return DropdownMenuItem(
+                  value: entry.key,
+                  child: Text(
+                    entry.value,
+                    style: GoogleFonts.tajawal(fontSize: 14),
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  settings.setCalculationMethod(value);
+                }
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildMadhabSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'المذهب الفقهي',
-          style: GoogleFonts.tajawal(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedMadhab,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppConstants.smallBorderRadius),
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, child) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'المذهب الفقهي',
+              style: GoogleFonts.tajawal(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          items: const [
-            DropdownMenuItem(value: 'shafi', child: Text('الشافعي')),
-            DropdownMenuItem(value: 'hanafi', child: Text('الحنفي')),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: settings.selectedMadhab,
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.smallBorderRadius),
+                ),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'shafi', child: Text('الشافعي')),
+                DropdownMenuItem(value: 'hanafi', child: Text('الحنفي')),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  settings.setMadhab(value);
+                }
+              },
+            ),
           ],
-          onChanged: (value) {
-            setState(() {
-              _selectedMadhab = value!;
-            });
-          },
-        ),
-      ],
+        );
+      },
     );
   }
 
   Widget _buildDstToggle() {
-    return SwitchListTile(
-      title: Text(
-        'التوقيت الصيفي (DST)',
-        style: GoogleFonts.tajawal(),
-      ),
-      subtitle: Text(
-        'ضبط تلقائي للتوقيت الصيفي',
-        style: GoogleFonts.tajawal(fontSize: 12),
-      ),
-      value: _dstEnabled,
-      onChanged: (value) {
-        setState(() {
-          _dstEnabled = value;
-        });
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, child) {
+        return SwitchListTile(
+          title: Text(
+            'التوقيت الصيفي (DST)',
+            style: GoogleFonts.tajawal(),
+          ),
+          subtitle: Text(
+            'ضبط تلقائي للتوقيت الصيفي',
+            style: GoogleFonts.tajawal(fontSize: 12),
+          ),
+          value: settings.dstEnabled,
+          onChanged: (value) {
+            settings.setDST(value);
+          },
+          contentPadding: EdgeInsets.zero,
+        );
       },
-      contentPadding: EdgeInsets.zero,
     );
   }
 
   Widget _buildNotificationsToggle() {
-    return SwitchListTile(
-      title: Text(
-        'تفعيل الإشعارات',
-        style: GoogleFonts.tajawal(),
-      ),
-      subtitle: Text(
-        'تلقي إشعارات مواعيد الصلاة',
-        style: GoogleFonts.tajawal(fontSize: 12),
-      ),
-      value: _notificationsEnabled,
-      onChanged: (value) {
-        setState(() {
-          _notificationsEnabled = value;
-        });
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, child) {
+        return SwitchListTile(
+          title: Text(
+            'تفعيل الإشعارات',
+            style: GoogleFonts.tajawal(),
+          ),
+          subtitle: Text(
+            'تلقي إشعارات مواعيد الصلاة',
+            style: GoogleFonts.tajawal(fontSize: 12),
+          ),
+          value: settings.notificationsEnabled,
+          onChanged: (value) {
+            settings.setNotifications(value);
+          },
+          contentPadding: EdgeInsets.zero,
+        );
       },
-      contentPadding: EdgeInsets.zero,
     );
   }
 
   Widget _buildAthanSoundSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'صوت الأذان',
-          style: GoogleFonts.tajawal(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedAthanSound,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppConstants.smallBorderRadius),
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, child) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'صوت الأذان',
+              style: GoogleFonts.tajawal(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          items: const [
-            DropdownMenuItem(value: 'default', child: Text('الافتراضي')),
-            DropdownMenuItem(value: 'makkah', child: Text('مكة المكرمة')),
-            DropdownMenuItem(value: 'madinah', child: Text('المدينة المنورة')),
-            DropdownMenuItem(value: 'egypt', child: Text('مصر')),
-            DropdownMenuItem(value: 'silent', child: Text('صامت')),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: settings.selectedAthanSound,
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.smallBorderRadius),
+                ),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'default', child: Text('الافتراضي')),
+                DropdownMenuItem(value: 'makkah', child: Text('مكة المكرمة')),
+                DropdownMenuItem(value: 'madinah', child: Text('المدينة المنورة')),
+                DropdownMenuItem(value: 'egypt', child: Text('مصر')),
+                DropdownMenuItem(value: 'silent', child: Text('صامت')),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  settings.setAthanSound(value);
+                }
+              },
+            ),
           ],
-          onChanged: (value) {
-            setState(() {
-              _selectedAthanSound = value!;
-            });
-          },
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -483,41 +509,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildCitySelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'المدينة',
-          style: GoogleFonts.tajawal(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedCity,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppConstants.smallBorderRadius),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-          items: AppConstants.cities.map((city) {
-            return DropdownMenuItem<String>(
-              value: city['id'] as String,
-              child: Text(
-                '${city['name']} - ${city['country']}',
-                style: GoogleFonts.tajawal(fontSize: 14),
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, child) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'المدينة',
+              style: GoogleFonts.tajawal(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
               ),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() {
-              _selectedCity = value!;
-            });
-          },
-        ),
-      ],
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: settings.selectedCity,
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.smallBorderRadius),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              items: AppConstants.cities.map((city) {
+                return DropdownMenuItem<String>(
+                  value: city['id'] as String,
+                  child: Text(
+                    '${city['name']} - ${city['country']}',
+                    style: GoogleFonts.tajawal(fontSize: 14),
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  settings.setCity(value);
+                }
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }

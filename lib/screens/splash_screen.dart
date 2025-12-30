@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../utils/app_constants.dart';
+import '../providers/settings_provider.dart';
 import '../screens/settings_screen.dart';
 import '../screens/main_layout.dart';
 
@@ -64,11 +65,14 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _navigateToNextScreen() async {
     await Future.delayed(AppConstants.splashDuration);
     
-    final prefs = await SharedPreferences.getInstance();
-    final isFirstLaunch = prefs.getBool(AppConstants.isFirstLaunchKey) ?? true;
+    // Initialize SettingsProvider if not already done
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    if (!settingsProvider.isInitialized) {
+      await settingsProvider.initialize();
+    }
 
     if (mounted) {
-      if (isFirstLaunch) {
+      if (settingsProvider.isFirstLaunch) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => const SettingsScreen(isFirstTimeSetup: true),

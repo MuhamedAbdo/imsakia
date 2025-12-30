@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-enum AppThemeMode { light, dark, system }
+import 'settings_provider.dart';
 
 class ThemeProvider extends ChangeNotifier {
   AppThemeMode _themeMode = AppThemeMode.system;
@@ -11,17 +10,15 @@ class ThemeProvider extends ChangeNotifier {
   AppThemeMode get themeMode => _themeMode;
 
   ThemeProvider() {
-    _loadThemeMode();
+    // Don't load theme mode here - let SettingsProvider handle it
+    // This prevents duplicate loading and race conditions
   }
 
-  Future<void> _loadThemeMode() async {
-    _prefs = await SharedPreferences.getInstance();
-    final savedTheme = _prefs?.getString('theme_mode') ?? 'system';
-    _themeMode = AppThemeMode.values.firstWhere(
-      (mode) => mode.toString().split('.').last == savedTheme,
-      orElse: () => AppThemeMode.system,
-    );
+  /// Sync theme mode with SettingsProvider
+  void syncWithSettingsProvider(AppThemeMode mode) {
+    _themeMode = mode;
     notifyListeners();
+    debugPrint('🎨 ThemeProvider synced with: ${mode.toString().split('.').last}');
   }
 
   Future<void> setThemeMode(AppThemeMode mode) async {
