@@ -11,6 +11,7 @@ import '../services/hadith_service.dart';
 import '../utils/app_constants.dart';
 import 'quran_screen.dart';
 import 'tasbih_screen.dart';
+import 'azkar_screen.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -1067,21 +1068,8 @@ class AzkarScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'الأذكار',
-          style: GoogleFonts.tajawal(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: const Center(
-        child: Text('قيد التطوير...'),
-      ),
-    );
+    // Use the actual AzkarScreenWidget from its separate file
+    return const AzkarScreenWidget();
   }
 }
 

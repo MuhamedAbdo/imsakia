@@ -26,6 +26,16 @@ class Verse {
     );
   }
 
+  // Constructor for quran2 format
+  Verse.fromQuran2({
+    required this.number,
+    required this.arabicText,
+    this.englishText = '',
+    this.juz = 0,
+    this.page = 0,
+    this.sajda = false,
+  });
+
   Map<String, dynamic> toJson() {
     return {
       'number': number,

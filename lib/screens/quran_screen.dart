@@ -44,6 +44,7 @@ class _QuranScreenState extends State<QuranScreen> {
       _lastReadAyah = await _quranService.getLastReadAyah()
           .timeout(const Duration(seconds: 2), onTimeout: () {
         print('⚠️ getLastReadAyah timeout, using null...');
+        return null;
       });
       
       setState(() {

@@ -77,6 +77,28 @@ flutter:
     - assets/data/
     - assets/data/quran/
     - assets/data/quran/surah/
+    - assets/data/quran2/
+    - assets/data/quran2/surah/
+    - assets/data/quran2/audio/001/
+    - assets/data/quran2/audio/002/
+    - assets/data/quran2/audio/003/
+    - assets/data/quran2/audio/004/
+    - assets/data/quran2/audio/005/
+    - assets/data/quran2/audio/006/
+    - assets/data/quran2/audio/007/
+    - assets/data/quran2/audio/008/
+    - assets/data/quran2/audio/009/
+    - assets/data/quran2/audio/010/
+    - assets/data/quran2/audio/011/
+    - assets/data/quran2/audio/012/
+    - assets/data/quran2/audio/013/
+    - assets/data/quran2/audio/014/
+    - assets/data/quran2/audio/015/
+    - assets/data/quran2/audio/016/
+    - assets/data/quran2/audio/017/
+    - assets/data/quran2/audio/018/
+    - assets/data/quran2/audio/019/
+    - assets/data/quran2/audio/020/
     - assets/data/quran/verses/
     - assets/sounds/
 

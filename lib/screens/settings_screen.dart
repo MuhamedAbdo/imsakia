@@ -311,7 +311,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Text('تعديل التاريخ الهجري', style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.w500)),
             const SizedBox(height: 8),
             DropdownButtonFormField<int>(
-              value: settings.hijriAdjustment,
+              initialValue: settings.hijriAdjustment,
               decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppConstants.smallBorderRadius))),
               items: [-2, -1, 0, 1, 2].map((offset) {
                 String label = offset == 0 ? "تاريخ اليوم" : (offset > 0 ? "+$offset يوم" : "$offset يوم");

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../models/surah.dart';
 import '../models/surah_data.dart';
 import '../models/verse.dart';
@@ -26,6 +27,7 @@ class SurahDetailScreen extends StatefulWidget {
 class _SurahDetailScreenState extends State<SurahDetailScreen> {
   final QuranService _quranService = QuranService();
   late QuranProvider _quranProvider;
+  final AudioPlayer _audioPlayer = AudioPlayer();
   SurahData? _surahData;
   bool _isBookmarked = false;
   bool _showOverlay = false;
@@ -33,6 +35,8 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
   bool _isLoading = true;
   final ScrollController _scrollController = ScrollController();
   Set<int> _bookmarkedVerses = <int>{};
+  int? _currentlyPlayingVerse;
+  bool _isPlaying = false;
 
   @override
   void initState() {
@@ -89,6 +93,8 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
   @override
   void dispose() {
     _overlayTimer?.cancel();
+    _scrollController.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -255,6 +261,54 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
     }
   }
 
+  Future<void> _playVerseAudio(int verseNumber) async {
+    try {
+      final surahNumber = widget.surah.number.toString().padLeft(3, '0');
+      final verseNumberStr = verseNumber.toString().padLeft(3, '0');
+      
+      // Use direct mapping for all surahs - each verse uses its corresponding audio file
+      String actualVerseNumber = verseNumberStr;
+      
+      // Remove 'assets/' prefix since AssetSource adds it automatically
+      final audioPath = 'data/quran2/audio/$surahNumber/$actualVerseNumber.mp3';
+      
+      print('🎵 Playing audio: $audioPath (verse $verseNumber, file $actualVerseNumber)');
+      
+      if (_currentlyPlayingVerse == verseNumber && _isPlaying) {
+        // Pause if currently playing this verse
+        await _audioPlayer.pause();
+        setState(() {
+          _isPlaying = false;
+        });
+      } else {
+        // Stop current and play new verse
+        await _audioPlayer.stop();
+        await _audioPlayer.play(AssetSource(audioPath));
+        
+        setState(() {
+          _currentlyPlayingVerse = verseNumber;
+          _isPlaying = true;
+        });
+        
+        // Listen for completion
+        _audioPlayer.onPlayerComplete.listen((_) {
+          setState(() {
+            _isPlaying = false;
+            _currentlyPlayingVerse = null;
+          });
+        });
+      }
+    } catch (e) {
+      print('❌ Error playing verse audio: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('لا يمكن تشغيل الصوت'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -344,14 +398,14 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                     onTap: _toggleOverlay,
                     child: Stack(
                       children: [
-                        // Quran Verses List
+                        // Quran Verses List - Continuous display without cards
                         ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.all(16),
                           itemCount: _surahData!.verses.length,
                           itemBuilder: (context, index) {
                             final verse = _surahData!.verses[index];
-                            return _VerseCard(
+                            return _ContinuousVerse(
                               verse: verse,
                               verseNumber: index + 1,
                               isBookmarked: _bookmarkedVerses.contains(index + 1),
@@ -359,6 +413,8 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                               onTap: () {
                                 // Handle verse tap if needed
                               },
+                              onPlayTap: () => _playVerseAudio(index + 1),
+                              isPlaying: _currentlyPlayingVerse == index + 1 && _isPlaying,
                             );
                           },
                         ),
@@ -429,6 +485,126 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                       ],
                     ),
                   ),
+      ),
+    );
+  }
+}
+
+class _ContinuousVerse extends StatelessWidget {
+  final Verse verse;
+  final int verseNumber;
+  final bool isBookmarked;
+  final VoidCallback onBookmarkTap;
+  final VoidCallback onTap;
+  final VoidCallback? onPlayTap;
+  final bool isPlaying;
+
+  const _ContinuousVerse({
+    required this.verse,
+    required this.verseNumber,
+    required this.isBookmarked,
+    required this.onBookmarkTap,
+    required this.onTap,
+    this.onPlayTap,
+    this.isPlaying = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // Verse number with bookmark and play button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '﴿$verseNumber﴾',
+                  style: GoogleFonts.tajawal(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ),
+              
+              Row(
+                children: [
+                  // Play button
+                  if (onPlayTap != null)
+                    GestureDetector(
+                      onTap: onPlayTap,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: isPlaying ? Colors.green.withOpacity(0.2) : Colors.blue.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          isPlaying ? Icons.pause : Icons.play_arrow,
+                          color: isPlaying ? Colors.green : Colors.blue,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  
+                  const SizedBox(width: 8),
+                  
+                  // Bookmark button
+                  GestureDetector(
+                    onTap: onBookmarkTap,
+                    child: Icon(
+                      isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                      color: isBookmarked ? Colors.orange[600] : Colors.grey[400],
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 8),
+          
+          // Arabic text - continuous flow
+          Text(
+            verse.arabicText,
+            textAlign: TextAlign.right,
+            style: GoogleFonts.amiri(
+              fontSize: 24,
+              height: 2.0,
+              color: Theme.of(context).brightness == Brightness.dark 
+                  ? Colors.white 
+                  : const Color(0xFF2C2C2C),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          
+          // English translation (if available)
+          if (verse.englishText.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              verse.englishText,
+              textAlign: TextAlign.left,
+              style: GoogleFonts.tajawal(
+                fontSize: 14,
+                height: 1.5,
+                color: Theme.of(context).brightness == Brightness.dark 
+                    ? Colors.grey[400] 
+                    : Colors.grey[600],
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

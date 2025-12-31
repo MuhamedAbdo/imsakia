@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/surah.dart';
 import '../models/surah_data.dart';
+import '../models/verse.dart';
 
 class QuranService {
   static final QuranService _instance = QuranService._internal();
@@ -23,7 +24,7 @@ class QuranService {
   List<SurahData> get surahDataList => List.unmodifiable(_surahDataList);
   bool get isLoaded => _isLoaded;
 
-  /// Load surahs data from metadata.json
+  /// Load surahs data from quran2/surah.json
   Future<void> loadSurahs() async {
     if (_isLoaded) {
       print('✅ Surahs already loaded, skipping...');
@@ -31,67 +32,73 @@ class QuranService {
     }
 
     try {
-      print('🔄 Loading metadata from assets/data/quran/metadata.json...');
+      print('🔄 Loading surah metadata from assets/data/quran2/surah.json...');
       
-      // Load metadata with timeout
-      final String metadataString = await rootBundle.loadString('assets/data/quran/metadata.json')
+      // Load surah metadata with timeout
+      final String surahString = await rootBundle.loadString('assets/data/quran2/surah.json')
           .timeout(const Duration(seconds: 5), onTimeout: () {
-        throw TimeoutException('Timeout loading metadata.json', const Duration(seconds: 5));
+        throw TimeoutException('Timeout loading surah.json', const Duration(seconds: 5));
       });
       
       // Parse JSON with null safety
-      final dynamic metadataJson = json.decode(metadataString);
+      final dynamic surahJson = json.decode(surahString);
       
       // Check if parsed data is a List
-      if (metadataJson is! List) {
-        throw FormatException('metadata.json is not a valid array');
+      if (surahJson is! List) {
+        throw FormatException('surah.json is not a valid array');
       }
       
-      final List<dynamic> metadataList = metadataJson;
+      final List<dynamic> surahList = surahJson;
       
-      if (metadataList.isEmpty) {
-        print('⚠️ metadata.json is empty, using fallback data');
+      if (surahList.isEmpty) {
+        print('⚠️ surah.json is empty, using fallback data');
         _loadFallbackSurahs();
         return;
       }
       
-      // Convert metadata to Surah objects for compatibility
-      _surahs = metadataList.map((data) {
+      // Convert quran2 data to Surah objects for compatibility
+      _surahs = surahList.map((data) {
         if (data is! Map<String, dynamic>) {
           throw FormatException('Invalid surah data format');
         }
         
-        // Safe access with null checks
-        final revelationPlace = data['revelation_place'];
-        final name = data['name'];
-        
-        if (revelationPlace is! Map<String, dynamic> || name is! Map<String, dynamic>) {
-          throw FormatException('Missing required fields in surah data');
-        }
-        
-        final revelationType = revelationPlace['en'] == 'meccan' ? 'Meccan' : 'Medinan';
+        final Map<String, dynamic> surahData = data;
         return Surah(
-          number: data['number'] ?? 1,
-          name: name['ar'] ?? 'Unknown',
-          englishName: name['en'] ?? 'Unknown',
-          totalAyahs: data['verses_count'] ?? 0,
-          revelationType: revelationType,
-          startPage: 1, // Will be updated when we have page mapping
+          number: int.parse(surahData['index'] ?? '1'),
+          name: surahData['titleAr'] ?? 'غير معروف',
+          englishName: surahData['title'] ?? 'Unknown',
+          totalAyahs: int.parse(surahData['count']?.toString() ?? '0'),
+          revelationType: surahData['type'] ?? 'Makkiyah',
+          startPage: int.parse(surahData['pages']?.toString() ?? '1'),
         );
       }).toList();
       
-      _surahDataList = metadataList.map((data) {
+      // Create SurahData objects for each surah
+      _surahDataList = surahList.map((data) {
         if (data is! Map<String, dynamic>) {
-          throw FormatException('Invalid surah data format for SurahData');
+          throw FormatException('Invalid surah data format');
         }
-        return SurahData.fromJson(data);
+        
+        final Map<String, dynamic> surahData = data;
+        return SurahData(
+          number: int.parse(surahData['index'] ?? '1'),
+          nameAr: surahData['titleAr'] ?? 'غير معروف',
+          nameEn: surahData['title'] ?? 'Unknown',
+          transliteration: surahData['title'] ?? 'Unknown',
+          revelationPlaceAr: (surahData['place'] ?? 'Mecca') == 'Mecca' ? 'مكة' : 'المدينة',
+          revelationPlaceEn: surahData['place'] ?? 'Mecca',
+          versesCount: int.parse(surahData['count']?.toString() ?? '0'),
+          wordsCount: 0, // Not available in quran2 format
+          lettersCount: 0, // Not available in quran2 format
+          verses: [], // Will be loaded separately
+        );
       }).toList();
       
       _isLoaded = true;
-      print('✅ Loaded ${_surahs.length} surahs from metadata.json');
+      print('✅ Loaded ${_surahs.length} surahs from quran2/surah.json');
       
     } catch (e) {
-      print('❌ Error loading surahs from metadata.json: $e');
+      print('❌ Error loading surahs from quran2/surah.json: $e');
       print('🔄 Falling back to hardcoded data...');
       _loadFallbackSurahs();
     }
@@ -225,14 +232,46 @@ class QuranService {
     }
     
     try {
-      // Try to load from individual surah file first
-      final String surahFile = 'assets/data/quran/surah/surah_$number.json';
+      // Try to load from quran2 individual surah file
+      final String surahFile = 'assets/data/quran2/surah/surah_$number.json';
       final String surahString = await rootBundle.loadString(surahFile);
       final Map<String, dynamic> surahJson = json.decode(surahString);
       
-      return SurahData.fromJson(surahJson);
+      // Convert quran2 format to SurahData
+      final verses = <Verse>[];
+      final verseData = surahJson['verse'] as Map<String, dynamic>;
+      
+      verseData.forEach((key, value) {
+        if (key.startsWith('verse_')) {
+          final verseNumber = int.parse(key.split('_')[1]);
+          verses.add(Verse.fromQuran2(
+            number: verseNumber,
+            arabicText: value as String,
+          ));
+        }
+      });
+      
+      // Get metadata from the surah list
+      final surahMetadata = _surahDataList.firstWhere(
+        (surah) => surah.number == number,
+        orElse: () => _surahDataList.first,
+      );
+      
+      return SurahData(
+        number: number,
+        nameAr: surahMetadata.nameAr,
+        nameEn: surahMetadata.nameEn,
+        transliteration: surahMetadata.transliteration,
+        revelationPlaceAr: surahMetadata.revelationPlaceAr,
+        revelationPlaceEn: surahMetadata.revelationPlaceEn,
+        versesCount: verses.length,
+        wordsCount: 0, // Not available in quran2 format
+        lettersCount: 0, // Not available in quran2 format
+        verses: verses,
+      );
     } catch (e) {
-      print('❌ Error loading surah $number from file: $e');
+      print('❌ Error loading surah $number from quran2 file: $e');
+      print('🔄 Falling back to cached data...');
       // Fallback to cached data
       try {
         return _surahDataList.firstWhere((surah) => surah.number == number);

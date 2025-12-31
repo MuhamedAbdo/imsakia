@@ -16,9 +16,14 @@ class ThemeProvider extends ChangeNotifier {
 
   /// Sync theme mode with SettingsProvider
   void syncWithSettingsProvider(AppThemeMode mode) {
-    _themeMode = mode;
-    notifyListeners();
-    debugPrint('🎨 ThemeProvider synced with: ${mode.toString().split('.').last}');
+    if (_themeMode != mode) {
+      _themeMode = mode;
+      // Defer notifyListeners to avoid calling during build phase
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
+      debugPrint('🎨 ThemeProvider synced with: ${mode.toString().split('.').last}');
+    }
   }
 
   Future<void> setThemeMode(AppThemeMode mode) async {

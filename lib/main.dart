@@ -7,6 +7,7 @@ import 'screens/splash_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/main_layout.dart';
 import 'services/hadith_service.dart';
+import 'services/azkar_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
