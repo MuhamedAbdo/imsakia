@@ -315,14 +315,21 @@ class QuranService {
       final prefs = await SharedPreferences.getInstance();
       final bookmarks = prefs.getStringList(_bookmarksKey) ?? [];
       
+      // Remove existing bookmark for the same page if it exists
+      final filteredBookmarks = bookmarks.where((bookmark) {
+        final bookmarkData = json.decode(bookmark) as Map<String, dynamic>;
+        return bookmarkData['page'] != pageNumber;
+      }).toList();
+      
       final bookmarkData = {
         'page': pageNumber,
         'surah': surahNumber,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       };
       
-      bookmarks.add(json.encode(bookmarkData));
-      await prefs.setStringList(_bookmarksKey, bookmarks);
+      // Add the new bookmark
+      filteredBookmarks.add(json.encode(bookmarkData));
+      await prefs.setStringList(_bookmarksKey, filteredBookmarks);
       print('🔖 Saved bookmark at page: $pageNumber');
     } catch (e) {
       print('❌ Error saving bookmark: $e');
