@@ -34,15 +34,29 @@ class _QuranScreenState extends State<QuranScreen> {
   }
 
   Future<void> _loadSurahs() async {
-    await _quranService.loadSurahs();
-    
-    // Load last read ayah info
-    _lastReadAyah = await _quranService.getLastReadAyah();
-    
-    setState(() {
-      _filteredSurahs = List.from(_quranService.surahs);
-      _isLoading = false;
-    });
+    try {
+      await _quranService.loadSurahs()
+          .timeout(const Duration(seconds: 5), onTimeout: () {
+        print('⚠️ QuranService loading timeout, using fallback data...');
+      });
+      
+      // Load last read ayah info
+      _lastReadAyah = await _quranService.getLastReadAyah()
+          .timeout(const Duration(seconds: 2), onTimeout: () {
+        print('⚠️ getLastReadAyah timeout, using null...');
+      });
+      
+      setState(() {
+        _filteredSurahs = List.from(_quranService.surahs);
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('❌ Error in _loadSurahs: $e');
+      setState(() {
+        _filteredSurahs = List.from(_quranService.surahs); // Use whatever data we have
+        _isLoading = false;
+      });
+    }
   }
 
   void _filterSurahs() {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/settings_provider.dart';
+import 'providers/quran_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/main_layout.dart';
@@ -11,27 +12,50 @@ import 'services/hadith_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize services
-  await AthanPlayerService.instance.initialize();
-  
-  // Initialize SettingsProvider and load theme before building app
-  final settingsProvider = SettingsProvider();
-  await settingsProvider.initialize();
-  
-  // Initialize ThemeProvider and sync with SettingsProvider
-  final themeProvider = ThemeProvider();
-  themeProvider.syncWithSettingsProvider(settingsProvider.themeMode);
-  
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: themeProvider),
-        ChangeNotifierProvider.value(value: settingsProvider),
-        ChangeNotifierProvider.value(value: HadithService.instance),
-      ],
-      child: const MyApp(),
-    ),
-  );
+  try {
+    // Initialize services with timeout
+    await AthanPlayerService.instance.initialize()
+        .timeout(const Duration(seconds: 3), onTimeout: () {
+      print('⚠️ AthanPlayerService initialization timeout, continuing...');
+    });
+    
+    // Initialize SettingsProvider and load theme before building app
+    final settingsProvider = SettingsProvider();
+    await settingsProvider.initialize()
+        .timeout(const Duration(seconds: 3), onTimeout: () {
+      print('⚠️ SettingsProvider initialization timeout, using defaults...');
+    });
+    
+    // Initialize ThemeProvider and sync with SettingsProvider
+    final themeProvider = ThemeProvider();
+    themeProvider.syncWithSettingsProvider(settingsProvider.themeMode);
+    
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: themeProvider),
+          ChangeNotifierProvider.value(value: settingsProvider),
+          ChangeNotifierProvider.value(value: HadithService.instance),
+          ChangeNotifierProvider(create: (_) => QuranProvider()),
+        ],
+        child: const MyApp(),
+      ),
+    );
+  } catch (e) {
+    print('❌ Error during app initialization: $e');
+    // Run app with default providers even if initialization fails
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => ThemeProvider()),
+          ChangeNotifierProvider(create: (_) => SettingsProvider()),
+          ChangeNotifierProvider.value(value: HadithService.instance),
+          ChangeNotifierProvider(create: (_) => QuranProvider()),
+        ],
+        child: const MyApp(),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {

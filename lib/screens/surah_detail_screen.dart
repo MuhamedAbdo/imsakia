@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../models/surah.dart';
 import '../models/surah_data.dart';
 import '../models/verse.dart';
 import '../services/quran_service.dart';
+import '../providers/quran_provider.dart';
 
 class SurahDetailScreen extends StatefulWidget {
   final Surah surah;
@@ -23,6 +25,7 @@ class SurahDetailScreen extends StatefulWidget {
 
 class _SurahDetailScreenState extends State<SurahDetailScreen> {
   final QuranService _quranService = QuranService();
+  late QuranProvider _quranProvider;
   SurahData? _surahData;
   bool _isBookmarked = false;
   bool _showOverlay = false;
@@ -34,6 +37,7 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _quranProvider = Provider.of<QuranProvider>(context, listen: false);
     print('🚀 SurahDetailScreen initState started');
     print('📖 Surah: ${widget.surah.name} (${widget.surah.number})');
     
@@ -90,11 +94,10 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
 
   Future<void> _checkBookmarkStatus() async {
     if (_surahData != null && _surahData!.verses.isNotEmpty) {
-      final firstVersePage = _surahData!.verses.first.page;
-      final isBookmarked = await _quranService.isPageBookmarked(firstVersePage);
+      await _quranProvider.loadBookmarkForSurah(widget.surah.number);
       if (mounted) {
         setState(() {
-          _isBookmarked = isBookmarked;
+          _isBookmarked = _quranProvider.hasBookmark;
         });
       }
     }
@@ -126,6 +129,8 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
   }
 
   Future<void> _toggleVerseBookmark(int verseNumber) async {
+    final scrollPosition = _scrollController.hasClients ? _scrollController.offset : 0.0;
+    
     setState(() {
       if (_bookmarkedVerses.contains(verseNumber)) {
         _bookmarkedVerses.remove(verseNumber);
@@ -135,6 +140,13 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
     });
     
     await _saveBookmarkedVerses();
+    
+    // Save as main bookmark using provider (overwrites any existing bookmark for this surah)
+    await _quranProvider.saveBookmark(widget.surah.number, verseNumber, scrollPosition);
+    _showBookmarkSnackBar('تم تحديث علامة الحفظ: ${widget.surah.name} آية $verseNumber');
+    
+    // Update bookmark status
+    await _checkBookmarkStatus();
     
     // Save as last read ayah
     if (_surahData != null) {
@@ -166,13 +178,13 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
 
   Future<void> _toggleBookmark() async {
     if (_isBookmarked) {
-      if (_surahData != null && _surahData!.verses.isNotEmpty) {
-        await _quranService.removeBookmark(_surahData!.verses.first.page);
-      }
+      await _quranProvider.removeBookmark(widget.surah.number);
+      _showBookmarkSnackBar('تم إزالة علامة الحفظ');
     } else {
-      if (_surahData != null && _surahData!.verses.isNotEmpty) {
-        await _quranService.saveBookmark(_surahData!.verses.first.page, surahNumber: widget.surah.number);
-      }
+      // Save bookmark with current scroll position and first verse
+      final scrollPosition = _scrollController.hasClients ? _scrollController.offset : 0.0;
+      await _quranProvider.saveBookmark(widget.surah.number, 1, scrollPosition);
+      _showBookmarkSnackBar('تم تحديث علامة الحفظ: ${widget.surah.name} آية 1');
     }
     
     // Save last read page
@@ -202,6 +214,47 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
     }
   }
 
+  void _showBookmarkSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            message,
+            style: GoogleFonts.tajawal(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          duration: const Duration(seconds: 2),
+          backgroundColor: Theme.of(context).primaryColor,
+        ),
+      );
+    }
+  }
+
+  Future<void> _goToBookmark() async {
+    await _quranProvider.loadBookmarkForSurah(widget.surah.number);
+    final bookmark = _quranProvider.currentBookmark;
+    
+    if (bookmark != null && bookmark.isNotEmpty) {
+      final verseIndex = bookmark['verseIndex'] as int? ?? 1;
+      final scrollPosition = bookmark['scrollPosition'] as double? ?? 0.0;
+      
+      // Scroll to the bookmarked position
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          scrollPosition,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      }
+      
+      _showBookmarkSnackBar('تم الرجوع إلى علامة الحفظ: ${widget.surah.name} آية $verseIndex');
+    } else {
+      _showBookmarkSnackBar('لا توجد علامة حفظ لهذه السورة');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -226,6 +279,13 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            onPressed: _goToBookmark,
+            icon: const Icon(Icons.bookmark,
+              color: Colors.green,
+            ),
+            tooltip: 'الرجوع إلى علامة الحفظ',
+          ),
           IconButton(
             onPressed: _toggleBookmark,
             icon: Icon(

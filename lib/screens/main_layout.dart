@@ -10,6 +10,7 @@ import '../services/hijri_date_service.dart';
 import '../services/hadith_service.dart';
 import '../utils/app_constants.dart';
 import 'quran_screen.dart';
+import 'tasbih_screen.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -1061,29 +1062,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (_nextPrayer == null) return false;
     
     return _nextPrayer == prayerKey;
-  }
-}
-
-class TasbihScreen extends StatelessWidget {
-  const TasbihScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'المسبحة الإلكترونية',
-          style: GoogleFonts.tajawal(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: const Center(
-        child: Text('قيد التطوير...'),
-      ),
-    );
   }
 }
 

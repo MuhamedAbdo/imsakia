@@ -81,7 +81,7 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
   }
 
   Future<void> _checkBookmarkStatus() async {
-    final isBookmarked = await _quranService.isPageBookmarked(_currentPage);
+    final isBookmarked = await _quranService.isSurahBookmarked(widget.surah.number);
     if (mounted) {
       setState(() {
         _isBookmarked = isBookmarked;
@@ -91,9 +91,10 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
 
   Future<void> _toggleBookmark() async {
     if (_isBookmarked) {
-      await _quranService.removeBookmark(_currentPage);
+      await _quranService.removeBookmark(widget.surah.number);
     } else {
-      await _quranService.saveBookmark(_currentPage, surahNumber: widget.surah.number);
+      // Save bookmark with current page info
+      await _quranService.saveBookmark(widget.surah.number, _currentPage, 0.0);
     }
     
     // Save last read page

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/surah.dart';
@@ -32,24 +33,59 @@ class QuranService {
     try {
       print('🔄 Loading metadata from assets/data/quran/metadata.json...');
       
-      // Load metadata
-      final String metadataString = await rootBundle.loadString('assets/data/quran/metadata.json');
-      final List<dynamic> metadataList = json.decode(metadataString);
+      // Load metadata with timeout
+      final String metadataString = await rootBundle.loadString('assets/data/quran/metadata.json')
+          .timeout(const Duration(seconds: 5), onTimeout: () {
+        throw TimeoutException('Timeout loading metadata.json', const Duration(seconds: 5));
+      });
+      
+      // Parse JSON with null safety
+      final dynamic metadataJson = json.decode(metadataString);
+      
+      // Check if parsed data is a List
+      if (metadataJson is! List) {
+        throw FormatException('metadata.json is not a valid array');
+      }
+      
+      final List<dynamic> metadataList = metadataJson;
+      
+      if (metadataList.isEmpty) {
+        throw Exception('metadata.json is empty');
+      }
+      
+      print('📊 Parsed ${metadataList.length} surahs from metadata');
       
       // Convert metadata to Surah objects for compatibility
       _surahs = metadataList.map((data) {
-        final revelationType = data['revelation_place']['en'] == 'meccan' ? 'Meccan' : 'Medinan';
+        if (data is! Map<String, dynamic>) {
+          throw FormatException('Invalid surah data format');
+        }
+        
+        // Safe access with null checks
+        final revelationPlace = data['revelation_place'];
+        final name = data['name'];
+        
+        if (revelationPlace is! Map<String, dynamic> || name is! Map<String, dynamic>) {
+          throw FormatException('Missing required fields in surah data');
+        }
+        
+        final revelationType = revelationPlace['en'] == 'meccan' ? 'Meccan' : 'Medinan';
         return Surah(
-          number: data['number'],
-          name: data['name']['ar'],
-          englishName: data['name']['en'],
-          totalAyahs: data['verses_count'],
+          number: data['number'] ?? 1,
+          name: name['ar'] ?? 'Unknown',
+          englishName: name['en'] ?? 'Unknown',
+          totalAyahs: data['verses_count'] ?? 0,
           revelationType: revelationType,
           startPage: 1, // Will be updated when we have page mapping
         );
       }).toList();
       
-      _surahDataList = metadataList.map((data) => SurahData.fromJson(data)).toList();
+      _surahDataList = metadataList.map((data) {
+        if (data is! Map<String, dynamic>) {
+          throw FormatException('Invalid surah data format for SurahData');
+        }
+        return SurahData.fromJson(data);
+      }).toList();
       
       _isLoaded = true;
       print('✅ Loaded ${_surahs.length} surahs from metadata.json');
@@ -309,28 +345,29 @@ class QuranService {
     }
   }
 
-  /// Save bookmark
-  Future<void> saveBookmark(int pageNumber, {int? surahNumber}) async {
+  /// Save bookmark (overwrites existing bookmark for the same surah)
+  Future<void> saveBookmark(int surahIndex, int verseIndex, double scrollPosition) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final bookmarks = prefs.getStringList(_bookmarksKey) ?? [];
       
-      // Remove existing bookmark for the same page if it exists
+      // Remove existing bookmark for the same surah
       final filteredBookmarks = bookmarks.where((bookmark) {
         final bookmarkData = json.decode(bookmark) as Map<String, dynamic>;
-        return bookmarkData['page'] != pageNumber;
+        return bookmarkData['surahIndex'] != surahIndex;
       }).toList();
       
       final bookmarkData = {
-        'page': pageNumber,
-        'surah': surahNumber,
+        'surahIndex': surahIndex,
+        'verseIndex': verseIndex,
+        'scrollPosition': scrollPosition,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       };
       
-      // Add the new bookmark
+      // Add the new bookmark (overwrites any existing for this surah)
       filteredBookmarks.add(json.encode(bookmarkData));
       await prefs.setStringList(_bookmarksKey, filteredBookmarks);
-      print('🔖 Saved bookmark at page: $pageNumber');
+      print('🔖 Saved bookmark: Surah $surahIndex, Verse $verseIndex');
     } catch (e) {
       print('❌ Error saving bookmark: $e');
     }
@@ -352,29 +389,57 @@ class QuranService {
     }
   }
 
+  /// Get latest bookmark (most recent)
+  Future<Map<String, dynamic>?> getLatestBookmark() async {
+    try {
+      final bookmarks = await getBookmarks();
+      if (bookmarks.isEmpty) return null;
+      
+      // Return the most recent bookmark
+      return bookmarks.first;
+    } catch (e) {
+      print('❌ Error getting latest bookmark: $e');
+      return null;
+    }
+  }
+
+  /// Get bookmark for specific surah
+  Future<Map<String, dynamic>?> getBookmarkForSurah(int surahIndex) async {
+    try {
+      final bookmarks = await getBookmarks();
+      return bookmarks.firstWhere(
+        (bookmark) => bookmark['surahIndex'] == surahIndex,
+        orElse: () => <String, dynamic>{},
+      );
+    } catch (e) {
+      print('❌ Error getting bookmark for surah $surahIndex: $e');
+      return null;
+    }
+  }
+
   /// Remove bookmark
-  Future<void> removeBookmark(int pageNumber) async {
+  Future<void> removeBookmark(int surahIndex) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final bookmarks = prefs.getStringList(_bookmarksKey) ?? [];
       
       final filteredBookmarks = bookmarks.where((bookmark) {
         final bookmarkData = json.decode(bookmark) as Map<String, dynamic>;
-        return bookmarkData['page'] != pageNumber;
+        return bookmarkData['surahIndex'] != surahIndex;
       }).toList();
       
       await prefs.setStringList(_bookmarksKey, filteredBookmarks);
-      print('🗑️ Removed bookmark at page: $pageNumber');
+      print('🗑️ Removed bookmark for surah: $surahIndex');
     } catch (e) {
       print('❌ Error removing bookmark: $e');
     }
   }
 
-  /// Check if page is bookmarked
-  Future<bool> isPageBookmarked(int pageNumber) async {
+  /// Check if surah is bookmarked
+  Future<bool> isSurahBookmarked(int surahIndex) async {
     try {
-      final bookmarks = await getBookmarks();
-      return bookmarks.any((bookmark) => bookmark['page'] == pageNumber);
+      final bookmark = await getBookmarkForSurah(surahIndex);
+      return bookmark != null && bookmark.isNotEmpty;
     } catch (e) {
       print('❌ Error checking bookmark: $e');
       return false;
