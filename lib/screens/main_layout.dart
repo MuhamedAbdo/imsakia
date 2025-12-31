@@ -556,22 +556,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 // Mute/Unmute button
                 GestureDetector(
                   onTap: () {
-                    if (_athanPlayer.isMuted) {
-                      _athanPlayer.unmute();
-                    } else {
-                      _athanPlayer.mute();
-                    }
+                    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+                    settingsProvider.toggleAthanMute();
                   },
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: _athanPlayer.isMuted 
+                      color: Provider.of<SettingsProvider>(context).athanMuted 
                           ? Colors.white.withOpacity(0.3)
                           : Colors.white.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Icon(
-                      _athanPlayer.isMuted ? Icons.volume_off : Icons.volume_up,
+                      Provider.of<SettingsProvider>(context).athanMuted ? Icons.volume_off : Icons.volume_up,
                       color: Colors.white,
                       size: 20,
                     ),

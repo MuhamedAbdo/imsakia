@@ -8,9 +8,21 @@ import 'screens/settings_screen.dart';
 import 'screens/main_layout.dart';
 import 'services/hadith_service.dart';
 import 'services/azkar_service.dart';
+import 'services/background_athan_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize background athan service
+  await BackgroundAthanService.instance.initialize();
+  
+  // Initialize services
+  await HadithService.instance.initialize();
+  await AzkarService.instance.initialize();
+  
+  // Schedule background athan notifications
+  await BackgroundAthanService.instance.scheduleAthanNotifications();
+  
   runApp(const MyApp());
 }
 

@@ -19,6 +19,7 @@ class SettingsProvider extends ChangeNotifier {
   bool _notificationsEnabled = true;
   bool _isFirstLaunch = true;
   int _hijriAdjustment = 0; // New Hijri adjustment setting
+  bool _athanMuted = false; // New athan mute setting
 
   // Getters
   AppThemeMode get themeMode => _themeMode;
@@ -31,6 +32,7 @@ class SettingsProvider extends ChangeNotifier {
   bool get isFirstLaunch => _isFirstLaunch;
   bool get isInitialized => _isInitialized;
   int get hijriAdjustment => _hijriAdjustment;
+  bool get athanMuted => _athanMuted;
 
   /// Initialize all settings from SharedPreferences
   Future<void> initialize() async {
@@ -50,6 +52,7 @@ class SettingsProvider extends ChangeNotifier {
         _loadNotifications(),
         _loadHijriAdjustment(),
         _loadFirstLaunch(),
+        _loadAthanMuted(),
       ]);
 
       _isInitialized = true;
@@ -111,6 +114,10 @@ class SettingsProvider extends ChangeNotifier {
     _isFirstLaunch = _prefs?.getBool(AppConstants.isFirstLaunchKey) ?? true;
   }
 
+  Future<void> _loadAthanMuted() async {
+    _athanMuted = _prefs?.getBool('athan_muted') ?? false;
+  }
+
   void _setDefaults() {
     _themeMode = AppThemeMode.system;
     _selectedCity = AppConstants.defaultCity;
@@ -120,11 +127,19 @@ class SettingsProvider extends ChangeNotifier {
     _selectedAthanSound = AppConstants.defaultAthanSound;
     _notificationsEnabled = true;
     _isFirstLaunch = true;
+    _athanMuted = false;
   }
 
   void _syncAthanService() {
     // Ensure AthanPlayerService has the latest athan sound preference
     AthanPlayerService.instance.updateCurrentAthanSound(_selectedAthanSound);
+    
+    // Sync mute state
+    if (_athanMuted) {
+      AthanPlayerService.instance.mute();
+    } else {
+      AthanPlayerService.instance.unmute();
+    }
   }
 
   // Theme setters
@@ -201,6 +216,21 @@ class SettingsProvider extends ChangeNotifier {
     await _prefs?.setInt(AppConstants.hijriAdjustmentKey, adjustment);
     notifyListeners();
     debugPrint('📅 Hijri adjustment changed to: $adjustment');
+  }
+
+  Future<void> toggleAthanMute() async {
+    _athanMuted = !_athanMuted;
+    await _prefs?.setBool('athan_muted', _athanMuted);
+    
+    // Update AthanPlayerService mute state
+    if (_athanMuted) {
+      AthanPlayerService.instance.mute();
+    } else {
+      AthanPlayerService.instance.unmute();
+    }
+    
+    notifyListeners();
+    debugPrint('🔇 Athan mute toggled to: $_athanMuted');
   }
 
   // Batch save all settings (useful for initial setup)

@@ -13,7 +13,6 @@ class AthanPlayerService {
   bool _isPlaying = false;
   bool _isMuted = false;
   String? _currentAthanSound;
-  String? _preloadedAthanPath;
   DateTime? _triggerTime;
 
   bool get isPlaying => _isPlaying;
@@ -60,7 +59,6 @@ class AthanPlayerService {
       final audioSource = AssetSource('sounds/${athanPath.split('sounds/').last}');
       
       await _audioPlayer!.setSource(audioSource);
-      _preloadedAthanPath = athanPath;
       
       debugPrint('📦 Preloaded athan: $athanPath');
     } catch (e) {
@@ -87,17 +85,14 @@ class AthanPlayerService {
       // Stop any currently playing athan
       await stopAthan();
       
+      // Preload and play immediately to reduce delay
       final prepareStartTime = DateTime.now();
       
-      // Check if already preloaded
-      if (_preloadedAthanPath == athanPath) {
-        debugPrint('⚡ Using preloaded audio - instant playback');
-      } else {
-        // Set source for new audio
-        await _audioPlayer!.setSource(audioSource);
-        final prepareDuration = DateTime.now().difference(prepareStartTime);
-        debugPrint('🔄 Audio prepared in: ${prepareDuration.inMilliseconds}ms');
-      }
+      // Set source and play in sequence for optimal timing
+      await _audioPlayer!.setSource(audioSource);
+      
+      final prepareDuration = DateTime.now().difference(prepareStartTime);
+      debugPrint('🔄 Audio prepared in: ${prepareDuration.inMilliseconds}ms');
       
       final playStartTime = DateTime.now();
       
@@ -108,7 +103,6 @@ class AthanPlayerService {
       final totalDuration = DateTime.now().difference(_triggerTime!);
       
       _isPlaying = true;
-      _preloadedAthanPath = athanPath;
 
       debugPrint('🎵 PLAYBACK STARTED:');
       debugPrint('   ├─ Prayer: $prayerName');
