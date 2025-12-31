@@ -202,10 +202,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _loadPrayerTimes();
     _startCountdownTimer();
     
-    // Initialize HadithService
-    HadithService.instance.loadHadiths();
+    // Initialize HadithService once
+    if (!HadithService.instance.isInitialized) {
+      HadithService.instance.initialize();
+    }
     
-    // Start hadith update timer (check every 5 seconds for immediate response)
+    // Start hadith update timer with longer interval to reduce spam
     _startHadithUpdateTimer();
     
     // Listen to settings changes
@@ -225,9 +227,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      // Force refresh when app resumes from background
-      setState(() {});
+      // Check hadith when app resumes (no setState needed)
       HadithService.instance.checkAndUpdateHadith();
+      // Refresh prayer times when app resumes
+      _loadPrayerTimes();
     }
   }
 
@@ -267,18 +270,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _startHadithUpdateTimer() {
-    // Check every 5 seconds for immediate response to date changes
-    _hadithUpdateTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    // Check every 5 minutes instead of 1 minute to reduce log spam
+    _hadithUpdateTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
       if (mounted) {
-        setState(() {}); // Force UI refresh
         HadithService.instance.checkAndUpdateHadith();
       }
     });
     
     // Force initial update after a short delay to ensure proper initialization
-    Future.delayed(const Duration(milliseconds: 100), () {
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
-        setState(() {});
         HadithService.instance.forceUpdateHadith();
       }
     });
@@ -385,12 +386,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // Force hadith refresh on build to catch date changes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        HadithService.instance.checkAndUpdateHadith();
-      }
-    });
+    // Remove automatic hadith refresh on build to prevent infinite loops
+    // Hadith updates are now handled by the timer and lifecycle events
     
     return Scaffold(
       appBar: AppBar(

@@ -50,10 +50,10 @@ class QuranService {
       final List<dynamic> metadataList = metadataJson;
       
       if (metadataList.isEmpty) {
-        throw Exception('metadata.json is empty');
+        print('⚠️ metadata.json is empty, using fallback data');
+        _loadFallbackSurahs();
+        return;
       }
-      
-      print('📊 Parsed ${metadataList.length} surahs from metadata');
       
       // Convert metadata to Surah objects for compatibility
       _surahs = metadataList.map((data) {

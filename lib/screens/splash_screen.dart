@@ -4,8 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_constants.dart';
 import '../providers/settings_provider.dart';
+import '../providers/theme_provider.dart';
 import '../screens/settings_screen.dart';
 import '../screens/main_layout.dart';
+import '../services/hadith_service.dart';
+import '../services/athan_player_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -26,7 +29,69 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     _initializeAnimations();
     _startAnimations();
-    _navigateToNextScreen();
+    
+    // Initialize services in background without blocking UI
+    _initializeServicesInBackground();
+    
+    // Safety timer: force navigation after 2 seconds even if initialization fails
+    Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        _navigateToMainApp();
+      }
+    });
+  }
+  
+  void _initializeServicesInBackground() {
+    // Initialize SettingsProvider
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    if (!settingsProvider.isInitialized) {
+      settingsProvider.initialize().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          print('⚠️ SettingsProvider initialization timeout');
+        },
+      ).catchError((e) {
+        print('❌ SettingsProvider initialization error: $e');
+      });
+    }
+    
+    // Initialize ThemeProvider and sync with SettingsProvider
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    themeProvider.syncWithSettingsProvider(settingsProvider.themeMode);
+    
+    // Initialize HadithService in background
+    HadithService.instance.initialize().timeout(
+      const Duration(seconds: 3),
+      onTimeout: () {
+        print('⚠️ HadithService initialization timeout');
+      },
+    ).catchError((e) {
+      print('❌ HadithService initialization error: $e');
+    });
+    
+    // Initialize AthanService in background
+    AthanPlayerService.instance.initialize().timeout(
+      const Duration(seconds: 3),
+      onTimeout: () {
+        print('⚠️ AthanService initialization timeout');
+      },
+    ).catchError((e) {
+      print('❌ AthanService initialization error: $e');
+    });
+  }
+  
+  void _navigateToMainApp() {
+    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+    
+    if (settingsProvider.isFirstLaunch) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const SettingsScreen(isFirstTimeSetup: true),
+        ),
+      );
+    } else {
+      Navigator.of(context).pushReplacementNamed('/main');
+    }
   }
 
   void _initializeAnimations() {
@@ -62,7 +127,15 @@ class _SplashScreenState extends State<SplashScreen>
     _scaleController.forward();
   }
 
-  Future<void> _navigateToNextScreen() async {
+  void _navigateToNextScreen() {
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/main');
+      }
+    });
+  }
+
+  Future<void> _navigateToNextScreenAsync() async {
     await Future.delayed(AppConstants.splashDuration);
     
     // Initialize SettingsProvider if not already done
