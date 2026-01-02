@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/azkar.dart';
-import '../utils/app_constants.dart';
+import '../utils/logger.dart';
 
 class AzkarService {
   static AzkarService? _instance;
@@ -26,19 +26,19 @@ class AzkarService {
 
   Future<void> initialize() async {
     if (_isInitialized) {
-      print('✅ AzkarService already initialized');
+      Logger.debug('AzkarService already initialized');
       return;
     }
 
     try {
       // Use fallback data directly for now to avoid JSON loading issues
-      print('🔄 Using hardcoded fallback Azkar...');
+      Logger.info('Using hardcoded fallback Azkar...');
       _loadFallbackData();
       await _loadSavedProgress();
       _isInitialized = true;
-      print('✅ AzkarService initialized successfully');
+      Logger.success('AzkarService initialized successfully');
     } catch (e) {
-      print('❌ Error initializing AzkarService: $e');
+      Logger.error('Error initializing AzkarService: $e');
       // Load fallback data if JSON loading fails
       _loadFallbackData();
       _isInitialized = true;
@@ -47,7 +47,7 @@ class AzkarService {
 
   Future<void> _loadAzkarData() async {
     try {
-      print('🔄 Loading azkar from assets/data/azkar.json...');
+      Logger.info('Loading azkar from assets/data/azkar.json...');
       
       final String azkarString = await rootBundle.loadString('assets/data/azkar.json')
           .timeout(const Duration(seconds: 3), onTimeout: () {
@@ -73,14 +73,14 @@ class AzkarService {
         return AzkarCategory.fromJson(data);
       }).toList();
 
-      print('✅ Loaded ${_categories.length} Azkar categories from JSON');
+      Logger.success('Loaded ${_categories.length} Azkar categories from JSON');
     } catch (e) {
       throw Exception('Failed to load azkar.json: $e');
     }
   }
 
   void _loadFallbackData() {
-    print('🔄 Loading hardcoded fallback Azkar...');
+    Logger.info('Loading hardcoded fallback Azkar...');
     
     _categories = [
       AzkarCategory(
@@ -551,7 +551,7 @@ class AzkarService {
       ),
 ];
 
-print('✅ Loaded ${_categories.length} fallback Azkar categories');
+Logger.success('Loaded ${_categories.length} fallback Azkar categories');
 _categoriesController?.add(_categories);
   }
 
@@ -581,9 +581,9 @@ _categoriesController?.add(_categories);
       }
       
       _notifyCategoriesChanged();
-      print('✅ Loaded saved Azkar progress');
+      Logger.success('Loaded saved Azkar progress');
     } catch (e) {
-      print('❌ Error loading saved Azkar progress: $e');
+      Logger.error('Error loading saved Azkar progress: $e');
     }
   }
 
@@ -608,9 +608,9 @@ _categoriesController?.add(_categories);
       _notifyCategoriesChanged();
       _scheduleSave();
       
-      print('📈 Incremented azkar count: $azkarId (${updatedAzkar.currentCount}/${updatedAzkar.target})');
+      Logger.info('Incremented azkar count: $azkarId (${updatedAzkar.currentCount}/${updatedAzkar.target})');
     } catch (e) {
-      print('❌ Error incrementing azkar count: $e');
+      Logger.error('Error incrementing azkar count: $e');
     }
   }
 
@@ -624,9 +624,9 @@ _categoriesController?.add(_categories);
       _notifyCategoriesChanged();
       _scheduleSave();
       
-      print('🔄 Reset counters for category: $categoryId');
+      Logger.info('Reset counters for category: $categoryId');
     } catch (e) {
-      print('❌ Error resetting category counters: $e');
+      Logger.error('Error resetting category counters: $e');
     }
   }
 
@@ -637,9 +637,9 @@ _categoriesController?.add(_categories);
       _notifyCategoriesChanged();
       _scheduleSave();
       
-      print('🔄 Reset all Azkar counters');
+      Logger.info('Reset all Azkar counters');
     } catch (e) {
-      print('❌ Error resetting all counters: $e');
+      Logger.error('Error resetting all counters: $e');
     }
   }
 
@@ -678,9 +678,9 @@ _categoriesController?.add(_categories);
         await prefs.setString('azkar_progress_${category.id}', json.encode(progress));
       }
       
-      print('💾 Saved Azkar progress');
+      Logger.info('Saved Azkar progress');
     } catch (e) {
-      print('❌ Error saving Azkar progress: $e');
+      Logger.error('Error saving Azkar progress: $e');
     }
   }
 

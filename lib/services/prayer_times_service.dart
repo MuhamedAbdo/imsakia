@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:adhan/adhan.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import '../utils/logger.dart';
 import '../utils/app_constants.dart';
 import 'athan_player_service.dart';
 
@@ -113,7 +114,7 @@ class PrayerTimesService {
       AthanPlayerService.instance.preloadAthan(nextPrayer);
       _lastPreloadedPrayer = nextPrayer;
       
-      print('🚀 Preloaded athan for $nextPrayer (prayer in ${timeUntilPrayer.inMinutes}:${(timeUntilPrayer.inSeconds % 60).toString().padLeft(2, '0')})');
+      Logger.info('Preloaded athan for $nextPrayer (prayer in ${timeUntilPrayer.inMinutes}:${(timeUntilPrayer.inSeconds % 60).toString().padLeft(2, '0')})');
     }
   }
 

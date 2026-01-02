@@ -160,7 +160,7 @@ class _TasbihScreenState extends State<TasbihScreen>
               end: Alignment.bottomCenter,
               colors: [
                 Theme.of(context).scaffoldBackgroundColor,
-                Theme.of(context).scaffoldBackgroundColor.withOpacity(0.8),
+                Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.8),
               ],
             ),
           ),
@@ -185,7 +185,7 @@ class _TasbihScreenState extends State<TasbihScreen>
                       FloatingActionButton(
                         mini: true,
                         onPressed: _resetCount,
-                        backgroundColor: Theme.of(context).primaryColor.withOpacity(0.2),
+                        backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
                         elevation: 0,
                         child: Icon(
                           Icons.refresh,
@@ -216,8 +216,8 @@ class _TasbihScreenState extends State<TasbihScreen>
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: Theme.of(context).primaryColor.withOpacity(
-                                        0.3 * _rippleAnimation.value,
+                                      color: Theme.of(context).primaryColor.withValues(
+                                        alpha: 0.3 * _rippleAnimation.value,
                                       ),
                                       width: 3,
                                     ),
@@ -234,14 +234,14 @@ class _TasbihScreenState extends State<TasbihScreen>
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                     colors: [
-                                      Theme.of(context).primaryColor.withOpacity(0.9),
-                                      Theme.of(context).primaryColor.withOpacity(0.7),
-                                      Theme.of(context).primaryColor.withOpacity(0.5),
+                                      Theme.of(context).primaryColor.withValues(alpha: 0.9),
+                                      Theme.of(context).primaryColor.withValues(alpha: 0.7),
+                                      Theme.of(context).primaryColor.withValues(alpha: 0.5),
                                     ],
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Theme.of(context).primaryColor.withOpacity(0.3),
+                                      color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
                                       blurRadius: 20,
                                       spreadRadius: 5,
                                     ),
@@ -251,8 +251,8 @@ class _TasbihScreenState extends State<TasbihScreen>
                                   color: Colors.transparent,
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(110),
-                                    splashColor: Colors.white.withOpacity(0.3),
-                                    highlightColor: Colors.white.withOpacity(0.1),
+                                    splashColor: Colors.white.withValues(alpha: 0.3),
+                                    highlightColor: Colors.white.withValues(alpha: 0.1),
                                     onTap: _incrementCount,
                                     child: Center(
                                       child: Text(
@@ -286,7 +286,7 @@ class _TasbihScreenState extends State<TasbihScreen>
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 10,
                         offset: const Offset(0, 5),
                       ),

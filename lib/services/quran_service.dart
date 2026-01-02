@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/surah.dart';
 import '../models/surah_data.dart';
 import '../models/verse.dart';
+import '../utils/logger.dart';
 
 class QuranService {
   static final QuranService _instance = QuranService._internal();
@@ -27,12 +28,12 @@ class QuranService {
   /// Load surahs data from quran2/surah.json
   Future<void> loadSurahs() async {
     if (_isLoaded) {
-      print('✅ Surahs already loaded, skipping...');
+      Logger.debug('Surahs already loaded, skipping...');
       return;
     }
 
     try {
-      print('🔄 Loading surah metadata from assets/data/quran2/surah.json...');
+      Logger.info('Loading surah metadata from assets/data/quran2/surah.json...');
       
       // Load surah metadata with timeout
       final String surahString = await rootBundle.loadString('assets/data/quran2/surah.json')
@@ -51,7 +52,7 @@ class QuranService {
       final List<dynamic> surahList = surahJson;
       
       if (surahList.isEmpty) {
-        print('⚠️ surah.json is empty, using fallback data');
+        Logger.warning('surah.json is empty, using fallback data');
         _loadFallbackSurahs();
         return;
       }
@@ -95,11 +96,11 @@ class QuranService {
       }).toList();
       
       _isLoaded = true;
-      print('✅ Loaded ${_surahs.length} surahs from quran2/surah.json');
+      Logger.success('Loaded ${_surahs.length} surahs from quran2/surah.json');
       
     } catch (e) {
-      print('❌ Error loading surahs from quran2/surah.json: $e');
-      print('🔄 Falling back to hardcoded data...');
+      Logger.error('Error loading surahs from quran2/surah.json: $e');
+      Logger.info('Falling back to hardcoded data...');
       _loadFallbackSurahs();
     }
   }
@@ -222,7 +223,7 @@ class QuranService {
       const Surah(number: 114, name: 'الناس', englishName: 'An-Nas', totalAyahs: 6, revelationType: 'Meccan', startPage: 604),
     ];
     _isLoaded = true;
-    print('✅ Loaded all ${_surahs.length} surahs from complete dataset');
+    Logger.success('Loaded all ${_surahs.length} surahs from complete dataset');
   }
 
   /// Get surah data with verses by number
@@ -270,13 +271,13 @@ class QuranService {
         verses: verses,
       );
     } catch (e) {
-      print('❌ Error loading surah $number from quran2 file: $e');
-      print('🔄 Falling back to cached data...');
+      Logger.error('Error loading surah $number from quran2 file: $e');
+      Logger.info('Falling back to cached data...');
       // Fallback to cached data
       try {
         return _surahDataList.firstWhere((surah) => surah.number == number);
       } catch (e) {
-        print('❌ Surah $number not found in cached data');
+        Logger.error('Surah $number not found in cached data');
         return null;
       }
     }
@@ -289,9 +290,9 @@ class QuranService {
       await prefs.setInt(_lastReadSurahKey, surahNumber);
       await prefs.setString('last_read_surah_name', surahName);
       await prefs.setInt(_lastReadAyahKey, ayahNumber);
-      print('💾 Saved last read: Surah $surahName, Ayah $ayahNumber');
+      Logger.info('Saved last read: Surah $surahName, Ayah $ayahNumber');
     } catch (e) {
-      print('❌ Error saving last read ayah: $e');
+      Logger.error('Error saving last read ayah: $e');
     }
   }
 
@@ -312,7 +313,7 @@ class QuranService {
       }
       return null;
     } catch (e) {
-      print('❌ Error getting last read ayah: $e');
+      Logger.error('Error getting last read ayah: $e');
       return null;
     }
   }
@@ -356,9 +357,9 @@ class QuranService {
       if (surahNumber != null) {
         await prefs.setInt(_lastReadSurahKey, surahNumber);
       }
-      print('💾 Saved last read page: $pageNumber');
+      Logger.info('Saved last read page: $pageNumber');
     } catch (e) {
-      print('❌ Error saving last read page: $e');
+      Logger.error('Error saving last read page: $e');
     }
   }
 
@@ -368,7 +369,7 @@ class QuranService {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getInt(_lastReadPageKey);
     } catch (e) {
-      print('❌ Error getting last read page: $e');
+      Logger.error('Error getting last read page: $e');
       return null;
     }
   }
@@ -379,7 +380,7 @@ class QuranService {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getInt(_lastReadSurahKey);
     } catch (e) {
-      print('❌ Error getting last read surah: $e');
+      Logger.error('Error getting last read surah: $e');
       return null;
     }
   }
@@ -406,9 +407,9 @@ class QuranService {
       // Add the new bookmark (overwrites any existing for this surah)
       filteredBookmarks.add(json.encode(bookmarkData));
       await prefs.setStringList(_bookmarksKey, filteredBookmarks);
-      print('🔖 Saved bookmark: Surah $surahIndex, Verse $verseIndex');
+      Logger.info('Saved bookmark: Surah $surahIndex, Verse $verseIndex');
     } catch (e) {
-      print('❌ Error saving bookmark: $e');
+      Logger.error('Error saving bookmark: $e');
     }
   }
 
@@ -423,7 +424,7 @@ class QuranService {
           .toList()
         ..sort((a, b) => (b['timestamp'] as int).compareTo(a['timestamp'] as int));
     } catch (e) {
-      print('❌ Error getting bookmarks: $e');
+      Logger.error('Error getting bookmarks: $e');
       return [];
     }
   }
@@ -437,7 +438,7 @@ class QuranService {
       // Return the most recent bookmark
       return bookmarks.first;
     } catch (e) {
-      print('❌ Error getting latest bookmark: $e');
+      Logger.error('Error getting latest bookmark: $e');
       return null;
     }
   }
@@ -451,7 +452,7 @@ class QuranService {
         orElse: () => <String, dynamic>{},
       );
     } catch (e) {
-      print('❌ Error getting bookmark for surah $surahIndex: $e');
+      Logger.error('Error getting bookmark for surah $surahIndex: $e');
       return null;
     }
   }
@@ -468,9 +469,9 @@ class QuranService {
       }).toList();
       
       await prefs.setStringList(_bookmarksKey, filteredBookmarks);
-      print('🗑️ Removed bookmark for surah: $surahIndex');
+      Logger.info('Removed bookmark for surah: $surahIndex');
     } catch (e) {
-      print('❌ Error removing bookmark: $e');
+      Logger.error('Error removing bookmark: $e');
     }
   }
 
@@ -480,7 +481,7 @@ class QuranService {
       final bookmark = await getBookmarkForSurah(surahIndex);
       return bookmark != null && bookmark.isNotEmpty;
     } catch (e) {
-      print('❌ Error checking bookmark: $e');
+      Logger.error('Error checking bookmark: $e');
       return false;
     }
   }

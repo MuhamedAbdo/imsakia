@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:async';
-import 'package:flutter/services.dart';
+import '../utils/logger.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../models/hadith_model.dart';
 import 'hijri_date_service.dart';
 
@@ -18,16 +19,16 @@ class HadithService extends ChangeNotifier {
 
   Future<void> initialize() async {
     if (_isInitialized) {
-      print('✅ HadithService already initialized');
+      Logger.debug('HadithService already initialized');
       return;
     }
 
     try {
       await loadHadiths();
       _isInitialized = true;
-      print('✅ HadithService initialized successfully');
+      Logger.success('HadithService initialized successfully');
     } catch (e) {
-      print('❌ Error initializing HadithService: $e');
+      Logger.error('Error initializing HadithService: $e');
       // Set fallback hadith if loading fails
       _todayHadith = Hadith(
         id: 1,
@@ -41,7 +42,7 @@ class HadithService extends ChangeNotifier {
 
   Future<void> loadHadiths() async {
     try {
-      print('🔄 Loading hadiths from assets/data/hadiths.json...');
+      Logger.info('Loading hadiths from assets/data/hadiths.json...');
 
       // Load hadiths with timeout
       final String hadithsString = await rootBundle.loadString('assets/data/hadiths.json')
@@ -60,7 +61,7 @@ class HadithService extends ChangeNotifier {
       final List<dynamic> hadithsList = hadithsJson;
 
       if (hadithsList.isEmpty) {
-        print('⚠️ hadiths.json is empty, using fallback data');
+        Logger.warning('hadiths.json is empty, using fallback data');
         _loadFallbackHadiths();
         return;
       }
@@ -72,14 +73,14 @@ class HadithService extends ChangeNotifier {
         return Hadith.fromJson(data);
       }).toList();
 
-      print('✅ Loaded ${_hadiths.length} hadiths from hadiths.json');
+      Logger.success('Loaded ${_hadiths.length} hadiths from hadiths.json');
 
       // Calculate today's hadith after loading
       _updateTodayHadith();
 
     } catch (e) {
-      print('❌ Error loading hadiths from hadiths.json: $e');
-      print('🔄 Falling back to hardcoded hadiths...');
+      Logger.error('Error loading hadiths from hadiths.json: $e');
+      Logger.info('Falling back to hardcoded hadiths...');
       _loadFallbackHadiths();
     }
   }
@@ -92,7 +93,7 @@ class HadithService extends ChangeNotifier {
       Hadith(id: 4, text: 'قال ﷺ: إن الله طيب لا يقبل إلا طيباً.', source: 'مسلم'),
       Hadith(id: 5, text: 'قال ﷺ: البر حسن الخلق، والإثم ما حاك في صدرك وكرهت أن يطلع عليه الناس.', source: 'مسلم'),
     ];
-    print('✅ Loaded ${_hadiths.length} fallback hadiths');
+    Logger.success('Loaded ${_hadiths.length} fallback hadiths');
     _updateTodayHadith();
   }
 
@@ -111,15 +112,15 @@ class HadithService extends ChangeNotifier {
 
       // Only update if index actually changed
       if (_lastCalculatedIndex != newIndex) {
-        print('🔄 Hadith index changed from $_lastCalculatedIndex to $newIndex - Updating');
+        Logger.info('Hadith index changed from $_lastCalculatedIndex to $newIndex - Updating');
         _lastCalculatedIndex = newIndex;
         _todayHadith = _hadiths[newIndex];
         notifyListeners();
       } else {
-        print('📋 Hadith index unchanged ($newIndex) - No update needed');
+        Logger.debug('Hadith index unchanged ($newIndex) - No update needed');
       }
     } catch (e) {
-      print('❌ Error updating today hadith: $e');
+      Logger.error('Error updating today hadith: $e');
       // Set first hadith as fallback
       if (_hadiths.isNotEmpty && _todayHadith == null) {
         _todayHadith = _hadiths[0];

@@ -1,3 +1,5 @@
+import '../utils/logger.dart';
+
 class HijriDateService {
   static const List<String> arabicMonths = [
     'محرم', 'صفر', 'ربيع الأول', 'ربيع الثاني', 'جمادى الأول', 'جمادى الثاني',
@@ -86,7 +88,7 @@ class HijriDateService {
     final weekdayName = arabicWeekdays[dateTime.weekday % 7];
     
     // Print verification
-    print('🗓️ Calculated Hijri Date: $hijriDay $monthName $hijriYear (Original: ${dateTime.day}/${dateTime.month}/${dateTime.year})');
+    Logger.debug('Calculated Hijri Date: $hijriDay $monthName $hijriYear (Original: ${dateTime.day}/${dateTime.month}/${dateTime.year})');
     
     return {
       'year': hijriYear.toString(),

@@ -9,7 +9,7 @@ import '../services/athan_player_service.dart';
 import '../services/hijri_date_service.dart';
 import '../services/hadith_service.dart';
 import '../utils/app_constants.dart';
-import 'quran_screen.dart';
+import 'quran_index_screen.dart';
 import 'tasbih_screen.dart';
 import 'azkar_screen.dart';
 
@@ -25,7 +25,7 @@ class _MainLayoutState extends State<MainLayout> {
 
   final List<Widget> _screens = [
     const HomeScreen(),
-    const QuranScreen(),
+    const QuranIndexScreen(),
     const TasbihScreen(),
     const AzkarScreen(),
     const FiqhScreen(),

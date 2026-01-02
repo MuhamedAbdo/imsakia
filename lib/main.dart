@@ -13,40 +13,66 @@ import 'services/background_athan_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize background athan service
-  await BackgroundAthanService.instance.initialize();
-  
   // Initialize services
   await HadithService.instance.initialize();
   await AzkarService.instance.initialize();
+  await BackgroundAthanService.instance.initialize();
   
-  // Schedule background athan notifications
-  await BackgroundAthanService.instance.scheduleAthanNotifications();
+  // Initialize settings provider first
+  final settingsProvider = SettingsProvider();
+  await settingsProvider.initialize();
   
-  runApp(const MyApp());
+  runApp(MyApp(settingsProvider: settingsProvider));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final SettingsProvider settingsProvider;
+  
+  const MyApp({super.key, required this.settingsProvider});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider.value(value: settingsProvider),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider.value(value: HadithService.instance),
         ChangeNotifierProvider(create: (_) => QuranProvider()),
       ],
-      child: MaterialApp(
-        title: 'إمساكية',
-        debugShowCheckedModeBanner: false,
-        home: const SplashScreen(),
-        routes: {
-          '/settings': (context) => const SettingsScreen(),
-          '/main': (context) => const MainLayout(),
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return Consumer<SettingsProvider>(
+            builder: (context, settingsProvider, child) {
+              // Sync theme providers
+              themeProvider.syncWithSettingsProvider(settingsProvider.themeMode);
+              
+              return MaterialApp(
+                title: 'إمساكية',
+                debugShowCheckedModeBanner: false,
+                theme: themeProvider.lightTheme,
+                darkTheme: themeProvider.darkTheme,
+                themeMode: _getThemeMode(settingsProvider.themeMode),
+                home: const SplashScreen(),
+                routes: {
+                  '/settings': (context) => const SettingsScreen(),
+                  '/main': (context) => const MainLayout(),
+                },
+              );
+            },
+          );
         },
       ),
     );
+  }
+}
+
+ThemeMode _getThemeMode(AppThemeMode mode) {
+  switch (mode) {
+    case AppThemeMode.light:
+      return ThemeMode.light;
+    case AppThemeMode.dark:
+      return ThemeMode.dark;
+    case AppThemeMode.system:
+      return ThemeMode.system;
   }
 }
