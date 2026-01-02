@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/surah.dart';
 import '../services/quran_service.dart';
 import '../utils/app_constants.dart';
-import 'surah_detail_screen.dart';
+import 'quran_pages_viewer_screen.dart';
 
 class QuranScreen extends StatefulWidget {
   const QuranScreen({super.key});
@@ -126,9 +126,9 @@ class _QuranScreenState extends State<QuranScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => SurahDetailScreen(
-                        surah: surah ?? _quranService.surahs.first,
-                        initialVerse: pageNumber,
+                      builder: (context) => QuranPagesViewerScreen(
+                        initialPage: pageNumber,
+                        surahName: surah?.name ?? 'القرآن الكريم',
                       ),
                     ),
                   );
@@ -293,7 +293,10 @@ class _QuranScreenState extends State<QuranScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => SurahDetailScreen(surah: surah),
+                  builder: (context) => QuranPagesViewerScreen(
+                    initialPage: surah.startPage,
+                    surahName: surah.name,
+                  ),
                 ),
               );
             }

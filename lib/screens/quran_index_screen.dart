@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:quran/quran.dart' as quran;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/surah.dart';
+import '../services/quran_service.dart';
 import '../utils/logger.dart';
 import '../services/quran_pages_service.dart';
 import '../widgets/download_progress_dialog.dart';
 import 'quran_pages_viewer_screen.dart';
+import 'juz_index_screen.dart';
 
 class QuranIndexScreen extends StatefulWidget {
   const QuranIndexScreen({super.key});
@@ -13,21 +16,25 @@ class QuranIndexScreen extends StatefulWidget {
   State<QuranIndexScreen> createState() => _QuranIndexScreenState();
 }
 
-class _QuranIndexScreenState extends State<QuranIndexScreen> {
+class _QuranIndexScreenState extends State<QuranIndexScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
-  List<quran.Surah> _filteredSurahs = [];
-  List<quran.Surah> _allSurahs = [];
+  final QuranService _quranService = QuranService();
+  List<Surah> _filteredSurahs = [];
+  List<Surah> _allSurahs = [];
   bool _isLoading = true;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _loadSurahs();
     _searchController.addListener(_filterSurahs);
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.removeListener(_filterSurahs);
     _searchController.dispose();
     super.dispose();
@@ -35,17 +42,18 @@ class _QuranIndexScreenState extends State<QuranIndexScreen> {
 
   Future<void> _loadSurahs() async {
     try {
-      Logger.info('Loading Quran index using quran package...');
+      Logger.info('Loading Quran index using QuranService...');
       
-      // Get all surahs from quran package
-      _allSurahs = quran.getAllSurahs();
+      // Get all surahs from QuranService
+      await _quranService.loadSurahs();
+      _allSurahs = _quranService.surahs;
       _filteredSurahs = List.from(_allSurahs);
       
       setState(() {
         _isLoading = false;
       });
       
-      Logger.success('Loaded ${_allSurahs.length} surahs from quran package');
+      Logger.success('Loaded ${_allSurahs.length} surahs from QuranService');
     } catch (e) {
       Logger.error('Error loading Quran index: $e');
       setState(() {
@@ -74,25 +82,61 @@ class _QuranIndexScreenState extends State<QuranIndexScreen> {
     });
   }
 
-  String _getRevelationTypeText(quran.RevelationType type) {
-    switch (type) {
-      case quran.RevelationType.Meccan:
-        return 'مكية';
-      case quran.RevelationType.Medinan:
-        return 'مدنية';
-      default:
-        return 'مكية';
-    }
+  String _getRevelationTypeText(String revelationType) {
+    return revelationType == 'Meccan' ? 'مكية' : 'مدنية';
   }
 
-  Color _getRevelationTypeColor(quran.RevelationType type) {
-    switch (type) {
-      case quran.RevelationType.Meccan:
-        return Colors.green;
-      case quran.RevelationType.Medinan:
-        return Colors.blue;
-      default:
-        return Colors.green;
+  Color _getRevelationTypeColor(String revelationType) {
+    return revelationType == 'Meccan' ? Colors.green : Colors.blue;
+  }
+
+  Future<void> _goToBookmark() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final bookmarkedPage = prefs.getInt('quran_bookmark_page');
+      final bookmarkedSurah = prefs.getString('quran_bookmark_surah') ?? '';
+
+      if (bookmarkedPage != null) {
+        Logger.info('Navigating to bookmark: page $bookmarkedPage, surah $bookmarkedSurah');
+        
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => QuranPagesViewerScreen(
+              initialPage: bookmarkedPage,
+              surahName: bookmarkedSurah,
+            ),
+          ),
+        );
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'لم يتم حفظ أي علامة بعد',
+                style: GoogleFonts.tajawal(),
+              ),
+              backgroundColor: Colors.orange[700],
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+        Logger.info('No bookmark found');
+      }
+    } catch (e) {
+      Logger.error('Error navigating to bookmark: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'حدث خطأ أثناء فتح العلامة',
+              style: GoogleFonts.tajawal(),
+            ),
+            backgroundColor: Colors.red[700],
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -110,81 +154,85 @@ class _QuranIndexScreenState extends State<QuranIndexScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.download),
-            onPressed: _showDownloadDialog,
-            tooltip: 'تحميل المصحف',
+            icon: const Icon(Icons.bookmark, color: Colors.amber),
+            onPressed: _goToBookmark,
+            tooltip: 'الانتقال للعلامة',
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          labelStyle: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+          tabs: const [
+            Tab(text: 'فهرس السور'),
+            Tab(text: 'فهرس الأجزاء'),
+          ],
+        ),
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'ابحث عن سورة...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Theme.of(context).cardColor,
-              ),
-              textDirection: TextDirection.rtl,
-            ),
-          ),
-          
-          // Surahs list
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(),
-                  )
-                : _filteredSurahs.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.search_off,
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'لم يتم العثور على سور',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 18,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: _filteredSurahs.length,
-                        itemBuilder: (context, index) {
-                          final surah = _filteredSurahs[index];
-                          return _buildSurahCard(surah);
-                        },
-                      ),
-          ),
+          _buildSurahsTab(),
+          const JuzIndexScreen(),
         ],
       ),
     );
   }
 
-  Widget _buildSurahCard(quran.Surah surah) {
+  Widget _buildSurahsTab() {
+    return Column(
+      children: [
+        // Search bar
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'ابحث عن سورة...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                      },
+                    )
+                  : null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              filled: true,
+              fillColor: Theme.of(context).cardColor,
+            ),
+            textDirection: TextDirection.rtl,
+          ),
+        ),
+        
+        // Surahs list
+        Expanded(
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(),
+                )
+              : _filteredSurahs.isEmpty
+                  ? Center(
+                      child: Text(
+                        'لا توجد سور تطابق البحث',
+                        style: GoogleFonts.tajawal(fontSize: 16),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _filteredSurahs.length,
+                      itemBuilder: (context, index) {
+                        final surah = _filteredSurahs[index];
+                        return _buildSurahCard(surah);
+                      },
+                    ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSurahCard(Surah surah) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
@@ -194,7 +242,7 @@ class _QuranIndexScreenState extends State<QuranIndexScreen> {
             context,
             MaterialPageRoute(
               builder: (context) => QuranPagesViewerScreen(
-                initialPage: _getSurahStartPage(surah.number),
+                initialPage: surah.startPage,
                 surahName: surah.name,
               ),
             ),
@@ -213,7 +261,7 @@ class _QuranIndexScreenState extends State<QuranIndexScreen> {
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
                     colors: [
-                      Theme.of(context).primaryColor.withOpacity(0.8),
+                      Theme.of(context).primaryColor.withValues(alpha: 0.8),
                       Theme.of(context).primaryColor,
                     ],
                   ),
@@ -267,17 +315,17 @@ class _QuranIndexScreenState extends State<QuranIndexScreen> {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: _getRevelationTypeColor(surah.revelation).withOpacity(0.1),
+                            color: _getRevelationTypeColor(surah.revelationType).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: _getRevelationTypeColor(surah.revelation).withOpacity(0.3),
+                              color: _getRevelationTypeColor(surah.revelationType).withValues(alpha: 0.3),
                             ),
                           ),
                           child: Text(
-                            _getRevelationTypeText(surah.revelation),
+                            _getRevelationTypeText(surah.revelationType),
                             style: GoogleFonts.tajawal(
                               fontSize: 12,
-                              color: _getRevelationTypeColor(surah.revelation),
+                              color: _getRevelationTypeColor(surah.revelationType),
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -292,7 +340,7 @@ class _QuranIndexScreenState extends State<QuranIndexScreen> {
               Column(
                 children: [
                   Text(
-                    '${surah.ayahs.length}',
+                    '${surah.totalAyahs}',
                     style: GoogleFonts.tajawal(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -339,7 +387,7 @@ class _QuranIndexScreenState extends State<QuranIndexScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _startQuranDownload();
+              _downloadAllPages();
             },
             child: Text(
               'تحميل',
@@ -351,36 +399,7 @@ class _QuranIndexScreenState extends State<QuranIndexScreen> {
     );
   }
 
-  int _getSurahStartPage(int surahNumber) {
-    // Simplified mapping - in a real app, this would be more accurate
-    const surahStartPages = {
-      1: 1, 2: 2, 3: 50, 4: 77, 5: 106, 6: 128, 7: 151, 8: 177,
-      9: 187, 10: 208, 11: 221, 12: 235, 13: 249, 14: 255, 15: 262,
-      16: 267, 17: 282, 18: 293, 19: 305, 20: 312, 21: 322, 22: 332,
-      23: 342, 24: 350, 25: 359, 26: 367, 27: 377, 28: 385, 29: 396,
-      30: 405, 31: 412, 32: 418, 33: 428, 34: 434, 35: 440, 36: 446,
-      37: 453, 38: 458, 39: 467, 40: 477, 41: 483, 42: 493, 43: 499,
-      44: 506, 45: 513, 46: 521, 47: 527, 48: 534, 49: 542, 50: 549,
-      51: 555, 52: 560, 53: 567, 54: 574, 55: 580, 56: 585, 57: 591,
-      58: 597, 59: 604, 60: 604, 61: 604, 62: 604, 63: 604, 64: 604,
-      65: 604, 66: 604, 67: 604, 68: 604, 69: 604, 70: 604, 71: 604,
-      72: 604, 73: 604, 74: 604, 75: 604, 76: 604, 77: 604, 78: 604,
-      79: 604, 80: 604, 81: 604, 82: 604, 83: 604, 84: 604, 85: 604,
-      86: 604, 87: 604, 88: 604, 89: 604, 90: 604, 91: 604, 92: 604,
-      93: 604, 94: 604, 95: 604, 96: 604, 97: 604, 98: 604, 99: 604,
-      100: 604, 101: 604, 102: 604, 103: 604, 104: 604, 105: 604, 106: 604,
-      107: 604, 108: 604, 109: 604, 110: 604, 111: 604, 112: 604, 113: 604,
-      114: 604,
-    };
-    
-    return surahStartPages[surahNumber] ?? 1;
-  }
-
-  void _startQuranDownload() {
-    _showDownloadProgressDialog();
-  }
-
-  void _showDownloadProgressDialog() {
+  void _downloadAllPages() {
     showDialog(
       context: context,
       barrierDismissible: false,

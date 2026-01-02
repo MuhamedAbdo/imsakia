@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/settings_provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/quran_provider.dart';
 import '../services/prayer_times_service.dart';
+import '../services/hadith_service.dart';
 import '../services/athan_player_service.dart';
 import '../services/hijri_date_service.dart';
-import '../services/hadith_service.dart';
 import '../utils/app_constants.dart';
+import '../utils/logger.dart';
 import 'quran_index_screen.dart';
 import 'tasbih_screen.dart';
 import 'azkar_screen.dart';
@@ -148,7 +150,7 @@ class _MainLayoutState extends State<MainLayout> {
               ElevatedButton(
                 onPressed: () {
                   Navigator.pop(context);
-                  SystemNavigator.pop();
+                  Navigator.of(context).pop();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
@@ -208,6 +210,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       HadithService.instance.initialize();
     }
     
+    // Initialize background athan service after UI is ready
+    // Background athan service is now initialized in main.dart
+    // This method is no longer needed
+    
     // Start hadith update timer with longer interval to reduce spam
     _startHadithUpdateTimer();
     
@@ -232,8 +238,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       HadithService.instance.checkAndUpdateHadith();
       // Refresh prayer times when app resumes
       _loadPrayerTimes();
+      _onSettingsChanged();
     }
   }
+
+  void _initializeBackgroundAthanService() async {
+    // Background athan service is now initialized in main.dart
+    // This method is no longer needed
+}
 
   void _onSettingsChanged() {
     if (mounted) {

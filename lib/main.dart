@@ -13,14 +13,21 @@ import 'services/background_athan_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize services
+  // Initialize services (except background athan service)
   await HadithService.instance.initialize();
   await AzkarService.instance.initialize();
-  await BackgroundAthanService.instance.initialize();
   
   // Initialize settings provider first
   final settingsProvider = SettingsProvider();
   await settingsProvider.initialize();
+  
+  // Initialize background athan service AFTER settings are loaded
+  try {
+    await BackgroundAthanService.instance.initialize();
+  } catch (e) {
+    print('Background athan service initialization failed: $e');
+    // Continue without background service
+  }
   
   runApp(MyApp(settingsProvider: settingsProvider));
 }

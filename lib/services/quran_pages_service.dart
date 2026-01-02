@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
-import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../utils/logger.dart';
 
 class QuranPagesService {
@@ -13,9 +11,7 @@ class QuranPagesService {
   QuranPagesService._();
 
   static const int totalPages = 604;
-  static const String baseUrl = 'https://api.quran.com/api/v4/quran/images';
   
-  final Dio _dio = Dio();
   final Map<int, double> _downloadProgress = {};
   bool _isDownloading = false;
   StreamController<Map<int, double>>? _progressController;
@@ -58,11 +54,69 @@ class QuranPagesService {
     }
   }
 
-  String getPageImageUrl(int pageNumber) {
-    // Using King Fahd Complex API for Quran pages
-    return 'https://cdn.islamic.network/quran/images/$pageNumber.png';
+  // Get local asset image path
+  String getLocalAssetPath(int pageNumber) {
+    return 'assets/quran_image/$pageNumber.png';
   }
 
+  // Check if local asset exists
+  Future<bool> doesLocalAssetExist(int pageNumber) async {
+    final localAssetPath = getLocalAssetPath(pageNumber);
+    try {
+      // Try to load the asset as binary data (for images)
+      await rootBundle.load(localAssetPath);
+      return true;
+    } catch (e) {
+      Logger.warning('Asset not found: $localAssetPath');
+      return false;
+    }
+  }
+
+  // Preload page into cache
+  Future<bool> preloadPage(int pageNumber) async {
+    try {
+      // Check if the asset exists to preload it
+      final exists = await doesLocalAssetExist(pageNumber);
+      if (exists) {
+        Logger.debug('Page $pageNumber asset exists and can be loaded');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      Logger.error('Error preloading page $pageNumber: $e');
+      return false;
+    }
+  }
+
+  // Get page image URL (for fallback to network if local fails)
+  String getPageImageUrl(int pageNumber) {
+    // Fallback to network if local asset doesn't exist
+    return 'https://cdn.islamic.network/quran/images/${pageNumber.toString().padLeft(3, '0')}.png';
+  }
+
+  Future<void> _downloadPage(int pageNumber) async {
+    final file = await getLocalPageFile(pageNumber);
+    
+    // Skip if already downloaded
+    if (await file.exists()) {
+      return;
+    }
+
+    try {
+      // Load the asset and save it to local storage
+      final assetPath = getLocalAssetPath(pageNumber);
+      final byteData = await rootBundle.load(assetPath);
+      final bytes = byteData.buffer.asUint8List();
+      
+      await file.writeAsBytes(bytes);
+      Logger.debug('Successfully copied page $pageNumber from assets');
+    } catch (e) {
+      Logger.error('Failed to copy page $pageNumber from assets: $e');
+      rethrow;
+    }
+  }
+
+  // Download all Quran pages (for offline use)
   Future<void> downloadAllPages({
     Function(int currentPage, int total, double progress)? onProgress,
     Function()? onComplete,
@@ -95,7 +149,6 @@ class QuranPagesService {
           
           // Small delay to prevent overwhelming the server
           await Future.delayed(const Duration(milliseconds: 100));
-          
         } catch (e) {
           Logger.error('Error downloading page $i: $e');
           _downloadProgress[i] = 0.0;
@@ -116,45 +169,10 @@ class QuranPagesService {
     }
   }
 
-  Future<void> _downloadPage(int pageNumber) async {
-    final url = getPageImageUrl(pageNumber);
-    final file = await getLocalPageFile(pageNumber);
-    
-    // Skip if already downloaded
-    if (await file.exists()) {
-      return;
-    }
-
-    try {
-      final response = await _dio.get(
-        url,
-        options: Options(
-          responseType: ResponseType.bytes,
-          receiveTimeout: const Duration(seconds: 30),
-          sendTimeout: const Duration(seconds: 30),
-        ),
-        onReceiveProgress: (received, total) {
-          if (total > 0) {
-            final progress = received / total;
-            _downloadProgress[pageNumber] = progress;
-            _progressController?.add({pageNumber: progress});
-          }
-        },
-      );
-
-      if (response.statusCode == 200) {
-        await file.writeAsBytes(response.data);
-        Logger.debug('Successfully downloaded page $pageNumber');
-      } else {
-        throw DioException(
-          requestOptions: response.requestOptions,
-          response: response,
-        );
-      }
-    } catch (e) {
-      Logger.error('Failed to download page $pageNumber: $e');
-      rethrow;
-    }
+  // Cancel download
+  void cancelDownload() {
+    _isDownloading = false;
+    Logger.info('Quran pages download cancelled');
   }
 
   Future<void> downloadPage(int pageNumber) async {
@@ -168,11 +186,6 @@ class QuranPagesService {
       _progressController?.add({pageNumber: 0.0});
       rethrow;
     }
-  }
-
-  void cancelDownload() {
-    _isDownloading = false;
-    Logger.info('Quran pages download cancelled');
   }
 
   Future<void> clearAllPages() async {
@@ -211,24 +224,6 @@ class QuranPagesService {
     } catch (e) {
       Logger.error('Error calculating download size: $e');
       return 0.0;
-    }
-  }
-
-  Future<bool> preloadPage(int pageNumber) async {
-    try {
-      final url = getPageImageUrl(pageNumber);
-      
-      // Preload into cached network image cache
-      await precacheImage(
-        CachedNetworkImageProvider(url),
-        null, // No context needed for preloading
-      );
-      
-      Logger.debug('Preloaded page $pageNumber into cache');
-      return true;
-    } catch (e) {
-      Logger.error('Error preloading page $pageNumber: $e');
-      return false;
     }
   }
 

@@ -21,8 +21,43 @@ class QuranService {
   List<Surah> _surahs = [];
   bool _isLoaded = false;
 
+  // بيانات بدايات الأجزاء (رقم الصفحة لكل جزء)
+  static const List<int> _juzStartPages = [
+    1,   // الجزء 1
+    22,  // الجزء 2
+    42,  // الجزء 3
+    62,  // الجزء 4
+    82,  // الجزء 5
+    102, // الجزء 6
+    122, // الجزء 7
+    142, // الجزء 8
+    162, // الجزء 9
+    182, // الجزء 10
+    202, // الجزء 11
+    222, // الجزء 12
+    242, // الجزء 13
+    262, // الجزء 14
+    282, // الجزء 15
+    302, // الجزء 16
+    322, // الجزء 17
+    342, // الجزء 18
+    362, // الجزء 19
+    382, // الجزء 20
+    402, // الجزء 21
+    422, // الجزء 22
+    442, // الجزء 23
+    462, // الجزء 24
+    482, // الجزء 25
+    502, // الجزء 26
+    522, // الجزء 27
+    542, // الجزء 28
+    562, // الجزء 29
+    582, // الجزء 30
+  ];
+
   List<Surah> get surahs => List.unmodifiable(_surahs);
   List<SurahData> get surahDataList => List.unmodifiable(_surahDataList);
+  List<int> get juzStartPages => List.unmodifiable(_juzStartPages);
   bool get isLoaded => _isLoaded;
 
   /// Load surahs data from quran2/surah.json
@@ -218,8 +253,8 @@ class QuranService {
       const Surah(number: 109, name: 'الكافرون', englishName: 'Al-Kafirun', totalAyahs: 6, revelationType: 'Meccan', startPage: 603),
       const Surah(number: 110, name: 'النصر', englishName: 'An-Nasr', totalAyahs: 3, revelationType: 'Medinan', startPage: 603),
       const Surah(number: 111, name: 'المسد', englishName: 'Al-Masad', totalAyahs: 5, revelationType: 'Meccan', startPage: 603),
-      const Surah(number: 112, name: 'الإخلاص', englishName: 'Al-Ikhlas', totalAyahs: 4, revelationType: 'Meccan', startPage: 604),
-      const Surah(number: 113, name: 'الفلق', englishName: 'Al-Falaq', totalAyahs: 5, revelationType: 'Meccan', startPage: 604),
+      const Surah(number: 112, name: 'الإخلاص', englishName: 'Al-Ikhlas', totalAyahs: 4, revelationType: 'Meccan', startPage: 603),
+      const Surah(number: 113, name: 'الفلق', englishName: 'Al-Falaq', totalAyahs: 5, revelationType: 'Meccan', startPage: 603),
       const Surah(number: 114, name: 'الناس', englishName: 'An-Nas', totalAyahs: 6, revelationType: 'Meccan', startPage: 604),
     ];
     _isLoaded = true;
@@ -473,6 +508,65 @@ class QuranService {
     } catch (e) {
       Logger.error('Error removing bookmark: $e');
     }
+  }
+
+  /// Get juz number based on page number
+  int getJuzNumber(int pageNumber) {
+    for (int i = _juzStartPages.length - 1; i >= 0; i--) {
+      if (pageNumber >= _juzStartPages[i]) {
+        return i + 1; // Juz numbers start from 1
+      }
+    }
+    return 1; // Default to first juz
+  }
+
+  /// Get juz name in Arabic
+  String getJuzName(int juzNumber) {
+    final juzNames = [
+      'الجزء الأول',
+      'الجزء الثاني',
+      'الجزء الثالث',
+      'الجزء الرابع',
+      'الجزء الخامس',
+      'الجزء السادس',
+      'الجزء السابع',
+      'الجزء الثامن',
+      'الجزء التاسع',
+      'الجزء العاشر',
+      'الجزء الحادي عشر',
+      'الجزء الثاني عشر',
+      'الجزء الثالث عشر',
+      'الجزء الرابع عشر',
+      'الجزء الخامس عشر',
+      'الجزء السادس عشر',
+      'الجزء السابع عشر',
+      'الجزء الثامن عشر',
+      'الجزء التاسع عشر',
+      'الجزء العشرون',
+      'الجزء الحادي والعشرون',
+      'الجزء الثاني والعشرون',
+      'الجزء الثالث والعشرون',
+      'الجزء الرابع والعشرون',
+      'الجزء الخامس والعشرون',
+      'الجزء السادس والعشرون',
+      'الجزء السابع والعشرون',
+      'الجزء الثامن والعشرون',
+      'الجزء التاسع والعشرون',
+      'الجزء الثلاثون',
+    ];
+    
+    if (juzNumber >= 1 && juzNumber <= juzNames.length) {
+      return juzNames[juzNumber - 1];
+    }
+    return 'الجزء الأول';
+  }
+
+  /// Get page number for specific juz
+  int getPageForJuz(int juzNumber) {
+    if (juzNumber >= 1 && juzNumber <= _juzStartPages.length) {
+      return _juzStartPages[juzNumber - 1];
+    }
+    return 1; // Default to first page
   }
 
   /// Check if surah is bookmarked

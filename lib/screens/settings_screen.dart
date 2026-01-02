@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
+import '../services/background_athan_service.dart';
 import '../services/prayer_times_service.dart';
 import '../utils/app_constants.dart';
 
@@ -331,7 +332,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return SwitchListTile(
           title: Text('تفعيل الإشعارات', style: GoogleFonts.tajawal()),
           value: settings.notificationsEnabled,
-          onChanged: (value) => settings.setNotifications(value),
+          onChanged: (value) async {
+            // Request permissions when enabling notifications
+            if (value) {
+              await BackgroundAthanService.instance.requestPermissions();
+            }
+            settings.setNotifications(value);
+          },
           contentPadding: EdgeInsets.zero,
         );
       },

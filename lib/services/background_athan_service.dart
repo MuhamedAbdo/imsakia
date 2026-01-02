@@ -3,7 +3,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:adhan/adhan.dart';
-import 'package:timezone/timezone.dart' as tz;
 import '../utils/logger.dart';
 import 'athan_player_service.dart';
 
@@ -13,7 +12,6 @@ class BackgroundAthanService {
 
   BackgroundAthanService._();
 
-  static const String _athanAlarmId = 'athan_alarm';
   static const int _athanNotificationId = 1001;
   
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
@@ -29,16 +27,14 @@ class BackgroundAthanService {
       // Initialize notifications
       await _initializeNotifications();
       
-      // Request permissions
-      await _requestPermissions();
-      
       // Start prayer time monitoring
       _startPrayerTimeMonitoring();
       
       _isInitialized = true;
       Logger.success('BackgroundAthanService initialized successfully');
     } catch (e) {
-      Logger.error('Error initializing BackgroundAthanService: $e');
+      Logger.error('Failed to initialize BackgroundAthanService: $e');
+      // Continue without background service
     }
   }
 
@@ -56,18 +52,23 @@ class BackgroundAthanService {
     );
   }
 
-  Future<void> _requestPermissions() async {
-    // Request notification permissions
-    await _notifications
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
+  Future<void> requestPermissions() async {
+    try {
+      // Request notification permissions
+      await _notifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
 
-    // Request exact alarm permission for Android 12+
-    await _notifications
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestExactAlarmsPermission();
+      // Request exact alarm permission for Android 12+
+      await _notifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestExactAlarmsPermission();
+    } catch (e) {
+      Logger.warning('Permission request failed: $e');
+      // Continue without permissions if denied
+    }
   }
 
   void _startPrayerTimeMonitoring() {
@@ -160,7 +161,7 @@ class BackgroundAthanService {
       await _showAthanNotification(prayerName, athanSound);
       
       // Play athan sound
-      await _playAthanSound(athanSound);
+      await _playAthanSound(prayerName);
       
       Logger.info('Triggered athan for $prayerName');
     } catch (e) {
@@ -193,9 +194,9 @@ class BackgroundAthanService {
     );
   }
 
-  Future<void> _playAthanSound(String athanSound) async {
+  Future<void> _playAthanSound(String prayerName) async {
     try {
-      await AthanPlayerService.instance.playAthan(athanSound);
+      await AthanPlayerService.instance.playAthan(prayerName: prayerName);
     } catch (e) {
       Logger.error('Error playing athan sound: $e');
     }
@@ -207,27 +208,20 @@ class BackgroundAthanService {
   }
 
   Future<void> scheduleTestNotification() async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'test_channel',
-      'Test Notification',
-      channelDescription: 'Test notification channel',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-
-    const NotificationDetails platformChannelSpecifics =
-        NotificationDetails(android: androidPlatformChannelSpecifics);
-
-    await _notifications.zonedSchedule(
-      0,
+    // Simple test notification
+    await _notifications.show(
+      999,
       'Test Athan Notification',
       'This is a test notification for athan',
-      tz.TZDateTime.now(tz.local).add(const Duration(seconds: 5)),
-      platformChannelSpecifics,
-      androidAllowWhileIdle: true,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'test_channel',
+          'Test Notification',
+          channelDescription: 'Test notification channel',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+      ),
     );
   }
 

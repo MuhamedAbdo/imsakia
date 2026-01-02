@@ -1,9 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/quran_pages_service.dart';
+import '../services/quran_service.dart';
+import '../models/surah.dart';
 import '../utils/logger.dart';
 
 class QuranPagesViewerScreen extends StatefulWidget {
@@ -25,15 +26,19 @@ class _QuranPagesViewerScreenState extends State<QuranPagesViewerScreen> {
   int _currentPage = 1;
   bool _showControls = true;
   Timer? _hideControlsTimer;
+  bool _isBookmarked = false;
+  String _currentSurahName = '';
+  String _currentJuzName = '';
 
   @override
   void initState() {
     super.initState();
     _currentPage = widget.initialPage;
+    _currentSurahName = widget.surahName; // القيمة الابتدائية
     _pageController = PageController(initialPage: _currentPage - 1);
-    
-    // Preload adjacent pages
-    QuranPagesService.instance.preloadAdjacentPages(_currentPage);
+    _updateSurahName(_currentPage);
+    _updateJuzName(_currentPage);
+    _checkBookmarkStatus();
   }
 
   @override
@@ -43,163 +48,217 @@ class _QuranPagesViewerScreenState extends State<QuranPagesViewerScreen> {
     super.dispose();
   }
 
-  void _toggleControls() {
-    setState(() {
-      _showControls = !_showControls;
+  void _startHideTimer() {
+    _hideControlsTimer?.cancel();
+    _hideControlsTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _showControls) {
+        setState(() => _showControls = false);
+      }
     });
-
-    if (_showControls) {
-      _hideControlsTimer?.cancel();
-      _hideControlsTimer = Timer(const Duration(seconds: 3), () {
-        if (mounted) {
-          setState(() {
-            _showControls = false;
-          });
-        }
-      });
-    }
   }
 
-  void _onPageChanged(int page) {
-    setState(() {
-      _currentPage = page + 1;
-    });
+  void _toggleControls() {
+    setState(() => _showControls = !_showControls);
+    if (_showControls) _startHideTimer();
+  }
 
-    // Preload adjacent pages
-    QuranPagesService.instance.preloadAdjacentPages(_currentPage);
-    
+  void _onPageChanged(int index) {
+    final newPage = index + 1;
+    setState(() {
+      _currentPage = newPage;
+    });
+    _updateSurahName(_currentPage);
+    _updateJuzName(_currentPage);
+    _checkBookmarkStatus();
     Logger.debug('Changed to Quran page $_currentPage');
   }
 
-  void _goToPage() {
-    final controller = TextEditingController(text: _currentPage.toString());
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'الذهاب إلى صفحة',
-          style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
-        ),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: 'رقم الصفحة (1-604)',
-            border: OutlineInputBorder(),
-          ),
-          textAlign: TextAlign.center,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('إلغاء', style: GoogleFonts.tajawal()),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final page = int.tryParse(controller.text);
-              if (page != null && page >= 1 && page <= 604) {
-                _pageController.animateToPage(
-                  page - 1,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-                Navigator.pop(context);
-              }
-            },
-            child: Text('ذهاب', style: GoogleFonts.tajawal()),
-          ),
-        ],
-      ),
-    );
+  void _updateSurahName(int pageNumber) {
+    try {
+      final surahs = QuranService().surahs;
+      
+      // البحث عن السورة التي تحتوي على هذه الصفحة
+      Surah? currentSurah;
+      
+      for (int i = surahs.length - 1; i >= 0; i--) {
+        if (pageNumber >= surahs[i].startPage) {
+          currentSurah = surahs[i];
+          break;
+        }
+      }
+      
+      if (currentSurah != null && mounted) {
+        setState(() {
+          _currentSurahName = currentSurah!.name;
+        });
+        Logger.debug('Updated surah name to: ${currentSurah!.name} for page $pageNumber');
+      }
+    } catch (e) {
+      Logger.error('Error updating surah name: $e');
+    }
+  }
+
+  void _updateJuzName(int pageNumber) {
+    try {
+      final quranService = QuranService();
+      final juzNumber = quranService.getJuzNumber(pageNumber);
+      final juzName = quranService.getJuzName(juzNumber);
+      
+      if (mounted) {
+        setState(() {
+          _currentJuzName = juzName;
+        });
+        Logger.debug('Updated juz name to: $juzName for page $pageNumber');
+      }
+    } catch (e) {
+      Logger.error('Error updating juz name: $e');
+    }
+  }
+
+  void _checkBookmarkStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final bookmarkedPage = prefs.getInt('quran_bookmark_page');
+      setState(() {
+        _isBookmarked = (bookmarkedPage == _currentPage);
+      });
+      Logger.debug('Bookmark status checked: $_isBookmarked for page $_currentPage');
+    } catch (e) {
+      Logger.error('Error checking bookmark status: $e');
+    }
+  }
+
+  void _toggleBookmark() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      if (_isBookmarked) {
+        // إزالة العلامة
+        await prefs.remove('quran_bookmark_page');
+        await prefs.remove('quran_bookmark_surah');
+        setState(() {
+          _isBookmarked = false;
+        });
+        Logger.info('Bookmark removed from page $_currentPage');
+      } else {
+        // حفظ العلامة
+        await prefs.setInt('quran_bookmark_page', _currentPage);
+        await prefs.setString('quran_bookmark_surah', _currentSurahName);
+        setState(() {
+          _isBookmarked = true;
+        });
+        Logger.info('Bookmark saved: page $_currentPage, surah $_currentSurahName');
+      }
+    } catch (e) {
+      Logger.error('Error toggling bookmark: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // خلفية سوداء دائماً مع فلتر عكس الألوان
+    const scaffoldBgColor = Colors.black;
+    const controlsColor = Colors.white;
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: scaffoldBgColor,
       body: Stack(
         children: [
-          // Quran pages
-          GestureDetector(
-            onTap: _toggleControls,
-            child: PageView.builder(
-              controller: _pageController,
-              onPageChanged: _onPageChanged,
-              itemCount: QuranPagesService.totalPages,
-              reverse: true, // RTL reading direction
-              itemBuilder: (context, index) {
-                final pageNumber = QuranPagesService.totalPages - index;
-                return _buildQuranPage(pageNumber);
-              },
-            ),
-          ),
-          
-          // Controls overlay
-          AnimatedOpacity(
-            opacity: _showControls ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 300),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.7),
-                    Colors.transparent,
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.7),
+          // عرض صفحات القرآن مع دعم السحب
+          PageView.builder(
+            controller: _pageController,
+            onPageChanged: _onPageChanged,
+            itemCount: QuranPagesService.totalPages,
+            // السحب من اليمين لليسار (الاتجاه العربي)
+            reverse: true, 
+            physics: const BouncingScrollPhysics(),
+            itemBuilder: (context, index) {
+              final pageNumber = index + 1;
+              return GestureDetector(
+                onTap: _toggleControls,
+                child: Stack(
+                  children: [
+                    Center(child: _buildQuranPage(pageNumber)),
+                    _buildPageNumber(controlsColor),
                   ],
                 ),
-              ),
-              child: Column(
-                children: [
-                  // Top controls
-                  _buildTopControls(),
-                  const Spacer(),
-                  // Bottom controls
-                  _buildBottomControls(),
-                ],
-              ),
-            ),
+              );
+            },
           ),
+          
+          // شريط التحكم العلوي - يظل ظاهراً دائماً
+          _buildTopControls(controlsColor, scaffoldBgColor),
         ],
       ),
     );
   }
 
-  Widget _buildTopControls() {
-    return SafeArea(
+  Widget _buildTopControls(Color textColor, Color bgColor) {
+    return Container(
+      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+      decoration: BoxDecoration(
+        color: bgColor.withOpacity(0.9),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
         child: Row(
           children: [
-            IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-            ),
-            
-            const Spacer(),
-            
-            if (widget.surahName.isNotEmpty)
-              Expanded(
-                flex: 2,
-                child: Text(
-                  widget.surahName,
+            // الربع على اليسار
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'الربع ${_getRubNumber(_currentPage)}',
                   style: GoogleFonts.tajawal(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    color: textColor.withOpacity(0.7), 
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
                   ),
-                  textAlign: TextAlign.center,
                 ),
-              ),
-            
+              ],
+            ),
             const Spacer(),
-            
+            // اسم السورة في المنتصف
+            Expanded(
+              child: Text(
+                _currentSurahName,
+                style: GoogleFonts.tajawal(
+                  color: textColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+            const Spacer(),
+            // الجزء على اليمين
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  _currentJuzName,
+                  style: GoogleFonts.tajawal(
+                    color: textColor.withOpacity(0.8), 
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 8),
             IconButton(
-              onPressed: _goToPage,
-              icon: const Icon(Icons.bookmark_border, color: Colors.white),
+              onPressed: _toggleBookmark,
+              icon: Icon(
+                _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                color: _isBookmarked ? Colors.amber : textColor,
+              ),
             ),
           ],
         ),
@@ -207,159 +266,77 @@ class _QuranPagesViewerScreenState extends State<QuranPagesViewerScreen> {
     );
   }
 
-  Widget _buildBottomControls() {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Previous page button
-            IconButton(
-              onPressed: _currentPage > 1
-                  ? () {
-                      _pageController.nextPage(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    }
-                  : null,
-              icon: const Icon(Icons.skip_previous, color: Colors.white),
+  String _getRubNumber(int pageNumber) {
+    // حساب رقم الربع بناءً على الصفحة (كل ربع حوالي 2.5 صفحة)
+    // 604 صفحة / 240 ربع = 2.517 صفحة للربع الواحد
+    final rubNumber = ((pageNumber - 1) / 2.517).floor() + 1;
+    return rubNumber > 240 ? '240' : rubNumber.toString();
+  }
+
+  Widget _buildPageNumber(Color textColor) {
+    return Positioned(
+      bottom: 10,
+      left: 0,
+      right: 0,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            '$_currentPage',
+            style: GoogleFonts.tajawal(
+              color: textColor,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
             ),
-            
-            const SizedBox(width: 20),
-            
-            // Page number
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                'صفحة $_currentPage / ${QuranPagesService.totalPages}',
-                style: GoogleFonts.tajawal(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            
-            const SizedBox(width: 20),
-            
-            // Next page button
-            IconButton(
-              onPressed: _currentPage < QuranPagesService.totalPages
-                  ? () {
-                      _pageController.previousPage(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    }
-                  : null,
-              icon: const Icon(Icons.skip_next, color: Colors.white),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildQuranPage(int pageNumber) {
-    return FutureBuilder<bool>(
-      future: QuranPagesService.instance.isPageDownloaded(pageNumber),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(color: Colors.white),
-          );
-        }
-
-        final isDownloaded = snapshot.data ?? false;
-        
-        if (isDownloaded) {
-          return _buildLocalPage(pageNumber);
-        } else {
-          return _buildNetworkPage(pageNumber);
-        }
-      },
-    );
-  }
-
-  Widget _buildLocalPage(int pageNumber) {
-    return FutureBuilder<File>(
-      future: QuranPagesService.instance.getLocalPageFile(pageNumber),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting ||
-            !snapshot.hasData) {
-          return const Center(
-            child: CircularProgressIndicator(color: Colors.white),
-          );
-        }
-
-        final file = snapshot.data!;
-        
-        return Image.file(
-          file,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            Logger.error('Error loading local page $pageNumber: $error');
-            return _buildNetworkPage(pageNumber);
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildNetworkPage(int pageNumber) {
-    final imageUrl = QuranPagesService.instance.getPageImageUrl(pageNumber);
+    final assetPath = QuranPagesService.instance.getLocalAssetPath(pageNumber);
     
-    return CachedNetworkImage(
-      imageUrl: imageUrl,
-      fit: BoxFit.contain,
-      placeholder: (context, url) => const Center(
-        child: CircularProgressIndicator(color: Colors.white),
-      ),
-      errorWidget: (context, url, error) {
-        Logger.error('Error loading network page $pageNumber: $error');
-        return _buildErrorWidget(pageNumber);
-      },
-      memCacheWidth: 1024,
-      memCacheHeight: 1448,
+    Widget image = Image.asset(
+      assetPath,
+      fit: pageNumber <= 2 ? BoxFit.contain : BoxFit.fitWidth,
+      width: pageNumber <= 2 ? null : double.infinity,
+      alignment: Alignment.center,
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) => 
+          _buildErrorWidget(pageNumber),
+    );
+
+    // تطبيق فلتر عكس الألوان دائماً لجعل النص أبيض على خلفية سوداء
+    Widget filteredImage = ColorFiltered(
+      colorFilter: const ColorFilter.matrix([
+        -1,  0,  0, 0, 255, // عكس اللون الأحمر
+         0, -1,  0, 0, 255, // عكس اللون الأخضر
+         0,  0, -1, 0, 255, // عكس اللون الأزرق
+         0,  0,  0, 1,   0, // الشفافية تبقى كما هي
+      ]),
+      child: image,
+    );
+
+    // إضافة InteractiveViewer للسماح بالتكبير والتصغير
+    return InteractiveViewer(
+      panEnabled: true,
+      boundaryMargin: const EdgeInsets.all(20),
+      minScale: 0.5,
+      maxScale: 4.0,
+      child: filteredImage,
     );
   }
 
   Widget _buildErrorWidget(int pageNumber) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.error_outline,
-            color: Colors.white,
-            size: 64,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'خطأ في تحميل الصفحة $pageNumber',
-            style: GoogleFonts.tajawal(
-              color: Colors.white,
-              fontSize: 18,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {}); // Retry loading
-            },
-            child: Text(
-              'إعادة المحاولة',
-              style: GoogleFonts.tajawal(),
-            ),
-          ),
-        ],
+      child: Text(
+        'ملف الصورة $pageNumber.png غير موجود',
+        style: GoogleFonts.tajawal(color: Colors.red[400]),
       ),
     );
   }
