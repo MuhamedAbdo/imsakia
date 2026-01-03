@@ -360,7 +360,6 @@ class _QuranPagesViewerScreenState extends State<QuranPagesViewerScreen> {
         padding: const EdgeInsets.all(8),
         child: _buildQuranPage(_currentPage, true),
       ),
-      child: _buildQuranPage(_currentPage, true),
     );
   }
 
