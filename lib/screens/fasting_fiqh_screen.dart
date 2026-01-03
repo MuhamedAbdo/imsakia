@@ -200,7 +200,7 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDarkMode ? Colors.grey[850] : Colors.white,
+        color: isDarkMode ? Colors.grey[800] : Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -214,7 +214,7 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
         title: Text(
           question.question,
           style: GoogleFonts.tajawal(
-            color: isDarkMode ? Colors.white : Colors.black,
+            color: isDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface,
             fontSize: 16,
             fontWeight: FontWeight.w600,
             height: 1.4,
@@ -225,13 +225,17 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: primaryColor.withOpacity(0.2),
+              color: isDarkMode 
+                  ? Colors.blue.withOpacity(0.3) 
+                  : primaryColor.withOpacity(0.2),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
               question.category,
               style: GoogleFonts.tajawal(
-                color: primaryColor,
+                color: isDarkMode 
+                    ? Colors.blue[300] 
+                    : primaryColor,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -248,17 +252,19 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDarkMode ? Colors.grey[800] : Colors.grey[50],
+              color: isDarkMode ? Colors.grey[750] : Colors.grey[50],
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
+                color: isDarkMode ? Colors.grey[600]! : Colors.grey[200]!,
                 width: 1,
               ),
             ),
             child: Text(
               question.answer,
               style: GoogleFonts.tajawal(
-                color: isDarkMode ? Colors.white : Colors.black,
+                color: Theme.of(context).brightness == Brightness.dark 
+                    ? Colors.white 
+                    : Theme.of(context).colorScheme.onSurface,
                 fontSize: 15,
                 height: 1.6,
                 fontWeight: FontWeight.w500,
@@ -289,7 +295,9 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
                   child: Text(
                     keyword,
                     style: GoogleFonts.tajawal(
-                      color: primaryColor,
+                      color: Theme.of(context).brightness == Brightness.dark 
+                          ? Colors.white 
+                          : Theme.of(context).colorScheme.onSurface,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),

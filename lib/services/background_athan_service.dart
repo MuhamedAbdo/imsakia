@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:adhan/adhan.dart';
 import '../utils/logger.dart';
 import 'athan_player_service.dart';
+import 'prayer_widget_service.dart';
 
 class BackgroundAthanService {
   static BackgroundAthanService? _instance;
@@ -16,7 +17,11 @@ class BackgroundAthanService {
   
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
   Timer? _prayerCheckTimer;
+  Timer? _widgetUpdateTimer;
   bool _isInitialized = false;
+  
+  // Track triggered prayers to prevent multiple notifications
+  final Map<String, DateTime> _triggeredPrayers = {};
 
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -29,6 +34,12 @@ class BackgroundAthanService {
       
       // Start prayer time monitoring
       _startPrayerTimeMonitoring();
+      
+      // Start widget updates
+      _startWidgetUpdates();
+      
+      // Initialize widget service
+      await PrayerWidgetService.instance.initialize();
       
       _isInitialized = true;
       Logger.success('BackgroundAthanService initialized successfully');
@@ -72,9 +83,33 @@ class BackgroundAthanService {
   }
 
   void _startPrayerTimeMonitoring() {
-    // Check every minute for prayer times
-    _prayerCheckTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+    // Check every 10 seconds for more precise prayer times
+    _prayerCheckTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       _checkPrayerTimes();
+      // Clean old triggered prayers (older than 1 hour)
+      _cleanOldTriggeredPrayers();
+    });
+  }
+
+  void _cleanOldTriggeredPrayers() {
+    final now = DateTime.now();
+    final toRemove = <String>[];
+    
+    for (final entry in _triggeredPrayers.entries) {
+      if (now.difference(entry.value).inHours > 1) {
+        toRemove.add(entry.key);
+      }
+    }
+    
+    for (final key in toRemove) {
+      _triggeredPrayers.remove(key);
+    }
+  }
+
+  void _startWidgetUpdates() {
+    // Update widget every 15 minutes
+    _widgetUpdateTimer = Timer.periodic(const Duration(minutes: 15), (timer) {
+      PrayerWidgetService.instance.updateWidgetNow();
     });
   }
 
@@ -102,12 +137,28 @@ class BackgroundAthanService {
       ];
 
       for (final prayer in prayers) {
+        final prayerName = prayer['name'] as String;
         final prayerTime = prayer['time'] as DateTime;
         final timeDiff = prayerTime.difference(now);
 
-        // Check if prayer time is within the next minute
-        if (timeDiff.inSeconds >= 0 && timeDiff.inSeconds <= 60) {
-          await _triggerAthanNotification(prayer['name'] as String);
+        // Log for debugging
+        Logger.info('Checking $prayerName: prayerTime=$prayerTime, now=$now, diff=${timeDiff.inSeconds}s');
+
+        // Check if prayer time is exactly now (within 5 seconds tolerance)
+        if (timeDiff.inSeconds >= 0 && timeDiff.inSeconds <= 5) {
+          // Check if this prayer was already triggered recently
+          final lastTriggered = _triggeredPrayers[prayerName];
+          if (lastTriggered != null) {
+            final timeSinceTriggered = now.difference(lastTriggered);
+            if (timeSinceTriggered.inMinutes < 5) {
+              Logger.info('$prayerName already triggered ${timeSinceTriggered.inMinutes} minutes ago, skipping');
+              continue;
+            }
+          }
+          
+          Logger.info('Triggering athan for $prayerName at exact time');
+          _triggeredPrayers[prayerName] = now;
+          await _triggerAthanNotification(prayerName);
         }
       }
     } catch (e) {
@@ -162,6 +213,9 @@ class BackgroundAthanService {
       
       // Play athan sound
       await _playAthanSound(prayerName);
+      
+      // Update widget after athan
+      await PrayerWidgetService.instance.updateWidgetNow();
       
       Logger.info('Triggered athan for $prayerName');
     } catch (e) {
@@ -231,6 +285,8 @@ class BackgroundAthanService {
 
   void dispose() {
     _prayerCheckTimer?.cancel();
+    _widgetUpdateTimer?.cancel();
+    PrayerWidgetService.instance.dispose();
     _isInitialized = false;
   }
 }

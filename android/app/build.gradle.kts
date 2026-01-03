@@ -33,6 +33,9 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        
+        // Widget configuration
+        minSdk = flutter.minSdkVersion  // Required for home_widget
     }
 
     buildTypes {
@@ -40,6 +43,17 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+    
+    // Fix for workmanager duplicate classes
+    configurations.all {
+        resolutionStrategy {
+            eachDependency {
+                if ((requested.group == "androidx.work") && (requested.name.startsWith("work-runtime"))) {
+                    useVersion("2.8.1")
+                }
+            }
         }
     }
 }
