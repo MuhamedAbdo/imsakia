@@ -129,31 +129,20 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
           style: GoogleFonts.tajawal(
             fontSize: 14,
             fontWeight: FontWeight.w500,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.black
+                : Colors.white,
           ),
         ),
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFFE0E0E0)
+            : Theme.of(context).primaryColor,
         duration: const Duration(seconds: 2),
       ),
     );
   }
 
-  void _shareZikr(String text) {
-    HapticFeedback.selectionClick();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'تم مشاركة الذكر',
-          style: GoogleFonts.tajawal(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        backgroundColor: Theme.of(context).primaryColor,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
+  
   void _resetCounters() {
     showDialog(
       context: context,
@@ -162,11 +151,21 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
           'إعادة تعيين العدادات',
           style: GoogleFonts.tajawal(
             fontWeight: FontWeight.w600,
+            color: Theme.of(context).brightness == Brightness.dark 
+                ? const Color(0xFFE0E0E0)
+                : null,
           ),
         ),
+        backgroundColor: Theme.of(context).brightness == Brightness.dark 
+            ? const Color(0xFF2A2A2A)
+            : null,
         content: Text(
           'هل أنت متأكد من أنك تريد إعادة تعيين جميع العدادات في ${widget.category.title}؟',
-          style: GoogleFonts.tajawal(),
+          style: GoogleFonts.tajawal(
+            color: Theme.of(context).brightness == Brightness.dark 
+                ? const Color(0xFFBDBDBD)
+                : null,
+          ),
         ),
         actions: [
           TextButton(
@@ -174,7 +173,9 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
             child: Text(
               'إلغاء',
               style: GoogleFonts.tajawal(
-                color: Theme.of(context).primaryColor,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF64B5F6)
+                    : Theme.of(context).primaryColor,
               ),
             ),
           ),
@@ -184,7 +185,9 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
               Navigator.of(context).pop();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
+              backgroundColor: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1E88E5)
+                  : Theme.of(context).primaryColor,
             ),
             child: Text(
               'إعادة تعيين',
@@ -209,13 +212,18 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
           ),
         ),
         content: StatefulBuilder(
-          builder: (context, setState) {
+          builder: (context, dialogSetState) {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   '${_fontSize.toInt()}',
-                  style: GoogleFonts.tajawal(fontSize: 24),
+                  style: GoogleFonts.tajawal(
+                    fontSize: 24,
+                    color: Theme.of(context).brightness == Brightness.dark 
+                        ? const Color(0xFFE0E0E0)
+                        : null,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Slider(
@@ -223,9 +231,21 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                   min: 12.0,
                   max: 28.0,
                   divisions: 16,
-                  activeColor: Theme.of(context).primaryColor,
+                  activeColor: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF64B5F6)
+                      : Theme.of(context).primaryColor,
+                  inactiveColor: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF424242)
+                      : null,
+                  thumbColor: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF64B5F6)
+                      : Theme.of(context).primaryColor,
                   onChanged: (value) {
-                    this.setState(() {
+                    dialogSetState(() {
+                      _fontSize = value;
+                    });
+                    // Update the main page state
+                    setState(() {
                       _fontSize = value;
                     });
                   },
@@ -279,10 +299,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.arrow_back),
-        ),
+        leading: Container(),
         actions: [
           IconButton(
             onPressed: _resetCounters,
@@ -364,9 +381,13 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                         const SizedBox(height: 12),
                         LinearProgressIndicator(
                           value: currentCategory.overallProgress,
-                          backgroundColor: Colors.grey.withOpacity(0.3),
+                          backgroundColor: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white.withOpacity(0.2)
+                              : Colors.grey.withOpacity(0.3),
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            Theme.of(context).primaryColor,
+                            Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white
+                                : Theme.of(context).primaryColor,
                           ),
                           minHeight: 8,
                         ),
@@ -604,12 +625,6 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                           onPressed: () => _copyZikr(azkar.text),
                           icon: const Icon(Icons.copy),
                           tooltip: 'نسخ',
-                          iconSize: 20,
-                        ),
-                        IconButton(
-                          onPressed: () => _shareZikr(azkar.text),
-                          icon: const Icon(Icons.share),
-                          tooltip: 'مشاركة',
                           iconSize: 20,
                         ),
                       ],

@@ -1,7 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:ui' as ui;
 import '../models/azkar.dart';
 import '../services/azkar_service.dart';
@@ -16,7 +16,6 @@ class AzkarScreenWidget extends StatefulWidget {
 }
 
 class _AzkarScreenState extends State<AzkarScreenWidget> {
-  double _fontSize = 18.0;
   bool _isLoading = true;
 
   @override
@@ -65,25 +64,10 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
   }
 
   Future<void> _loadSettings() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      setState(() {
-        _fontSize = prefs.getDouble('azkar_font_size') ?? 18.0;
-      });
-    } catch (e) {
-      print('❌ Error loading Azkar settings: $e');
-    }
+    // Font size settings removed - no longer needed
   }
 
-  Future<void> _saveSettings() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble('azkar_font_size', _fontSize);
-    } catch (e) {
-      print('❌ Error saving Azkar settings: $e');
-    }
-  }
-
+  
   void _navigateToDetail(AzkarCategory category) {
     print('🔄 Navigating to AzkarDetailScreen for category: ${category.title}');
     print('📊 Category data: ${category.azkar.length} azkar');
@@ -96,147 +80,8 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
     );
   }
 
-  void _resetAllCounters() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'إعادة تعيين جميع العدادات',
-          style: GoogleFonts.tajawal(
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? const Color(0xFFE0E0E0)
-                : null,
-          ),
-        ),
-        content: Text(
-          'هل أنت متأكد من أنك تريد إعادة تعيين جميع عدادات الأذكار؟',
-          style: GoogleFonts.tajawal(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? const Color(0xFFBDBDBD)
-                : null,
-          ),
-        ),
-        backgroundColor: Theme.of(context).brightness == Brightness.dark 
-            ? const Color(0xFF2A2A2A)
-            : null,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'إلغاء',
-              style: GoogleFonts.tajawal(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFF64B5F6)
-                    : Theme.of(context).primaryColor,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              AzkarService.instance.resetAllCounters();
-              Navigator.of(context).pop();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).brightness == Brightness.dark
-                  ? const Color(0xFF1E88E5)
-                  : Theme.of(context).primaryColor,
-            ),
-            child: Text(
-              'إعادة تعيين',
-              style: GoogleFonts.tajawal(
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showFontSizeDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'حجم الخط',
-          style: GoogleFonts.tajawal(
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? const Color(0xFFE0E0E0)
-                : null,
-          ),
-        ),
-        backgroundColor: Theme.of(context).brightness == Brightness.dark 
-            ? const Color(0xFF2A2A2A)
-            : null,
-        content: StatefulBuilder(
-          builder: (context, setState) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${_fontSize.toInt()}',
-                  style: GoogleFonts.tajawal(
-                    fontSize: 24,
-                    color: Theme.of(context).brightness == Brightness.dark 
-                        ? const Color(0xFFE0E0E0)
-                        : null,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Slider(
-                  value: _fontSize,
-                  min: 12.0,
-                  max: 28.0,
-                  divisions: 16,
-                  activeColor: Theme.of(context).brightness == Brightness.dark
-                      ? const Color(0xFF64B5F6)
-                      : Theme.of(context).primaryColor,
-                  onChanged: (value) {
-                    this.setState(() {
-                      _fontSize = value;
-                    });
-                  },
-                ),
-              ],
-            );
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'إلغاء',
-              style: GoogleFonts.tajawal(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFF64B5F6)
-                    : Theme.of(context).primaryColor,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              _saveSettings();
-              Navigator.of(context).pop();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).brightness == Brightness.dark
-                  ? const Color(0xFF1E88E5)
-                  : Theme.of(context).primaryColor,
-            ),
-            child: Text(
-              'حفظ',
-              style: GoogleFonts.tajawal(
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
+  
+  
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -308,13 +153,14 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+         
           IconButton(
             onPressed: () {
               showDialog(
                 context: context,
                 builder: (context) => AlertDialog(
                   title: Text(
-                    'خيارات',
+                    'تصفير جميع الأذكار',
                     style: GoogleFonts.tajawal(
                       fontWeight: FontWeight.w600,
                       color: Theme.of(context).brightness == Brightness.dark 
@@ -325,127 +171,49 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
                   backgroundColor: Theme.of(context).brightness == Brightness.dark 
                       ? const Color(0xFF2A2A2A)
                       : null,
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ListTile(
-                        leading: Icon(
-                          Icons.refresh,
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFF64B5F6)
-                              : null,
-                        ),
-                        title: Text(
-                          'تحديث الأذكار',
-                          style: GoogleFonts.tajawal(
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? const Color(0xFFE0E0E0)
-                                : null,
-                          ),
-                        ),
-                        onTap: () {
-                          Navigator.of(context).pop();
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: Text(
-                                'تحديث الأذكار',
-                                style: GoogleFonts.tajawal(
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).brightness == Brightness.dark 
-                                      ? const Color(0xFFE0E0E0)
-                                      : null,
-                                ),
-                              ),
-                              content: Text(
-                                'اختر الإجراء الذي تريد تنفيذه:',
-                                style: GoogleFonts.tajawal(
-                                  color: Theme.of(context).brightness == Brightness.dark 
-                                      ? const Color(0xFFBDBDBD)
-                                      : null,
-                                ),
-                              ),
-                              backgroundColor: Theme.of(context).brightness == Brightness.dark 
-                                  ? const Color(0xFF2A2A2A)
-                                  : null,
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: Text(
-                                    'إلغاء',
-                                    style: GoogleFonts.tajawal(
-                                      color: Theme.of(context).brightness == Brightness.dark
-                                          ? const Color(0xFF64B5F6)
-                                          : Theme.of(context).primaryColor,
-                                    ),
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                    setState(() {
-                                      _isLoading = true;
-                                    });
-                                    _initializeAzkar();
-                                  },
-                                  child: Text(
-                                    'تحديث البيانات فقط',
-                                    style: GoogleFonts.tajawal(
-                                      color: Theme.of(context).brightness == Brightness.dark
-                                          ? const Color(0xFF64B5F6)
-                                          : Theme.of(context).primaryColor,
-                                    ),
-                                  ),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                    _resetAllCounters();
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Theme.of(context).brightness == Brightness.dark
-                                        ? const Color(0xFF1E88E5)
-                                        : Theme.of(context).primaryColor,
-                                  ),
-                                  child: Text(
-                                    'تحديث وإعادة تعيين العدادات',
-                                    style: GoogleFonts.tajawal(
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                      ListTile(
-                        leading: Icon(
-                          Icons.text_fields,
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFF64B5F6)
-                              : null,
-                        ),
-                        title: Text(
-                          'حجم الخط',
-                          style: GoogleFonts.tajawal(
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? const Color(0xFFE0E0E0)
-                                : null,
-                          ),
-                        ),
-                        onTap: () {
-                          Navigator.of(context).pop();
-                          _showFontSizeDialog();
-                        },
-                      ),
-                    ],
+                  content: Text(
+                    'هل أنت متأكد من أنك تريد تصفير جميع عدادات الأذكار؟',
+                    style: GoogleFonts.tajawal(
+                      color: Theme.of(context).brightness == Brightness.dark 
+                          ? const Color(0xFFBDBDBD)
+                          : null,
+                    ),
                   ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(
+                        'إلغاء',
+                        style: GoogleFonts.tajawal(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF64B5F6)
+                              : Theme.of(context).primaryColor,
+                        ),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        AzkarService.instance.resetAllCounters();
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF1E88E5)
+                            : Theme.of(context).primaryColor,
+                      ),
+                      child: Text(
+                        'تصفير',
+                        style: GoogleFonts.tajawal(
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               );
             },
-            icon: const Icon(Icons.more_vert),
-            tooltip: 'خيارات',
+            icon: const Icon(Icons.refresh),
+            tooltip: 'تصفير جميع الأذكار',
           ),
         ],
       ),

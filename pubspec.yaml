@@ -48,15 +48,11 @@ dependencies:
   cached_network_image: ^3.4.1
   sqflite: ^2.4.1
   path_provider: ^2.1.5
+  workmanager: ^0.9.0+3
+  home_widget: ^0.8.1
   
   # Background notifications and alarms
   flutter_local_notifications: ^19.5.0
-  
-  # Home screen widget
-  home_widget: ^0.8.1
-  
-  # Background service for widget updates
-  workmanager: ^0.9.0
   
   # Islamic calendar for Hijri date
   hijri: ^3.0.0

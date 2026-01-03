@@ -102,6 +102,7 @@ class PrayerWidgetService {
         'timeUntil': _formatTimeUntil(nextPrayer['timeUntil'] as Duration),
         'hijriDate': hijriDateString,
         'lastUpdate': now.toIso8601String(),
+        'timestamp': now.millisecondsSinceEpoch, // Add timestamp as integer
       });
       await HomeWidget.updateWidget();
       
@@ -129,6 +130,7 @@ class PrayerWidgetService {
       'timeUntil': 'جاري التحديث...',
       'hijriDate': hijriDateString,
       'lastUpdate': now.toIso8601String(),
+      'timestamp': now.millisecondsSinceEpoch, // Add timestamp as integer
     });
     await HomeWidget.updateWidget();
     
