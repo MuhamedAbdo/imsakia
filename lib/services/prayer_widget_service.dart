@@ -92,14 +92,14 @@ class PrayerWidgetService {
       final hijriDateString = _getHijriDateString(now);
 
       // Save to SharedPreferences for Android widget
-      await prefs.setString('flutter.nextPrayer', nextPrayer['name'] ?? 'الظهر');
-      await prefs.setString('flutter.timeUntil', _formatTimeUntil(nextPrayer['timeUntil']));
+      await prefs.setString('flutter.nextPrayer', (nextPrayer['name'] as String?) ?? 'الظهر');
+      await prefs.setString('flutter.timeUntil', _formatTimeUntil(nextPrayer['timeUntil'] as Duration));
       await prefs.setString('flutter.hijriDate', hijriDateString);
 
       // Update Flutter widget
       await HomeWidget.saveWidgetData('prayer_widget', {
-        'nextPrayer': nextPrayer['name'],
-        'timeUntil': _formatTimeUntil(nextPrayer['timeUntil']),
+        'nextPrayer': nextPrayer['name'] as String,
+        'timeUntil': _formatTimeUntil(nextPrayer['timeUntil'] as Duration),
         'hijriDate': hijriDateString,
         'lastUpdate': now.toIso8601String(),
       });
@@ -202,8 +202,8 @@ class PrayerWidgetService {
     final timeUntil = nextPrayerTime.difference(now);
 
     return {
-      'name': nextPrayerName,
-      'time': nextPrayerTime,
+      'name': nextPrayerName ?? 'الظهر',
+      'time': nextPrayerTime.toIso8601String(),
       'timeUntil': timeUntil,
     };
   }

@@ -104,19 +104,31 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
           'إعادة تعيين جميع العدادات',
           style: GoogleFonts.tajawal(
             fontWeight: FontWeight.w600,
+            color: Theme.of(context).brightness == Brightness.dark 
+                ? const Color(0xFFE0E0E0)
+                : null,
           ),
         ),
         content: Text(
           'هل أنت متأكد من أنك تريد إعادة تعيين جميع عدادات الأذكار؟',
-          style: GoogleFonts.tajawal(),
+          style: GoogleFonts.tajawal(
+            color: Theme.of(context).brightness == Brightness.dark 
+                ? const Color(0xFFBDBDBD)
+                : null,
+          ),
         ),
+        backgroundColor: Theme.of(context).brightness == Brightness.dark 
+            ? const Color(0xFF2A2A2A)
+            : null,
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
               'إلغاء',
               style: GoogleFonts.tajawal(
-                color: Theme.of(context).primaryColor,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF64B5F6)
+                    : Theme.of(context).primaryColor,
               ),
             ),
           ),
@@ -126,7 +138,9 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
               Navigator.of(context).pop();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
+              backgroundColor: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1E88E5)
+                  : Theme.of(context).primaryColor,
             ),
             child: Text(
               'إعادة تعيين',
@@ -148,8 +162,14 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
           'حجم الخط',
           style: GoogleFonts.tajawal(
             fontWeight: FontWeight.w600,
+            color: Theme.of(context).brightness == Brightness.dark 
+                ? const Color(0xFFE0E0E0)
+                : null,
           ),
         ),
+        backgroundColor: Theme.of(context).brightness == Brightness.dark 
+            ? const Color(0xFF2A2A2A)
+            : null,
         content: StatefulBuilder(
           builder: (context, setState) {
             return Column(
@@ -157,7 +177,12 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
               children: [
                 Text(
                   '${_fontSize.toInt()}',
-                  style: GoogleFonts.tajawal(fontSize: 24),
+                  style: GoogleFonts.tajawal(
+                    fontSize: 24,
+                    color: Theme.of(context).brightness == Brightness.dark 
+                        ? const Color(0xFFE0E0E0)
+                        : null,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Slider(
@@ -165,7 +190,9 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
                   min: 12.0,
                   max: 28.0,
                   divisions: 16,
-                  activeColor: Theme.of(context).primaryColor,
+                  activeColor: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF64B5F6)
+                      : Theme.of(context).primaryColor,
                   onChanged: (value) {
                     this.setState(() {
                       _fontSize = value;
@@ -182,7 +209,9 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
             child: Text(
               'إلغاء',
               style: GoogleFonts.tajawal(
-                color: Theme.of(context).primaryColor,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF64B5F6)
+                    : Theme.of(context).primaryColor,
               ),
             ),
           ),
@@ -192,7 +221,9 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
               Navigator.of(context).pop();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
+              backgroundColor: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1E88E5)
+                  : Theme.of(context).primaryColor,
             ),
             child: Text(
               'حفظ',
@@ -279,23 +310,142 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
         actions: [
           IconButton(
             onPressed: () {
-              setState(() {
-                _isLoading = true;
-              });
-              _initializeAzkar();
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text(
+                    'خيارات',
+                    style: GoogleFonts.tajawal(
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).brightness == Brightness.dark 
+                          ? const Color(0xFFE0E0E0)
+                          : null,
+                    ),
+                  ),
+                  backgroundColor: Theme.of(context).brightness == Brightness.dark 
+                      ? const Color(0xFF2A2A2A)
+                      : null,
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        leading: Icon(
+                          Icons.refresh,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF64B5F6)
+                              : null,
+                        ),
+                        title: Text(
+                          'تحديث الأذكار',
+                          style: GoogleFonts.tajawal(
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFFE0E0E0)
+                                : null,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: Text(
+                                'تحديث الأذكار',
+                                style: GoogleFonts.tajawal(
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).brightness == Brightness.dark 
+                                      ? const Color(0xFFE0E0E0)
+                                      : null,
+                                ),
+                              ),
+                              content: Text(
+                                'اختر الإجراء الذي تريد تنفيذه:',
+                                style: GoogleFonts.tajawal(
+                                  color: Theme.of(context).brightness == Brightness.dark 
+                                      ? const Color(0xFFBDBDBD)
+                                      : null,
+                                ),
+                              ),
+                              backgroundColor: Theme.of(context).brightness == Brightness.dark 
+                                  ? const Color(0xFF2A2A2A)
+                                  : null,
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: Text(
+                                    'إلغاء',
+                                    style: GoogleFonts.tajawal(
+                                      color: Theme.of(context).brightness == Brightness.dark
+                                          ? const Color(0xFF64B5F6)
+                                          : Theme.of(context).primaryColor,
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                    setState(() {
+                                      _isLoading = true;
+                                    });
+                                    _initializeAzkar();
+                                  },
+                                  child: Text(
+                                    'تحديث البيانات فقط',
+                                    style: GoogleFonts.tajawal(
+                                      color: Theme.of(context).brightness == Brightness.dark
+                                          ? const Color(0xFF64B5F6)
+                                          : Theme.of(context).primaryColor,
+                                    ),
+                                  ),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                    _resetAllCounters();
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Theme.of(context).brightness == Brightness.dark
+                                        ? const Color(0xFF1E88E5)
+                                        : Theme.of(context).primaryColor,
+                                  ),
+                                  child: Text(
+                                    'تحديث وإعادة تعيين العدادات',
+                                    style: GoogleFonts.tajawal(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                      ListTile(
+                        leading: Icon(
+                          Icons.text_fields,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF64B5F6)
+                              : null,
+                        ),
+                        title: Text(
+                          'حجم الخط',
+                          style: GoogleFonts.tajawal(
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFFE0E0E0)
+                                : null,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          _showFontSizeDialog();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
             },
-            icon: const Icon(Icons.refresh),
-            tooltip: 'تحديث الأذكار',
-          ),
-          IconButton(
-            onPressed: _resetAllCounters,
-            icon: const Icon(Icons.clear_all),
-            tooltip: 'إعادة تعيين جميع العدادات',
-          ),
-          IconButton(
-            onPressed: _showFontSizeDialog,
-            icon: const Icon(Icons.text_fields),
-            tooltip: 'حجم الخط',
+            icon: const Icon(Icons.more_vert),
+            tooltip: 'خيارات',
           ),
         ],
       ),
@@ -406,9 +556,9 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
           gradient: category.gradient,
           boxShadow: [
             BoxShadow(
-              color: category.color.withOpacity(0.3),
-              blurRadius: 15,
-              spreadRadius: 3,
+              color: category.color.withOpacity(0.15),
+              blurRadius: 8,
+              spreadRadius: 1,
             ),
           ],
         ),

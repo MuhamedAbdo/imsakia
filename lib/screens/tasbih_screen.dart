@@ -282,11 +282,15 @@ class _TasbihScreenState extends State<TasbihScreen>
                   padding: const EdgeInsets.all(24.0),
                   margin: const EdgeInsets.all(16.0),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
+                    color: Theme.of(context).brightness == Brightness.dark 
+                        ? const Color(0xFF2A2A2A) // Darker card for dark mode
+                        : Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.black.withValues(alpha: 0.3) // Darker shadow for dark mode
+                            : Colors.black.withValues(alpha: 0.1),
                         blurRadius: 10,
                         offset: const Offset(0, 5),
                       ),
@@ -299,7 +303,9 @@ class _TasbihScreenState extends State<TasbihScreen>
                         style: GoogleFonts.tajawal(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: Theme.of(context).textTheme.bodyMedium?.color,
+                          color: Theme.of(context).brightness == Brightness.dark 
+                              ? const Color(0xFFE0E0E0) // Lighter text for dark mode
+                              : Theme.of(context).textTheme.bodyMedium?.color,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -308,7 +314,9 @@ class _TasbihScreenState extends State<TasbihScreen>
                         style: GoogleFonts.tajawal(
                           fontSize: 32,
                           fontWeight: FontWeight.w700,
-                          color: Theme.of(context).primaryColor,
+                          color: Theme.of(context).brightness == Brightness.dark 
+                              ? const Color(0xFF90CAF9) // Lighter blue for dark mode
+                              : Theme.of(context).primaryColor,
                         ),
                       ),
                     ],
