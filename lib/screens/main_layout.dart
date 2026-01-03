@@ -3,17 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/settings_provider.dart';
-import '../providers/theme_provider.dart';
-import '../providers/quran_provider.dart';
 import '../services/prayer_times_service.dart';
 import '../services/hadith_service.dart';
 import '../services/athan_player_service.dart';
 import '../services/hijri_date_service.dart';
 import '../utils/app_constants.dart';
-import '../utils/logger.dart';
 import 'quran_index_screen.dart';
 import 'tasbih_screen.dart';
 import 'azkar_screen.dart';
+import 'fasting_fiqh_screen.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -30,7 +28,7 @@ class _MainLayoutState extends State<MainLayout> {
     const QuranIndexScreen(),
     const TasbihScreen(),
     const AzkarScreen(),
-    const FiqhScreen(),
+    const FastingFiqhScreen(),
   ];
 
   @override
@@ -1079,28 +1077,5 @@ class AzkarScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Use the actual AzkarScreenWidget from its separate file
     return const AzkarScreenWidget();
-  }
-}
-
-class FiqhScreen extends StatelessWidget {
-  const FiqhScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'فقه الصيام',
-          style: GoogleFonts.tajawal(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: const Center(
-        child: Text('قيد التطوير...'),
-      ),
-    );
   }
 }

@@ -162,6 +162,17 @@ class _QuranIndexScreenState extends State<QuranIndexScreen> with SingleTickerPr
         bottom: TabBar(
           controller: _tabController,
           labelStyle: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+          labelColor: MediaQuery.of(context).platformBrightness == Brightness.dark
+              ? Colors.white
+              : Colors.black,
+          unselectedLabelColor: Colors.grey.withOpacity(0.7),
+          indicatorColor: Theme.of(context).primaryColor,
+          indicator: UnderlineTabIndicator(
+            borderSide: BorderSide(
+              color: Theme.of(context).primaryColor,
+              width: 2.0,
+            ),
+          ),
           tabs: const [
             Tab(text: 'فهرس السور'),
             Tab(text: 'فهرس الأجزاء'),
