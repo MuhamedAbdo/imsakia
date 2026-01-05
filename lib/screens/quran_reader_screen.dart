@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../services/quran_text_service.dart';
+import '../services/tafsir_service.dart';
 import '../models/quran_models.dart';
 import '../widgets/surah_header_widget.dart';
+import '../widgets/tafsir_bottom_sheet.dart';
 
 class QuranReaderScreen extends StatefulWidget {
   final int? initialSurah;
@@ -17,6 +20,7 @@ class QuranReaderScreen extends StatefulWidget {
 
 class _QuranReaderScreenState extends State<QuranReaderScreen> {
   final QuranTextService _quranService = QuranTextService();
+  final TafsirService _tafsirService = TafsirService();
   final ItemScrollController _scrollController = ItemScrollController();
   final ItemPositionsListener _positionsListener = ItemPositionsListener.create();
   
@@ -24,8 +28,10 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
   bool _isLoading = true;
   bool _isInitialMount = true; 
   double _fontSize = 24.0;
-  int? _lastQuarterNotified; 
   String _currentTitle = "";
+  
+  // Store gesture recognizers for proper disposal
+  final List<TapGestureRecognizer> _gestureRecognizers = [];
 
   @override
   void initState() {
@@ -33,8 +39,20 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
     _init();
   }
 
+  @override
+  void dispose() {
+    // Dispose all gesture recognizers
+    for (final recognizer in _gestureRecognizers) {
+      recognizer.dispose();
+    }
+    _gestureRecognizers.clear();
+    
+    super.dispose();
+  }
+
   Future<void> _init() async {
     await _quranService.loadQuranData();
+    await _tafsirService.loadTafsirData();
     double savedFontSize = await _quranService.getFontSize();
     
     // تحديد السورة الابتدائية لضبط العنوان فوراً
@@ -66,9 +84,13 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
     } else if (bookmark != null) {
       targetIndex = bookmark['index'];
       targetOffset = bookmark['offset'];
+      // Update title immediately when using bookmark
+      _updateTitleFromIndex(targetIndex);
     } else if (progress != null) {
       targetIndex = progress['index'];
       targetOffset = progress['offset'];
+      // Update title immediately when using progress
+      _updateTitleFromIndex(targetIndex);
     }
 
     Future.delayed(const Duration(milliseconds: 400), () {
@@ -79,6 +101,16 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
         if (mounted) _isInitialMount = false;
       });
     });
+  }
+
+  void _updateTitleFromIndex(int index) {
+    int sIdx = index ~/ 2;
+    if (sIdx >= 0 && sIdx < _surahs.length) {
+      final surah = _surahs[sIdx];
+      if (_currentTitle != surah.name) {
+        setState(() => _currentTitle = surah.name);
+      }
+    }
   }
 
   void _onScroll() {
@@ -98,33 +130,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
       if (_currentTitle != surah.name) {
         setState(() => _currentTitle = surah.name);
       }
-
-      for (var ayah in surah.ayahs) {
-        final details = _quranService.getHizbDetails(surah.number, ayah.ayahNumber);
-        
-        if (details != null && details['q'] != _lastQuarterNotified) {
-          if (topItem.itemLeadingEdge.abs() < 0.15) { 
-            _lastQuarterNotified = details['q'];
-            _showNotification("الجزء ${details['j']} - الربع ${details['q']} (سورة ${surah.name})");
-            break;
-          }
-        }
-      }
     }
-  }
-
-  void _showNotification(String msg) {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg, textAlign: TextAlign.center, style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, color: Colors.white)),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.teal[800],
-        duration: const Duration(seconds: 2),
-        margin: const EdgeInsets.symmetric(horizontal: 60, vertical: 40),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      ),
-    );
   }
 
   void _showFontSizeSheet() {
@@ -210,34 +216,123 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
 
   Widget _buildContent(QuranSurah surah) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 15, 24, 40),
-      child: RichText(
-        textDirection: TextDirection.rtl,
-        textAlign: TextAlign.justify,
-        text: TextSpan(
-          children: surah.ayahs.map((a) => TextSpan(
-            children: [
-              TextSpan(
-                text: "${a.arabicText} ", 
+    
+    return Column(
+      children: [
+        // Basmalah as separate centered widget
+        if (_shouldShowBasmalah(surah))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Center(
+              child: Text(
+                "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+                textAlign: TextAlign.center,
                 style: GoogleFonts.amiriQuran(
-                  fontSize: _fontSize, 
-                  color: isDark ? Colors.white : Colors.black, 
-                  height: 2.1
-                )
+                  fontSize: _fontSize + 2,
+                  color: isDark ? Colors.amber[200] : Colors.brown[600],
+                  height: 2.1,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              TextSpan(
-                text: "﴿${a.ayahNumber}﴾ ", 
-                style: TextStyle(
-                  color: isDark ? Colors.amber[200] : Colors.brown[400], 
-                  fontSize: _fontSize * 0.7, 
-                  fontWeight: FontWeight.bold
-                )
-              ),
-            ],
-          )).toList(),
+            ),
+          ),
+        
+        // Verses as justified paragraph
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 15, 24, 40),
+          child: RichText(
+            textDirection: TextDirection.rtl,
+            textAlign: TextAlign.justify,
+            text: TextSpan(
+              children: _buildTextSpans(surah, isDark),
+            ),
+          ),
         ),
-      ),
+      ],
     );
+  }
+
+  List<TextSpan> _buildTextSpans(QuranSurah surah, bool isDark) {
+    List<TextSpan> spans = [];
+    
+    // Add all ayahs as a continuous paragraph
+    for (int i = 0; i < surah.ayahs.length; i++) {
+      final ayah = surah.ayahs[i];
+      
+      // Create and store gesture recognizer for ayah text
+      final ayahTextRecognizer = TapGestureRecognizer()
+        ..onTap = () => _showTafsirModal(surah, ayah);
+      _gestureRecognizers.add(ayahTextRecognizer);
+      
+      // Create tappable ayah text
+      spans.add(TextSpan(
+        text: ayah.arabicText,
+        style: GoogleFonts.amiriQuran(
+          fontSize: _fontSize,
+          color: isDark ? Colors.white : Colors.black,
+          height: 2.1,
+        ),
+        recognizer: ayahTextRecognizer,
+      ));
+      
+      // Create and store gesture recognizer for ayah symbol
+      final ayahSymbolRecognizer = TapGestureRecognizer()
+        ..onTap = () => _showTafsirModal(surah, ayah);
+      _gestureRecognizers.add(ayahSymbolRecognizer);
+      
+      // Add ayah number in decorative circle
+      spans.add(TextSpan(
+        text: " ${_getAyahSymbol(ayah.ayahNumber)} ",
+        style: GoogleFonts.tajawal(
+          fontSize: _fontSize * 0.8,
+          color: isDark ? Colors.amber[200] : Colors.brown[600],
+          fontWeight: FontWeight.bold,
+        ),
+        recognizer: ayahSymbolRecognizer,
+      ));
+      
+      // Add space between ayahs (but not line break)
+      if (i < surah.ayahs.length - 1) {
+        spans.add(TextSpan(
+          text: " ",
+          style: GoogleFonts.amiriQuran(
+            fontSize: _fontSize,
+            color: isDark ? Colors.white : Colors.black,
+            height: 2.1,
+          ),
+        ));
+      }
+    }
+    
+    return spans;
+  }
+
+  String _getAyahSymbol(int ayahNumber) {
+    // Create decorative circle with ayah number
+    return "﴿$ayahNumber﴾";
+  }
+
+  void _showTafsirModal(QuranSurah surah, QuranAyah ayah) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TafsirBottomSheet(ayah: ayah),
+    );
+  }
+
+  bool _shouldShowBasmalah(QuranSurah surah) {
+    // Al-Fatihah: Basmalah is treated as first ayah (Ayah 1)
+    if (surah.number == 1) {
+      return false; // Basmalah is already included as ayah 1
+    }
+    
+    // Surah At-Tawbah: NO Basmalah
+    if (surah.number == 9) {
+      return false;
+    }
+    
+    // All other Surahs: Display Basmalah as Header/Title
+    return true;
   }
 }

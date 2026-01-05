@@ -44,16 +44,26 @@ public class PrayerWidgetProvider extends AppWidgetProvider {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.prayer_widget_layout);
         
         // Set prayer data with proper keys and logging
+        String currentPrayer = prefs.getString("flutter.currentPrayer", "---");
+        String currentPrayerTime = prefs.getString("flutter.currentPrayerTime", "--:--");
         String nextPrayer = prefs.getString("flutter.nextPrayer", "الظهر");
-        String timeUntil = prefs.getString("flutter.timeUntil", "2 ساعة 30 دقيقة");
+        String nextPrayerTime = prefs.getString("flutter.nextPrayerTime", "--:--");
+        String timeUntil = prefs.getString("flutter.timeUntil", "جاري التحديث...");
         String hijriDate = prefs.getString("flutter.hijriDate", "15 رمضان 1445 هـ");
         
-        Log.d(TAG, "Reading data: nextPrayer=" + nextPrayer + ", timeUntil=" + timeUntil + ", hijriDate=" + hijriDate);
+        Log.d(TAG, "Reading data: currentPrayer=" + currentPrayer + ", currentPrayerTime=" + currentPrayerTime + 
+                  ", nextPrayer=" + nextPrayer + ", nextPrayerTime=" + nextPrayerTime + 
+                  ", timeUntil=" + timeUntil + ", hijriDate=" + hijriDate);
         
         // Check if data exists and is not empty
-        if (timeUntil == null || timeUntil.isEmpty() || timeUntil.equals("---")) {
-            timeUntil = "جاري التحديث...";
-            Log.w(TAG, "timeUntil was empty, using default");
+        if (currentPrayer == null || currentPrayer.isEmpty()) {
+            currentPrayer = "---";
+            Log.w(TAG, "currentPrayer was empty, using default");
+        }
+        
+        if (currentPrayerTime == null || currentPrayerTime.isEmpty()) {
+            currentPrayerTime = "--:--";
+            Log.w(TAG, "currentPrayerTime was empty, using default");
         }
         
         if (nextPrayer == null || nextPrayer.isEmpty()) {
@@ -61,13 +71,27 @@ public class PrayerWidgetProvider extends AppWidgetProvider {
             Log.w(TAG, "nextPrayer was empty, using default");
         }
         
+        if (nextPrayerTime == null || nextPrayerTime.isEmpty()) {
+            nextPrayerTime = "--:--";
+            Log.w(TAG, "nextPrayerTime was empty, using default");
+        }
+        
+        if (timeUntil == null || timeUntil.isEmpty() || timeUntil.equals("---")) {
+            timeUntil = "جاري التحديث...";
+            Log.w(TAG, "timeUntil was empty, using default");
+        }
+        
         if (hijriDate == null || hijriDate.isEmpty()) {
             hijriDate = "15 رمضان 1445 هـ";
             Log.w(TAG, "hijriDate was empty, using default");
         }
         
+        // Update widget views with new layout
+        views.setTextViewText(R.id.current_prayer_name, currentPrayer);
+        views.setTextViewText(R.id.current_prayer_time, currentPrayerTime);
         views.setTextViewText(R.id.next_prayer_name, nextPrayer);
-        views.setTextViewText(R.id.time_until_prayer, timeUntil);
+        views.setTextViewText(R.id.next_prayer_time, nextPrayerTime);
+        views.setTextViewText(R.id.countdown_timer, timeUntil);
         views.setTextViewText(R.id.hijri_date, hijriDate);
         
         // Set click intent to open the app

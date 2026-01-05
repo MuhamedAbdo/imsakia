@@ -84,6 +84,29 @@ class _QuranScreenState extends State<QuranScreen> {
           ),
         ),
         actions: [
+          if (_lastReadAyah != null)
+            IconButton(
+              onPressed: () async {
+                print('📖 Navigating to bookmark: ${_lastReadAyah!['surahName']}');
+                
+                // Ensure QuranService is loaded before navigation
+                if (!_quranService.isLoaded) {
+                  print('⏳ QuranService not loaded, loading before navigation...');
+                  await _quranService.loadSurahs();
+                }
+                
+                if (mounted) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const QuranReaderScreen(),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.bookmark),
+              tooltip: 'الانتقال إلى المحفوظ',
+            ),
           IconButton(
             onPressed: () {
               Navigator.push(

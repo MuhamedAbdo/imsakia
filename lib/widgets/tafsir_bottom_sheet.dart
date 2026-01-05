@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../models/quran_models.dart';
 import '../providers/theme_provider.dart';
+import '../services/tafsir_service.dart';
 
 class TafsirBottomSheet extends StatelessWidget {
   final QuranAyah ayah;
@@ -16,6 +17,10 @@ class TafsirBottomSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.isDarkMode;
+    final tafsirService = TafsirService();
+    
+    // Get tafsir from XML data
+    final tafsirText = tafsirService.getTafsir(ayah.surahNumber, ayah.ayahNumber);
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
@@ -112,7 +117,7 @@ class TafsirBottomSheet extends StatelessWidget {
           Expanded(
             child: Container(
               padding: const EdgeInsets.all(20),
-              child: ayah.tafsir != null
+              child: tafsirText != null
                   ? SingleChildScrollView(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,9 +141,9 @@ class TafsirBottomSheet extends StatelessWidget {
                           
                           const SizedBox(height: 16),
                           
-                          // Tafsir text
+                          // Tafsir text from XML
                           Text(
-                            ayah.tafsir!,
+                            tafsirText,
                             style: GoogleFonts.tajawal(
                               fontSize: 16,
                               height: 1.6,

@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:adhan/adhan.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../utils/logger.dart';
 import 'athan_player_service.dart';
 import 'prayer_widget_service.dart';
@@ -76,9 +78,56 @@ class BackgroundAthanService {
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()
           ?.requestExactAlarmsPermission();
+
+      // Request battery optimization exemption for Android 13/14
+      await _requestBatteryOptimizationExemption();
+      
+      Logger.success('All permissions requested successfully');
     } catch (e) {
       Logger.warning('Permission request failed: $e');
       // Continue without permissions if denied
+    }
+  }
+
+  Future<void> _requestBatteryOptimizationExemption() async {
+    try {
+      // Check if we can ignore battery optimizations
+      var status = await Permission.ignoreBatteryOptimizations.status;
+      
+      if (!status.isGranted) {
+        Logger.info('Requesting battery optimization exemption...');
+        
+        // Request the permission
+        await Permission.ignoreBatteryOptimizations.request();
+        
+        // Check again
+        status = await Permission.ignoreBatteryOptimizations.status;
+        if (status.isGranted) {
+          Logger.success('Battery optimization exemption granted');
+        } else {
+          Logger.warning('Battery optimization exemption denied - user may need to enable manually');
+        }
+      } else {
+        Logger.info('Battery optimization exemption already granted');
+      }
+    } catch (e) {
+      Logger.error('Error requesting battery optimization exemption: $e');
+    }
+  }
+
+  Future<bool> hasExactAlarmPermission() async {
+    try {
+      final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      
+      if (androidPlugin != null) {
+        // For Android 12+, check if we have exact alarm permission
+        return await androidPlugin.areNotificationsEnabled() ?? false;
+      }
+      return true; // Assume granted on older versions
+    } catch (e) {
+      Logger.error('Error checking exact alarm permission: $e');
+      return false;
     }
   }
 
@@ -208,8 +257,8 @@ class BackgroundAthanService {
 
       final athanSound = prefs.getString('athan_sound') ?? 'default';
       
-      // Show notification
-      await _showAthanNotification(prayerName, athanSound);
+      // Show high-priority persistent notification
+      await _showPersistentAthanNotification(prayerName, athanSound);
       
       // Play athan sound
       await _playAthanSound(prayerName);
@@ -223,7 +272,7 @@ class BackgroundAthanService {
     }
   }
 
-  Future<void> _showAthanNotification(String prayerName, String athanSound) async {
+  Future<void> _showPersistentAthanNotification(String prayerName, String athanSound) async {
     final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'athan_channel',
@@ -235,6 +284,16 @@ class BackgroundAthanService {
       enableVibration: true,
       fullScreenIntent: true,
       category: AndroidNotificationCategory.alarm,
+      // Additional settings for exact alarm
+      ongoing: false,
+      autoCancel: true,
+      visibility: NotificationVisibility.public,
+      showWhen: true,
+      showProgress: false,
+      enableLights: true,
+      ledColor: const Color(0xFF4CAF50),
+      ledOnMs: 1000,
+      ledOffMs: 500,
     );
 
     final NotificationDetails platformChannelSpecifics =

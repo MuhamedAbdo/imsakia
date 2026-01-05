@@ -84,29 +84,37 @@ class PrayerWidgetService {
       final date = DateComponents(now.year, now.month, now.day);
       final prayerTimes = PrayerTimes(coordinates, date, params);
 
-      // Get next prayer
+      // Get current and next prayers
+      final currentPrayer = _getCurrentPrayer(prayerTimes, now);
       final nextPrayer = await _getNextPrayer(prayerTimes, now);
       
       // Get Hijri date (simplified version)
       final hijriDateString = _getHijriDateString(now);
 
-      // Save to SharedPreferences for Android widget
+      // Save to SharedPreferences for Android widget with proper types
+      await prefs.setString('flutter.currentPrayer', (currentPrayer['name'] as String?) ?? '---');
+      await prefs.setString('flutter.currentPrayerTime', (currentPrayer['time'] as String?) ?? '--:--');
       await prefs.setString('flutter.nextPrayer', (nextPrayer['name'] as String?) ?? 'الظهر');
+      await prefs.setString('flutter.nextPrayerTime', (nextPrayer['time'] as String?) ?? '--:--');
       await prefs.setString('flutter.timeUntil', _formatTimeUntil(nextPrayer['timeUntil'] as int));
       await prefs.setString('flutter.hijriDate', hijriDateString);
-
-      // Update Flutter widget
+      
+      // Force update both Flutter widget and Android widget with primitive types only
       await HomeWidget.saveWidgetData('prayer_widget', {
-        'nextPrayer': nextPrayer['name'] as String,
+        'currentPrayer': currentPrayer['name'] as String? ?? '---',
+        'currentPrayerTime': currentPrayer['time'] as String? ?? '--:--',
+        'nextPrayer': nextPrayer['name'] as String? ?? 'الظهر',
+        'nextPrayerTime': nextPrayer['time'] as String? ?? '--:--',
         'timeUntil': _formatTimeUntil(nextPrayer['timeUntil'] as int),
         'hijriDate': hijriDateString,
         'lastUpdate': now.toIso8601String(),
-        'timestamp': now.millisecondsSinceEpoch, // Add timestamp as integer
+        'timestamp': now.millisecondsSinceEpoch, // Keep as int for Android compatibility
       });
       await HomeWidget.updateWidget();
       
       Logger.info('Widget data updated successfully');
-      Logger.info('Next prayer: ${nextPrayer['name']}, Time until: ${_formatTimeUntil(nextPrayer['timeUntil'] as int)}');
+      Logger.info('Current prayer: ${currentPrayer['name']} at ${currentPrayer['time']}');
+      Logger.info('Next prayer: ${nextPrayer['name']} at ${nextPrayer['time']}, Time until: ${_formatTimeUntil(nextPrayer['timeUntil'] as int)}');
     } catch (e) {
       Logger.error('Error updating widget data: $e');
       // Set default data on error
@@ -119,13 +127,19 @@ class PrayerWidgetService {
     final now = DateTime.now();
     final hijriDateString = _getHijriDateString(now);
     
+    await prefs.setString('flutter.currentPrayer', '---');
+    await prefs.setString('flutter.currentPrayerTime', '--:--');
     await prefs.setString('flutter.nextPrayer', 'الظهر');
+    await prefs.setString('flutter.nextPrayerTime', '--:--');
     await prefs.setString('flutter.timeUntil', 'جاري التحديث...');
     await prefs.setString('flutter.hijriDate', hijriDateString);
 
     // Update Flutter widget
     await HomeWidget.saveWidgetData('prayer_widget', {
+      'currentPrayer': '---',
+      'currentPrayerTime': '--:--',
       'nextPrayer': 'الظهر',
+      'nextPrayerTime': '--:--',
       'timeUntil': 'جاري التحديث...',
       'hijriDate': hijriDateString,
       'lastUpdate': now.toIso8601String(),
@@ -134,6 +148,45 @@ class PrayerWidgetService {
     await HomeWidget.updateWidget();
     
     Logger.info('Default widget data set');
+  }
+
+  static Map<String, dynamic> _getCurrentPrayer(PrayerTimes prayerTimes, DateTime now) {
+    final prayers = [
+      {'name': 'الفجر', 'time': prayerTimes.fajr},
+      {'name': 'الظهر', 'time': prayerTimes.dhuhr},
+      {'name': 'العصر', 'time': prayerTimes.asr},
+      {'name': 'المغرب', 'time': prayerTimes.maghrib},
+      {'name': 'العشاء', 'time': prayerTimes.isha},
+    ];
+
+    DateTime? currentPrayerTime;
+    String? currentPrayerName;
+
+    // Find most recent prayer that has passed
+    for (int i = prayers.length - 1; i >= 0; i--) {
+      final prayer = prayers[i];
+      final prayerTime = prayer['time'] as DateTime;
+      if (prayerTime.isBefore(now) || prayerTime.isAtSameMomentAs(now)) {
+        currentPrayerTime = prayerTime;
+        currentPrayerName = prayer['name'] as String;
+        break;
+      }
+    }
+
+    // If no prayer has passed today, use today's Isha
+    if (currentPrayerTime == null) {
+      currentPrayerTime = prayers.last['time'] as DateTime; // Use today's Isha as fallback
+      currentPrayerName = prayers.last['name'] as String;
+    }
+
+    return {
+      'name': currentPrayerName ?? '---',
+      'time': _formatTime(currentPrayerTime),
+    };
+  }
+
+  static String _formatTime(DateTime time) {
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 
   static Future<Position?> _getCurrentLocation() async {
@@ -204,7 +257,7 @@ class PrayerWidgetService {
 
     return {
       'name': nextPrayerName ?? 'الظهر',
-      'time': nextPrayerTime.toIso8601String(),
+      'time': _formatTime(nextPrayerTime),
       'timeUntil': timeUntil.inSeconds, // Convert to int to avoid Duration serialization issues
     };
   }

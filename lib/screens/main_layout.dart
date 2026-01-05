@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/settings_provider.dart';
@@ -7,6 +8,7 @@ import '../services/prayer_times_service.dart';
 import '../services/hadith_service.dart';
 import '../services/athan_player_service.dart';
 import '../services/hijri_date_service.dart';
+import '../services/prayer_widget_service.dart';
 import '../utils/app_constants.dart';
 import 'quran_index_screen.dart';
 import 'tasbih_screen.dart';
@@ -145,8 +147,7 @@ class _MainLayoutState extends State<MainLayout> {
               const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.of(context).pop();
+                  SystemNavigator.pop();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
@@ -199,6 +200,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     _loadPrayerTimes();
+    _updateWidgetOnStart();
     _startCountdownTimer();
     
     if (!HadithService.instance.isInitialized) {
@@ -231,6 +233,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _onSettingsChanged() {
     if (mounted) {
       _loadPrayerTimes();
+    }
+  }
+
+  Future<void> _updateWidgetOnStart() async {
+    try {
+      // Force widget update on app start
+      await PrayerWidgetService.instance.updateWidgetNow();
+    } catch (e) {
+      print('Error updating widget on start: $e');
     }
   }
 

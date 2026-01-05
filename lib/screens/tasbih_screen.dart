@@ -182,17 +182,24 @@ class _TasbihScreenState extends State<TasbihScreen>
                         ),
                       ),
                       // Reset button
-                      FloatingActionButton(
-                        mini: true,
-                        onPressed: _resetCount,
-                        backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
-                        elevation: 0,
-                        child: Icon(
-                          Icons.refresh,
-                          color: Theme.of(context).primaryColor,
-                          size: 20,
-                        ),
-                      ),
+                      // Reset button - Improved Visibility
+FloatingActionButton(
+  mini: true,
+  onPressed: _resetCount,
+  // تغيير الخلفية لتكون أوضح في الوضع المظلم
+  backgroundColor: Theme.of(context).brightness == Brightness.dark
+      ? Colors.white.withValues(alpha: 0.1) // خلفية فاتحة بسيطة في الوضع المظلم
+      : Theme.of(context).primaryColor.withValues(alpha: 0.1),
+  elevation: 0,
+  child: Icon(
+    Icons.refresh,
+    // تغيير لون الأيقونة ليكون أبيض أو رمادي فاتح في الوضع المظلم
+    color: Theme.of(context).brightness == Brightness.dark
+        ? Colors.white70
+        : Theme.of(context).primaryColor,
+    size: 22, // تكبير بسيط للحجم
+  ),
+),
                     ],
                   ),
                 ),
