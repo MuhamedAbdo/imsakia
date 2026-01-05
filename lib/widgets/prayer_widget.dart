@@ -4,7 +4,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class PrayerWidget extends StatefulWidget {
-  const PrayerWidget({Key? key}) : super(key: key);
+  const PrayerWidget({super.key});
 
   @override
   State<PrayerWidget> createState() => _PrayerWidgetState();

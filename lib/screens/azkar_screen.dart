@@ -212,7 +212,12 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
                 ),
               );
             },
-            icon: const Icon(Icons.refresh),
+            icon: Icon(
+              Icons.refresh,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black,
+            ),
             tooltip: 'تصفير جميع الأذكار',
           ),
         ],

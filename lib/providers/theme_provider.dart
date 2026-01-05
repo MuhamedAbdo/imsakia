@@ -9,6 +9,17 @@ class ThemeProvider extends ChangeNotifier {
 
   AppThemeMode get themeMode => _themeMode;
 
+  bool get isDarkMode {
+    switch (_themeMode) {
+      case AppThemeMode.dark:
+        return true;
+      case AppThemeMode.light:
+        return false;
+      case AppThemeMode.system:
+        return WidgetsBinding.instance.window.platformBrightness == Brightness.dark;
+    }
+  }
+
   ThemeProvider() {
     // Don't load theme mode here - let SettingsProvider handle it
     // This prevents duplicate loading and race conditions

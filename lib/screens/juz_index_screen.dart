@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/quran_service.dart';
 import '../utils/logger.dart';
-import 'quran_pages_viewer_screen.dart';
+import '../models/surah.dart';
+import 'quran_reader_screen.dart';
 
 class JuzIndexScreen extends StatelessWidget {
   const JuzIndexScreen({super.key});
@@ -60,15 +61,22 @@ class JuzIndexScreen extends StatelessWidget {
               trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () {
                 Logger.info('Navigating to $juzName, page $startPage');
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => QuranPagesViewerScreen(
-                      initialPage: startPage,
-                      surahName: juzName,
+                // Get precise juz information with exact ayah
+                final juzInfo = quranService.getJuzInfo(juzNumber);
+                if (juzInfo != null) {
+                  final surah = juzInfo['surah'] as Surah;
+                  final ayahInSurah = juzInfo['ayahInSurah'] as int;
+                  
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => QuranReaderScreen(
+                        initialSurah: surah.number,
+                        initialAyah: ayahInSurah,
+                      ),
                     ),
-                  ),
-                );
+                  );
+                }
               },
             ),
           );

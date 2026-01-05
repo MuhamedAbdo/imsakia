@@ -31,20 +31,20 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
   @override
   void initState() {
     super.initState();
-    print('🚀 SurahDetailScreen initState started');
-    print('📖 Surah: ${widget.surah.name} (${widget.surah.number})');
-    print('📄 Initial page: ${widget.initialPage ?? widget.surah.startPage}');
+    debugPrint('🚀 SurahDetailScreen initState started');
+    debugPrint('📖 Surah: ${widget.surah.name} (${widget.surah.number})');
+    debugPrint('📄 Initial page: ${widget.initialPage ?? widget.surah.startPage}');
     
     _currentPage = widget.initialPage ?? widget.surah.startPage;
     
     // Calculate initial index for RTL reading
     // Page 1 should be at index 603, Page 604 should be at index 0
     final initialIndex = 604 - _currentPage;
-    print('📍 Initial index: $initialIndex for page $_currentPage');
+    debugPrint('📍 Initial index: $initialIndex for page $_currentPage');
     
     _pageController = PageController(initialPage: initialIndex);
     
-    print('🔄 Loading QuranService data...');
+    debugPrint('🔄 Loading QuranService data...');
     _initializeScreen();
   }
 
@@ -52,19 +52,19 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
     try {
       // Ensure QuranService is loaded
       if (!_quranService.isLoaded) {
-        print('⏳ QuranService not loaded, loading now...');
+        debugPrint('⏳ QuranService not loaded, loading now...');
         await _quranService.loadSurahs();
-        print('✅ QuranService loaded successfully');
+        debugPrint('✅ QuranService loaded successfully');
       } else {
-        print('✅ QuranService already loaded');
+        debugPrint('✅ QuranService already loaded');
       }
       
       // Check bookmark status
       await _checkBookmarkStatus();
-      print('✅ SurahDetailScreen initialization complete');
+      debugPrint('✅ SurahDetailScreen initialization complete');
       
     } catch (e) {
-      print('❌ Error initializing SurahDetailScreen: $e');
+      debugPrint('❌ Error initializing SurahDetailScreen: $e');
       if (mounted) {
         setState(() {
           // Handle error state if needed
@@ -132,15 +132,15 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
   }
 
   String _getCurrentSurahName() {
-    print('🔍 Getting surah name for page $_currentPage');
+    debugPrint('🔍 Getting surah name for page $_currentPage');
     
     final currentSurah = _quranService.getSurahByPage(_currentPage);
     if (currentSurah != null) {
-      print('✅ Found surah: ${currentSurah.name} for page $_currentPage');
+      debugPrint('✅ Found surah: ${currentSurah.name} for page $_currentPage');
       return currentSurah.name;
     }
     
-    print('⚠️ No surah found for page $_currentPage, using fallback: ${widget.surah.name}');
+    debugPrint('⚠️ No surah found for page $_currentPage, using fallback: ${widget.surah.name}');
     return widget.surah.name; // Fallback to the original surah
   }
 
@@ -180,7 +180,7 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
             margin: const EdgeInsets.symmetric(horizontal: 8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.2),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
@@ -213,7 +213,7 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                     _currentPage = currentPageNumber;
                   });
                   
-                  print('📄 Changed to page $_currentPage (index $index)');
+                  debugPrint('📄 Changed to page $_currentPage (index $index)');
                   
                   // Save last read page
                   await _quranService.saveLastReadPage(_currentPage, surahNumber: widget.surah.number);
@@ -233,8 +233,8 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                   // Get local asset path
                   final assetPath = 'assets/quran/pages/$pageNumber.png';
                   
-                  print('📄 Building page $pageNumber for index $index');
-                  print('� Asset path: $assetPath');
+                  debugPrint('📄 Building page $pageNumber for index $index');
+                  debugPrint('📄 Asset path: $assetPath');
                   
                   return InteractiveViewer(
                     panEnabled: true,
@@ -261,7 +261,7 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.8),
+                      color: Colors.black.withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -322,7 +322,7 @@ class _SurahDetailScreenState extends State<SurahDetailScreen> {
           color: Theme.of(context).cardColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 4,
               offset: const Offset(0, -2),
             ),
@@ -393,11 +393,11 @@ class _QuranPageImageState extends State<_QuranPageImage> {
     return Image.asset(
       widget.assetPath,
       errorBuilder: (context, error, stackTrace) {
-        print('❌ ERROR LOADING PAGE ${widget.pageNumber}:');
-        print('❌ Error Type: ${error.runtimeType}');
-        print('❌ Error Message: ${error.toString()}');
-        print('❌ Failed Asset Path: ${widget.assetPath}');
-        print('❌ Stack Trace: $stackTrace');
+        debugPrint('❌ ERROR LOADING PAGE ${widget.pageNumber}:');
+        debugPrint('❌ Error Type: ${error.runtimeType}');
+        debugPrint('❌ Error Message: ${error.toString()}');
+        debugPrint('❌ Failed Asset Path: ${widget.assetPath}');
+        debugPrint('❌ Stack Trace: $stackTrace');
         
         return Center(
           child: Column(

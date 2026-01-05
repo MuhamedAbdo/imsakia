@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:home_widget/home_widget.dart';
-import 'package:workmanager/workmanager.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../services/prayer_widget_service.dart';
 import '../services/background_athan_service.dart';
 import '../utils/logger.dart';
 
 class WidgetSetupScreen extends StatefulWidget {
-  const WidgetSetupScreen({Key? key}) : super(key: key);
+  const WidgetSetupScreen({super.key});
 
   @override
   State<WidgetSetupScreen> createState() => _WidgetSetupScreenState();
@@ -56,22 +53,26 @@ class _WidgetSetupScreenState extends State<WidgetSetupScreen> {
         _isWidgetEnabled = true;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('تم تفعيل الـ widget بنجاح!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('تم تفعيل الـ widget بنجاح!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
 
       Logger.success('Widget permissions and services initialized');
     } catch (e) {
       Logger.error('Failed to initialize widget: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('فشل تفعيل الـ widget: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل تفعيل الـ widget: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       setState(() => _isInitializing = false);
     }
@@ -118,7 +119,7 @@ class _WidgetSetupScreenState extends State<WidgetSetupScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
+                            color: Colors.black.withValues(alpha: 0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),
@@ -151,10 +152,10 @@ class _WidgetSetupScreenState extends State<WidgetSetupScreen> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: Colors.white.withOpacity(0.3),
+                                  color: Colors.white.withValues(alpha: 0.3),
                                   width: 1,
                                 ),
                               ),
@@ -164,7 +165,7 @@ class _WidgetSetupScreenState extends State<WidgetSetupScreen> {
                                   Text(
                                     'الصلاة القادمة',
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.8),
+                                      color: Colors.white.withValues(alpha: 0.8),
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -203,21 +204,21 @@ class _WidgetSetupScreenState extends State<WidgetSetupScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.2),
+                                color: Colors.black.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 children: [
                                   Icon(
                                     Icons.calendar_today,
-                                    color: Colors.white.withOpacity(0.8),
+                                    color: Colors.white.withValues(alpha: 0.8),
                                     size: 14,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     '15 رمضان 1445 هـ',
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
+                                      color: Colors.white.withValues(alpha: 0.9),
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
                                     ),

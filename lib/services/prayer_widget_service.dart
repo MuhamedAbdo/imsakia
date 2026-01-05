@@ -39,7 +39,6 @@ class PrayerWidgetService {
       // Initialize workmanager
       await Workmanager().initialize(
         callbackDispatcher,
-        isInDebugMode: true,
       );
       
       // Register periodic task (every 15 minutes)
@@ -93,13 +92,13 @@ class PrayerWidgetService {
 
       // Save to SharedPreferences for Android widget
       await prefs.setString('flutter.nextPrayer', (nextPrayer['name'] as String?) ?? 'الظهر');
-      await prefs.setString('flutter.timeUntil', _formatTimeUntil(nextPrayer['timeUntil'] as Duration));
+      await prefs.setString('flutter.timeUntil', _formatTimeUntil(nextPrayer['timeUntil'] as int));
       await prefs.setString('flutter.hijriDate', hijriDateString);
 
       // Update Flutter widget
       await HomeWidget.saveWidgetData('prayer_widget', {
         'nextPrayer': nextPrayer['name'] as String,
-        'timeUntil': _formatTimeUntil(nextPrayer['timeUntil'] as Duration),
+        'timeUntil': _formatTimeUntil(nextPrayer['timeUntil'] as int),
         'hijriDate': hijriDateString,
         'lastUpdate': now.toIso8601String(),
         'timestamp': now.millisecondsSinceEpoch, // Add timestamp as integer
@@ -107,7 +106,7 @@ class PrayerWidgetService {
       await HomeWidget.updateWidget();
       
       Logger.info('Widget data updated successfully');
-      Logger.info('Next prayer: ${nextPrayer['name']}, Time until: ${_formatTimeUntil(nextPrayer['timeUntil'])}');
+      Logger.info('Next prayer: ${nextPrayer['name']}, Time until: ${_formatTimeUntil(nextPrayer['timeUntil'] as int)}');
     } catch (e) {
       Logger.error('Error updating widget data: $e');
       // Set default data on error
@@ -206,19 +205,20 @@ class PrayerWidgetService {
     return {
       'name': nextPrayerName ?? 'الظهر',
       'time': nextPrayerTime.toIso8601String(),
-      'timeUntil': timeUntil,
+      'timeUntil': timeUntil.inSeconds, // Convert to int to avoid Duration serialization issues
     };
   }
 
-  static String _formatTimeUntil(Duration duration) {
+  static String _formatTimeUntil(int seconds) {
+    final duration = Duration(seconds: seconds);
     if (duration.inHours > 0) {
       final hours = duration.inHours;
       final minutes = duration.inMinutes % 60;
       return '$hours ساعة $minutes دقيقة';
     } else {
       final minutes = duration.inMinutes;
-      final seconds = duration.inSeconds % 60;
-      return '$minutes دقيقة $seconds ثانية';
+      final remainingSeconds = duration.inSeconds % 60;
+      return '$minutes دقيقة $remainingSeconds ثانية';
     }
   }
 

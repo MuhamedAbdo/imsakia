@@ -303,12 +303,22 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
         actions: [
           IconButton(
             onPressed: _resetCounters,
-            icon: const Icon(Icons.refresh),
+            icon: Icon(
+              Icons.refresh,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black,
+            ),
             tooltip: 'إعادة تعيين العدادات',
           ),
           IconButton(
             onPressed: _showFontSizeDialog,
-            icon: const Icon(Icons.text_fields),
+            icon: Icon(
+              Icons.text_fields,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black,
+            ),
             tooltip: 'حجم الخط',
           ),
         ],

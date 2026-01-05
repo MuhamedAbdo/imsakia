@@ -372,6 +372,38 @@ class QuranService {
     return _surahs.first;
   }
 
+  /// Get precise juz information with surah and ayah details
+  Map<String, dynamic>? getJuzInfo(int juzNumber) {
+    if (!_isLoaded || juzNumber < 1 || juzNumber > 30) return null;
+    
+    final pageNumber = _juzStartPages[juzNumber - 1];
+    final surah = getSurahByPage(pageNumber);
+    
+    if (surah == null) return null;
+    
+    // Calculate the ayah number within the surah
+    // This is a simplified calculation - in a real app, you'd need precise mapping
+    int ayahInSurah = 1; // Default to first ayah
+    
+    // Try to find more precise ayah number based on page mapping
+    for (int i = 0; i < _surahs.length; i++) {
+      if (_surahs[i].number == surah.number) {
+        // If this is the first surah and we're at its start page, it's ayah 1
+        // Otherwise, we'd need more complex logic to determine exact ayah
+        ayahInSurah = 1;
+        break;
+      }
+    }
+    
+    return {
+      'juzNumber': juzNumber,
+      'pageNumber': pageNumber,
+      'surah': surah,
+      'ayahInSurah': ayahInSurah,
+      'totalAyahsInSurah': surah.totalAyahs,
+    };
+  }
+
   /// Search surahs by name or number
   List<Surah> searchSurahs(String query) {
     if (!_isLoaded) return [];

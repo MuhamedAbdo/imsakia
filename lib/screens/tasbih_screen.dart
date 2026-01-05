@@ -63,7 +63,7 @@ class _TasbihScreenState extends State<TasbihScreen>
         _totalCount = prefs.getInt(todayKey) ?? 0;
       });
     } catch (e) {
-      print('❌ Error loading tasbih counts: $e');
+      debugPrint('❌ Error loading tasbih counts: $e');
     }
   }
   
@@ -76,7 +76,7 @@ class _TasbihScreenState extends State<TasbihScreen>
       await prefs.setInt('tasbih_current', _currentCount);
       await prefs.setInt(todayKey, _totalCount);
     } catch (e) {
-      print('❌ Error saving tasbih counts: $e');
+      debugPrint('❌ Error saving tasbih counts: $e');
     }
   }
   

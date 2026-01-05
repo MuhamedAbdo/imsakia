@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/surah.dart';
 import '../services/quran_service.dart';
 import '../utils/app_constants.dart';
-import 'quran_pages_viewer_screen.dart';
+import 'quran_reader_screen.dart';
 
 class QuranScreen extends StatefulWidget {
   const QuranScreen({super.key});
@@ -72,81 +72,6 @@ class _QuranScreenState extends State<QuranScreen> {
     });
   }
 
-  void _showJumpToPageDialog() {
-    final TextEditingController pageController = TextEditingController();
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'الانتقال إلى الصفحة',
-          style: GoogleFonts.tajawal(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        content: TextField(
-          controller: pageController,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: 'رقم الصفحة (1-604)',
-            hintText: 'أدخل رقم الصفحة',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppConstants.smallBorderRadius),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'إلغاء',
-              style: GoogleFonts.tajawal(),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final pageNumber = int.tryParse(pageController.text);
-              print('🔄 Jump to page requested: $pageNumber');
-              
-              if (pageNumber != null && pageNumber >= 1 && pageNumber <= 604) {
-                print('✅ Valid page number: $pageNumber, navigating...');
-                
-                // Ensure QuranService is loaded before navigation
-                if (!_quranService.isLoaded) {
-                  print('⏳ QuranService not loaded, loading before navigation...');
-                  await _quranService.loadSurahs();
-                }
-                
-                Navigator.pop(context);
-                final surah = _quranService.getSurahByPage(pageNumber);
-                print('📖 Found surah for page $pageNumber: ${surah?.name ?? 'Unknown'}');
-                
-                if (mounted) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => QuranPagesViewerScreen(
-                        initialPage: pageNumber,
-                        surahName: surah?.name ?? 'القرآن الكريم',
-                      ),
-                    ),
-                  );
-                }
-              } else {
-                print('❌ Invalid page number: $pageNumber');
-              }
-            },
-            child: Text(
-              'انتقال',
-              style: GoogleFonts.tajawal(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -160,9 +85,16 @@ class _QuranScreenState extends State<QuranScreen> {
         ),
         actions: [
           IconButton(
-            onPressed: _showJumpToPageDialog,
-            icon: const Icon(Icons.book),
-            tooltip: 'الانتقال إلى الصفحة',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const QuranReaderScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.menu_book),
+            tooltip: 'القراءة النصية',
           ),
         ],
       ),
@@ -293,10 +225,7 @@ class _QuranScreenState extends State<QuranScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => QuranPagesViewerScreen(
-                    initialPage: surah.startPage,
-                    surahName: surah.name,
-                  ),
+                  builder: (context) => const QuranReaderScreen(),
                 ),
               );
             }

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/azkar.dart';
 import '../utils/logger.dart';
@@ -42,40 +41,6 @@ class AzkarService {
       // Load fallback data if JSON loading fails
       _loadFallbackData();
       _isInitialized = true;
-    }
-  }
-
-  Future<void> _loadAzkarData() async {
-    try {
-      Logger.info('Loading azkar from assets/data/azkar.json...');
-      
-      final String azkarString = await rootBundle.loadString('assets/data/azkar.json')
-          .timeout(const Duration(seconds: 3), onTimeout: () {
-        throw TimeoutException('Timeout loading azkar.json', const Duration(seconds: 3));
-      });
-
-      final dynamic azkarJson = json.decode(azkarString);
-
-      if (azkarJson is! List) {
-        throw FormatException('azkar.json is not a valid array');
-      }
-
-      final List<dynamic> azkarList = azkarJson;
-
-      if (azkarList.isEmpty) {
-        throw Exception('azkar.json is empty');
-      }
-
-      _categories = azkarList.map((data) {
-        if (data is! Map<String, dynamic>) {
-          throw FormatException('Invalid azkar data format');
-        }
-        return AzkarCategory.fromJson(data);
-      }).toList();
-
-      Logger.success('Loaded ${_categories.length} Azkar categories from JSON');
-    } catch (e) {
-      throw Exception('Failed to load azkar.json: $e');
     }
   }
 
