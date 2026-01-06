@@ -114,10 +114,15 @@ class _TasbihScreenState extends State<TasbihScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : Theme.of(context).primaryColor,
+              ),
               child: Text(
                 'إلغاء',
                 style: GoogleFonts.tajawal(
-                  color: Theme.of(context).primaryColor,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),

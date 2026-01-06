@@ -74,7 +74,7 @@ class SurahHeaderWidget extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        '${surah.revelationType == 'Meccan' ? 'مكية' : 'مدنية'}',
+                        surah.revelationType == 'Meccan' ? 'مكية' : 'مدنية',
                         style: GoogleFonts.tajawal(
                           fontSize: 11,
                           color: isDarkMode ? Colors.white70 : const Color(0xFFfef8f0),

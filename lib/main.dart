@@ -9,35 +9,17 @@ import 'screens/settings_screen.dart';
 import 'screens/main_layout.dart';
 import 'services/hadith_service.dart';
 import 'services/azkar_service.dart';
-import 'services/background_athan_service.dart';
-import 'services/prayer_widget_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize services (except background athan service)
+  // Initialize services
   await HadithService.instance.initialize();
   await AzkarService.instance.initialize();
   
   // Initialize settings provider first
   final settingsProvider = SettingsProvider();
   await settingsProvider.initialize();
-  
-  // Initialize background athan service AFTER settings are loaded
-  try {
-    await BackgroundAthanService.instance.initialize();
-  } catch (e) {
-    print('Background athan service initialization failed: $e');
-    // Continue without background service
-  }
-  
-  // Initialize prayer widget service
-  try {
-    await PrayerWidgetService.instance.initialize();
-  } catch (e) {
-    print('Prayer widget service initialization failed: $e');
-    // Continue without widget service
-  }
   
   runApp(MyApp(settingsProvider: settingsProvider));
 }

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
-import '../services/background_athan_service.dart';
 import '../services/prayer_times_service.dart';
 import '../utils/app_constants.dart';
 
@@ -142,8 +141,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.notifications,
                 children: [
                   _buildNotificationsToggle(),
-                  const SizedBox(height: 16),
-                  _buildAthanSoundSelector(),
                 ],
               ),
               const SizedBox(height: 32),
@@ -332,11 +329,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return SwitchListTile(
           title: Text('تفعيل الإشعارات', style: GoogleFonts.tajawal()),
           value: settings.notificationsEnabled,
-          onChanged: (value) async {
-            // Request permissions when enabling notifications
-            if (value) {
-              await BackgroundAthanService.instance.requestPermissions();
-            }
+          onChanged: (value) {
             settings.setNotifications(value);
           },
           contentPadding: EdgeInsets.zero,
@@ -345,31 +338,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildAthanSoundSelector() {
-    return Consumer<SettingsProvider>(
-      builder: (context, settings, child) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('صوت الأذان', style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: settings.selectedAthanSound,
-              decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppConstants.smallBorderRadius))),
-              items: const [
-                DropdownMenuItem(value: 'default', child: Text('الافتراضي')),
-                DropdownMenuItem(value: 'makkah', child: Text('مكة المكرمة')),
-                DropdownMenuItem(value: 'madinah', child: Text('المدينة المنورة')),
-                DropdownMenuItem(value: 'egypt', child: Text('مصر')),
-                DropdownMenuItem(value: 'silent', child: Text('صامت')),
-              ],
-              onChanged: (value) { if (value != null) settings.setAthanSound(value); },
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   String _getThemeDisplayName(AppThemeMode mode) {
     switch (mode) {

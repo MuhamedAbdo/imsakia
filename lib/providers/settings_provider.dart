@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/app_constants.dart';
-import '../services/athan_player_service.dart';
 
 enum AppThemeMode { light, dark, system }
 
@@ -15,11 +14,9 @@ class SettingsProvider extends ChangeNotifier {
   String _selectedCalculationMethod = AppConstants.defaultCalculationMethod;
   String _selectedMadhab = AppConstants.defaultMadhab;
   bool _dstEnabled = AppConstants.defaultDST;
-  String _selectedAthanSound = AppConstants.defaultAthanSound;
   bool _notificationsEnabled = true;
   bool _isFirstLaunch = true;
   int _hijriAdjustment = 0; // New Hijri adjustment setting
-  bool _athanMuted = false; // New athan mute setting
 
   // Getters
   AppThemeMode get themeMode => _themeMode;
@@ -27,12 +24,10 @@ class SettingsProvider extends ChangeNotifier {
   String get selectedCalculationMethod => _selectedCalculationMethod;
   String get selectedMadhab => _selectedMadhab;
   bool get dstEnabled => _dstEnabled;
-  String get selectedAthanSound => _selectedAthanSound;
   bool get notificationsEnabled => _notificationsEnabled;
   bool get isFirstLaunch => _isFirstLaunch;
   bool get isInitialized => _isInitialized;
   int get hijriAdjustment => _hijriAdjustment;
-  bool get athanMuted => _athanMuted;
 
   /// Initialize all settings from SharedPreferences
   Future<void> initialize() async {
@@ -48,11 +43,9 @@ class SettingsProvider extends ChangeNotifier {
         _loadCalculationMethod(),
         _loadMadhab(),
         _loadDST(),
-        _loadAthanSound(),
         _loadNotifications(),
         _loadHijriAdjustment(),
         _loadFirstLaunch(),
-        _loadAthanMuted(),
       ]);
 
       _isInitialized = true;
@@ -62,9 +55,6 @@ class SettingsProvider extends ChangeNotifier {
       
       debugPrint('✅ SettingsProvider initialized successfully');
       debugPrint('🎨 Theme mode loaded: ${_themeMode.toString().split('.').last}');
-      
-      // Sync AthanPlayerService with loaded settings
-      _syncAthanService();
       
     } catch (e) {
       debugPrint('❌ Error initializing SettingsProvider: $e');
@@ -98,10 +88,6 @@ class SettingsProvider extends ChangeNotifier {
     _dstEnabled = _prefs?.getBool(AppConstants.dstKey) ?? AppConstants.defaultDST;
   }
 
-  Future<void> _loadAthanSound() async {
-    _selectedAthanSound = _prefs?.getString(AppConstants.athanSoundKey) ?? AppConstants.defaultAthanSound;
-  }
-
   Future<void> _loadNotifications() async {
     _notificationsEnabled = _prefs?.getBool(AppConstants.notificationsKey) ?? true;
   }
@@ -114,32 +100,14 @@ class SettingsProvider extends ChangeNotifier {
     _isFirstLaunch = _prefs?.getBool(AppConstants.isFirstLaunchKey) ?? true;
   }
 
-  Future<void> _loadAthanMuted() async {
-    _athanMuted = _prefs?.getBool('athan_muted') ?? false;
-  }
-
   void _setDefaults() {
     _themeMode = AppThemeMode.system;
     _selectedCity = AppConstants.defaultCity;
     _selectedCalculationMethod = AppConstants.defaultCalculationMethod;
     _selectedMadhab = AppConstants.defaultMadhab;
     _dstEnabled = AppConstants.defaultDST;
-    _selectedAthanSound = AppConstants.defaultAthanSound;
     _notificationsEnabled = true;
     _isFirstLaunch = true;
-    _athanMuted = false;
-  }
-
-  void _syncAthanService() {
-    // Ensure AthanPlayerService has the latest athan sound preference
-    AthanPlayerService.instance.updateCurrentAthanSound(_selectedAthanSound);
-    
-    // Sync mute state
-    if (_athanMuted) {
-      AthanPlayerService.instance.mute();
-    } else {
-      AthanPlayerService.instance.unmute();
-    }
   }
 
   // Theme setters
@@ -182,18 +150,6 @@ class SettingsProvider extends ChangeNotifier {
     debugPrint('🌞 DST changed to: $enabled');
   }
 
-  // Athan sound setters
-  Future<void> setAthanSound(String sound) async {
-    _selectedAthanSound = sound;
-    await _prefs?.setString(AppConstants.athanSoundKey, sound);
-    
-    // Sync immediately with AthanPlayerService
-    AthanPlayerService.instance.updateCurrentAthanSound(sound);
-    
-    notifyListeners();
-    debugPrint('🔊 Athan sound changed to: $sound');
-  }
-
   // Notifications setters
   Future<void> setNotifications(bool enabled) async {
     _notificationsEnabled = enabled;
@@ -218,21 +174,6 @@ class SettingsProvider extends ChangeNotifier {
     debugPrint('📅 Hijri adjustment changed to: $adjustment');
   }
 
-  Future<void> toggleAthanMute() async {
-    _athanMuted = !_athanMuted;
-    await _prefs?.setBool('athan_muted', _athanMuted);
-    
-    // Update AthanPlayerService mute state
-    if (_athanMuted) {
-      AthanPlayerService.instance.mute();
-    } else {
-      AthanPlayerService.instance.unmute();
-    }
-    
-    notifyListeners();
-    debugPrint('🔇 Athan mute toggled to: $_athanMuted');
-  }
-
   // Batch save all settings (useful for initial setup)
   Future<void> saveAllSettings({
     AppThemeMode? themeMode,
@@ -240,7 +181,6 @@ class SettingsProvider extends ChangeNotifier {
     String? calculationMethod,
     String? madhab,
     bool? dstEnabled,
-    String? athanSound,
     bool? notificationsEnabled,
   }) async {
     try {
@@ -249,7 +189,6 @@ class SettingsProvider extends ChangeNotifier {
       if (calculationMethod != null) await setCalculationMethod(calculationMethod);
       if (madhab != null) await setMadhab(madhab);
       if (dstEnabled != null) await setDST(dstEnabled);
-      if (athanSound != null) await setAthanSound(athanSound);
       if (notificationsEnabled != null) await setNotifications(notificationsEnabled);
 
       debugPrint('💾 All settings saved successfully');
@@ -284,18 +223,6 @@ class SettingsProvider extends ChangeNotifier {
     return _selectedMadhab == 'shafi' ? 'الشافعي' : 'الحنفي';
   }
 
-  // Get athan sound display name
-  String getAthanSoundDisplayName() {
-    const sounds = {
-      'default': 'الافتراضي',
-      'makkah': 'مكة المكرمة',
-      'madinah': 'المدينة المنورة',
-      'egypt': 'مصر',
-      'silent': 'صامت',
-    };
-    return sounds[_selectedAthanSound] ?? 'الافتراضي';
-  }
-
   // Reset all settings to defaults
   Future<void> resetToDefaults() async {
     await saveAllSettings(
@@ -304,7 +231,6 @@ class SettingsProvider extends ChangeNotifier {
       calculationMethod: AppConstants.defaultCalculationMethod,
       madhab: AppConstants.defaultMadhab,
       dstEnabled: AppConstants.defaultDST,
-      athanSound: AppConstants.defaultAthanSound,
       notificationsEnabled: true,
     );
     debugPrint('🔄 Settings reset to defaults');

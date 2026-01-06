@@ -89,8 +89,8 @@ class _PermissionDiagnosticScreenState extends State<PermissionDiagnosticScreen>
               : _buildPermissionList(isDarkMode),
       floatingActionButton: FloatingActionButton(
         onPressed: _checkPermissions,
-        child: const Icon(Icons.refresh),
         tooltip: 'إعادة الفحص',
+        child: const Icon(Icons.refresh),
       ),
     );
   }

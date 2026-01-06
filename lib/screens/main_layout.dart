@@ -6,9 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/settings_provider.dart';
 import '../services/prayer_times_service.dart';
 import '../services/hadith_service.dart';
-import '../services/athan_player_service.dart';
 import '../services/hijri_date_service.dart';
-import '../services/prayer_widget_service.dart';
 import '../utils/app_constants.dart';
 import 'quran_index_screen.dart';
 import 'tasbih_screen.dart';
@@ -35,19 +33,16 @@ class _MainLayoutState extends State<MainLayout> {
 
   @override
   Widget build(BuildContext context) {
-    print('App Reached MainLayout');
     return PopScope(
-      canPop: false, // Always intercept back button
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         
-        // If we are NOT on the first tab (Prayer Times), go back to the first tab
         if (_currentIndex != 0) {
           setState(() {
-            _currentIndex = 0; // Go to Prayer Times tab
+            _currentIndex = 0;
           });
         } else {
-          // If we ARE on the Prayer Times tab, show exit confirmation
           await _showExitConfirmation(context);
         }
       },
@@ -182,7 +177,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final PrayerTimesService _prayerService = PrayerTimesService.instance;
-  final AthanPlayerService _athanPlayer = AthanPlayerService.instance;
   late SettingsProvider _settingsProvider;
   
   Map<String, DateTime?> _prayerTimes = {};
@@ -200,7 +194,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     _loadPrayerTimes();
-    _updateWidgetOnStart();
     _startCountdownTimer();
     
     if (!HadithService.instance.isInitialized) {
@@ -236,15 +229,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _updateWidgetOnStart() async {
-    try {
-      // Force widget update on app start
-      await PrayerWidgetService.instance.updateWidgetNow();
-    } catch (e) {
-      print('Error updating widget on start: $e');
-    }
-  }
-
   Future<void> _loadPrayerTimes() async {
     final prayerTimes = await _prayerService.getCurrentPrayerTimes();
     if (prayerTimes != null && mounted) {
@@ -267,7 +251,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _startCountdownTimer() {
-    _countdownTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _updatePrayerInfo();
     });
   }
@@ -298,7 +282,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     
     if (_nextPrayer != newNextPrayer || 
         _timeUntilNextPrayer?.inSeconds != newTimeUntilNextPrayer?.inSeconds ||
-        _timeUntilRamadan?.inSeconds != newTimeUntilRamadan?.inSeconds) {
+        _timeUntilRamadan?.inSeconds != newTimeUntilRamadan?.inSeconds ||
+        _prayerTimes != newPrayerTimes) {
       shouldUpdate = true;
     }
     
@@ -308,17 +293,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _nextPrayer = newNextPrayer;
         _timeUntilNextPrayer = newTimeUntilNextPrayer;
         _timeUntilRamadan = newTimeUntilRamadan;
-        
-        if (_timeUntilNextPrayer != null && 
-            _timeUntilNextPrayer!.inSeconds <= 5 && 
-            _timeUntilNextPrayer!.inSeconds > 0 &&
-            !_athanPlayer.isMuted &&
-            _nextPrayer != null) {
-          _athanPlayer.playAthan(prayerName: _nextPrayer!);
-        }
       });
     }
   }
+
   String _formatDuration(Duration duration) {
     if (duration.isNegative) {
       final now = DateTime.now();
@@ -357,64 +335,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return _getPrayerName(_nextPrayer!);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          children: [
-            Text(
-              'مواقيت الصلاة',
-              style: GoogleFonts.tajawal(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              '$_currentCity - $_currentCountry',
-              style: GoogleFonts.tajawal(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white70
-                    : Colors.black54,
-              ),
-            ),
-          ],
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.pushNamed(context, '/settings'),
-          ),
-        ],
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: Theme.of(context).brightness == Brightness.dark
-                ? [AppConstants.darkBackgroundColor, AppConstants.darkSurfaceColor]
-                : [AppConstants.backgroundColor, AppConstants.surfaceColor],
-          ),
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppConstants.mediumPadding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildNextPrayerCard(),
-              const SizedBox(height: 24),
-              _buildRamadanCountdownCard(),
-              const SizedBox(height: 24),
-              _buildPrayerTimesList(),
-            ],
-          ),
-        ),
-      ),
-    );
+  IconData _getPrayerIcon(String prayerKey) {
+    switch (prayerKey) {
+      case 'fajr': return Icons.wb_sunny;
+      case 'sunrise': return Icons.wb_twilight;
+      case 'dhuhr': return Icons.wb_sunny;
+      case 'asr': return Icons.wb_cloudy;
+      case 'maghrib': return Icons.nights_stay;
+      case 'isha': return Icons.bedtime;
+      default: return Icons.access_time;
+    }
   }
 
   Widget _buildNextPrayerCard() {
@@ -462,41 +392,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    if (_athanPlayer.isPlaying) {
-                      _athanPlayer.stopAthan();
-                    } else {
-                      _athanPlayer.playAthan(prayerName: _nextPrayer ?? 'fajr');
-                    }
-                    setState(() {});
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: _athanPlayer.isPlaying ? Colors.white.withOpacity(0.3) : Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Icon(_athanPlayer.isPlaying ? Icons.stop : Icons.play_arrow, color: Colors.white, size: 20),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => _settingsProvider.toggleAthanMute(),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: _settingsProvider.athanMuted ? Colors.white.withOpacity(0.3) : Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Icon(_settingsProvider.athanMuted ? Icons.volume_off : Icons.volume_up, color: Colors.white, size: 20),
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -505,7 +400,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Widget _buildRamadanCountdownCard() {
     final hijriAdjustment = Provider.of<SettingsProvider>(context, listen: false).hijriAdjustment;
-    final isRamadan = HijriDateService.isRamadan(DateTime.now(), hijriAdjustment);
+    final now = DateTime.now();
+    final hijriDate = HijriDateService.getHijriDate(now, hijriAdjustment);
+    final day = hijriDate['dayIndex'] as int;
+    final month = hijriDate['monthIndex'] as int;
+    
+    // Phase A (Post-Ramadan): If Hijri date is 1 Shawwal, target "Remaining until Eid al-Adha" (10 Dhu al-Hijjah)
+    if (month == 10 && day == 1) {
+      return _buildEidAlAdhaCountdown();
+    }
+    
+    // Phase B (Eid al-Adha Day): On 10 Dhu al-Hijjah, display festive message
+    if (month == 12 && day == 10) {
+      return _buildEidAlAdhaCelebration();
+    }
+    
+    // Phase C (Post-Eid al-Adha): From 11 Dhu al-Hijjah onwards, reset countdown to target the next Ramadan
+    if (month == 12 && day >= 11) {
+      return _buildRamadanCountdown();
+    }
+    
+    // Default: Check if it's Ramadan
+    final isRamadan = HijriDateService.isRamadan(now, hijriAdjustment);
     return !isRamadan ? _buildRamadanCountdown() : _buildHadithOfTheDayCard();
   }
   
@@ -567,8 +483,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         final now = DateTime.now();
         final hijriAdjustment = Provider.of<SettingsProvider>(context, listen: false).hijriAdjustment;
         final hijriDate = HijriDateService.getHijriDate(now, hijriAdjustment);
-        final day = int.parse(hijriDate['day']);
-        final year = int.parse(hijriDate['year']);
+        final day = hijriDate['dayIndex'] as int;
+        final year = int.parse(hijriDate['year'] as String);
         final index = ((day - 1) + ((year % 4) * 30)) % allHadiths.length;
         final todayHadith = allHadiths[index];
         
@@ -608,6 +524,101 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildEidAlAdhaCountdown() {
+    // Calculate days until Eid al-Adha (10 Dhu al-Hijjah)
+    final hijriAdjustment = Provider.of<SettingsProvider>(context, listen: false).hijriAdjustment;
+    final now = DateTime.now();
+    final currentHijri = HijriDateService.getHijriDate(now, hijriAdjustment);
+    final currentMonth = currentHijri['monthIndex'] as int;
+    final currentDay = currentHijri['dayIndex'] as int;
+    
+    // Calculate days until 10 Dhu al-Hijjah (simplified calculation)
+    int daysUntilEid = 0;
+    if (currentMonth < 12) {
+      // Before Dhu al-Hijjah - approximate calculation
+      daysUntilEid = (12 - currentMonth) * 30 + (10 - currentDay);
+    } else if (currentMonth == 12) {
+      if (currentDay <= 10) {
+        daysUntilEid = 10 - currentDay;
+      } else {
+        daysUntilEid = 0;
+      }
+    }
+    
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.green.shade400, Colors.green.shade600, Colors.green.shade800],
+        ),
+        borderRadius: BorderRadius.circular(AppConstants.largeBorderRadius),
+        boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppConstants.mediumPadding),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.celebration, color: Colors.white, size: 32),
+            const SizedBox(width: 16),
+            Column(
+              children: [
+                Text('باقي على عيد الأضحى', style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+                const SizedBox(height: 4),
+                Text('$daysUntilEid يوم', style: GoogleFonts.tajawal(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEidAlAdhaCelebration() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.amber.shade400, Colors.orange.shade500, Colors.red.shade500],
+        ),
+        borderRadius: BorderRadius.circular(AppConstants.largeBorderRadius),
+        boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppConstants.mediumPadding),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.celebration, color: Colors.white, size: 40),
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('عيد الأضحى المبارك', style: GoogleFonts.tajawal(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text('كل عام وأنتم بخير', style: GoogleFonts.tajawal(fontSize: 18, color: Colors.white.withOpacity(0.9))),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(AppConstants.mediumBorderRadius),
+              ),
+              child: Text('تقبل الله أعمالكم', style: GoogleFonts.tajawal(fontSize: 16, color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -683,16 +694,64 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  IconData _getPrayerIcon(String prayerKey) {
-    switch (prayerKey) {
-      case 'fajr': return Icons.wb_sunny;
-      case 'sunrise': return Icons.wb_twighlight;
-      case 'dhuhr': return Icons.wb_sunny;
-      case 'asr': return Icons.wb_cloudy;
-      case 'maghrib': return Icons.nights_stay;
-      case 'isha': return Icons.bedtime;
-      default: return Icons.access_time;
-    }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Column(
+          children: [
+            Text(
+              'مواقيت الصلاة',
+              style: GoogleFonts.tajawal(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              '$_currentCity - $_currentCountry',
+              style: GoogleFonts.tajawal(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white70
+                    : Colors.black54,
+              ),
+            ),
+          ],
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => Navigator.pushNamed(context, '/settings'),
+          ),
+        ],
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: Theme.of(context).brightness == Brightness.dark
+                ? [AppConstants.darkBackgroundColor, AppConstants.darkSurfaceColor]
+                : [AppConstants.backgroundColor, AppConstants.surfaceColor],
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppConstants.mediumPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildNextPrayerCard(),
+              const SizedBox(height: 24),
+              _buildRamadanCountdownCard(),
+              const SizedBox(height: 24),
+              _buildPrayerTimesList(),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -8,7 +8,6 @@ import '../providers/theme_provider.dart';
 import '../screens/settings_screen.dart';
 import '../screens/main_layout.dart';
 import '../services/hadith_service.dart';
-import '../services/athan_player_service.dart';
 import '../services/azkar_service.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -72,16 +71,6 @@ class _SplashScreenState extends State<SplashScreen>
       },
     ).catchError((e) {
       print('❌ HadithService initialization error: $e');
-    });
-    
-    // Initialize AthanService in background
-    AthanPlayerService.instance.initialize().timeout(
-      const Duration(seconds: 3),
-      onTimeout: () {
-        print('⚠️ AthanService initialization timeout');
-      },
-    ).catchError((e) {
-      print('❌ AthanService initialization error: $e');
     });
     
     // Initialize AzkarService in background
@@ -229,211 +218,227 @@ class _SplashScreenState extends State<SplashScreen>
             ],
           ),
         ),
-        child: Stack(
-          children: [
-            // Background decorative elements
-            _buildBackgroundDecorations(),
-            
-            // Main content
-            Center(
-              child: AnimatedBuilder(
-                animation: Listenable.merge([_fadeAnimation, _scaleAnimation, _pulseAnimation]),
-                builder: (context, child) {
-                  return FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: ScaleTransition(
-                      scale: _scaleAnimation,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Animated Logo Container
-                          AnimatedBuilder(
-                            animation: _rotationAnimation,
-                            builder: (context, child) {
-                              return Transform.rotate(
-                                angle: _rotationAnimation.value * 0.1,
-                                child: ScaleTransition(
-                                  scale: _pulseAnimation,
-                                  child: Container(
-                                    width: 140,
-                                    height: 140,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          Colors.white.withOpacity(0.2),
-                                          Colors.white.withOpacity(0.1),
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(70),
-                                      border: Border.all(
-                                        color: Colors.white.withOpacity(0.4),
-                                        width: 3,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.white.withOpacity(0.3),
-                                          blurRadius: 20,
-                                          spreadRadius: 5,
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height,
+            ),
+            child: IntrinsicHeight(
+              child: Stack(
+                children: [
+                  // Background decorative elements
+                  _buildBackgroundDecorations(),
+                  
+                  // Main content
+                  Center(
+                    child: AnimatedBuilder(
+                      animation: Listenable.merge([_fadeAnimation, _scaleAnimation, _pulseAnimation]),
+                      builder: (context, child) {
+                        return FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: ScaleTransition(
+                            scale: _scaleAnimation,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // Animated Logo Container
+                                AnimatedBuilder(
+                                  animation: _rotationAnimation,
+                                  builder: (context, child) {
+                                    return Transform.rotate(
+                                      angle: _rotationAnimation.value * 0.1,
+                                      child: ScaleTransition(
+                                        scale: _pulseAnimation,
+                                        child: Container(
+                                          width: MediaQuery.of(context).size.width * 0.3,
+                                          height: MediaQuery.of(context).size.width * 0.3,
+                                          constraints: BoxConstraints(
+                                            minWidth: 100,
+                                            maxWidth: 140,
+                                            minHeight: 100,
+                                            maxHeight: 140,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                Colors.white.withOpacity(0.2),
+                                                Colors.white.withOpacity(0.1),
+                                              ],
+                                            ),
+                                            borderRadius: BorderRadius.circular(70),
+                                            border: Border.all(
+                                              color: Colors.white.withOpacity(0.4),
+                                              width: 3,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.white.withOpacity(0.3),
+                                                blurRadius: 20,
+                                                spreadRadius: 5,
+                                              ),
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.2),
+                                                blurRadius: 15,
+                                                offset: const Offset(0, 8),
+                                              ),
+                                            ],
+                                          ),
+                                          child: const Icon(
+                                            Icons.mosque,
+                                            size: 70,
+                                            color: Colors.white,
+                                          ),
                                         ),
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.2),
-                                          blurRadius: 15,
-                                          offset: const Offset(0, 8),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                
+                                SizedBox(height: MediaQuery.of(context).size.height * 0.05),
+                                
+                                // Main Title with shadow
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  child: Text(
+                                    AppConstants.splashTitle,
+                                    style: GoogleFonts.tajawal(
+                                      fontSize: MediaQuery.of(context).size.width * 0.07,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                      height: 1.5,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.black.withOpacity(0.3),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
                                         ),
                                       ],
                                     ),
-                                    child: const Icon(
-                                      Icons.mosque,
-                                      size: 70,
-                                      color: Colors.white,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                                
+                                SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                                
+                                // Subtitle with glow effect
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 30),
+                                  child: Text(
+                                    AppConstants.splashSubtitle,
+                                    style: GoogleFonts.reemKufi(
+                                      fontSize: MediaQuery.of(context).size.width * 0.045,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.white.withOpacity(0.9),
+                                      height: 1.5,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.white.withOpacity(0.5),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
                                     ),
+                                    textAlign: TextAlign.center,
                                   ),
                                 ),
-                              );
-                            },
-                          ),
-                          
-                          const SizedBox(height: 50),
-                          
-                          // Main Title with shadow
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Text(
-                              AppConstants.splashTitle,
-                              style: GoogleFonts.tajawal(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                                height: 1.5,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black.withOpacity(0.3),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
+                                
+                                SizedBox(height: MediaQuery.of(context).size.height * 0.04),
+                                
+                                // Enhanced Dedication Card
+                                Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: MediaQuery.of(context).size.width * 0.06,
+                                    vertical: 16,
                                   ),
-                                ],
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 20),
-                          
-                          // Subtitle with glow effect
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 30),
-                            child: Text(
-                              AppConstants.splashSubtitle,
-                              style: GoogleFonts.reemKufi(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white.withOpacity(0.9),
-                                height: 1.5,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.white.withOpacity(0.5),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 40),
-                          
-                          // Enhanced Dedication Card
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 32,
-                              vertical: 16,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Color(0xFFFFD700),
-                                  Color(0xFFFFA500),
-                                  Color(0xFFFF8C00),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(35),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.3),
-                                width: 2,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.orange.withOpacity(0.4),
-                                  blurRadius: 15,
-                                  spreadRadius: 3,
-                                ),
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              AppConstants.splashDedication,
-                              style: GoogleFonts.reemKufi(
-                                fontSize: 34,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF8B4513),
-                                height: 1.4,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black.withOpacity(0.5),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 60),
-                          
-                          // Enhanced Loading Indicator
-                          AnimatedBuilder(
-                            animation: _fadeController,
-                            builder: (context, child) {
-                              return Opacity(
-                                opacity: _fadeAnimation.value * 0.8,
-                                child: Container(
-                                  padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(25),
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Color(0xFFFFD700),
+                                        Color(0xFFFFA500),
+                                        Color(0xFFFF8C00),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(35),
                                     border: Border.all(
                                       color: Colors.white.withOpacity(0.3),
                                       width: 2,
                                     ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.orange.withOpacity(0.4),
+                                        blurRadius: 15,
+                                        spreadRadius: 3,
+                                      ),
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
                                   ),
-                                  child: const CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
+                                  child: Text(
+                                    AppConstants.splashDedication,
+                                    style: GoogleFonts.reemKufi(
+                                      fontSize: MediaQuery.of(context).size.width * 0.07,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF8B4513),
+                                      height: 1.4,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.black.withOpacity(0.5),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
                                     ),
-                                    strokeWidth: 3,
+                                    textAlign: TextAlign.center,
                                   ),
                                 ),
-                              );
-                            },
+                                
+                                SizedBox(height: MediaQuery.of(context).size.height * 0.06),
+                                
+                                // Enhanced Loading Indicator
+                                AnimatedBuilder(
+                                  animation: _fadeController,
+                                  builder: (context, child) {
+                                    return Opacity(
+                                      opacity: _fadeAnimation.value * 0.8,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(25),
+                                          border: Border.all(
+                                            color: Colors.white.withOpacity(0.3),
+                                            width: 2,
+                                          ),
+                                        ),
+                                        child: const CircularProgressIndicator(
+                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                            Colors.white,
+                                          ),
+                                          strokeWidth: 3,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

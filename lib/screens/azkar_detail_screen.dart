@@ -209,8 +209,20 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          IconButton(onPressed: _resetCounters, icon: const Icon(Icons.refresh)),
-          IconButton(onPressed: _showFontSizeDialog, icon: const Icon(Icons.text_fields)),
+          IconButton(
+            onPressed: _resetCounters, 
+            icon: Icon(
+              Icons.refresh,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+          IconButton(
+            onPressed: _showFontSizeDialog, 
+            icon: Icon(
+              Icons.text_fields,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
         ],
       ),
       body: Container(

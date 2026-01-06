@@ -7,7 +7,7 @@ class TafsirService {
   factory TafsirService() => _instance;
   TafsirService._internal();
 
-  Map<String, String> _tafsirCache = {};
+  final Map<String, String> _tafsirCache = {};
   bool _isLoaded = false;
 
   Future<void> loadTafsirData() async {
