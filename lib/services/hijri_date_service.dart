@@ -15,6 +15,9 @@ class HijriDateService {
     30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29
   ];
 
+  // Make month lengths accessible for external calculations
+  static List<int> get monthLengths => islamicMonthLengths;
+
   // Global offset to align with actual moon sightings
   static const int globalOffset = 0;
 

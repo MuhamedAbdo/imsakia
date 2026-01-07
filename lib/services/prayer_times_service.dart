@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:adhan/adhan.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
-import '../utils/logger.dart';
 import '../utils/app_constants.dart';
+import 'hijri_date_service.dart';
 
 class PrayerTimesService {
   static PrayerTimesService? _instance;
@@ -14,6 +14,7 @@ class PrayerTimesService {
   Map<String, DateTime>? _currentPrayerTimes;
   StreamController<Map<String, DateTime>>? _prayerTimesController;
   Timer? _updateTimer;
+  SharedPreferences? _sharedPreferences;
   
   // Cache for Ramadan countdown
   Duration? _cachedTimeUntilRamadan;
@@ -55,8 +56,8 @@ class PrayerTimesService {
   }
 
   Future<LocationSettings?> _getCurrentLocation() async {
-    final prefs = await SharedPreferences.getInstance();
-    final selectedCityId = prefs.getString(AppConstants.selectedCityKey) ?? AppConstants.defaultCity;
+    _sharedPreferences ??= await SharedPreferences.getInstance();
+    final selectedCityId = _sharedPreferences!.getString(AppConstants.selectedCityKey) ?? AppConstants.defaultCity;
     
     final city = AppConstants.cities.firstWhere(
       (city) => city['id'] == selectedCityId,
@@ -78,8 +79,6 @@ class PrayerTimesService {
       _updatePrayerTimes();
     });
   }
-
-  // تم حذف دالة _startPreloadTimer و _checkAndPreloadNextPrayer لأنها كانت تخص الأذان
 
   Future<void> _updatePrayerTimes() async {
     await getCurrentPrayerTimes();
@@ -162,17 +161,12 @@ class PrayerTimesService {
   }
 
   bool _isIslamicRamadan(DateTime date) {
-    final year = date.year;
-    final month = date.month;
-    final day = date.day;
-
-    if (year == 2026) {
-      return (month == 2 && day >= 18) || (month == 3 && day <= 19);
-    }
-    return false;
+    final prefs = _sharedPreferences;
+    final hijriAdjustment = prefs?.getInt('hijri_adjustment') ?? 0;
+    return HijriDateService.isRamadan(date, hijriAdjustment);
   }
 
-  Duration? getTimeUntilRamadan() {
+  Future<Duration?> getTimeUntilRamadan() async {
     final now = DateTime.now();
     
     if (_lastRamadanCalculation != null && 
@@ -181,15 +175,11 @@ class PrayerTimesService {
       return _cachedTimeUntilRamadan;
     }
     
-    final ramadan2026 = DateTime(2026, 2, 18);
+    _sharedPreferences ??= await SharedPreferences.getInstance();
+    final hijriAdjustment = _sharedPreferences!.getInt('hijri_adjustment') ?? 0;
     
-    Duration result;
-    if (now.isAfter(ramadan2026)) {
-      final ramadan2027 = DateTime(2027, 2, 7);
-      result = ramadan2027.difference(now);
-    } else {
-      result = ramadan2026.difference(now);
-    }
+    final nextRamadanStart = HijriDateService.getNextRamadanStart(now, hijriAdjustment);
+    final result = nextRamadanStart.difference(now);
     
     _cachedTimeUntilRamadan = result;
     _lastRamadanCalculation = now;

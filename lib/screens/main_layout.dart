@@ -236,9 +236,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _prayerTimes = prayerTimes;
         _nextPrayer = _prayerService.getNextPrayer();
         _timeUntilNextPrayer = _prayerService.getTimeUntilNextPrayer();
-        _timeUntilRamadan = _prayerService.getTimeUntilRamadan();
       });
     }
+    
+    // Load Ramadan countdown separately
+    _loadRamadanCountdown();
     
     final cityName = await _prayerService.getCurrentCityName();
     final countryName = await _prayerService.getCurrentCountryName();
@@ -246,6 +248,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       setState(() {
         _currentCity = cityName;
         _currentCountry = countryName;
+      });
+    }
+  }
+
+  Future<void> _loadRamadanCountdown() async {
+    final timeUntilRamadan = await _prayerService.getTimeUntilRamadan();
+    if (mounted) {
+      setState(() {
+        _timeUntilRamadan = timeUntilRamadan;
       });
     }
   }
@@ -276,13 +287,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final newPrayerTimes = _prayerService.getAllPrayerTimes();
     final newNextPrayer = _prayerService.getNextPrayer();
     final newTimeUntilNextPrayer = _prayerService.getTimeUntilNextPrayer();
-    final newTimeUntilRamadan = _prayerService.getTimeUntilRamadan();
     
     bool shouldUpdate = false;
     
     if (_nextPrayer != newNextPrayer || 
         _timeUntilNextPrayer?.inSeconds != newTimeUntilNextPrayer?.inSeconds ||
-        _timeUntilRamadan?.inSeconds != newTimeUntilRamadan?.inSeconds ||
         _prayerTimes != newPrayerTimes) {
       shouldUpdate = true;
     }
@@ -292,8 +301,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _prayerTimes = newPrayerTimes;
         _nextPrayer = newNextPrayer;
         _timeUntilNextPrayer = newTimeUntilNextPrayer;
-        _timeUntilRamadan = newTimeUntilRamadan;
       });
+    }
+    
+    // Update Ramadan countdown separately
+    _updateRamadanCountdown();
+  }
+
+  Future<void> _updateRamadanCountdown() async {
+    final newTimeUntilRamadan = await _prayerService.getTimeUntilRamadan();
+    if (_timeUntilRamadan?.inSeconds != newTimeUntilRamadan?.inSeconds) {
+      if (mounted) {
+        setState(() {
+          _timeUntilRamadan = newTimeUntilRamadan;
+        });
+      }
     }
   }
 
@@ -405,22 +427,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final day = hijriDate['dayIndex'] as int;
     final month = hijriDate['monthIndex'] as int;
     
-    // Phase A (Post-Ramadan): If Hijri date is 1 Shawwal, target "Remaining until Eid al-Adha" (10 Dhu al-Hijjah)
+    // Eid al-Fitr (1 Shawwal) - Display greeting
     if (month == 10 && day == 1) {
+      return _buildEidAlFitrGreeting();
+    }
+    
+    // Day of Arafah (9 Dhul-Hijjah) - Display special message
+    if (month == 12 && day == 9) {
+      return _buildArafahDay();
+    }
+    
+    // Eid al-Adha & Tashreeq Days (10-13 Dhul-Hijjah) - Display greetings with sub-messages
+    if (month == 12 && day >= 10 && day <= 13) {
+      return _buildEidAlAdhaGreeting(day);
+    }
+    
+    // Countdown to Eid al-Adha (2 Shawwal to 8 Dhul-Hijjah)
+    if ((month == 10 && day >= 2) || (month >= 11 && month <= 11) || (month == 12 && day <= 8)) {
       return _buildEidAlAdhaCountdown();
     }
     
-    // Phase B (Eid al-Adha Day): On 10 Dhu al-Hijjah, display festive message
-    if (month == 12 && day == 10) {
-      return _buildEidAlAdhaCelebration();
-    }
-    
-    // Phase C (Post-Eid al-Adha): From 11 Dhu al-Hijjah onwards, reset countdown to target the next Ramadan
-    if (month == 12 && day >= 11) {
+    // Ramadan Countdown (14 Dhul-Hijjah onwards) - Target next Ramadan
+    if (month == 12 && day >= 14) {
       return _buildRamadanCountdown();
     }
     
-    // Default: Check if it's Ramadan
+    // Other months before Shawwal - Check if it's Ramadan
     final isRamadan = HijriDateService.isRamadan(now, hijriAdjustment);
     return !isRamadan ? _buildRamadanCountdown() : _buildHadithOfTheDayCard();
   }
@@ -430,6 +462,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final days = _timeUntilRamadan!.inDays;
     final hours = _timeUntilRamadan!.inHours.remainder(24);
     final minutes = _timeUntilRamadan!.inMinutes.remainder(60);
+    
+    // Calculate the Hijri year for the next Ramadan
+    final hijriAdjustment = Provider.of<SettingsProvider>(context, listen: false).hijriAdjustment;
+    final now = DateTime.now();
+    final currentHijri = HijriDateService.getHijriDate(now, hijriAdjustment);
+    final currentYear = int.parse(currentHijri['year'] as String);
+    final currentMonth = currentHijri['monthIndex'] as int;
+    
+    // Determine which Ramadan year we're counting down to
+    int nextRamadanYear;
+    if (currentMonth <= 9) { // Before or during Ramadan
+      nextRamadanYear = currentYear;
+    } else { // After Ramadan
+      nextRamadanYear = currentYear + 1;
+    }
     
     return Container(
       decoration: BoxDecoration(
@@ -446,7 +493,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const SizedBox(width: 16),
             Column(
               children: [
-                Text('باقي على رمضان 1447هـ', style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF8B4513))),
+                Text('باقي على رمضان ${nextRamadanYear}هـ', style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF8B4513))),
                 const SizedBox(height: 4),
                 Row(
                   children: [
@@ -528,25 +575,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildEidAlAdhaCountdown() {
-    // Calculate days until Eid al-Adha (10 Dhu al-Hijjah)
     final hijriAdjustment = Provider.of<SettingsProvider>(context, listen: false).hijriAdjustment;
     final now = DateTime.now();
     final currentHijri = HijriDateService.getHijriDate(now, hijriAdjustment);
     final currentMonth = currentHijri['monthIndex'] as int;
     final currentDay = currentHijri['dayIndex'] as int;
     
-    // Calculate days until 10 Dhu al-Hijjah (simplified calculation)
-    int daysUntilEid = 0;
-    if (currentMonth < 12) {
-      // Before Dhu al-Hijjah - approximate calculation
-      daysUntilEid = (12 - currentMonth) * 30 + (10 - currentDay);
-    } else if (currentMonth == 12) {
-      if (currentDay <= 10) {
-        daysUntilEid = 10 - currentDay;
-      } else {
-        daysUntilEid = 0;
-      }
-    }
+    final daysUntilEid = _calculateDaysUntilEidAlAdha(currentMonth, currentDay);
     
     return Container(
       decoration: BoxDecoration(
@@ -578,7 +613,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildEidAlAdhaCelebration() {
+  Widget _buildEidAlFitrGreeting() {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -601,8 +636,96 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('عيد الأضحى المبارك', style: GoogleFonts.tajawal(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text('عيد فطر مبارك', style: GoogleFonts.tajawal(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
                     Text('كل عام وأنتم بخير', style: GoogleFonts.tajawal(fontSize: 18, color: Colors.white.withOpacity(0.9))),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(AppConstants.mediumBorderRadius),
+              ),
+              child: Text('تقبل الله صيامكم وقيامكم', style: GoogleFonts.tajawal(fontSize: 16, color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildArafahDay() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.brown.shade400, Colors.brown.shade600, Colors.brown.shade800],
+        ),
+        borderRadius: BorderRadius.circular(AppConstants.largeBorderRadius),
+        boxShadow: [BoxShadow(color: Colors.brown.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppConstants.mediumPadding),
+        child: Column(
+          children: [
+            const Icon(Icons.terrain, color: Colors.white, size: 40),
+            const SizedBox(height: 12),
+            Text('وقفة عرفات', style: GoogleFonts.tajawal(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+            const SizedBox(height: 8),
+            Text('لبيك اللهم لبيك', style: GoogleFonts.tajawal(fontSize: 18, color: Colors.white.withOpacity(0.9))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEidAlAdhaGreeting(int day) {
+    String subMessage;
+    switch (day) {
+      case 10:
+        subMessage = 'يوم النحر';
+        break;
+      case 11:
+        subMessage = 'يوم القر';
+        break;
+      case 12:
+        subMessage = 'يوم النفر الأول';
+        break;
+      case 13:
+        subMessage = 'يوم النفر الثاني';
+        break;
+      default:
+        subMessage = '';
+    }
+    
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.green.shade400, Colors.green.shade600, Colors.green.shade800],
+        ),
+        borderRadius: BorderRadius.circular(AppConstants.largeBorderRadius),
+        boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppConstants.mediumPadding),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.celebration, color: Colors.white, size: 40),
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('عيد أضحى مبارك', style: GoogleFonts.tajawal(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text(subMessage, style: GoogleFonts.tajawal(fontSize: 18, color: Colors.white.withOpacity(0.9))),
                   ],
                 ),
               ],
@@ -620,6 +743,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       ),
     );
+  }
+
+  int _calculateDaysUntilEidAlAdha(int currentMonth, int currentDay) {
+    // Calculate days until 10 Dhul-Hijjah (month 12, day 10)
+    if (currentMonth < 12) {
+      // Before Dhul-Hijjah - calculate remaining days
+      int daysUntil = 0;
+      // Days remaining in current month
+      final currentMonthLength = HijriDateService.monthLengths[currentMonth - 1];
+      daysUntil += (currentMonthLength - currentDay);
+      // Days for full months until Dhul-Hijjah
+      for (int month = currentMonth; month < 11; month++) {
+        daysUntil += HijriDateService.monthLengths[month % 12];
+      }
+      // Add days in Dhul-Hijjah until Eid (day 10)
+      daysUntil += 10;
+      return daysUntil;
+    } else if (currentMonth == 12) {
+      // In Dhul-Hijjah
+      if (currentDay <= 10) {
+        return 10 - currentDay;
+      } else {
+        return 0; // Past Eid al-Adha
+      }
+    }
+    return 0;
   }
 
   Widget _buildTimeUnit(String value, String label) {
