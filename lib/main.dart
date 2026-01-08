@@ -9,24 +9,26 @@ import 'screens/settings_screen.dart';
 import 'screens/main_layout.dart';
 import 'services/hadith_service.dart';
 import 'services/azkar_service.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize services
   await HadithService.instance.initialize();
   await AzkarService.instance.initialize();
-  
+  await NotificationService.instance.initialize();
+
   // Initialize settings provider first
   final settingsProvider = SettingsProvider();
   await settingsProvider.initialize();
-  
+
   runApp(MyApp(settingsProvider: settingsProvider));
 }
 
 class MyApp extends StatelessWidget {
   final SettingsProvider settingsProvider;
-  
+
   const MyApp({super.key, required this.settingsProvider});
 
   @override
@@ -43,8 +45,10 @@ class MyApp extends StatelessWidget {
           return Consumer<SettingsProvider>(
             builder: (context, settingsProvider, child) {
               // Sync theme providers
-              themeProvider.syncWithSettingsProvider(settingsProvider.themeMode);
-              
+              themeProvider.syncWithSettingsProvider(
+                settingsProvider.themeMode,
+              );
+
               return MaterialApp(
                 title: 'إمساكية',
                 debugShowCheckedModeBanner: false,

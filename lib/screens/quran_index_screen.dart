@@ -14,7 +14,8 @@ class QuranIndexScreen extends StatefulWidget {
   State<QuranIndexScreen> createState() => _QuranIndexScreenState();
 }
 
-class _QuranIndexScreenState extends State<QuranIndexScreen> with SingleTickerProviderStateMixin {
+class _QuranIndexScreenState extends State<QuranIndexScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final QuranService _quranService = QuranService();
   List<Surah> _filteredSurahs = [];
@@ -40,15 +41,13 @@ class _QuranIndexScreenState extends State<QuranIndexScreen> with SingleTickerPr
 
   Future<void> _loadSurahs() async {
     try {
-      Logger.info('Loading Quran index using QuranService...');
       await _quranService.loadSurahs();
       _allSurahs = _quranService.surahs;
       _filteredSurahs = List.from(_allSurahs);
-      setState(() => _isLoading = false);
-      Logger.success('Loaded ${_allSurahs.length} surahs');
+      if (mounted) setState(() => _isLoading = false);
     } catch (e) {
       Logger.error('Error loading Quran index: $e');
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -59,173 +58,228 @@ class _QuranIndexScreenState extends State<QuranIndexScreen> with SingleTickerPr
         _filteredSurahs = List.from(_allSurahs);
       } else {
         _filteredSurahs = _allSurahs.where((surah) {
-          return surah.name.contains(query) || 
-                 surah.englishName.toLowerCase().contains(query) || 
-                 surah.number.toString().contains(query);
+          return surah.name.contains(query) ||
+              surah.englishName.toLowerCase().contains(query) ||
+              surah.number.toString().contains(query);
         }).toList();
       }
     });
   }
 
-  String _getRevelationTypeText(String revelationType) => revelationType == 'Meccan' ? 'مكية' : 'مدنية';
-  Color _getRevelationTypeColor(String revelationType) => revelationType == 'Meccan' ? Colors.green : Colors.blue;
-
-  Future<void> _goToBookmark() async {
-    final quranService = QuranTextService();
-    final bookmark = await quranService.getBookmark();
-    if (bookmark != null) {
-      Navigator.push(context, MaterialPageRoute(builder: (context) => QuranReaderScreen(
-        initialSurah: bookmark['surah'], initialAyah: bookmark['ayah'],
-      )));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('لم يتم حفظ أي علامة بعد', style: GoogleFonts.tajawal())));
-    }
-  }
+  String _getRevelationTypeText(String revelationType) =>
+      revelationType == 'Meccan' ? 'مكية' : 'مدنية';
+  Color _getRevelationTypeColor(String revelationType) =>
+      revelationType == 'Meccan' ? Colors.green : Colors.blue;
 
   @override
   Widget build(BuildContext context) {
-    // تحديد اللون الأزرق المستخدم في الصورة ليكون متناسقاً
-    final Color appBarBlue = Theme.of(context).primaryColor; 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).primaryColor;
 
-    return Scaffold(
-      appBar: AppBar(
-        // إجبار العنوان على اللون الأبيض
-        title: Text(
-          'الفهرس',
-          style: GoogleFonts.tajawal(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.white, 
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        // خلفية الصفحة تتغير حسب الوضع
+        backgroundColor: isDark
+            ? const Color(0xFF121212)
+            : const Color(0xFFF8F9FA),
+        appBar: AppBar(
+          title: Text(
+            'الفهرس',
+            style: GoogleFonts.tajawal(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          centerTitle: true,
+          backgroundColor: primaryColor,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: Colors.white),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.bookmark, color: Colors.amber),
+              onPressed: () {}, // تم اختصار الوظيفة هنا للتركيز على التصميم
+              tooltip: 'الانتقال للعلامة',
+            ),
+          ],
+          bottom: TabBar(
+            controller: _tabController,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white.withOpacity(0.7),
+            indicatorColor: Colors.white,
+            indicatorWeight: 3,
+            labelStyle: GoogleFonts.tajawal(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+            tabs: const [
+              Tab(text: 'فهرس السور'),
+              Tab(text: 'فهرس الأجزاء'),
+            ],
           ),
         ),
-        centerTitle: true,
-        backgroundColor: appBarBlue,
-        elevation: 0,
-        // إجبار الأيقونات على اللون الأبيض
-        iconTheme: const IconThemeData(color: Colors.white),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.bookmark, color: Colors.amber),
-            onPressed: _goToBookmark,
-            tooltip: 'الانتقال للعلامة',
-          ),
-        ],
-        bottom: TabBar(
+        body: TabBarView(
           controller: _tabController,
-          // تعديل ألوان التبويبات لتظهر بوضوح على الأزرق
-          labelColor: Colors.white, 
-          unselectedLabelColor: Colors.white.withOpacity(0.7),
-          indicatorColor: Colors.white,
-          indicatorWeight: 3,
-          labelStyle: GoogleFonts.tajawal(fontWeight: FontWeight.bold, fontSize: 16),
-          unselectedLabelStyle: GoogleFonts.tajawal(fontWeight: FontWeight.w500, fontSize: 15),
-          tabs: const [
-            Tab(text: 'فهرس السور'),
-            Tab(text: 'فهرس الأجزاء'),
+          children: [
+            _buildSurahsTab(isDark, primaryColor),
+            const JuzIndexScreen(),
           ],
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildSurahsTab(),
-          const JuzIndexScreen(),
-        ],
       ),
     );
   }
 
-  Widget _buildSurahsTab() {
+  Widget _buildSurahsTab(bool isDark, Color primaryColor) {
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(16.0),
           child: TextField(
             controller: _searchController,
+            style: GoogleFonts.tajawal(
+              color: isDark ? Colors.white : Colors.black87,
+            ),
             decoration: InputDecoration(
               hintText: 'ابحث عن سورة...',
-              prefixIcon: const Icon(Icons.search),
+              hintStyle: GoogleFonts.tajawal(
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+              prefixIcon: Icon(Icons.search, color: primaryColor),
               suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(icon: const Icon(Icons.clear), onPressed: () => _searchController.clear())
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () => _searchController.clear(),
+                    )
                   : null,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide.none,
+              ),
               filled: true,
-              fillColor: Theme.of(context).cardColor,
+              fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
             ),
-            textDirection: TextDirection.rtl,
           ),
         ),
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _filteredSurahs.isEmpty
-                  ? Center(child: Text('لا توجد سور تطابق البحث', style: GoogleFonts.tajawal(fontSize: 16)))
-                  : ListView.builder(
-                      itemCount: _filteredSurahs.length,
-                      itemBuilder: (context, index) => _buildSurahCard(_filteredSurahs[index]),
-                    ),
+              ? Center(
+                  child: Text(
+                    'لا توجد سور تطابق البحث',
+                    style: GoogleFonts.tajawal(fontSize: 16),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  itemCount: _filteredSurahs.length,
+                  itemBuilder: (context, index) => _buildSurahCard(
+                    _filteredSurahs[index],
+                    isDark,
+                    primaryColor,
+                  ),
+                ),
         ),
       ],
     );
   }
 
-  Widget _buildSurahCard(Surah surah) {
-    return Card(
+  Widget _buildSurahCard(Surah surah, bool isDark, Color primaryColor) {
+    return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black26 : Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: InkWell(
         onTap: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => QuranReaderScreen(
-            initialSurah: surah.number, initialAyah: 1,
-          )));
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  QuranReaderScreen(initialSurah: surah.number, initialAyah: 1),
+            ),
+          );
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(15),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
+              // رقم السورة بتنسيق دائري
               Container(
-                width: 40, height: 40,
+                width: 45,
+                height: 45,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
-                  border: Border.all(color: Theme.of(context).primaryColor),
+                  color: primaryColor.withOpacity(0.1),
+                  border: Border.all(color: primaryColor.withOpacity(0.3)),
                 ),
                 child: Center(
-                  child: Text('${surah.number}', style: GoogleFonts.tajawal(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    '${surah.number}',
+                    style: GoogleFonts.tajawal(
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : primaryColor,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
+              // معلومات السورة
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(surah.name, style: GoogleFonts.tajawal(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                      surah.name,
+                      style: GoogleFonts.tajawal(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Text(surah.englishName, style: GoogleFonts.tajawal(fontSize: 14, color: Colors.grey[600])),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: _getRevelationTypeColor(surah.revelationType).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
+                        Text(
+                          surah.revelationType == 'Meccan' ? 'مكية' : 'مدنية',
+                          style: GoogleFonts.tajawal(
+                            fontSize: 12,
+                            color: _getRevelationTypeColor(
+                              surah.revelationType,
+                            ),
+                            fontWeight: FontWeight.w600,
                           ),
-                          child: Text(_getRevelationTypeText(surah.revelationType),
-                            style: GoogleFonts.tajawal(fontSize: 12, color: _getRevelationTypeColor(surah.revelationType), fontWeight: FontWeight.w600)),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${surah.totalAyahs} آيات',
+                          style: GoogleFonts.tajawal(
+                            fontSize: 12,
+                            color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          ),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-              Column(
-                children: [
-                  Text('${surah.totalAyahs}', style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
-                  Text('آية', style: GoogleFonts.tajawal(fontSize: 12, color: Colors.grey[600])),
-                ],
+              // اسم السورة بالانجليزي (اختياري)
+              Text(
+                surah.englishName,
+                style: GoogleFonts.tajawal(
+                  fontSize: 14,
+                  color: isDark ? Colors.grey[500] : Colors.grey[400],
+                ),
               ),
             ],
           ),

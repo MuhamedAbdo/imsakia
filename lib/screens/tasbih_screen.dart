@@ -16,330 +16,237 @@ class _TasbihScreenState extends State<TasbihScreen>
   int _totalCount = 0;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
-  late Animation<double> _rippleAnimation;
-  
+
   @override
   void initState() {
     super.initState();
     _loadCounts();
-    
-    // Initialize animations
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 100),
       vsync: this,
     );
-    
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.95,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _rippleAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOut,
-    ));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.92).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
   }
-  
+
   @override
   void dispose() {
     _animationController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _loadCounts() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final today = DateTime.now();
-      final todayKey = 'tasbih_${today.year}_${today.month}_${today.day}';
-      
-      setState(() {
-        _currentCount = prefs.getInt('tasbih_current') ?? 0;
-        _totalCount = prefs.getInt(todayKey) ?? 0;
-      });
-    } catch (e) {
-      debugPrint('❌ Error loading tasbih counts: $e');
-    }
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now();
+    final todayKey = 'tasbih_${today.year}_${today.month}_${today.day}';
+    setState(() {
+      _currentCount = prefs.getInt('tasbih_current') ?? 0;
+      _totalCount = prefs.getInt(todayKey) ?? 0;
+    });
   }
-  
+
   Future<void> _saveCounts() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final today = DateTime.now();
-      final todayKey = 'tasbih_${today.year}_${today.month}_${today.day}';
-      
-      await prefs.setInt('tasbih_current', _currentCount);
-      await prefs.setInt(todayKey, _totalCount);
-    } catch (e) {
-      debugPrint('❌ Error saving tasbih counts: $e');
-    }
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now();
+    final todayKey = 'tasbih_${today.year}_${today.month}_${today.day}';
+    await prefs.setInt('tasbih_current', _currentCount);
+    await prefs.setInt(todayKey, _totalCount);
   }
-  
+
   void _incrementCount() {
     HapticFeedback.lightImpact();
-    
     setState(() {
       _currentCount++;
       _totalCount++;
     });
-    
     _saveCounts();
-    
-    // Trigger animation
-    _animationController.forward().then((_) {
-      _animationController.reverse();
-    });
+    _animationController
+        .forward(from: 0)
+        .then((_) => _animationController.reverse());
   }
-  
-  void _resetCount() {
+
+  // رسالة التأكيد عند إعادة الضبط
+  void _confirmReset() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(
-            'إعادة تعيين العداد',
-            style: GoogleFonts.tajawal(
-              fontWeight: FontWeight.w600,
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
             ),
-          ),
-          content: Text(
-            'هل تريد إعادة تعيين العداد إلى الصفر؟',
-            style: GoogleFonts.tajawal(),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white
-                    : Theme.of(context).primaryColor,
-              ),
-              child: Text(
-                'إلغاء',
-                style: GoogleFonts.tajawal(
-                  fontWeight: FontWeight.w500,
+            title: Text(
+              'تأكيد إعادة الضبط',
+              style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+            ),
+            content: Text(
+              'هل أنت متأكد من رغبتك في تصفير العداد الحالي؟',
+              style: GoogleFonts.tajawal(),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'إلغاء',
+                  style: GoogleFonts.tajawal(color: Colors.grey),
                 ),
               ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _currentCount = 0;
-                });
-                _saveCounts();
-                Navigator.of(context).pop();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-              ),
-              child: Text(
-                'نعم',
-                style: GoogleFonts.tajawal(
-                  color: Colors.white,
+              ElevatedButton(
+                onPressed: () {
+                  setState(() => _currentCount = 0);
+                  _saveCounts();
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'تصفير',
+                  style: GoogleFonts.tajawal(color: Colors.white),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
   }
-  
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: GestureDetector(
-        onTap: _incrementCount,
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Theme.of(context).scaffoldBackgroundColor,
-                Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.8),
-              ],
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color primaryColor = Theme.of(context).primaryColor;
+    final Color textColor = isDark ? Colors.white : Colors.black87;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: GestureDetector(
+        onTap: _incrementCount, // الضغط يعمل في أي مكان في الشاشة
+        child: Scaffold(
+          backgroundColor: isDark
+              ? const Color(0xFF121212)
+              : const Color(0xFFF8F9FA),
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: Text(
+              'المسبحة',
+              style: GoogleFonts.tajawal(
+                fontWeight: FontWeight.bold,
+                color: textColor,
+              ),
             ),
+            actions: [
+              IconButton(
+                icon: Icon(Icons.refresh, color: textColor.withOpacity(0.7)),
+                onPressed: _confirmReset, // استدعاء دالة التأكيد
+              ),
+            ],
           ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                // Header
-                Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'المسبحة',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w700,
-                          color: Theme.of(context).textTheme.headlineLarge?.color,
-                        ),
-                      ),
-                      // Reset button
-                      // Reset button - Improved Visibility
-FloatingActionButton(
-  mini: true,
-  onPressed: _resetCount,
-  // تغيير الخلفية لتكون أوضح في الوضع المظلم
-  backgroundColor: Theme.of(context).brightness == Brightness.dark
-      ? Colors.white.withValues(alpha: 0.1) // خلفية فاتحة بسيطة في الوضع المظلم
-      : Theme.of(context).primaryColor.withValues(alpha: 0.1),
-  elevation: 0,
-  child: Icon(
-    Icons.refresh,
-    // تغيير لون الأيقونة ليكون أبيض أو رمادي فاتح في الوضع المظلم
-    color: Theme.of(context).brightness == Brightness.dark
-        ? Colors.white70
-        : Theme.of(context).primaryColor,
-    size: 22, // تكبير بسيط للحجم
-  ),
-),
-                    ],
-                  ),
+          body: Column(
+            children: [
+              const SizedBox(height: 20),
+              Text(
+                'اذكر الله يذكرك',
+                style: GoogleFonts.tajawal(
+                  fontSize: 16,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
                 ),
-                
-                // Main counter area
-                Expanded(
-                  child: Center(
-                    child: AnimatedBuilder(
-                      animation: _animationController,
-                      builder: (context, child) {
-                        return Transform.scale(
-                          scale: _scaleAnimation.value,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // Ripple effect
-                              if (_animationController.isAnimating)
-                                Container(
-                                  width: 250,
-                                  height: 250,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Theme.of(context).primaryColor.withValues(
-                                        alpha: 0.3 * _rippleAnimation.value,
-                                      ),
-                                      width: 3,
-                                    ),
-                                  ),
-                                ),
-                              
-                              // Main circular counter
-                              Container(
-                                width: 220,
-                                height: 220,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Theme.of(context).primaryColor.withValues(alpha: 0.9),
-                                      Theme.of(context).primaryColor.withValues(alpha: 0.7),
-                                      Theme.of(context).primaryColor.withValues(alpha: 0.5),
-                                    ],
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
-                                      blurRadius: 20,
-                                      spreadRadius: 5,
-                                    ),
-                                  ],
-                                ),
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(110),
-                                    splashColor: Colors.white.withValues(alpha: 0.3),
-                                    highlightColor: Colors.white.withValues(alpha: 0.1),
-                                    onTap: _incrementCount,
-                                    child: Center(
-                                      child: Text(
-                                        '$_currentCount',
-                                        style: GoogleFonts.tajawal(
-                                          fontSize: 72,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                          height: 1.0,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+              ),
+
+              // منطقة العداد المركزية
+              Expanded(
+                child: Center(
+                  child: AnimatedBuilder(
+                    animation: _scaleAnimation,
+                    builder: (context, child) => Transform.scale(
+                      scale: _scaleAnimation.value,
+                      child: _buildMainCircle(isDark, primaryColor),
                     ),
                   ),
                 ),
-                
-                // Daily total section
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24.0),
-                  margin: const EdgeInsets.all(16.0),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).brightness == Brightness.dark 
-                        ? const Color(0xFF2A2A2A) // Darker card for dark mode
-                        : Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.black.withValues(alpha: 0.3) // Darker shadow for dark mode
-                            : Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        'إجمالي التسبيح اليوم',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: Theme.of(context).brightness == Brightness.dark 
-                              ? const Color(0xFFE0E0E0) // Lighter text for dark mode
-                              : Theme.of(context).textTheme.bodyMedium?.color,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '$_totalCount',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
-                          color: Theme.of(context).brightness == Brightness.dark 
-                              ? const Color(0xFF90CAF9) // Lighter blue for dark mode
-                              : Theme.of(context).primaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 20),
-              ],
-            ),
+              ),
+
+              // الحاوية السفلية المحدثة
+              _buildTotalCard(isDark, primaryColor),
+              const SizedBox(height: 50),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMainCircle(bool isDark, Color primaryColor) {
+    return Container(
+      width: 180, // حجم متناسق وأنيق
+      height: 180,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: primaryColor.withOpacity(isDark ? 0.25 : 0.1),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
+        ],
+        border: Border.all(color: primaryColor.withOpacity(0.4), width: 3),
+      ),
+      child: Center(
+        child: Text(
+          '$_currentCount',
+          style: GoogleFonts.tajawal(
+            fontSize: 50,
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : primaryColor,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTotalCard(bool isDark, Color primaryColor) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 40),
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 25),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF252525) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'إجمالي اليوم',
+            style: GoogleFonts.tajawal(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+          Text(
+            '$_totalCount',
+            style: GoogleFonts.tajawal(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              // أبيض في المظلم، ولون التطبيق في الفاتح لضمان الوضوح
+              color: isDark ? Colors.white : primaryColor,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -493,7 +493,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const SizedBox(width: 16),
             Column(
               children: [
-                Text('باقي على رمضان ${nextRamadanYear}هـ', style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF8B4513))),
+                Text('باقي على رمضان $nextRamadanYearهـ', style: GoogleFonts.tajawal(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF8B4513))),
                 const SizedBox(height: 4),
                 Row(
                   children: [

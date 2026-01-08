@@ -7,7 +7,8 @@ import 'hijri_date_service.dart';
 
 class PrayerTimesService {
   static PrayerTimesService? _instance;
-  static PrayerTimesService get instance => _instance ??= PrayerTimesService._();
+  static PrayerTimesService get instance =>
+      _instance ??= PrayerTimesService._();
 
   PrayerTimesService._();
 
@@ -15,41 +16,78 @@ class PrayerTimesService {
   StreamController<Map<String, DateTime>>? _prayerTimesController;
   Timer? _updateTimer;
   SharedPreferences? _sharedPreferences;
-  
+
   // Cache for Ramadan countdown
   Duration? _cachedTimeUntilRamadan;
   DateTime? _lastRamadanCalculation;
 
-  Stream<Map<String, DateTime>> get prayerTimesStream => 
-      (_prayerTimesController ??= StreamController<Map<String, DateTime>>.broadcast()).stream;
+  Stream<Map<String, DateTime>> get prayerTimesStream =>
+      (_prayerTimesController ??=
+              StreamController<Map<String, DateTime>>.broadcast())
+          .stream;
 
   Future<Map<String, DateTime>?> getCurrentPrayerTimes() async {
     final location = await _getCurrentLocation();
     if (location == null) return null;
 
+    // Read user settings from SharedPreferences
+    _sharedPreferences ??= await SharedPreferences.getInstance();
+    final calculationMethod =
+        _sharedPreferences!.getString(AppConstants.calculationMethodKey) ??
+        AppConstants.defaultCalculationMethod;
+    final madhab =
+        _sharedPreferences!.getString(AppConstants.madhabKey) ??
+        AppConstants.defaultMadhab;
+    final dstEnabled =
+        _sharedPreferences!.getBool(AppConstants.dstKey) ??
+        AppConstants.defaultDST;
+
     final now = DateTime.now();
     final date = DateComponents(now.year, now.month, now.day);
-    
+
     final coordinates = Coordinates(location.latitude, location.longitude);
-    
-    final params = CalculationParameters(
-      fajrAngle: 19.5,
-      ishaAngle: 17.5,
-    );
-    
+
+    // Get the correct calculation method based on user setting
+    CalculationParameters params;
+    switch (calculationMethod) {
+      case 'egyptian':
+        params = CalculationMethod.egyptian.getParameters();
+        break;
+      case 'karachi':
+        params = CalculationMethod.karachi.getParameters();
+        break;
+      case 'umm_al_qura':
+        params = CalculationMethod.umm_al_qura.getParameters();
+        break;
+      case 'muslim_world_league':
+        params = CalculationMethod.muslim_world_league.getParameters();
+        break;
+      case 'north_america':
+        params = CalculationMethod.north_america.getParameters();
+        break;
+      default:
+        params = CalculationMethod.egyptian.getParameters();
+    }
+
+    // Set madhab for Asr calculation
+    params.madhab = madhab == 'hanafi' ? Madhab.hanafi : Madhab.shafi;
+
     final prayerTimes = PrayerTimes(coordinates, date, params);
-    
+
+    // Apply DST offset if enabled
+    final dstOffset = dstEnabled ? const Duration(hours: 1) : Duration.zero;
+
     _currentPrayerTimes = {
-      'fajr': prayerTimes.fajr,
-      'sunrise': prayerTimes.sunrise,
-      'dhuhr': prayerTimes.dhuhr,
-      'asr': prayerTimes.asr,
-      'maghrib': prayerTimes.maghrib,
-      'isha': prayerTimes.isha,
+      'fajr': prayerTimes.fajr.add(dstOffset),
+      'sunrise': prayerTimes.sunrise.add(dstOffset),
+      'dhuhr': prayerTimes.dhuhr.add(dstOffset),
+      'asr': prayerTimes.asr.add(dstOffset),
+      'maghrib': prayerTimes.maghrib.add(dstOffset),
+      'isha': prayerTimes.isha.add(dstOffset),
     };
 
     _prayerTimesController?.add(_currentPrayerTimes!);
-    
+
     _startUpdateTimer();
 
     return _currentPrayerTimes;
@@ -57,8 +95,10 @@ class PrayerTimesService {
 
   Future<LocationSettings?> _getCurrentLocation() async {
     _sharedPreferences ??= await SharedPreferences.getInstance();
-    final selectedCityId = _sharedPreferences!.getString(AppConstants.selectedCityKey) ?? AppConstants.defaultCity;
-    
+    final selectedCityId =
+        _sharedPreferences!.getString(AppConstants.selectedCityKey) ??
+        AppConstants.defaultCity;
+
     final city = AppConstants.cities.firstWhere(
       (city) => city['id'] == selectedCityId,
       orElse: () => AppConstants.cities.first,
@@ -75,7 +115,9 @@ class PrayerTimesService {
 
   void _startUpdateTimer() {
     _updateTimer?.cancel();
-    _updateTimer = Timer.periodic(AppConstants.countdownUpdateInterval, (timer) {
+    _updateTimer = Timer.periodic(AppConstants.countdownUpdateInterval, (
+      timer,
+    ) {
       _updatePrayerTimes();
     });
   }
@@ -89,7 +131,7 @@ class PrayerTimesService {
 
     final now = DateTime.now();
     final prayers = _currentPrayerTimes!;
-    
+
     for (final entry in prayers.entries) {
       if (entry.value.isAfter(now)) {
         return entry.key;
@@ -106,11 +148,11 @@ class PrayerTimesService {
 
     final prayerTime = _currentPrayerTimes![nextPrayer];
     if (prayerTime == null) return null;
-    
+
     if (prayerTime.isBefore(DateTime.now())) {
       final now = DateTime.now();
       final tomorrow = now.add(const Duration(days: 1));
-      
+
       final todayFajr = _currentPrayerTimes!['fajr'];
       if (todayFajr != null) {
         return DateTime(
@@ -122,7 +164,7 @@ class PrayerTimesService {
         );
       }
     }
-    
+
     return prayerTime;
   }
 
@@ -168,22 +210,25 @@ class PrayerTimesService {
 
   Future<Duration?> getTimeUntilRamadan() async {
     final now = DateTime.now();
-    
-    if (_lastRamadanCalculation != null && 
+
+    if (_lastRamadanCalculation != null &&
         _cachedTimeUntilRamadan != null &&
         now.difference(_lastRamadanCalculation!).inSeconds < 60) {
       return _cachedTimeUntilRamadan;
     }
-    
+
     _sharedPreferences ??= await SharedPreferences.getInstance();
     final hijriAdjustment = _sharedPreferences!.getInt('hijri_adjustment') ?? 0;
-    
-    final nextRamadanStart = HijriDateService.getNextRamadanStart(now, hijriAdjustment);
+
+    final nextRamadanStart = HijriDateService.getNextRamadanStart(
+      now,
+      hijriAdjustment,
+    );
     final result = nextRamadanStart.difference(now);
-    
+
     _cachedTimeUntilRamadan = result;
     _lastRamadanCalculation = now;
-    
+
     return result;
   }
 

@@ -22,56 +22,29 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
   void initState() {
     super.initState();
     _initializeAzkar();
-    _loadSettings();
   }
 
   Future<void> _initializeAzkar() async {
     try {
-      print('🔄 AzkarScreen: Starting initialization...');
-      
-      // Check if AzkarService is already initialized
       if (AzkarService.instance.isInitialized) {
-        print('✅ AzkarService already initialized');
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
         return;
       }
-      
-      // Initialize with timeout
+
       await AzkarService.instance.initialize().timeout(
         const Duration(seconds: 5),
         onTimeout: () {
-          print('⚠️ AzkarService initialization timeout');
-          setState(() {
-            _isLoading = false;
-          });
+          setState(() => _isLoading = false);
         },
       );
-      
-      print('✅ AzkarScreen: Initialization completed');
-      print('📊 AzkarService categories count: ${AzkarService.instance.categories.length}');
-      
-      setState(() {
-        _isLoading = false;
-      });
+
+      setState(() => _isLoading = false);
     } catch (e) {
-      print('❌ Error initializing AzkarService: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _loadSettings() async {
-    // Font size settings removed - no longer needed
-  }
-
-  
   void _navigateToDetail(AzkarCategory category) {
-    print('🔄 Navigating to AzkarDetailScreen for category: ${category.title}');
-    print('📊 Category data: ${category.azkar.length} azkar');
-    
     HapticFeedback.selectionClick();
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -80,12 +53,15 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
     );
   }
 
-  
-  
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // تحديد لون العناصر بناءً على الوضع لضمان الرؤية
+    final Color elementsColor = isDark ? Colors.white : Colors.black87;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           title: Text(
@@ -93,336 +69,248 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
             style: GoogleFonts.tajawal(
               fontSize: 24,
               fontWeight: FontWeight.w700,
+              color: elementsColor, // لون العنوان
             ),
           ),
           centerTitle: true,
           backgroundColor: Colors.transparent,
           elevation: 0,
+          // تحديد لون الأيقونات (Refresh وغيرها) لضمان ظهورها في النهاري والليلي
+          iconTheme: IconThemeData(color: elementsColor),
+          leading: IconButton(
+            onPressed: _showResetAllDialog,
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'تصفير جميع الأذكار',
+          ),
         ),
         body: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: Theme.of(context).brightness == Brightness.dark
-                  ? [AppConstants.darkBackgroundColor, AppConstants.darkSurfaceColor]
+              colors: isDark
+                  ? [
+                      AppConstants.darkBackgroundColor,
+                      AppConstants.darkSurfaceColor,
+                    ]
                   : [AppConstants.backgroundColor, AppConstants.surfaceColor],
             ),
           ),
-          child: const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.auto_stories,
-                  size: 60,
-                  color: AppConstants.primaryColor,
-                ),
-                SizedBox(height: 20),
-                Text(
-                  'جاري تحميل الأذكار...',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: AppConstants.primaryColor,
-                  ),
-                ),
-                SizedBox(height: 20),
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    AppConstants.primaryColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          child: _isLoading
+              ? _buildLoadingState()
+              : SafeArea(child: _buildCategoriesGrid()),
         ),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(
-          'الأذكار',
-          style: GoogleFonts.tajawal(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-         
-          IconButton(
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: Text(
-                    'تصفير جميع الأذكار',
-                    style: GoogleFonts.tajawal(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).brightness == Brightness.dark 
-                          ? const Color(0xFFE0E0E0)
-                          : null,
-                    ),
-                  ),
-                  backgroundColor: Theme.of(context).brightness == Brightness.dark 
-                      ? const Color(0xFF2A2A2A)
-                      : null,
-                  content: Text(
-                    'هل أنت متأكد من أنك تريد تصفير جميع عدادات الأذكار؟',
-                    style: GoogleFonts.tajawal(
-                      color: Theme.of(context).brightness == Brightness.dark 
-                          ? const Color(0xFFBDBDBD)
-                          : null,
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(
-                        'إلغاء',
-                        style: GoogleFonts.tajawal(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFF64B5F6)
-                              : Theme.of(context).primaryColor,
-                        ),
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        AzkarService.instance.resetAllCounters();
-                        Navigator.of(context).pop();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).brightness == Brightness.dark
-                            ? const Color(0xFF1E88E5)
-                            : Theme.of(context).primaryColor,
-                      ),
-                      child: Text(
-                        'تصفير',
-                        style: GoogleFonts.tajawal(
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-            icon: Icon(
-              Icons.refresh,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white
-                  : Colors.black,
-            ),
-            tooltip: 'تصفير جميع الأذكار',
-          ),
-        ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: Theme.of(context).brightness == Brightness.dark
-                ? [AppConstants.darkBackgroundColor, AppConstants.darkSurfaceColor]
-                : [AppConstants.backgroundColor, AppConstants.surfaceColor],
+    );
+  }
+
+  void _showResetAllDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
+          title: Text(
+            'تصفير جميع الأذكار',
+            style: GoogleFonts.tajawal(fontWeight: FontWeight.w700),
+          ),
+          content: Text(
+            'هل أنت متأكد من تصفير جميع عدادات الأذكار؟ لا يمكن التراجع عن هذه الخطوة.',
+            style: GoogleFonts.tajawal(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'إلغاء',
+                style: GoogleFonts.tajawal(color: Colors.grey),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                AzkarService.instance.resetAllCounters();
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'تم تصفير جميع العدادات',
+                      textAlign: TextAlign.center,
+                    ),
+                    duration: Duration(seconds: 1),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'تصفير الآن',
+                style: GoogleFonts.tajawal(color: Colors.white),
+              ),
+            ),
+          ],
         ),
-        child: SafeArea(
-          child: _buildCategoriesGrid(),
-        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.auto_stories,
+            size: 60,
+            color: AppConstants.primaryColor,
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'جاري تحميل الأذكار...',
+            style: GoogleFonts.tajawal(fontSize: 18),
+          ),
+          const SizedBox(height: 20),
+          const CircularProgressIndicator(),
+        ],
       ),
     );
   }
 
   Widget _buildCategoriesGrid() {
-    // Try StreamBuilder first, but fallback to direct data if needed
     return StreamBuilder<List<AzkarCategory>>(
       stream: AzkarService.instance.categoriesStream,
       builder: (context, snapshot) {
-        print('🔄 AzkarScreen _buildCategoriesGrid StreamBuilder state: hasData=${snapshot.hasData}');
-        
-        // If Stream has data, use it
-        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-          final categories = snapshot.data!;
-          print('✅ Using Stream data: ${categories.length} categories');
-          
-          return _buildCategoriesList(categories);
+        final categories = snapshot.hasData
+            ? snapshot.data!
+            : AzkarService.instance.categories;
+
+        if (categories.isEmpty) {
+          return _buildEmptyState();
         }
-        
-        // Fallback to direct service data
-        print('⚠️ StreamBuilder fallback: Using AzkarService.instance.categories directly');
-        final categories = AzkarService.instance.categories;
-        print('📊 Using fallback data: ${categories.length} categories');
-        
-        return _buildCategoriesList(categories);
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(20.0),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 20.0,
+            mainAxisSpacing: 20.0,
+            childAspectRatio: 0.95,
+          ),
+          itemCount: categories.length,
+          itemBuilder: (context, index) =>
+              _buildCategoryCard(categories[index]),
+        );
       },
     );
   }
-  
-  Widget _buildCategoriesList(List<AzkarCategory> categories) {
-    if (categories.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.inbox_outlined,
-              size: 60,
-              color: Theme.of(context).primaryColor,
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'لا توجد أذكار متاحة',
-              style: GoogleFonts.tajawal(
-                fontSize: 18,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-              ),
-            ),
-            const SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _isLoading = true;
-                });
-                _initializeAzkar();
-              },
-              child: Text(
-                'إعادة التحميل',
-                style: GoogleFonts.tajawal(),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 16.0,
-          mainAxisSpacing: 16.0,
-          childAspectRatio: 1.0,
-        ),
-        itemCount: categories.length,
-        itemBuilder: (context, index) {
-          final category = categories[index];
-          return _buildCategoryCard(category);
-        },
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.inbox_outlined, size: 60, color: Colors.grey),
+          const SizedBox(height: 20),
+          Text('لا توجد أذكار متاحة', style: GoogleFonts.tajawal(fontSize: 18)),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            onPressed: _initializeAzkar,
+            child: Text('إعادة المحاولة', style: GoogleFonts.tajawal()),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildCategoryCard(AzkarCategory category) {
-    return GestureDetector(
+    return InkWell(
       onTap: () => _navigateToDetail(category),
+      borderRadius: BorderRadius.circular(24),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: category.gradient,
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+            colors: [category.color.withOpacity(0.85), category.color],
+          ),
           boxShadow: [
             BoxShadow(
-              color: category.color.withOpacity(0.15),
-              blurRadius: 8,
-              spreadRadius: 1,
+              color: category.color.withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(
-              sigmaX: 10,
-              sigmaY: 10,
+        child: Stack(
+          children: [
+            // الأيقونة الخلفية الجمالية
+            Positioned(
+              left: -10,
+              bottom: -10,
+              child: Icon(
+                category.icon,
+                size: 80,
+                color: Colors.white.withOpacity(0.12),
+              ),
             ),
-            child: Container(
-              padding: const EdgeInsets.all(12.0),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Icon
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withOpacity(0.25),
                     ),
-                    child: Icon(
-                      category.icon,
-                      size: 32,
-                      color: Colors.white,
-                    ),
+                    child: Icon(category.icon, size: 30, color: Colors.white),
                   ),
-                  
-                  const SizedBox(height: 8),
-                  
-                  // Title
+                  const SizedBox(height: 12),
                   Text(
                     category.title,
                     style: GoogleFonts.tajawal(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
                       color: Colors.white,
                     ),
                     textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
-                  
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: LinearProgressIndicator(
+                      value: category.overallProgress,
+                      backgroundColor: Colors.white.withOpacity(0.2),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Colors.white,
+                      ),
+                      minHeight: 4,
+                    ),
+                  ),
                   const SizedBox(height: 6),
-                  
-                  // Progress indicator
-                  StreamBuilder<List<AzkarCategory>>(
-                    stream: AzkarService.instance.categoriesStream,
-                    builder: (context, snapshot) {
-                      // Get current category from service data
-                      AzkarCategory currentCategory;
-                      if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                        currentCategory = snapshot.data!.firstWhere(
-                          (cat) => cat.id == category.id,
-                          orElse: () => category,
-                        );
-                      } else {
-                        // Fallback to original category if stream has no data
-                        currentCategory = category;
-                      }
-                      
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          LinearProgressIndicator(
-                            value: currentCategory.overallProgress,
-                            backgroundColor: Colors.white.withOpacity(0.3),
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                            minHeight: 3,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${currentCategory.totalCompleted}/${currentCategory.totalCount}',
-                            style: GoogleFonts.tajawal(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white.withOpacity(0.9),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+                  Text(
+                    '${category.totalCompleted} / ${category.totalCount}',
+                    style: GoogleFonts.tajawal(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withOpacity(0.95),
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

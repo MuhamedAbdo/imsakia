@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/fasting_fiqh_service.dart';
 import '../models/fasting_fiqh_question.dart';
@@ -15,6 +16,7 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
   List<FastingFiqhQuestion> _filteredQuestions = [];
   List<FastingFiqhQuestion> _allQuestions = [];
   bool _isSearching = false;
+  double _answerFontSize = 16.0; // حجم الخط الافتراضي
 
   @override
   void initState() {
@@ -33,279 +35,316 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
 
   void _onSearchChanged() {
     final query = _searchController.text;
-    if (query.isEmpty) {
-      setState(() {
-        _isSearching = false;
-        _filteredQuestions = _allQuestions;
-      });
-    } else {
-      setState(() {
-        _isSearching = true;
-        _filteredQuestions = FastingFiqhService.instance.searchQuestions(query);
-      });
-    }
+    setState(() {
+      _isSearching = query.isNotEmpty;
+      _filteredQuestions = _isSearching
+          ? FastingFiqhService.instance.searchQuestions(query)
+          : _allQuestions;
+    });
+  }
+
+  void _showFontSizeDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            'حجم خط الإجابة',
+            style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+          ),
+          content: StatefulBuilder(
+            builder: (context, setDialogState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${_answerFontSize.toInt()}',
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Slider(
+                    value: _answerFontSize,
+                    min: 14,
+                    max: 32,
+                    divisions: 9,
+                    activeColor: Theme.of(context).primaryColor,
+                    onChanged: (value) {
+                      setDialogState(() => _answerFontSize = value);
+                      setState(() => _answerFontSize = value);
+                    },
+                  ),
+                  Text(
+                    'هذا النص للمعاينة',
+                    style: GoogleFonts.tajawal(fontSize: _answerFontSize),
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'تم',
+                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).primaryColor;
 
-    return Scaffold(
-      backgroundColor: isDarkMode ? Colors.black : Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: primaryColor,
-        elevation: 0,
-        title: Text(
-          'فقه الصائم',
-          style: GoogleFonts.tajawal(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: isDark
+            ? const Color(0xFF121212)
+            : const Color(0xFFF8F9FA),
+        appBar: AppBar(
+          title: Text(
+            'فقه الصائم',
+            style: GoogleFonts.tajawal(
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
           ),
+          centerTitle: true,
+          backgroundColor: primaryColor,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.format_size, color: Colors.white),
+              onPressed: _showFontSizeDialog,
+              tooltip: 'تغيير حجم الخط',
+            ),
+          ],
         ),
-        centerTitle: true,
-      ),
-      body: Column(
-        children: [
-          // شريط البحث
-          Container(
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isDarkMode ? Colors.grey[850] : Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'ابحث عن سؤال (مثل: بخاخة، قطرة، إبرة...)',
-                hintStyle: GoogleFonts.tajawal(
-                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                  fontSize: 14,
-                ),
-                prefixIcon: Icon(
-                  Icons.search,
-                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                ),
-                suffixIcon: _isSearching
-                    ? IconButton(
-                        icon: Icon(
-                          Icons.clear,
-                          color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                        ),
-                        onPressed: () {
-                          _searchController.clear();
-                        },
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-              ),
-              style: GoogleFonts.tajawal(
-                color: isDarkMode ? Colors.white : Colors.black,
-                fontSize: 16,
-              ),
-            ),
-          ),
+        body: Column(
+          children: [
+            _buildSearchSection(isDark, primaryColor),
 
-          // عدد النتائج
-          if (_isSearching)
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'تم العثور على ${_filteredQuestions.length} سؤال',
-                style: GoogleFonts.tajawal(
-                  color: primaryColor,
-                  fontSize: isDarkMode ? 16 : 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+            if (_isSearching) _buildResultCount(primaryColor),
+
+            Expanded(
+              child: _filteredQuestions.isEmpty
+                  ? _buildEmptyState(isDark)
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+                      itemCount: _filteredQuestions.length,
+                      itemBuilder: (context, index) => _buildQuestionCard(
+                        _filteredQuestions[index],
+                        isDark,
+                        primaryColor,
+                      ),
+                    ),
             ),
-
-          const SizedBox(height: 8),
-
-          // قائمة الأسئلة
-          Expanded(
-            child: _filteredQuestions.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _filteredQuestions.length,
-                    itemBuilder: (context, index) {
-                      return _buildQuestionTile(_filteredQuestions[index]);
-                    },
-                  ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+  Widget _buildSearchSection(bool isDark, Color primaryColor) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: primaryColor,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(30),
+          bottomRight: Radius.circular(30),
+        ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? Colors.grey[900] : Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10),
+          ],
+        ),
+        child: TextField(
+          controller: _searchController,
+          style: GoogleFonts.tajawal(
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+          decoration: InputDecoration(
+            hintText: 'ابحث عن فتوى...',
+            hintStyle: GoogleFonts.tajawal(color: Colors.grey, fontSize: 14),
+            prefixIcon: Icon(Icons.search, color: primaryColor),
+            suffixIcon: _isSearching
+                ? IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => _searchController.clear(),
+                  )
+                : null,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 15),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResultCount(Color primaryColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Text(
+        'تم العثور على ${_filteredQuestions.length} نتيجة',
+        style: GoogleFonts.tajawal(
+          color: primaryColor,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuestionCard(
+    FastingFiqhQuestion question,
+    bool isDark,
+    Color primaryColor,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black38 : Colors.grey.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: ExpansionTile(
+          iconColor: primaryColor,
+          collapsedIconColor: Colors.grey,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          title: Text(
+            question.question,
+            style: GoogleFonts.tajawal(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : Colors.black87,
+              height: 1.4,
+            ),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    question.category,
+                    style: GoogleFonts.tajawal(
+                      color: primaryColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.black26 : const Color(0xFFFDFDFD),
+                border: Border(
+                  top: BorderSide(
+                    color: isDark ? Colors.white10 : Colors.grey[100]!,
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    question.answer,
+                    style: GoogleFonts.tajawal(
+                      fontSize: _answerFontSize,
+                      height: 1.8,
+                      color: isDark ? Colors.grey[300] : Colors.grey[800],
+                    ),
+                  ),
+                  if (question.keywords.isNotEmpty) ...[
+                    const SizedBox(height: 15),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: question.keywords
+                          .map((tag) => _buildTag(tag, isDark, primaryColor))
+                          .toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTag(String label, bool isDark, Color primaryColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        // تم استبدال Colors.white05 بالخيار الصحيح أدناه
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey[100],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey[300]!),
+      ),
+      child: Text(
+        "# $label",
+        style: GoogleFonts.tajawal(
+          fontSize: 10,
+          color: isDark ? Colors.grey[400] : Colors.grey[600],
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(bool isDark) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            _isSearching ? Icons.search_off : Icons.menu_book,
-            size: 80,
-            color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
-          ),
+          Icon(Icons.search_off_rounded, size: 80, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
-            _isSearching ? 'لا توجد نتائج للبحث' : 'لا توجد أسئلة',
+            'لم نجد ما تبحث عنه',
             style: GoogleFonts.tajawal(
-              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
               fontSize: 18,
-              fontWeight: FontWeight.w500,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+              fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            _isSearching 
-                ? 'جرب كلمات أخرى مثل: صيام، حائض، سفر'
-                : 'يجب إضافة أسئلة الفقه',
-            style: GoogleFonts.tajawal(
-              color: isDarkMode ? Colors.grey[500] : Colors.grey[500],
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuestionTile(FastingFiqhQuestion question) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = Theme.of(context).primaryColor;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: isDarkMode ? Colors.grey[800] : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: ExpansionTile(
-        title: Text(
-          question.question,
-          style: GoogleFonts.tajawal(
-            color: isDarkMode ? Colors.white : Theme.of(context).colorScheme.onSurface,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            height: 1.4,
-          ),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: isDarkMode 
-                  ? Colors.blue.withOpacity(0.3) 
-                  : primaryColor.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              question.category,
-              style: GoogleFonts.tajawal(
-                color: isDarkMode 
-                    ? Colors.blue[300] 
-                    : primaryColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-        childrenPadding: const EdgeInsets.all(16),
-        expandedAlignment: Alignment.topRight,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        iconColor: primaryColor,
-        collapsedIconColor: primaryColor,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isDarkMode ? Colors.grey[750] : Colors.grey[50],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isDarkMode ? Colors.grey[600]! : Colors.grey[200]!,
-                width: 1,
-              ),
-            ),
-            child: Text(
-              question.answer,
-              style: GoogleFonts.tajawal(
-                color: Theme.of(context).brightness == Brightness.dark 
-                    ? Colors.white 
-                    : Theme.of(context).colorScheme.onSurface,
-                fontSize: 15,
-                height: 1.6,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.right,
-              textDirection: TextDirection.rtl,
-            ),
-          ),
-          
-          // الكلمات المفتاحية
-          if (question.keywords.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              alignment: WrapAlignment.end,
-              children: question.keywords.map((keyword) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.25),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: primaryColor.withOpacity(0.5),
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    keyword,
-                    style: GoogleFonts.tajawal(
-                      color: Theme.of(context).brightness == Brightness.dark 
-                          ? Colors.white 
-                          : Theme.of(context).colorScheme.onSurface,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
         ],
       ),
     );
