@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/surah.dart';
 import '../services/quran_service.dart';
+import '../services/quran_text_service.dart';
 import '../utils/logger.dart';
 import 'quran_reader_screen.dart';
 import 'juz_index_screen.dart';
@@ -17,6 +18,7 @@ class _QuranIndexScreenState extends State<QuranIndexScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final QuranService _quranService = QuranService();
+  final QuranTextService _quranTextService = QuranTextService();
   List<Surah> _filteredSurahs = [];
   List<Surah> _allSurahs = [];
   bool _isLoading = true;
@@ -98,7 +100,27 @@ class _QuranIndexScreenState extends State<QuranIndexScreen>
           actions: [
             IconButton(
               icon: const Icon(Icons.bookmark, color: Colors.amber),
-              onPressed: () {}, // تم اختصار الوظيفة هنا للتركيز على التصميم
+              onPressed: () async {
+                final bookmark = await _quranTextService.getBookmark();
+                if (bookmark != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => QuranReaderScreen(),
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'لا توجد علامة مرجعية محفوظة',
+                        style: GoogleFonts.tajawal(),
+                      ),
+                      backgroundColor: Colors.orange[700],
+                    ),
+                  );
+                }
+              },
               tooltip: 'الانتقال للعلامة',
             ),
           ],
