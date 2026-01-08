@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/surah.dart';
 import '../services/quran_service.dart';
-import '../services/quran_text_service.dart';
 import '../utils/logger.dart';
 import 'quran_reader_screen.dart';
 import 'juz_index_screen.dart';

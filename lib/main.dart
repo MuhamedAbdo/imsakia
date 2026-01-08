@@ -9,17 +9,13 @@ import 'screens/settings_screen.dart';
 import 'screens/main_layout.dart';
 import 'services/hadith_service.dart';
 import 'services/azkar_service.dart';
-import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize services
+  // 1. تهيئة الخدمات
   await HadithService.instance.initialize();
   await AzkarService.instance.initialize();
-  await NotificationService.instance.initialize();
-
-  // Initialize settings provider first
   final settingsProvider = SettingsProvider();
   await settingsProvider.initialize();
 
@@ -65,11 +61,8 @@ class MyApp extends StatelessWidget {
                   SystemChrome.setPreferredOrientations([
                     DeviceOrientation.portraitUp,
                   ]);
-                  return OrientationBuilder(
-                    builder: (context, orientation) {
-                      return child!;
-                    },
-                  );
+
+                  return child!;
                 },
               );
             },

@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/prayer_times_service.dart';
-import '../services/notification_service.dart';
 import '../utils/app_constants.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -167,12 +166,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              _buildSection(
-                title: 'التنبيهات',
-                icon: Icons.notifications_none_rounded,
-                children: [_buildNotificationsToggle()],
-              ),
-              const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -323,7 +316,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           label: 'المدينة الحالية',
           child: DropdownButtonFormField<String>(
             isExpanded: true,
-            value: settings.selectedCity,
+            initialValue: settings.selectedCity,
             dropdownColor: Theme.of(context).cardColor,
             decoration: const InputDecoration(border: InputBorder.none),
             items: AppConstants.cities.map((city) {
@@ -371,7 +364,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           label: 'طريقة الحساب',
           child: DropdownButtonFormField<String>(
             isExpanded: true,
-            value: settings.selectedCalculationMethod,
+            initialValue: settings.selectedCalculationMethod,
             dropdownColor: Theme.of(context).cardColor,
             decoration: const InputDecoration(border: InputBorder.none),
             items: _calculationMethods.entries.map((entry) {
@@ -419,7 +412,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           label: 'المذهب (لصلاة العصر)',
           child: DropdownButtonFormField<String>(
             isExpanded: true,
-            value: settings.selectedMadhab,
+            initialValue: settings.selectedMadhab,
             dropdownColor: Theme.of(context).cardColor,
             decoration: const InputDecoration(border: InputBorder.none),
             items: const [
@@ -464,7 +457,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: GoogleFonts.tajawal(fontSize: 15),
           ),
           value: settings.dstEnabled,
-          activeColor: Theme.of(context).colorScheme.primary,
+          activeThumbColor: Theme.of(context).colorScheme.primary,
           onChanged: (value) async {
             await settings.setDST(value);
             try {
@@ -496,7 +489,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           label: 'تعديل التقويم الهجري',
           child: DropdownButtonFormField<int>(
             isExpanded: true,
-            value: settings.hijriAdjustment,
+            initialValue: settings.hijriAdjustment,
             dropdownColor: Theme.of(context).cardColor,
             decoration: const InputDecoration(border: InputBorder.none),
             items: [-2, -1, 0, 1, 2].map((offset) {
@@ -515,200 +508,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       },
     );
-  }
-
-  Widget _buildNotificationsToggle() {
-    return Consumer<SettingsProvider>(
-      builder: (context, settings, child) {
-        return SwitchListTile(
-          title: Text(
-            'إشعارات مواقيت الصلاة والأذكار',
-            style: GoogleFonts.tajawal(fontSize: 15),
-          ),
-          subtitle: Text(
-            'تنبيه عند دخول وقت الصلاة',
-            style: GoogleFonts.tajawal(fontSize: 12),
-          ),
-          value: settings.notificationsEnabled,
-          activeColor: Theme.of(context).colorScheme.primary,
-          onChanged: (value) async {
-            if (value) {
-              final notificationService = NotificationService.instance;
-
-              // Request notification permission first
-              final hasNotificationPermission = await notificationService
-                  .requestNotificationPermission();
-
-              if (!hasNotificationPermission) {
-                // Permission denied, show message and keep toggle off
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'يجب السماح بالإشعارات لتفعيل هذه الميزة',
-                        style: GoogleFonts.tajawal(),
-                      ),
-                      backgroundColor: Colors.red,
-                      action: SnackBarAction(
-                        label: 'الإعدادات',
-                        textColor: Colors.white,
-                        onPressed: () {
-                          notificationService.openNotificationSettings();
-                        },
-                      ),
-                    ),
-                  );
-                }
-                return;
-              }
-
-              // Check battery optimization
-              final isIgnoringBatteryOptimizations = await notificationService
-                  .isIgnoringBatteryOptimizations();
-
-              if (!isIgnoringBatteryOptimizations) {
-                // Show battery optimization dialog
-                final shouldProceed = await _showBatteryOptimizationDialog(
-                  context,
-                );
-                if (!shouldProceed) return;
-
-                // Request battery optimization permission
-                final hasBatteryPermission = await notificationService
-                    .requestIgnoreBatteryOptimizations();
-
-                if (!hasBatteryPermission) {
-                  // Battery optimization permission denied
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'قد يؤثر توفير البطارية على مواعيد الإشعارات',
-                          style: GoogleFonts.tajawal(),
-                        ),
-                        backgroundColor: Colors.orange,
-                        action: SnackBarAction(
-                          label: 'الإعدادات',
-                          textColor: Colors.white,
-                          onPressed: () {
-                            notificationService
-                                .openBatteryOptimizationSettings();
-                          },
-                        ),
-                      ),
-                    );
-                  }
-                  // Continue anyway but warn user
-                }
-              }
-
-              // All permissions granted, enable notifications and schedule them
-              await settings.setNotifications(true);
-              try {
-                await notificationService.schedulePrayerNotifications();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'تم تفعيل الإشعارات وجدولة مواقيت الصلاة',
-                        style: GoogleFonts.tajawal(),
-                      ),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'حدث خطأ أثناء جدولة الإشعارات',
-                        style: GoogleFonts.tajawal(),
-                      ),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                }
-              }
-            } else {
-              // Disable notifications and cancel all scheduled notifications
-              await settings.setNotifications(false);
-              try {
-                final notificationService = NotificationService.instance;
-                await notificationService.cancelAllNotifications();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'تم إيقاف الإشعارات',
-                        style: GoogleFonts.tajawal(),
-                      ),
-                      backgroundColor: Colors.grey,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'حدث خطأ أثناء إيقاف الإشعارات',
-                        style: GoogleFonts.tajawal(),
-                      ),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                }
-              }
-            }
-          },
-          contentPadding: EdgeInsets.zero,
-        );
-      },
-    );
-  }
-
-  Future<bool> _showBatteryOptimizationDialog(BuildContext context) async {
-    return await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: Text(
-                'إعدادات البطارية',
-                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
-              ),
-              content: Text(
-                'لضمان وصول إشعارات الأذان في الوقت المحدد، يجب إضافة التطبيق إلى قائمة الاستثناءات من توفير البطارية.\n\n'
-                'بدون هذا الإعداد، قد يتأخر نظام Android عن إرسال الإشعارات لحفظ البطارية.',
-                style: GoogleFonts.tajawal(fontSize: 14),
-                textAlign: TextAlign.right,
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop(false);
-                  },
-                  child: Text(
-                    'إلغاء',
-                    style: GoogleFonts.tajawal(color: Colors.grey),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop(true);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: Text('موافق', style: GoogleFonts.tajawal()),
-                ),
-              ],
-            );
-          },
-        ) ??
-        false;
   }
 
   String _getThemeDisplayName(AppThemeMode mode) {
