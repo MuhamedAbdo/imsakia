@@ -300,10 +300,6 @@ class _ButtonsState extends State<_Buttons>
     super.initState();
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 
   void _showResetDialog(BuildContext context) {
     showDialog(

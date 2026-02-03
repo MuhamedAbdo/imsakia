@@ -401,7 +401,8 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                       ? (isDark ? Colors.greenAccent : Colors.green.shade900)
                       : Theme.of(context).textTheme.bodyLarge?.color,
                 ),
-                textAlign: TextAlign.center, // جعل النص يتوسط الكارت للأذكار
+                textAlign: TextAlign.right, // جعل النص يتوسط الكارت للأذكار
+              textDirection: TextDirection.rtl,
               ),
               const SizedBox(height: 24),
               Row(
