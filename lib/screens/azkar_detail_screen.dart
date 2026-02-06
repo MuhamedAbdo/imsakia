@@ -24,16 +24,13 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
   @override
   void initState() {
     super.initState();
-
     _progressController = AnimationController(
       duration: const Duration(milliseconds: 150),
       vsync: this,
     );
-
     _progressAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _progressController, curve: Curves.easeInOut),
     );
-
     _loadSettings();
   }
 
@@ -65,9 +62,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
 
   void _incrementZikr(Azkar azkar) {
     if (azkar.isCompleted) return;
-
     HapticFeedback.lightImpact();
-
     setState(() {
       final categoryIndex = widget.category.azkar.indexWhere(
         (a) => a.id == azkar.id,
@@ -76,11 +71,8 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
         widget.category.azkar[categoryIndex] = azkar.incrementCount();
       }
     });
-
     AzkarService.instance.incrementAzkarCount(widget.category.id, azkar.id);
-
     _progressController.forward().then((_) => _progressController.reverse());
-
     final updatedAzkar = widget.category.azkar.firstWhere(
       (a) => a.id == azkar.id,
     );
@@ -141,13 +133,8 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                 AzkarService.instance.resetCategoryCounters(widget.category.id);
                 setState(() {
                   for (int i = 0; i < widget.category.azkar.length; i++) {
-                    widget.category.azkar[i] = Azkar(
-                      id: widget.category.azkar[i].id,
-                      text: widget.category.azkar[i].text,
-                      target: widget.category.azkar[i].target,
-                      category: widget.category.azkar[i].category,
-                      currentCount: 0,
-                    );
+                    widget.category.azkar[i] = widget.category.azkar[i]
+                        .resetCount();
                   }
                 });
                 Navigator.of(context).pop();
@@ -229,7 +216,6 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -274,73 +260,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
           ),
           child: Column(
             children: [
-              // كارت التقدم الإجمالي
-              Container(
-                margin: const EdgeInsets.all(16.0),
-                padding: const EdgeInsets.all(20.0),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                    ),
-                  ],
-                ),
-                child: StreamBuilder<List<AzkarCategory>>(
-                  stream: AzkarService.instance.categoriesStream,
-                  builder: (context, snapshot) {
-                    AzkarCategory currentCategory =
-                        (snapshot.hasData && snapshot.data!.isNotEmpty)
-                        ? snapshot.data!.firstWhere(
-                            (cat) => cat.id == widget.category.id,
-                            orElse: () => widget.category,
-                          )
-                        : widget.category;
-
-                    return Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'التقدم في الأذكار',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              '${currentCategory.totalCompleted} من أصل ${currentCategory.totalCount}',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: Theme.of(context).primaryColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: LinearProgressIndicator(
-                            value: currentCategory.overallProgress,
-                            minHeight: 10,
-                            backgroundColor: isDark
-                                ? Colors.white10
-                                : Colors.black12,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Theme.of(context).primaryColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-              // قائمة الأذكار
+              _buildOverallProgressCard(isDark),
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
@@ -352,6 +272,68 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildOverallProgressCard(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(20.0),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+        ],
+      ),
+      child: StreamBuilder<List<AzkarCategory>>(
+        stream: AzkarService.instance.categoriesStream,
+        builder: (context, snapshot) {
+          AzkarCategory currentCategory =
+              (snapshot.hasData && snapshot.data!.isNotEmpty)
+              ? snapshot.data!.firstWhere(
+                  (cat) => cat.id == widget.category.id,
+                  orElse: () => widget.category,
+                )
+              : widget.category;
+          return Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'التقدم في الأذكار',
+                    style: GoogleFonts.tajawal(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    '${currentCategory.totalCompleted} من أصل ${currentCategory.totalCount}',
+                    style: GoogleFonts.tajawal(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: LinearProgressIndicator(
+                  value: currentCategory.overallProgress,
+                  minHeight: 10,
+                  backgroundColor: isDark ? Colors.white10 : Colors.black12,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).primaryColor,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -372,12 +354,12 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
         border: Border.all(
           color: azkar.isCompleted
               ? Colors.green.withOpacity(0.5)
-              : Colors.transparent,
+              : (isDark ? Colors.white10 : Colors.transparent),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -391,23 +373,79 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (azkar.header != null && azkar.header!.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 4,
+                    horizontal: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    azkar.header!,
+                    style: GoogleFonts.tajawal(
+                      fontSize: _fontSize * 0.8,
+                      color: isDark
+                          ? Colors.amber.shade300
+                          : Theme.of(context).primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               Text(
                 azkar.text,
                 style: GoogleFonts.amiri(
                   fontSize: _fontSize,
-                  height: 2.0,
+                  height: 1.8,
                   fontWeight: FontWeight.w600,
                   color: azkar.isCompleted
                       ? (isDark ? Colors.greenAccent : Colors.green.shade900)
-                      : Theme.of(context).textTheme.bodyLarge?.color,
+                      : (isDark
+                            ? Colors.white.withOpacity(0.9)
+                            : Colors.black87),
                 ),
-                textAlign: TextAlign.right, // جعل النص يتوسط الكارت للأذكار
-              textDirection: TextDirection.rtl,
+                textAlign: TextAlign.right,
+                textDirection: TextDirection.rtl,
               ),
+              if (azkar.comment != null && azkar.comment!.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      right: BorderSide(
+                        color: isDark
+                            ? Colors.amber.withOpacity(0.5)
+                            : Colors.grey.shade400,
+                        width: 3,
+                      ),
+                    ),
+                  ),
+                  child: Text(
+                    azkar.comment!,
+                    style: GoogleFonts.tajawal(
+                      fontSize: _fontSize * 0.7,
+                      height: 1.5,
+                      color: isDark
+                          ? Colors.grey.shade300
+                          : Colors.grey.shade700,
+                      fontStyle: FontStyle.italic,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               Row(
                 children: [
-                  // عداد الضغط (الدائرة)
                   GestureDetector(
                     onTap: () => _incrementZikr(azkar),
                     child: AnimatedBuilder(
@@ -455,7 +493,6 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                     ),
                   ),
                   const SizedBox(width: 20),
-                  // معلومات التقدم
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -502,13 +539,12 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // زر النسخ
                   IconButton(
                     onPressed: () => _copyZikr(azkar.text),
                     icon: Icon(
                       Icons.copy_rounded,
                       size: 22,
-                      color: Colors.grey.shade500,
+                      color: isDark ? Colors.white60 : Colors.grey.shade500,
                     ),
                     tooltip: 'نسخ الذكر',
                   ),

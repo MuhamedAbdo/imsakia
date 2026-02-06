@@ -8,7 +8,9 @@ plugins {
 android {
     namespace = "com.muhamed.imsakia"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    
+    // تم تعطيل هذا السطر لمنع Gradle من محاولة تحميل نسخة NDK 28 الضخمة والمعلقة
+    // ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -25,22 +27,20 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.muhamed.imsakia"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        
+        // استخدام النسخة المحددة من فلاتر
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         
-        // Widget configuration
-        minSdk = flutter.minSdkVersion  // Required for home_widget
+        // Widget configuration - تثبيت النسخة لضمان عمل home_widget
+        minSdk = flutter.minSdkVersion 
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }

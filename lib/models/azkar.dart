@@ -5,6 +5,8 @@ class Azkar {
   final String id;
   final String category;
   final String text;
+  final String? header; // الافتتاحية أو فضل الذكر
+  final String? comment; // الشرح أو المصدر
   final int target;
   final int? currentCount;
   final bool isCompleted;
@@ -13,6 +15,8 @@ class Azkar {
     required this.id,
     required this.category,
     required this.text,
+    this.header,
+    this.comment,
     required this.target,
     this.currentCount = 0,
     this.isCompleted = false,
@@ -23,6 +27,8 @@ class Azkar {
       id: json['id'] as String,
       category: json['category'] as String,
       text: json['text'] as String,
+      header: json['header'] as String?,
+      comment: json['comment'] as String?,
       target: json['target'] as int,
       currentCount: json['currentCount'] as int? ?? 0,
       isCompleted: json['isCompleted'] as bool? ?? false,
@@ -34,6 +40,8 @@ class Azkar {
       'id': id,
       'category': category,
       'text': text,
+      'header': header,
+      'comment': comment,
       'target': target,
       'currentCount': currentCount,
       'isCompleted': isCompleted,
@@ -44,6 +52,8 @@ class Azkar {
     String? id,
     String? category,
     String? text,
+    String? header,
+    String? comment,
     int? target,
     int? currentCount,
     bool? isCompleted,
@@ -52,6 +62,8 @@ class Azkar {
       id: id ?? this.id,
       category: category ?? this.category,
       text: text ?? this.text,
+      header: header ?? this.header,
+      comment: comment ?? this.comment,
       target: target ?? this.target,
       currentCount: currentCount ?? this.currentCount,
       isCompleted: isCompleted ?? this.isCompleted,
@@ -60,17 +72,11 @@ class Azkar {
 
   Azkar incrementCount() {
     final newCount = (currentCount ?? 0) + 1;
-    return copyWith(
-      currentCount: newCount,
-      isCompleted: newCount >= target,
-    );
+    return copyWith(currentCount: newCount, isCompleted: newCount >= target);
   }
 
   Azkar resetCount() {
-    return copyWith(
-      currentCount: 0,
-      isCompleted: false,
-    );
+    return copyWith(currentCount: 0, isCompleted: false);
   }
 
   double get progress {
@@ -138,18 +144,24 @@ class AzkarCategory {
         return Icons.bedtime;
       case 'Icons.favorite':
         return Icons.favorite;
+      case 'Icons.fingerprint':
+        return Icons.fingerprint;
+      case 'Icons.explore':
+        return Icons.explore;
+      case 'Icons.auto_awesome':
+        return Icons.auto_awesome;
+      case 'Icons.menu_book':
+        return Icons.menu_book;
       default:
         return Icons.auto_stories;
     }
   }
 
   static LinearGradient _getGradientFromString(String gradientString) {
-    // Simple gradient parsing - in real app, you'd want more robust parsing
     return AppConstants.primaryGradient;
   }
 
   static String _gradientToString(LinearGradient gradient) {
-    // Simple gradient serialization - in real app, you'd want more robust serialization
     return 'primaryGradient';
   }
 
@@ -168,14 +180,13 @@ class AzkarCategory {
   }
 
   AzkarCategory resetAllCounters() {
-    return copyWith(
-      azkar: azkar.map((azkar) => azkar.resetCount()).toList(),
-    );
+    return copyWith(azkar: azkar.map((azkar) => azkar.resetCount()).toList());
   }
 
   int get totalCompleted => azkar.where((azkar) => azkar.isCompleted).length;
   int get totalCount => azkar.length;
-  double get overallProgress => totalCount > 0 ? totalCompleted / totalCount : 0.0;
+  double get overallProgress =>
+      totalCount > 0 ? totalCompleted / totalCount : 0.0;
 
   AzkarCategory copyWith({
     String? id,
