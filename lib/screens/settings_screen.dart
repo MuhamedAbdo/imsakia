@@ -1,14 +1,16 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:csc_picker_plus/csc_picker_plus.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/prayer_times_service.dart';
-import '../utils/app_constants.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool isFirstTimeSetup;
-
   const SettingsScreen({super.key, this.isFirstTimeSetup = false});
 
   @override
@@ -18,25 +20,93 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   late SettingsProvider _settingsProvider;
 
+  String? _selectedCountry;
+  String? _selectedState;
+
   final Map<String, String> _calculationMethods = {
     'egyptian': 'الهيئة المصرية العامة للمساحة',
+    'turkey': 'رئاسة الشؤون الدينية التركية (Diyanet)',
     'karachi': 'جامعة العلوم الإسلامية بكراتشي',
     'umm_al_qura': 'جامعة أم القرى، مكة المكرمة',
     'muslim_world_league': 'رابطة العالم الإسلامي',
     'north_america': 'الجمعية الإسلامية لأمريكا الشمالية',
+    'dubai': 'دبي (الإمارات)',
+    'kuwait': 'الكويت',
+    'qatar': 'قطر',
   };
 
   @override
   void initState() {
     super.initState();
     _settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
-    if (!_settingsProvider.isInitialized) {
-      _settingsProvider.initialize();
+    _loadSavedLocation();
+  }
+
+  void _loadSavedLocation() {
+    final savedLocation = _settingsProvider.selectedCityName;
+    if (savedLocation.contains(',')) {
+      final parts = savedLocation.split(',');
+      if (parts.length >= 2) {
+        setState(() {
+          _selectedState = parts[0].trim();
+          _selectedCountry = parts[1].trim();
+        });
+      }
     }
   }
 
+  void _autoSelectMethod(String country) {
+    String method = 'muslim_world_league';
+    if (country.contains("Egypt")) {
+      method = 'egyptian';
+    } else if (country.contains("Turkey")) {
+      method = 'turkey';
+    } else if (country.contains("Saudi Arabia")) {
+      method = 'umm_al_qura';
+    } else if (country.contains("United Arab Emirates")) {
+      method = 'dubai';
+    } else if (country.contains("Kuwait")) {
+      method = 'kuwait';
+    } else if (country.contains("Qatar")) {
+      method = 'qatar';
+    } else if (country.contains("United States") ||
+        country.contains("Canada")) {
+      method = 'north_america';
+    }
+    _settingsProvider.setCalculationMethod(method);
+  }
+
   Future<void> _saveSettings() async {
+    if (widget.isFirstTimeSetup &&
+        (_selectedState == null || _selectedCountry == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'يرجى اختيار الدولة والمحافظة',
+            style: GoogleFonts.tajawal(),
+          ),
+        ),
+      );
+      return;
+    }
+
     try {
+      if (_selectedState != null && _selectedCountry != null) {
+        final fullLocation = "$_selectedState, $_selectedCountry";
+        await _settingsProvider.setCity(fullLocation);
+
+        try {
+          List<Location> locations = await locationFromAddress(fullLocation);
+          if (locations.isNotEmpty) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setDouble('last_lat', locations.first.latitude);
+            await prefs.setDouble('last_lng', locations.first.longitude);
+          }
+        } catch (e) {
+          debugPrint("Geocoding Error: $e");
+        }
+      }
+
       if (widget.isFirstTimeSetup) {
         await _settingsProvider.setFirstLaunchComplete();
       }
@@ -44,47 +114,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await PrayerTimesService.instance.getCurrentPrayerTimes();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم حفظ الإعدادات بنجاح',
-              style: GoogleFonts.tajawal(),
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            if (widget.isFirstTimeSetup) {
-              Navigator.of(
-                context,
-              ).pushNamedAndRemoveUntil('/main', (route) => false);
-            } else {
-              Navigator.of(context).pop();
-            }
-          }
-        });
+        if (widget.isFirstTimeSetup) {
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/main', (route) => false);
+        } else {
+          Navigator.of(context).pop();
+        }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'حدث خطأ أثناء حفظ الإعدادات',
-              style: GoogleFonts.tajawal(),
-            ),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      debugPrint("Error saving settings: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -96,101 +141,83 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ? null
             : AppBar(
                 title: Text(
-                  'الإعدادات',
-                  style: GoogleFonts.tajawal(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  'إعدادات المواقيت',
+                  style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
                 ),
                 centerTitle: true,
               ),
         body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(20),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (widget.isFirstTimeSetup) ...[
-                const SizedBox(height: 40),
-                Center(
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.settings_suggest_rounded,
-                        size: 80,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'إعداد التطبيق',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'يرجى ضبط الإعدادات الأساسية لضمان دقة مواقيت الصلاة',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 16,
-                          color: isDark ? Colors.grey[400] : Colors.grey[700],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 40),
-              ],
-
+              if (widget.isFirstTimeSetup) _buildHeader(),
               _buildSection(
-                title: 'المظهر',
-                icon: Icons.palette_outlined,
-                children: [_buildThemeSelector(isDark)],
-              ),
-              const SizedBox(height: 20),
-              _buildSection(
-                title: 'الصلاة والتقويم',
-                icon: Icons
-                    .brightness_3_outlined, // تم تغيير الأيقونة هنا لحل الخطأ
+                title: 'الموقع الجغرافي',
+                icon: Icons.location_on_rounded,
                 children: [
-                  _buildCitySelector(isDark),
-                  const SizedBox(height: 20),
-                  _buildCalculationMethodSelector(isDark),
-                  const SizedBox(height: 20),
-                  _buildMadhabSelector(isDark),
-                  const SizedBox(height: 10),
-                  _buildDstToggle(),
-                  const SizedBox(height: 10),
-                  _buildHijriAdjustmentSelector(isDark),
+                  CSCPickerPlus(
+                    layout: Layout.vertical,
+                    currentCountry: _selectedCountry,
+                    currentState: _selectedState,
+                    showStates: true,
+                    showCities: false,
+                    flagState: CountryFlag.ENABLE,
+                    dropdownDecoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: isDark ? Colors.grey[900] : Colors.white,
+                      border: Border.all(
+                        color: isDark ? Colors.white24 : Colors.grey.shade300,
+                      ),
+                    ),
+                    disabledDropdownDecoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: isDark ? Colors.black26 : Colors.grey.shade100,
+                      border: Border.all(
+                        color: isDark ? Colors.white10 : Colors.grey.shade200,
+                      ),
+                    ),
+                    selectedItemStyle: GoogleFonts.tajawal(
+                      fontSize: 15,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                    countryDropdownLabel: "اختر الدولة",
+                    stateDropdownLabel: "اختر المحافظة / الولاية",
+                    onCountryChanged: (value) {
+                      setState(() {
+                        _selectedCountry = value;
+                        if (value != null) _autoSelectMethod(value);
+                      });
+                    },
+                    onStateChanged: (value) =>
+                        setState(() => _selectedState = value),
+                    onCityChanged: (value) {},
+                  ),
                 ],
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _saveSettings,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                  ),
-                  child: Text(
-                    widget.isFirstTimeSetup
-                        ? 'بدء استخدام التطبيق'
-                        : 'حفظ التغييرات',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+              const SizedBox(height: 15),
+              _buildSection(
+                title: 'الحساب الفقهي والوقت',
+                icon: Icons.settings_outlined,
+                children: [
+                  _buildCalculationMethodSelector(),
+                  const SizedBox(height: 15),
+                  _buildMadhabSelector(),
+                  const Divider(height: 30),
+                  _buildDstToggle(),
+                ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 15),
+              _buildSection(
+                title: 'التقويم والمظهر',
+                icon: Icons.palette_outlined,
+                children: [
+                  _buildHijriAdjustmentControl(), // التعديل الجديد هنا
+                  const Divider(height: 30),
+                  _buildThemeSelector(isDark),
+                ],
+              ),
+              const SizedBox(height: 30),
+              _buildSaveButton(),
             ],
           ),
         ),
@@ -198,251 +225,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // --- دوال المساعدة (Helper Widgets) لبناء واجهة منظمة ---
+  // --- Widgets الفرعية المطورة ---
 
-  Widget _buildSection({
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Row(
+  Widget _buildHijriAdjustmentControl() {
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'تعديل التاريخ الهجري',
+              style: GoogleFonts.tajawal(fontSize: 15),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(
-                  icon,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 22,
+                IconButton(
+                  icon: const Icon(
+                    Icons.remove_circle_outline,
+                    color: Colors.red,
+                  ),
+                  onPressed: () => settings.updateHijriAdjustment(
+                    settings.hijriAdjustment - 1,
+                  ),
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: GoogleFonts.tajawal(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    settings.hijriAdjustment == 0
+                        ? "تلقائي"
+                        : (settings.hijriAdjustment > 0
+                              ? "+${settings.hijriAdjustment} يوم"
+                              : "${settings.hijriAdjustment} يوم"),
+                    style: GoogleFonts.tajawal(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.green,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.add_circle_outline,
+                    color: Colors.green,
+                  ),
+                  onPressed: () => settings.updateHijriAdjustment(
+                    settings.hijriAdjustment + 1,
                   ),
                 ),
               ],
             ),
-          ),
-          const Divider(indent: 16, endIndent: 16),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: children,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFieldContainer({required String label, required Widget child}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.tajawal(
-            fontSize: 14,
-            color: isDark ? Colors.amber[100] : Colors.blueGrey[800],
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey[100],
-            border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
-          ),
-          child: child,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildThemeSelector(bool isDark) {
-    return Consumer2<SettingsProvider, ThemeProvider>(
-      builder: (context, settings, themeProvider, child) {
-        return Wrap(
-          spacing: 10,
-          children: AppThemeMode.values.map((mode) {
-            bool isSelected = settings.themeMode == mode;
-            return ChoiceChip(
-              label: Text(
-                _getThemeDisplayName(mode),
-                style: GoogleFonts.tajawal(
-                  color: isSelected
-                      ? Colors.white
-                      : (isDark ? Colors.white70 : Colors.black87),
-                ),
-              ),
-              selected: isSelected,
-              selectedColor: Theme.of(context).colorScheme.primary,
-              onSelected: (selected) {
-                if (selected) {
-                  settings.setThemeMode(mode);
-                  themeProvider.syncWithSettingsProvider(mode);
-                }
-              },
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-
-  Widget _buildCitySelector(bool isDark) {
-    return Consumer<SettingsProvider>(
-      builder: (context, settings, child) {
-        return _buildFieldContainer(
-          label: 'المدينة الحالية',
-          child: DropdownButtonFormField<String>(
-            isExpanded: true,
-            initialValue: settings.selectedCity,
-            dropdownColor: Theme.of(context).cardColor,
-            decoration: const InputDecoration(border: InputBorder.none),
-            items: AppConstants.cities.map((city) {
-              return DropdownMenuItem<String>(
-                value: city['id'] as String,
-                child: Text(
-                  '${city['name']} - ${city['country']}',
-                  style: GoogleFonts.tajawal(
-                    fontSize: 15,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-              );
-            }).toList(),
-            onChanged: (value) async {
-              if (value != null) {
-                await settings.setCity(value);
-                try {
-                  await PrayerTimesService.instance.getCurrentPrayerTimes();
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'حدث خطأ أثناء تحديث مواقيت الصلاة',
-                          style: GoogleFonts.tajawal(),
-                        ),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              }
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildCalculationMethodSelector(bool isDark) {
-    return Consumer<SettingsProvider>(
-      builder: (context, settings, child) {
-        return _buildFieldContainer(
-          label: 'طريقة الحساب',
-          child: DropdownButtonFormField<String>(
-            isExpanded: true,
-            initialValue: settings.selectedCalculationMethod,
-            dropdownColor: Theme.of(context).cardColor,
-            decoration: const InputDecoration(border: InputBorder.none),
-            items: _calculationMethods.entries.map((entry) {
-              return DropdownMenuItem(
-                value: entry.key,
-                child: Text(
-                  entry.value,
-                  style: GoogleFonts.tajawal(
-                    fontSize: 15,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-              );
-            }).toList(),
-            onChanged: (value) async {
-              if (value != null) {
-                await settings.setCalculationMethod(value);
-                try {
-                  await PrayerTimesService.instance.getCurrentPrayerTimes();
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'حدث خطأ أثناء تحديث مواقيت الصلاة',
-                          style: GoogleFonts.tajawal(),
-                        ),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              }
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMadhabSelector(bool isDark) {
-    return Consumer<SettingsProvider>(
-      builder: (context, settings, child) {
-        return _buildFieldContainer(
-          label: 'المذهب (لصلاة العصر)',
-          child: DropdownButtonFormField<String>(
-            isExpanded: true,
-            initialValue: settings.selectedMadhab,
-            dropdownColor: Theme.of(context).cardColor,
-            decoration: const InputDecoration(border: InputBorder.none),
-            items: const [
-              DropdownMenuItem(
-                value: 'shafi',
-                child: Text('الجمهور (شافعي، مالكي، حنبلي)'),
-              ),
-              DropdownMenuItem(value: 'hanafi', child: Text('الحنفي')),
-            ],
-            onChanged: (value) async {
-              if (value != null) {
-                await settings.setMadhab(value);
-                try {
-                  await PrayerTimesService.instance.getCurrentPrayerTimes();
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'حدث خطأ أثناء تحديث مواقيت الصلاة',
-                          style: GoogleFonts.tajawal(),
-                        ),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              }
-            },
-          ),
+          ],
         );
       },
     );
@@ -450,31 +291,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildDstToggle() {
     return Consumer<SettingsProvider>(
-      builder: (context, settings, child) {
+      builder: (context, settings, _) {
         return SwitchListTile(
           title: Text(
-            'تفعيل التوقيت الصيفي (+1 ساعة)',
+            'التوقيت الصيفي (+1 ساعة)',
             style: GoogleFonts.tajawal(fontSize: 15),
           ),
+          subtitle: Text(
+            'تعديل الوقت يدوياً في حال العمل بالتوقيت الصيفي',
+            style: GoogleFonts.tajawal(fontSize: 11),
+          ),
           value: settings.dstEnabled,
-          activeThumbColor: Theme.of(context).colorScheme.primary,
-          onChanged: (value) async {
-            await settings.setDST(value);
-            try {
-              await PrayerTimesService.instance.getCurrentPrayerTimes();
-            } catch (e) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'حدث خطأ أثناء تحديث مواقيت الصلاة',
-                      style: GoogleFonts.tajawal(),
-                    ),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            }
+          activeColor: Colors.green,
+          onChanged: (val) {
+            settings.setDST(val);
+            PrayerTimesService.instance.getCurrentPrayerTimes();
           },
           contentPadding: EdgeInsets.zero,
         );
@@ -482,42 +313,153 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildHijriAdjustmentSelector(bool isDark) {
+  Widget _buildCalculationMethodSelector() {
     return Consumer<SettingsProvider>(
-      builder: (context, settings, child) {
-        return _buildFieldContainer(
-          label: 'تعديل التقويم الهجري',
-          child: DropdownButtonFormField<int>(
-            isExpanded: true,
-            initialValue: settings.hijriAdjustment,
-            dropdownColor: Theme.of(context).cardColor,
-            decoration: const InputDecoration(border: InputBorder.none),
-            items: [-2, -1, 0, 1, 2].map((offset) {
-              String label = offset == 0
-                  ? "تاريخ اليوم (تلقائي)"
-                  : (offset > 0 ? "تأخير +$offset يوم" : "تقديم $offset يوم");
-              return DropdownMenuItem<int>(
-                value: offset,
-                child: Text(label, style: GoogleFonts.tajawal(fontSize: 15)),
-              );
-            }).toList(),
-            onChanged: (value) {
-              if (value != null) settings.setHijriAdjustment(value);
-            },
+      builder: (context, settings, _) {
+        return DropdownButtonFormField<String>(
+          value: settings.selectedCalculationMethod,
+          isExpanded: true,
+          decoration: InputDecoration(
+            labelText: 'طريقة الحساب',
+            labelStyle: GoogleFonts.tajawal(),
           ),
+          items: _calculationMethods.entries
+              .map(
+                (e) => DropdownMenuItem(
+                  value: e.key,
+                  child: Text(
+                    e.value,
+                    style: GoogleFonts.tajawal(fontSize: 14),
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: (val) {
+            if (val != null) {
+              settings.setCalculationMethod(val);
+              PrayerTimesService.instance.getCurrentPrayerTimes();
+            }
+          },
         );
       },
     );
   }
 
-  String _getThemeDisplayName(AppThemeMode mode) {
-    switch (mode) {
-      case AppThemeMode.light:
-        return 'فاتح';
-      case AppThemeMode.dark:
-        return 'داكن';
-      case AppThemeMode.system:
-        return 'النظام';
-    }
+  Widget _buildMadhabSelector() {
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, _) {
+        return DropdownButtonFormField<String>(
+          value: settings.selectedMadhab,
+          decoration: InputDecoration(
+            labelText: 'مذهب صلاة العصر',
+            labelStyle: GoogleFonts.tajawal(),
+          ),
+          items: const [
+            DropdownMenuItem(
+              value: 'shafi',
+              child: Text('الجمهور (شافعي، مالكي، حنبلي)'),
+            ),
+            DropdownMenuItem(value: 'hanafi', child: Text('الحنفي')),
+          ],
+          onChanged: (val) => val != null ? settings.setMadhab(val) : null,
+        );
+      },
+    );
+  }
+
+  Widget _buildThemeSelector(bool isDark) {
+    return Consumer2<SettingsProvider, ThemeProvider>(
+      builder: (context, settings, theme, _) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              "الوضع الداكن",
+              style: GoogleFonts.tajawal(fontWeight: FontWeight.w500),
+            ),
+            Switch(
+              value: settings.themeMode == AppThemeMode.dark,
+              onChanged: (val) {
+                final mode = val ? AppThemeMode.dark : AppThemeMode.light;
+                settings.setThemeMode(mode);
+                theme.syncWithSettingsProvider(mode);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSaveButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 55,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+        ),
+        onPressed: _saveSettings,
+        child: Text(
+          widget.isFirstTimeSetup ? "ابدأ الاستخدام" : "حفظ التغييرات",
+          style: GoogleFonts.tajawal(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSection({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: Colors.green, size: 20),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const Divider(height: 25),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Column(
+      children: [
+        const SizedBox(height: 30),
+        const Icon(
+          Icons.settings_suggest_outlined,
+          size: 80,
+          color: Colors.green,
+        ),
+        const SizedBox(height: 15),
+        Text(
+          'إعداد التطبيق',
+          style: GoogleFonts.tajawal(fontSize: 26, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 30),
+      ],
+    );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:adhan/adhan.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'package:geocoding/geocoding.dart';
 import '../utils/app_constants.dart';
 import 'hijri_date_service.dart';
 
@@ -17,7 +18,6 @@ class PrayerTimesService {
   Timer? _updateTimer;
   SharedPreferences? _sharedPreferences;
 
-  // Cache for Ramadan countdown
   Duration? _cachedTimeUntilRamadan;
   DateTime? _lastRamadanCalculation;
 
@@ -30,7 +30,6 @@ class PrayerTimesService {
     final location = await _getCurrentLocation();
     if (location == null) return null;
 
-    // Read user settings from SharedPreferences
     _sharedPreferences ??= await SharedPreferences.getInstance();
     final calculationMethod =
         _sharedPreferences!.getString(AppConstants.calculationMethodKey) ??
@@ -44,20 +43,30 @@ class PrayerTimesService {
 
     final now = DateTime.now();
     final date = DateComponents(now.year, now.month, now.day);
-
     final coordinates = Coordinates(location.latitude, location.longitude);
 
-    // Get the correct calculation method based on user setting
     CalculationParameters params;
     switch (calculationMethod) {
       case 'egyptian':
         params = CalculationMethod.egyptian.getParameters();
+        break;
+      case 'turkey':
+        params = CalculationMethod.turkey.getParameters();
         break;
       case 'karachi':
         params = CalculationMethod.karachi.getParameters();
         break;
       case 'umm_al_qura':
         params = CalculationMethod.umm_al_qura.getParameters();
+        break;
+      case 'dubai':
+        params = CalculationMethod.dubai.getParameters();
+        break;
+      case 'kuwait':
+        params = CalculationMethod.kuwait.getParameters();
+        break;
+      case 'qatar':
+        params = CalculationMethod.qatar.getParameters();
         break;
       case 'muslim_world_league':
         params = CalculationMethod.muslim_world_league.getParameters();
@@ -69,167 +78,148 @@ class PrayerTimesService {
         params = CalculationMethod.egyptian.getParameters();
     }
 
-    // Set madhab for Asr calculation
     params.madhab = madhab == 'hanafi' ? Madhab.hanafi : Madhab.shafi;
-
     final prayerTimes = PrayerTimes(coordinates, date, params);
 
-    // Apply DST offset if enabled
-    final dstOffset = dstEnabled ? const Duration(hours: 1) : Duration.zero;
+    final deviceOffsetHours = now.timeZoneOffset.inHours;
+    int targetOffsetHours = deviceOffsetHours;
+    String country = location.country.toLowerCase();
+
+    // تصحيح فوارق التوقيت للدول
+    if (country.contains("turkey")) {
+      targetOffsetHours = 3;
+    } else if (country.contains("algeria") || country.contains("morocco")) {
+      targetOffsetHours = 1;
+    } else if (country.contains("egypt")) {
+      targetOffsetHours = 2;
+    } else if (country.contains("saudi") ||
+        country.contains("qatar") ||
+        country.contains("kuwait")) {
+      targetOffsetHours = 3;
+    } else if (country.contains("united arab emirates") ||
+        country.contains("emirates") ||
+        country.contains("uae")) {
+      targetOffsetHours = 4; // الإمارات GMT+4
+    }
+
+    final timezoneCorrection = Duration(
+      hours: targetOffsetHours - deviceOffsetHours,
+    );
+    final totalOffset =
+        timezoneCorrection +
+        (dstEnabled ? const Duration(hours: 1) : Duration.zero);
 
     _currentPrayerTimes = {
-      'fajr': prayerTimes.fajr.add(dstOffset),
-      'sunrise': prayerTimes.sunrise.add(dstOffset),
-      'dhuhr': prayerTimes.dhuhr.add(dstOffset),
-      'asr': prayerTimes.asr.add(dstOffset),
-      'maghrib': prayerTimes.maghrib.add(dstOffset),
-      'isha': prayerTimes.isha.add(dstOffset),
+      'fajr': prayerTimes.fajr.add(totalOffset),
+      'sunrise': prayerTimes.sunrise.add(totalOffset),
+      'dhuhr': prayerTimes.dhuhr.add(totalOffset),
+      'asr': prayerTimes.asr.add(totalOffset),
+      'maghrib': prayerTimes.maghrib.add(totalOffset),
+      'isha': prayerTimes.isha.add(totalOffset),
     };
 
     _prayerTimesController?.add(_currentPrayerTimes!);
-
     _startUpdateTimer();
-
     return _currentPrayerTimes;
   }
 
   Future<LocationSettings?> _getCurrentLocation() async {
     _sharedPreferences ??= await SharedPreferences.getInstance();
-    final selectedCityId =
+    final selectedCity =
         _sharedPreferences!.getString(AppConstants.selectedCityKey) ??
-        AppConstants.defaultCity;
+        "Cairo, Egypt";
 
-    final city = AppConstants.cities.firstWhere(
-      (city) => city['id'] == selectedCityId,
-      orElse: () => AppConstants.cities.first,
-    );
+    double? cachedLat = _sharedPreferences!.getDouble('last_lat');
+    double? cachedLng = _sharedPreferences!.getDouble('last_lng');
+
+    if (cachedLat != null && cachedLng != null) {
+      return LocationSettings(
+        latitude: cachedLat,
+        longitude: cachedLng,
+        city: selectedCity.split(',').first.trim(),
+        country: selectedCity.split(',').last.trim(),
+      );
+    }
+
+    try {
+      List<Location> locations = await locationFromAddress(selectedCity);
+      if (locations.isNotEmpty) {
+        final loc = locations.first;
+        await _sharedPreferences!.setDouble('last_lat', loc.latitude);
+        await _sharedPreferences!.setDouble('last_lng', loc.longitude);
+        return LocationSettings(
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          city: selectedCity.split(',').first.trim(),
+          country: selectedCity.split(',').last.trim(),
+        );
+      }
+    } catch (e) {
+      print("Geocoding Error: $e");
+    }
 
     return LocationSettings(
-      latitude: city['latitude'],
-      longitude: city['longitude'],
-      city: city['name'],
-      country: city['country'],
-      timezone: city['timezone'],
+      latitude: 30.0444,
+      longitude: 31.2357,
+      city: "Cairo",
+      country: "Egypt",
     );
   }
 
   void _startUpdateTimer() {
     _updateTimer?.cancel();
-    _updateTimer = Timer.periodic(AppConstants.countdownUpdateInterval, (
-      timer,
-    ) {
-      _updatePrayerTimes();
-    });
+    _updateTimer = Timer.periodic(
+      AppConstants.countdownUpdateInterval,
+      (timer) => _updatePrayerTimes(),
+    );
   }
 
-  Future<void> _updatePrayerTimes() async {
-    await getCurrentPrayerTimes();
-  }
+  Future<void> _updatePrayerTimes() async => await getCurrentPrayerTimes();
 
   String? getNextPrayer() {
     if (_currentPrayerTimes == null) return null;
-
     final now = DateTime.now();
-    final prayers = _currentPrayerTimes!;
-
-    for (final entry in prayers.entries) {
-      if (entry.value.isAfter(now)) {
-        return entry.key;
-      }
+    for (final entry in _currentPrayerTimes!.entries) {
+      if (entry.value.isAfter(now)) return entry.key;
     }
     return 'fajr';
   }
 
   DateTime? getNextPrayerTime() {
     if (_currentPrayerTimes == null) return null;
-
     final nextPrayer = getNextPrayer();
-    if (nextPrayer == null) return null;
-
     final prayerTime = _currentPrayerTimes![nextPrayer];
     if (prayerTime == null) return null;
 
     if (prayerTime.isBefore(DateTime.now())) {
-      final now = DateTime.now();
-      final tomorrow = now.add(const Duration(days: 1));
-
-      final todayFajr = _currentPrayerTimes!['fajr'];
-      if (todayFajr != null) {
-        return DateTime(
-          tomorrow.year,
-          tomorrow.month,
-          tomorrow.day,
-          todayFajr.hour,
-          todayFajr.minute,
-        );
-      }
+      return prayerTime.add(const Duration(days: 1));
     }
-
     return prayerTime;
   }
 
   Duration? getTimeUntilNextPrayer() {
-    final nextPrayerTime = getNextPrayerTime();
-    if (nextPrayerTime == null) return null;
-
-    final now = DateTime.now();
-    return nextPrayerTime.difference(now);
-  }
-
-  Map<String, DateTime?> getAllPrayerTimes() {
-    if (_currentPrayerTimes == null) return {};
-    return Map<String, DateTime?>.from(_currentPrayerTimes!);
-  }
-
-  DateTime? getImsakTime() {
-    final fajrTime = _currentPrayerTimes?['fajr'];
-    if (fajrTime == null) return null;
-    return fajrTime.subtract(const Duration(minutes: 10));
-  }
-
-  Future<String> getCurrentCityName() async {
-    final location = await _getCurrentLocation();
-    return location?.city ?? 'القاهرة';
-  }
-
-  Future<String> getCurrentCountryName() async {
-    final location = await _getCurrentLocation();
-    return location?.country ?? 'مصر';
-  }
-
-  bool isRamadan() {
-    final now = DateTime.now();
-    return _isIslamicRamadan(now);
-  }
-
-  bool _isIslamicRamadan(DateTime date) {
-    final prefs = _sharedPreferences;
-    final hijriAdjustment = prefs?.getInt('hijri_adjustment') ?? 0;
-    return HijriDateService.isRamadan(date, hijriAdjustment);
+    final nextTime = getNextPrayerTime();
+    return nextTime?.difference(DateTime.now());
   }
 
   Future<Duration?> getTimeUntilRamadan() async {
     final now = DateTime.now();
+    _sharedPreferences ??= await SharedPreferences.getInstance();
+    final adj = _sharedPreferences!.getInt('hijri_adjustment') ?? 0;
 
-    if (_lastRamadanCalculation != null &&
-        _cachedTimeUntilRamadan != null &&
-        now.difference(_lastRamadanCalculation!).inSeconds < 60) {
-      return _cachedTimeUntilRamadan;
+    DateTime start = HijriDateService.getNextRamadanStart(now, adj);
+    Duration diff = start.difference(now);
+
+    // معالجة مشكلة القفز للسنة القادمة (إذا كان الفارق يقارب سنة كاملة ونحن في شعبان)
+    if (diff.inDays > 350) {
+      // طرح سنة هجرية (354 يوم تقريباً) للحصول على موعد رمضان الحالي المتوقع
+      start = start.subtract(const Duration(days: 354));
+      diff = start.difference(now);
     }
 
-    _sharedPreferences ??= await SharedPreferences.getInstance();
-    final hijriAdjustment = _sharedPreferences!.getInt('hijri_adjustment') ?? 0;
-
-    final nextRamadanStart = HijriDateService.getNextRamadanStart(
-      now,
-      hijriAdjustment,
-    );
-    final result = nextRamadanStart.difference(now);
-
-    _cachedTimeUntilRamadan = result;
+    _cachedTimeUntilRamadan = diff;
     _lastRamadanCalculation = now;
-
-    return result;
+    return _cachedTimeUntilRamadan;
   }
 
   void dispose() {
@@ -243,25 +233,15 @@ class LocationSettings {
   final double longitude;
   final String city;
   final String country;
-  final String timezone;
-
   LocationSettings({
     required this.latitude,
     required this.longitude,
     required this.city,
     required this.country,
-    required this.timezone,
   });
 }
 
 extension PrayerTimeFormatting on DateTime? {
-  String getFormattedTime() {
-    if (this == null) return '--:--';
-    return DateFormat('h:mm a').format(this!);
-  }
-
-  String getFormattedTime24() {
-    if (this == null) return '--:--';
-    return DateFormat('HH:mm').format(this!);
-  }
+  String getFormattedTime() =>
+      this == null ? '--:--' : DateFormat('h:mm a').format(this!);
 }
