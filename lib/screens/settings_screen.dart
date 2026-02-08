@@ -185,7 +185,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onCountryChanged: (value) {
                       setState(() {
                         _selectedCountry = value;
-                        if (value != null) _autoSelectMethod(value);
+                        _autoSelectMethod(value);
                       });
                     },
                     onStateChanged: (value) =>
@@ -302,7 +302,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: GoogleFonts.tajawal(fontSize: 11),
           ),
           value: settings.dstEnabled,
-          activeColor: Colors.green,
+          activeThumbColor: Colors.green,
           onChanged: (val) {
             settings.setDST(val);
             PrayerTimesService.instance.getCurrentPrayerTimes();
@@ -317,7 +317,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Consumer<SettingsProvider>(
       builder: (context, settings, _) {
         return DropdownButtonFormField<String>(
-          value: settings.selectedCalculationMethod,
+          initialValue: settings.selectedCalculationMethod,
           isExpanded: true,
           decoration: InputDecoration(
             labelText: 'طريقة الحساب',
@@ -349,7 +349,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Consumer<SettingsProvider>(
       builder: (context, settings, _) {
         return DropdownButtonFormField<String>(
-          value: settings.selectedMadhab,
+          initialValue: settings.selectedMadhab,
           decoration: InputDecoration(
             labelText: 'مذهب صلاة العصر',
             labelStyle: GoogleFonts.tajawal(),

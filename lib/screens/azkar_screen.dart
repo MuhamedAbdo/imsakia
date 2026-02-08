@@ -55,7 +55,6 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // تحديد لون العناصر بناءً على الوضع لضمان الرؤية
     final Color elementsColor = isDark ? Colors.white : Colors.black87;
 
     return Directionality(
@@ -68,13 +67,12 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
             style: GoogleFonts.tajawal(
               fontSize: 24,
               fontWeight: FontWeight.w700,
-              color: elementsColor, // لون العنوان
+              color: elementsColor,
             ),
           ),
           centerTitle: true,
           backgroundColor: Colors.transparent,
           elevation: 0,
-          // تحديد لون الأيقونات (Refresh وغيرها) لضمان ظهورها في النهاري والليلي
           iconTheme: IconThemeData(color: elementsColor),
           leading: IconButton(
             onPressed: _showResetAllDialog,
@@ -229,6 +227,19 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
   }
 
   Widget _buildCategoryCard(AzkarCategory category) {
+    // التحقق من فئة الحج والعمرة
+    final bool isHajjCategory =
+        category.id == 'hajj_umrah' || category.title.contains('الحج');
+
+    // التحقق من فئة جوامع الدعاء
+    final bool isDuasCategory =
+        category.id == 'daily_duas' || category.title.contains('الدعاء');
+
+    // تحديد مسار الصورة إذا كانت الفئة مخصصة
+    String? assetPath;
+    if (isHajjCategory) assetPath = 'assets/images/kaaba.png';
+    if (isDuasCategory) assetPath = 'assets/images/duas.png';
+
     return InkWell(
       onTap: () => _navigateToDetail(category),
       borderRadius: BorderRadius.circular(24),
@@ -251,15 +262,26 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
         ),
         child: Stack(
           children: [
-            // الأيقونة الخلفية الجمالية
+            // أيقونة خلفية جمالية (علامة مائية)
             Positioned(
               left: -10,
               bottom: -10,
-              child: Icon(
-                category.icon,
-                size: 80,
-                color: Colors.white.withOpacity(0.12),
-              ),
+              child: assetPath != null
+                  ? Opacity(
+                      opacity: 0.15,
+                      child: Image.asset(
+                        assetPath,
+                        width: 90,
+                        height: 90,
+                        color: Colors.white,
+                        colorBlendMode: BlendMode.srcIn,
+                      ),
+                    )
+                  : Icon(
+                      category.icon,
+                      size: 80,
+                      color: Colors.white.withOpacity(0.12),
+                    ),
             ),
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -272,7 +294,9 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
                       shape: BoxShape.circle,
                       color: Colors.white.withOpacity(0.25),
                     ),
-                    child: Icon(category.icon, size: 30, color: Colors.white),
+                    child: assetPath != null
+                        ? Image.asset(assetPath, width: 30, height: 30)
+                        : Icon(category.icon, size: 30, color: Colors.white),
                   ),
                   const SizedBox(height: 12),
                   Text(

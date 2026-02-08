@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hijri/hijri_calendar.dart';
 import '../providers/settings_provider.dart';
 import '../services/prayer_times_service.dart';
 import '../services/hadith_service.dart';
@@ -150,7 +151,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Map<String, DateTime?> _prayerTimes = {};
   String? _nextPrayer;
   Duration? _timeUntilNextPrayer;
-  Duration? _timeUntilRamadan;
   Timer? _countdownTimer;
   String? _lastLoadedCity;
 
@@ -178,13 +178,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _loadPrayerTimes() async {
     final prayerTimes = await _prayerService.getCurrentPrayerTimes();
-    final timeUntilRamadan = await _prayerService.getTimeUntilRamadan();
     if (mounted) {
       setState(() {
         _prayerTimes = prayerTimes ?? {};
         _nextPrayer = _prayerService.getNextPrayer();
         _timeUntilNextPrayer = _prayerService.getTimeUntilNextPrayer();
-        _timeUntilRamadan = timeUntilRamadan;
       });
     }
   }
@@ -222,14 +220,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final countryName = settings.selectedCity.split(',').length > 1
         ? settings.selectedCity.split(',').last.trim()
         : '';
-    final hijriDate = HijriDateService.getHijriDate(
+    final hijriDateMap = HijriDateService.getHijriDate(
       DateTime.now(),
       settings.hijriAdjustment,
     );
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 70, // زيادة ارتفاع الـ AppBar قليلاً
+        toolbarHeight: 70,
         title: Column(
           children: [
             Text(
@@ -245,11 +243,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ? 'لم يتم تحديد موقع'
                   : '$cityName - $countryName',
               style: GoogleFonts.tajawal(
-                fontSize: 14, // حجم أكبر
+                fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: isDark
-                    ? Colors.grey[300]
-                    : Colors.grey[700], // لون أوضح حسب الوضع
+                color: isDark ? Colors.grey[300] : Colors.grey[700],
               ),
             ),
           ],
@@ -269,12 +265,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              _buildHijriCard(hijriDate['formatted']),
+              _buildHijriCard(hijriDateMap['formatted']),
               _buildNextPrayerCard(),
               const SizedBox(height: 20),
               _buildSpecialEventCard(settings.hijriAdjustment),
               const SizedBox(height: 20),
-              _buildPrayerTimesList(hijriDate['monthIndex'] as int),
+              _buildPrayerTimesList(hijriDateMap['monthIndex'] as int),
             ],
           ),
         ),
@@ -381,13 +377,77 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         Colors.green,
       );
 
-    if (month != 9 && _timeUntilRamadan != null) {
-      int days = _timeUntilRamadan!.inDays;
-      if (days > 350 && month == 8) return _buildRamadanCounter(manualDays: 0);
-      if (days >= 0 && days <= 350) return _buildRamadanCounter();
+    // حساب العد التنازلي بناءً على التعديل اليدوي
+    if (month != 9) {
+      return _buildRamadanCounter(adjustment);
     }
 
     return _buildHadithOfTheDayCard();
+  }
+
+  Widget _buildRamadanCounter(int adjustment) {
+    // 1. جلب التاريخ الهجري الحالي مع مراعاة الـ adjustment
+    final hNow = HijriCalendar.now();
+    hNow.hDay += adjustment; // تطبيق التعديل اليدوي
+
+    // 2. تحديد هدفنا: 1 رمضان للسنة الهجرية الحالية أو القادمة
+    int targetYear = hNow.hYear;
+    if (hNow.hMonth > 9 || (hNow.hMonth == 9 && hNow.hDay >= 1)) {
+      targetYear++;
+    }
+
+    // 3. تحويل التاريخ الهجري "المعدل" إلى ميلادي للمقارنة
+    final targetRamadan = HijriCalendar();
+    targetRamadan.hYear = targetYear;
+    targetRamadan.hMonth = 9;
+    targetRamadan.hDay = 1;
+
+    DateTime targetDateTime = targetRamadan.hijriToGregorian(
+      targetRamadan.hYear,
+      9,
+      1,
+    );
+    // الوقت الحالي مع إضافة الـ adjustment ليتوافق مع البطاقة العلوية
+    DateTime nowAdjusted = DateTime.now().add(Duration(days: adjustment));
+
+    Duration diff = targetDateTime.difference(nowAdjusted);
+    int days = diff.inDays;
+    int hours = diff.inHours.remainder(24);
+    int minutes = diff.inMinutes.remainder(60);
+
+    // إذا انتهى العد التنازلي وبدأ رمضان، نعرض الحديث
+    if (days < 0) return _buildHadithOfTheDayCard();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: AppConstants.goldGradient,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'باقي على شهر رمضان المبارك',
+            style: GoogleFonts.tajawal(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF8B4513),
+            ),
+          ),
+          const SizedBox(height: 15),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildTimeUnit(days.toString().padLeft(2, '0'), 'يوم'),
+              const SizedBox(width: 15),
+              _buildTimeUnit(hours.toString().padLeft(2, '0'), 'ساعة'),
+              const SizedBox(width: 15),
+              _buildTimeUnit(minutes.toString().padLeft(2, '0'), 'دقيقة'),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildHadithOfTheDayCard() {
@@ -417,9 +477,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   fontSize: 18,
                   color: isDark
                       ? Colors.amber[200]
-                      : Theme.of(
-                          context,
-                        ).primaryColor, // لون واضح جداً في المظلم
+                      : Theme.of(context).primaryColor,
                 ),
               ),
               const SizedBox(height: 12),
@@ -554,44 +612,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               : '--:--',
           style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
         ),
-      ),
-    );
-  }
-
-  Widget _buildRamadanCounter({int? manualDays}) {
-    if (_timeUntilRamadan == null) return const SizedBox.shrink();
-    final days = manualDays ?? _timeUntilRamadan!.inDays;
-    final hours = _timeUntilRamadan!.inHours.remainder(24);
-    final minutes = _timeUntilRamadan!.inMinutes.remainder(60);
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: AppConstants.goldGradient,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          Text(
-            'باقي على شهر رمضان المبارك',
-            style: GoogleFonts.tajawal(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF8B4513),
-            ),
-          ),
-          const SizedBox(height: 15),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildTimeUnit(days.toString().padLeft(2, '0'), 'يوم'),
-              const SizedBox(width: 15),
-              _buildTimeUnit(hours.toString().padLeft(2, '0'), 'ساعة'),
-              const SizedBox(width: 15),
-              _buildTimeUnit(minutes.toString().padLeft(2, '0'), 'دقيقة'),
-            ],
-          ),
-        ],
       ),
     );
   }
