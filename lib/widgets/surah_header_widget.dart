@@ -18,203 +18,188 @@ class SurahHeaderWidget extends StatelessWidget {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.isDarkMode;
 
+    // ألوان تحاكي ورق المصحف القديم والتذهيب
+    final Color goldColor = isDarkMode ? const Color(0xFFFFD700).withOpacity(0.5) : const Color(0xFFC5A059);
+    final Color decorationColor = isDarkMode ? Colors.white24 : Colors.white54;
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isDarkMode
-              ? [
-                  const Color(0xFF2d2d2d),
-                  const Color(0xFF1e1e1e),
-                ]
-              : [
-                  const Color(0xFF8B7355),
-                  const Color(0xFF6B5B45),
-                ],
+              ? [const Color(0xFF1A1A1A), const Color(0xFF2D2D2D)]
+              : [const Color(0xFF8B7355), const Color(0xFF6B5B45)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: isDarkMode ? Colors.black26 : Colors.black12,
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
           ),
         ],
-        border: Border.all(
-          color: isDarkMode ? Colors.white12 : Colors.white24,
-          width: 1,
-        ),
+        // إطار خارجي مزدوج بسيط
+        border: Border.all(color: goldColor.withOpacity(0.3), width: 1.5),
       ),
-      child: Column(
+      child: Stack(
         children: [
-          // Islamic decorative pattern - minimal height
-          CustomPaint(
-            size: const Size(double.infinity, 20),
-            painter: IslamicPatternPainter(isDarkMode: isDarkMode),
+          // رسم الزخارف الخلفية (الإطار الإسلامي)
+          Positioned.fill(
+            child: CustomPaint(
+              painter: MushafFramePainter(
+                isDarkMode: isDarkMode,
+                accentColor: goldColor,
+              ),
+            ),
           ),
           
-          const SizedBox(height: 4),
-          
-          // Compact horizontal layout for surah info
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
+            child: Column(
               children: [
-                // Left side: Revelation type and number
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: isDarkMode ? Colors.white12 : Colors.white24,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                    _buildInfoTag(
+                      surah.revelationType == 'Meccan' ? 'مكية' : 'مدنية',
+                      isDarkMode,
+                    ),
+                    
+                    // اسم السورة في المنتصف مع خط أندلسي/كوفي
+                    Expanded(
                       child: Text(
-                        surah.revelationType == 'Meccan' ? 'مكية' : 'مدنية',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 11,
-                          color: isDarkMode ? Colors.white70 : const Color(0xFFfef8f0),
-                          fontWeight: FontWeight.w500,
+                        surah.name,
+                        style: GoogleFonts.amiriQuran(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : const Color(0xFFFEF8F0),
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withOpacity(0.5),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: isDarkMode ? Colors.white12 : Colors.white24,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '#${surah.number}',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 11,
-                          color: isDarkMode ? Colors.white70 : const Color(0xFFfef8f0),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
+
+                    _buildInfoTag('${surah.ayahCount} آية', isDarkMode),
                   ],
                 ),
-                
-                // Center: Surah name
-                Expanded(
-                  child: Text(
-                    surah.name,
-                    style: GoogleFonts.amiriQuran(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isDarkMode ? Colors.white : const Color(0xFFfef8f0),
-                      shadows: [
-                        Shadow(
-                          color: isDarkMode ? Colors.black26 : Colors.black12,
-                          blurRadius: 2,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                
-                // Right side: Ayah count
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.white12 : Colors.white24,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${surah.ayahCount} آية',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 11,
-                      color: isDarkMode ? Colors.white70 : const Color(0xFFfef8f0),
-                      fontWeight: FontWeight.w500,
-                    ),
+                const SizedBox(height: 5),
+                Text(
+                  'ترتيبها: ${surah.number}',
+                  style: GoogleFonts.tajawal(
+                    fontSize: 10,
+                    color: isDarkMode ? Colors.white38 : Colors.white60,
+                    letterSpacing: 1,
                   ),
                 ),
               ],
             ),
           ),
-          
-          const SizedBox(height: 4),
-          
-          // Bottom decorative pattern - minimal
-          CustomPaint(
-            size: const Size(double.infinity, 20),
-            painter: IslamicPatternPainter(isDarkMode: isDarkMode),
-          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildInfoTag(String text, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.black26 : Colors.black12,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.white24,
+        ),
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.tajawal(
+          fontSize: 11,
+          color: isDark ? Colors.white70 : Colors.white,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
 }
 
-class IslamicPatternPainter extends CustomPainter {
+// الرسام الخاص بإطار المصحف الواقعي
+class MushafFramePainter extends CustomPainter {
   final bool isDarkMode;
+  final Color accentColor;
 
-  IslamicPatternPainter({required this.isDarkMode});
+  MushafFramePainter({required this.isDarkMode, required this.accentColor});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = isDarkMode ? Colors.white12 : Colors.white24
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+      ..color = accentColor.withOpacity(0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
 
-    final path = Path();
+    final double w = size.width;
+    final double h = size.height;
+    final double padding = 10.0;
+
+    // 1. رسم الإطار الداخلي المنحني (بوابة)
+    Path framePath = Path();
     
-    // Create Islamic geometric pattern
-    final double width = size.width;
-    final double height = size.height;
+    // الزوايا المزخرفة
+    double cornerSize = 25.0;
     
-    // Draw interconnected geometric shapes
-    for (int i = 0; i < width; i += 40) {
-      // Draw diamond shapes
-      final centerX = i + 20.0;
-      final centerY = height / 2;
-      
-      path.moveTo(centerX, centerY - 10);
-      path.lineTo(centerX + 10, centerY);
-      path.lineTo(centerX, centerY + 10);
-      path.lineTo(centerX - 10, centerY);
-      path.close();
-      
-      canvas.drawPath(path, paint);
-      path.reset();
-      
-      // Draw connecting lines
-      if (i > 0) {
-        canvas.drawLine(
-          Offset(i - 20, centerY),
-          Offset(centerX - 10, centerY),
-          paint,
-        );
-      }
-    }
+    // أعلى يسار
+    framePath.moveTo(padding + cornerSize, padding);
+    framePath.lineTo(w - padding - cornerSize, padding);
     
-    // Draw central decorative element
-    final centerOffset = Offset(width / 2, height / 2);
-    canvas.drawCircle(centerOffset, 8, paint);
+    // قوس علوي يمين
+    framePath.quadraticBezierTo(w - padding, padding, w - padding, padding + cornerSize);
+    framePath.lineTo(w - padding, h - padding - cornerSize);
     
-    // Draw star pattern in center
+    // قوس سفلي يمين
+    framePath.quadraticBezierTo(w - padding, h - padding, w - padding - cornerSize, h - padding);
+    framePath.lineTo(padding + cornerSize, h - padding);
+    
+    // قوس سفلي يسار
+    framePath.quadraticBezierTo(padding, h - padding, padding, h - padding - cornerSize);
+    framePath.lineTo(padding, padding + cornerSize);
+    
+    // قوس علوي يسار
+    framePath.quadraticBezierTo(padding, padding, padding + cornerSize, padding);
+
+    canvas.drawPath(framePath, paint);
+
+    // 2. رسم ثمانيات الأضلاع في الأركان (Islamic Star Corner)
+    _drawCornerStar(canvas, Offset(padding, padding), paint);
+    _drawCornerStar(canvas, Offset(w - padding, padding), paint);
+    _drawCornerStar(canvas, Offset(padding, h - padding), paint);
+    _drawCornerStar(canvas, Offset(w - padding, h - padding), paint);
+    
+    // 3. إضافة نقاط تزيينية صغيرة على الأطراف
+    final dotPaint = Paint()..color = accentColor.withOpacity(0.3)..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(w/2, padding), 2, dotPaint);
+    canvas.drawCircle(Offset(w/2, h - padding), 2, dotPaint);
+  }
+
+  void _drawCornerStar(Canvas canvas, Offset center, Paint paint) {
+    double size = 6.0;
+    Path star = Path();
     for (int i = 0; i < 8; i++) {
-      final angle = (i * 45) * 3.14159 / 180;
-      final x = centerOffset.dx + 15 * cos(angle);
-      final y = centerOffset.dy + 15 * sin(angle);
-      
-      canvas.drawLine(centerOffset, Offset(x, y), paint);
+      double angle = (i * 45) * math.pi / 180;
+      double r = i % 2 == 0 ? size : size / 2;
+      double x = center.dx + r * math.cos(angle);
+      double y = center.dy + r * math.sin(angle);
+      if (i == 0) star.moveTo(x, y); else star.lineTo(x, y);
     }
+    star.close();
+    canvas.drawPath(star, paint);
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-
-  double cos(double angle) => math.cos(angle);
-  double sin(double angle) => math.sin(angle);
 }
-

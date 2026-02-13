@@ -243,5 +243,5 @@ class LocationSettings {
 
 extension PrayerTimeFormatting on DateTime? {
   String getFormattedTime() =>
-      this == null ? '--:--' : DateFormat('h:mm a').format(this!);
+      this == null ? '--:--' : DateFormat('h:mm a', 'en_US').format(this!);
 }

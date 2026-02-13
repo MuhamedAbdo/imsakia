@@ -91,7 +91,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
           textAlign: TextAlign.center,
           style: GoogleFonts.tajawal(fontSize: 14, color: Colors.white),
         ),
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: AppConstants.primaryColor,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
       ),
@@ -108,7 +108,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
             borderRadius: BorderRadius.circular(16),
           ),
           title: Text(
-            'إعادة تعيين العدادات',
+            'إإعادة تعيين العدادات',
             style: GoogleFonts.tajawal(fontWeight: FontWeight.w600),
           ),
           content: Text(
@@ -151,6 +151,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
   }
 
   void _showFontSizeDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (context) => Directionality(
@@ -161,7 +162,10 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
           ),
           title: Text(
             'تغيير حجم الخط',
-            style: GoogleFonts.tajawal(fontWeight: FontWeight.w600),
+            style: GoogleFonts.tajawal(
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
           ),
           content: StatefulBuilder(
             builder: (context, dialogSetState) {
@@ -173,18 +177,26 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                     style: GoogleFonts.tajawal(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
+                      color: AppConstants.primaryColor,
                     ),
                   ),
-                  Slider(
-                    value: _fontSize,
-                    min: 16.0,
-                    max: 34.0,
-                    divisions: 18,
-                    activeColor: Theme.of(context).primaryColor,
-                    onChanged: (value) {
-                      dialogSetState(() => _fontSize = value);
-                      setState(() => _fontSize = value);
-                    },
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: AppConstants.primaryColor,
+                      inactiveTrackColor: isDark ? Colors.white12 : Colors.black12,
+                      thumbColor: AppConstants.primaryColor,
+                      overlayColor: AppConstants.primaryColor.withOpacity(0.2),
+                    ),
+                    child: Slider(
+                      value: _fontSize,
+                      min: 16.0,
+                      max: 34.0,
+                      divisions: 18,
+                      onChanged: (value) {
+                        dialogSetState(() => _fontSize = value);
+                        setState(() => _fontSize = value);
+                      },
+                    ),
                   ),
                 ],
               );
@@ -193,7 +205,9 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
           actions: [
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
+                backgroundColor: AppConstants.primaryColor,
+                foregroundColor: Colors.white, // يضمن لون الخط الأبيض
+                elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -204,7 +218,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
               },
               child: Text(
                 'حفظ',
-                style: GoogleFonts.tajawal(color: Colors.white),
+                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -284,7 +298,10 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+            blurRadius: 10,
+          ),
         ],
       ),
       child: StreamBuilder<List<AzkarCategory>>(
@@ -292,11 +309,11 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
         builder: (context, snapshot) {
           AzkarCategory currentCategory =
               (snapshot.hasData && snapshot.data!.isNotEmpty)
-              ? snapshot.data!.firstWhere(
-                  (cat) => cat.id == widget.category.id,
-                  orElse: () => widget.category,
-                )
-              : widget.category;
+                  ? snapshot.data!.firstWhere(
+                      (cat) => cat.id == widget.category.id,
+                      orElse: () => widget.category,
+                    )
+                  : widget.category;
           return Column(
             children: [
               Row(
@@ -314,7 +331,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                     style: GoogleFonts.tajawal(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
-                      color: Theme.of(context).primaryColor,
+                      color: AppConstants.primaryColor,
                     ),
                   ),
                 ],
@@ -325,9 +342,10 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                 child: LinearProgressIndicator(
                   value: currentCategory.overallProgress,
                   minHeight: 10,
-                  backgroundColor: isDark ? Colors.white10 : Colors.black12,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).primaryColor,
+                  // تحسين الألوان هنا لتناسب الوضعين
+                  backgroundColor: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    AppConstants.primaryColor,
                   ),
                 ),
               ),
@@ -348,12 +366,12 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
         borderRadius: BorderRadius.circular(16),
         color: azkar.isCompleted
             ? (isDark
-                  ? Colors.green.withOpacity(0.15)
-                  : Colors.green.withOpacity(0.05))
+                ? Colors.green.withOpacity(0.12)
+                : Colors.green.withOpacity(0.05))
             : Theme.of(context).cardColor,
         border: Border.all(
           color: azkar.isCompleted
-              ? Colors.green.withOpacity(0.5)
+              ? Colors.green.withOpacity(0.4)
               : (isDark ? Colors.white10 : Colors.transparent),
           width: 1.5,
         ),
@@ -380,7 +398,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                     horizontal: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                    color: AppConstants.primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -389,7 +407,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                       fontSize: _fontSize * 0.8,
                       color: isDark
                           ? Colors.amber.shade300
-                          : Theme.of(context).primaryColor,
+                          : AppConstants.primaryColor,
                       fontWeight: FontWeight.bold,
                     ),
                     textAlign: TextAlign.center,
@@ -406,8 +424,8 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                   color: azkar.isCompleted
                       ? (isDark ? Colors.greenAccent : Colors.green.shade900)
                       : (isDark
-                            ? Colors.white.withOpacity(0.9)
-                            : Colors.black87),
+                          ? Colors.white.withOpacity(0.9)
+                          : Colors.black87),
                 ),
                 textAlign: TextAlign.right,
                 textDirection: TextDirection.rtl,
@@ -470,9 +488,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                                 BoxShadow(
                                   color: azkar.isCompleted
                                       ? Colors.green.withOpacity(0.3)
-                                      : Theme.of(
-                                          context,
-                                        ).primaryColor.withOpacity(0.3),
+                                      : AppConstants.primaryColor.withOpacity(0.3),
                                   blurRadius: 8,
                                 ),
                               ],
@@ -506,7 +522,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                                 fontSize: 13,
                                 color: azkar.isCompleted
                                     ? Colors.green
-                                    : Colors.grey,
+                                    : (isDark ? Colors.white54 : Colors.grey),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -526,12 +542,12 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                             value: azkar.progress,
                             minHeight: 7,
                             backgroundColor: isDark
-                                ? Colors.white10
-                                : Colors.black12,
+                                ? Colors.white.withOpacity(0.05)
+                                : Colors.black.withOpacity(0.05),
                             valueColor: AlwaysStoppedAnimation<Color>(
                               azkar.isCompleted
                                   ? Colors.green
-                                  : Theme.of(context).primaryColor,
+                                  : AppConstants.primaryColor,
                             ),
                           ),
                         ),

@@ -362,20 +362,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final day = hijriDate['dayIndex'] as int;
     final month = hijriDate['monthIndex'] as int;
 
-    if (month == 10 && day == 1)
+    if (month == 10 && day == 1) {
       return _buildGreetingCard(
         'عيد فطر مبارك',
         'تقبل الله صيامكم وقيامكم',
         Colors.orange,
       );
-    if (month == 12 && day == 9)
+    }
+    if (month == 12 && day == 9) {
       return _buildGreetingCard('وقفة عرفات', 'لبيك اللهم لبيك', Colors.brown);
-    if (month == 12 && day >= 10 && day <= 13)
+    }
+    if (month == 12 && day >= 10 && day <= 13) {
       return _buildGreetingCard(
         'عيد أضحى مبارك',
         'أيام تشريق مباركة',
         Colors.green,
       );
+    }
 
     // حساب العد التنازلي بناءً على التعديل اليدوي
     if (month != 9) {
@@ -532,7 +535,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             );
           }
           return _buildPrayerTile(key, time);
-        }).toList(),
+        }),
       ],
     );
   }
@@ -568,7 +571,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               )
             : null,
         trailing: Text(
-          "${imsakTime.hour}:${imsakTime.minute.toString().padLeft(2, '0')}",
+          imsakTime.getFormattedTime(),
           style: GoogleFonts.tajawal(
             fontWeight: FontWeight.bold,
             fontSize: 18,
@@ -607,9 +610,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ),
         trailing: Text(
-          time != null
-              ? "${time.hour}:${time.minute.toString().padLeft(2, '0')}"
-              : '--:--',
+          time.getFormattedTime(),
           style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
         ),
       ),
