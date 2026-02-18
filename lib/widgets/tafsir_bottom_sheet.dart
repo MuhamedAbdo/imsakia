@@ -1,26 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../models/quran_models.dart';
 import '../providers/theme_provider.dart';
-import '../services/tafsir_service.dart';
+import '../services/db_helper.dart';
 
 class TafsirBottomSheet extends StatelessWidget {
-  final QuranAyah ayah;
+  final Map<String, dynamic> ayah;
 
-  const TafsirBottomSheet({
-    super.key,
-    required this.ayah,
-  });
+  const TafsirBottomSheet({super.key, required this.ayah});
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.isDarkMode;
-    final tafsirService = TafsirService();
-    
-    // Get tafsir from XML data
-    final tafsirText = tafsirService.getTafsir(ayah.surahNumber, ayah.ayahNumber);
+    final dbHelper = DbHelper();
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
@@ -43,21 +36,15 @@ class TafsirBottomSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           // Header
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: isDarkMode
-                    ? [
-                        const Color(0xFF2d2d2d),
-                        const Color(0xFF1e1e1e),
-                      ]
-                    : [
-                        const Color(0xFF8B7355),
-                        const Color(0xFF6B5B45),
-                      ],
+                    ? [const Color(0xFF2d2d2d), const Color(0xFF1e1e1e)]
+                    : [const Color(0xFF8B7355), const Color(0xFF6B5B45)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -70,28 +57,35 @@ class TafsirBottomSheet extends StatelessWidget {
               children: [
                 // Ayah reference
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: isDarkMode ? Colors.white12 : Colors.white24,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    'سورة ${_getSurahName(ayah.surahNumber)} - الآية ${ayah.ayahNumber}',
+                    'سورة ${_getSurahName(ayah['surah_id'] ?? 1)} - الآية ${ayah['number_in_surah'] ?? 1}',
                     style: GoogleFonts.tajawal(
                       fontSize: 16,
-                      color: isDarkMode ? Colors.white : const Color(0xFFfef8f0),
+                      color: isDarkMode
+                          ? Colors.white
+                          : const Color(0xFFfef8f0),
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 12),
-                
+
                 // Ayah text
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.16),
+                    color: isDarkMode
+                        ? Colors.white.withOpacity(0.08)
+                        : Colors.white.withOpacity(0.16),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isDarkMode ? Colors.white12 : Colors.white24,
@@ -99,11 +93,13 @@ class TafsirBottomSheet extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    ayah.arabicText,
+                    ayah['text'] ?? '',
                     style: GoogleFonts.amiriQuran(
                       fontSize: 20,
                       height: 1.8,
-                      color: isDarkMode ? Colors.white.withOpacity(0.9) : const Color(0xFF2d2d2d),
+                      color: isDarkMode
+                          ? Colors.white.withOpacity(0.9)
+                          : const Color(0xFF2d2d2d),
                     ),
                     textAlign: TextAlign.center,
                     textDirection: TextDirection.rtl,
@@ -112,72 +108,95 @@ class TafsirBottomSheet extends StatelessWidget {
               ],
             ),
           ),
-          
+
           // Tafsir content
           Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              child: tafsirText != null
-                  ? SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Tafsir title
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'تفسير الآية',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 18,
-                                color: Theme.of(context).primaryColor,
-                                fontWeight: FontWeight.bold,
+            child: FutureBuilder<Map<String, dynamic>?>(
+              future: dbHelper.getTafsirByAyah(ayah['id']),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final tafsirData = snapshot.data;
+                final tafsirText = tafsirData?['data'];
+
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  child: tafsirText != null
+                      ? SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Tafsir title
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(
+                                    context,
+                                  ).primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'تفسير الآية',
+                                  style: GoogleFonts.tajawal(
+                                    fontSize: 18,
+                                    color: Theme.of(context).primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
-                            ),
+
+                              const SizedBox(height: 16),
+
+                              // Tafsir text
+                              Text(
+                                tafsirText,
+                                style: GoogleFonts.tajawal(
+                                  fontSize: 16,
+                                  height: 1.6,
+                                  color: isDarkMode
+                                      ? Colors.white70
+                                      : Colors.black87,
+                                ),
+                                textAlign: TextAlign.justify,
+                                textDirection: TextDirection.rtl,
+                              ),
+                            ],
                           ),
-                          
-                          const SizedBox(height: 16),
-                          
-                          // Tafsir text from XML
-                          Text(
-                            tafsirText,
-                            style: GoogleFonts.tajawal(
-                              fontSize: 16,
-                              height: 1.6,
-                              color: isDarkMode ? Colors.white70 : Colors.black87,
-                            ),
-                            textAlign: TextAlign.justify,
-                            textDirection: TextDirection.rtl,
+                        )
+                      : Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.menu_book_outlined,
+                                size: 64,
+                                color: isDarkMode
+                                    ? Colors.white38
+                                    : Colors.grey[400],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'لا يوجد تفسير متاح لهذه الآية',
+                                style: GoogleFonts.tajawal(
+                                  fontSize: 16,
+                                  color: isDarkMode
+                                      ? Colors.white60
+                                      : Colors.grey[600],
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    )
-                  : Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.menu_book_outlined,
-                            size: 64,
-                            color: isDarkMode ? Colors.white38 : Colors.grey[400],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'لا يوجد تفسير متاح لهذه الآية',
-                            style: GoogleFonts.tajawal(
-                              fontSize: 16,
-                              color: isDarkMode ? Colors.white60 : Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                        ),
+                );
+              },
             ),
           ),
-          
+
           // Close button
           Container(
             padding: const EdgeInsets.all(20),
@@ -325,7 +344,7 @@ class TafsirBottomSheet extends StatelessWidget {
       113: 'الفلق',
       114: 'الناس',
     };
-    
+
     return surahNames[surahNumber] ?? 'سورة $surahNumber';
   }
 }

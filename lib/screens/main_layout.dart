@@ -9,7 +9,7 @@ import '../services/prayer_times_service.dart';
 import '../services/hadith_service.dart';
 import '../services/hijri_date_service.dart';
 import '../utils/app_constants.dart';
-import 'quran_index_screen.dart';
+import 'quran_home_new.dart';
 import 'tasbih_screen.dart';
 import 'azkar_screen.dart';
 import 'fasting_fiqh_screen.dart';
@@ -26,7 +26,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   final List<Widget> _screens = [
     const HomeScreen(),
-    const QuranIndexScreen(),
+    const QuranHomeNew(),
     const TasbihScreen(),
     const AzkarScreenWidget(),
     const FastingFiqhScreen(),

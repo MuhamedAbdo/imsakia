@@ -1,104 +1,109 @@
 import 'package:flutter/foundation.dart';
-import '../services/quran_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class QuranProvider extends ChangeNotifier {
-  final QuranService _quranService = QuranService();
-  
-  Map<String, dynamic>? _currentBookmark;
-  bool _isLoading = false;
+  SharedPreferences? _prefs;
 
-  Map<String, dynamic>? get currentBookmark => _currentBookmark;
-  bool get isLoading => _isLoading;
-  bool get hasBookmark => _currentBookmark != null && _currentBookmark!.isNotEmpty;
+  // Font Size
+  double _fontSize = 24.0;
+  static const String _fontSizeKey = 'quran_font_size';
 
-  /// Save bookmark (overwrites existing bookmark for the same surah)
-  Future<void> saveBookmark(int surahIndex, int verseIndex, double scrollPosition) async {
-    _isLoading = true;
+  // Bookmark fields
+  static const String _lastSurahIdKey = 'last_surah_id';
+  static const String _lastAyahNumberKey = 'last_ayah_number';
+  static const String _lastJuzIdKey = 'last_juz_id';
+  static const String _isJuzModeKey = 'is_juz_mode';
+  static const String _bookmarkNameKey = 'bookmark_name';
+
+  int? _lastSurahId;
+  int? _lastAyahNumber;
+  int? _lastJuzId;
+  bool _isJuzMode = false;
+  String? _bookmarkName;
+
+  double get fontSize => _fontSize;
+  int? get lastSurahId => _lastSurahId;
+  int? get lastAyahNumber => _lastAyahNumber;
+  int? get lastJuzId => _lastJuzId;
+  bool get isJuzMode => _isJuzMode;
+  String? get bookmarkName => _bookmarkName;
+  bool get hasBookmark => _lastAyahNumber != null;
+
+  QuranProvider() {
+    _initPrefs();
+  }
+
+  Future<void> _initPrefs() async {
+    _prefs = await SharedPreferences.getInstance();
+    _loadSettings();
+  }
+
+  void _loadSettings() {
+    if (_prefs == null) return;
+    _fontSize = _prefs!.getDouble(_fontSizeKey) ?? 24.0;
+    _lastSurahId = _prefs!.getInt(_lastSurahIdKey);
+    _lastAyahNumber = _prefs!.getInt(_lastAyahNumberKey);
+    _lastJuzId = _prefs!.getInt(_lastJuzIdKey);
+    _isJuzMode = _prefs!.getBool(_isJuzModeKey) ?? false;
+    _bookmarkName = _prefs!.getString(_bookmarkNameKey);
     notifyListeners();
-    
-    try {
-      await _quranService.saveBookmark(surahIndex, verseIndex, scrollPosition);
-      
-      // Update current bookmark
-      _currentBookmark = {
-        'surahIndex': surahIndex,
-        'verseIndex': verseIndex,
-        'scrollPosition': scrollPosition,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      };
-      
-      print('🔖 QuranProvider: Saved bookmark for Surah $surahIndex, Verse $verseIndex');
-    } catch (e) {
-      print('❌ QuranProvider: Error saving bookmark: $e');
-    } finally {
-      _isLoading = false;
+  }
+
+  Future<void> increaseFontSize() async {
+    if (_fontSize < 50.0) {
+      _fontSize += 2.0;
       notifyListeners();
+      await _prefs?.setDouble(_fontSizeKey, _fontSize);
     }
   }
 
-  /// Load bookmark for specific surah
-  Future<void> loadBookmarkForSurah(int surahIndex) async {
-    _isLoading = true;
-    notifyListeners();
-    
-    try {
-      final bookmark = await _quranService.getBookmarkForSurah(surahIndex);
-      _currentBookmark = bookmark;
-      print('🔖 QuranProvider: Loaded bookmark for Surah $surahIndex: $bookmark');
-    } catch (e) {
-      print('❌ QuranProvider: Error loading bookmark: $e');
-      _currentBookmark = null;
-    } finally {
-      _isLoading = false;
+  Future<void> decreaseFontSize() async {
+    if (_fontSize > 16.0) {
+      _fontSize -= 2.0;
       notifyListeners();
+      await _prefs?.setDouble(_fontSizeKey, _fontSize);
     }
   }
 
-  /// Remove bookmark
-  Future<void> removeBookmark(int surahIndex) async {
-    _isLoading = true;
+  Future<void> saveBookmark({
+    required int surahId,
+    required int ayahNumber,
+    int? juzId,
+    required bool isJuzMode,
+    required String name,
+  }) async {
+    _lastSurahId = surahId;
+    _lastAyahNumber = ayahNumber;
+    _lastJuzId = juzId;
+    _isJuzMode = isJuzMode;
+    _bookmarkName = name;
+
     notifyListeners();
-    
-    try {
-      await _quranService.removeBookmark(surahIndex);
-      
-      // Clear current bookmark if it matches the removed surah
-      if (_currentBookmark != null && _currentBookmark!['surahIndex'] == surahIndex) {
-        _currentBookmark = null;
-      }
-      
-      print('🗑️ QuranProvider: Removed bookmark for Surah $surahIndex');
-    } catch (e) {
-      print('❌ QuranProvider: Error removing bookmark: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+
+    await _prefs?.setInt(_lastSurahIdKey, surahId);
+    await _prefs?.setInt(_lastAyahNumberKey, ayahNumber);
+    if (juzId != null) {
+      await _prefs?.setInt(_lastJuzIdKey, juzId);
+    } else {
+      await _prefs?.remove(_lastJuzIdKey);
     }
+    await _prefs?.setBool(_isJuzModeKey, isJuzMode);
+    await _prefs?.setString(_bookmarkNameKey, name);
   }
 
-  /// Check if surah is bookmarked
-  Future<bool> isSurahBookmarked(int surahIndex) async {
-    try {
-      return await _quranService.isSurahBookmarked(surahIndex);
-    } catch (e) {
-      print('❌ QuranProvider: Error checking bookmark: $e');
-      return false;
-    }
-  }
+  Future<void> clearBookmark() async {
+    _lastSurahId = null;
+    _lastAyahNumber = null;
+    _lastJuzId = null;
+    _isJuzMode = false;
+    _bookmarkName = null;
 
-  /// Get all bookmarks
-  Future<List<Map<String, dynamic>>> getAllBookmarks() async {
-    try {
-      return await _quranService.getBookmarks();
-    } catch (e) {
-      print('❌ QuranProvider: Error getting all bookmarks: $e');
-      return [];
-    }
-  }
-
-  /// Clear current bookmark (for state management)
-  void clearCurrentBookmark() {
-    _currentBookmark = null;
     notifyListeners();
+
+    await _prefs?.remove(_lastSurahIdKey);
+    await _prefs?.remove(_lastAyahNumberKey);
+    await _prefs?.remove(_lastJuzIdKey);
+    await _prefs?.remove(_isJuzModeKey);
+    await _prefs?.remove(_bookmarkNameKey);
   }
 }

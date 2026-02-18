@@ -2,16 +2,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../models/quran_models.dart';
 import '../providers/theme_provider.dart';
 
 class SurahHeaderWidget extends StatelessWidget {
-  final QuranSurah surah;
+  final Map<String, dynamic> surah;
 
-  const SurahHeaderWidget({
-    super.key,
-    required this.surah,
-  });
+  const SurahHeaderWidget({super.key, required this.surah});
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +15,9 @@ class SurahHeaderWidget extends StatelessWidget {
     final isDarkMode = themeProvider.isDarkMode;
 
     // ألوان تحاكي ورق المصحف القديم والتذهيب
-    final Color goldColor = isDarkMode ? const Color(0xFFFFD700).withOpacity(0.5) : const Color(0xFFC5A059);
+    final Color goldColor = isDarkMode
+        ? const Color(0xFFFFD700).withOpacity(0.5)
+        : const Color(0xFFC5A059);
     final Color decorationColor = isDarkMode ? Colors.white24 : Colors.white54;
 
     return Container(
@@ -54,7 +52,7 @@ class SurahHeaderWidget extends StatelessWidget {
               ),
             ),
           ),
-          
+
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
             child: Column(
@@ -63,18 +61,20 @@ class SurahHeaderWidget extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _buildInfoTag(
-                      surah.revelationType == 'Meccan' ? 'مكية' : 'مدنية',
+                      surah['revelation_type'] == 'Meccan' ? 'مكية' : 'مدنية',
                       isDarkMode,
                     ),
-                    
+
                     // اسم السورة في المنتصف مع خط أندلسي/كوفي
                     Expanded(
                       child: Text(
-                        surah.name,
+                        surah['name_ar'] ?? surah['name'] ?? '',
                         style: GoogleFonts.amiriQuran(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: isDarkMode ? Colors.white : const Color(0xFFFEF8F0),
+                          color: isDarkMode
+                              ? Colors.white
+                              : const Color(0xFFFEF8F0),
                           shadows: [
                             Shadow(
                               color: Colors.black.withOpacity(0.5),
@@ -87,12 +87,12 @@ class SurahHeaderWidget extends StatelessWidget {
                       ),
                     ),
 
-                    _buildInfoTag('${surah.ayahCount} آية', isDarkMode),
+                    _buildInfoTag('${surah['ayah_count']} آية', isDarkMode),
                   ],
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  'ترتيبها: ${surah.number}',
+                  'ترتيبها: ${surah['id'] ?? surah['number']}',
                   style: GoogleFonts.tajawal(
                     fontSize: 10,
                     color: isDarkMode ? Colors.white38 : Colors.white60,
@@ -113,9 +113,7 @@ class SurahHeaderWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? Colors.black26 : Colors.black12,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isDark ? Colors.white10 : Colors.white24,
-        ),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.white24),
       ),
       child: Text(
         text,
@@ -149,28 +147,48 @@ class MushafFramePainter extends CustomPainter {
 
     // 1. رسم الإطار الداخلي المنحني (بوابة)
     Path framePath = Path();
-    
+
     // الزوايا المزخرفة
     double cornerSize = 25.0;
-    
+
     // أعلى يسار
     framePath.moveTo(padding + cornerSize, padding);
     framePath.lineTo(w - padding - cornerSize, padding);
-    
+
     // قوس علوي يمين
-    framePath.quadraticBezierTo(w - padding, padding, w - padding, padding + cornerSize);
+    framePath.quadraticBezierTo(
+      w - padding,
+      padding,
+      w - padding,
+      padding + cornerSize,
+    );
     framePath.lineTo(w - padding, h - padding - cornerSize);
-    
+
     // قوس سفلي يمين
-    framePath.quadraticBezierTo(w - padding, h - padding, w - padding - cornerSize, h - padding);
+    framePath.quadraticBezierTo(
+      w - padding,
+      h - padding,
+      w - padding - cornerSize,
+      h - padding,
+    );
     framePath.lineTo(padding + cornerSize, h - padding);
-    
+
     // قوس سفلي يسار
-    framePath.quadraticBezierTo(padding, h - padding, padding, h - padding - cornerSize);
+    framePath.quadraticBezierTo(
+      padding,
+      h - padding,
+      padding,
+      h - padding - cornerSize,
+    );
     framePath.lineTo(padding, padding + cornerSize);
-    
+
     // قوس علوي يسار
-    framePath.quadraticBezierTo(padding, padding, padding + cornerSize, padding);
+    framePath.quadraticBezierTo(
+      padding,
+      padding,
+      padding + cornerSize,
+      padding,
+    );
 
     canvas.drawPath(framePath, paint);
 
@@ -179,11 +197,13 @@ class MushafFramePainter extends CustomPainter {
     _drawCornerStar(canvas, Offset(w - padding, padding), paint);
     _drawCornerStar(canvas, Offset(padding, h - padding), paint);
     _drawCornerStar(canvas, Offset(w - padding, h - padding), paint);
-    
+
     // 3. إضافة نقاط تزيينية صغيرة على الأطراف
-    final dotPaint = Paint()..color = accentColor.withOpacity(0.3)..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(w/2, padding), 2, dotPaint);
-    canvas.drawCircle(Offset(w/2, h - padding), 2, dotPaint);
+    final dotPaint = Paint()
+      ..color = accentColor.withOpacity(0.3)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(w / 2, padding), 2, dotPaint);
+    canvas.drawCircle(Offset(w / 2, h - padding), 2, dotPaint);
   }
 
   void _drawCornerStar(Canvas canvas, Offset center, Paint paint) {
@@ -194,7 +214,11 @@ class MushafFramePainter extends CustomPainter {
       double r = i % 2 == 0 ? size : size / 2;
       double x = center.dx + r * math.cos(angle);
       double y = center.dy + r * math.sin(angle);
-      if (i == 0) star.moveTo(x, y); else star.lineTo(x, y);
+      if (i == 0) {
+        star.moveTo(x, y);
+      } else {
+        star.lineTo(x, y);
+      }
     }
     star.close();
     canvas.drawPath(star, paint);
