@@ -150,13 +150,19 @@ class _QuranHomeNewState extends State<QuranHomeNew>
       child: Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: AppBar(
+          centerTitle: true,
           title: Text(
             'القرآن الكريم',
             style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+          
           ),
           bottom: TabBar(
             controller: _tabController,
-            indicatorColor: Colors.white,
+            indicatorColor: Theme.of(context).colorScheme.onPrimary,
+            labelColor: Theme.of(context).colorScheme.onPrimary,
+            unselectedLabelColor: Theme.of(context).brightness == Brightness.dark 
+                ? Colors.white70 
+                : Colors.black54,
             labelStyle: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
             unselectedLabelStyle: GoogleFonts.tajawal(),
             tabs: const [
