@@ -195,7 +195,7 @@ class _SurahViewNewState extends State<SurahViewNew> {
                                   ..onTap = () => _showTafsir(context, ayah),
                               ),
                               TextSpan(
-                                text: ' ﴿${ayahNum}﴾ ',
+                                text: ' ﴿$ayahNum﴾ ',
                                 style: TextStyle(
                                   fontFamily: 'AmiriQuran',
                                   fontSize: quranProvider.fontSize * 0.8,
@@ -270,8 +270,9 @@ class _SurahViewNewState extends State<SurahViewNew> {
                 child: FutureBuilder<Map<String, dynamic>?>(
                   future: widget.dbHelper.getTafsirByAyah(ayah['id']),
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting)
+                    if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
+                    }
                     final tafsir = snapshot.data;
                     return SingleChildScrollView(
                       padding: const EdgeInsets.all(20),
