@@ -25,8 +25,6 @@ class _QuranHomeNewState extends State<QuranHomeNew>
   bool _isSurahsLoading = true;
   bool _isJuzsLoading = true;
   bool _isSearching = false;
-  String? _surahsError;
-  String? _juzsError;
   late TabController _tabController;
 
   @override
@@ -47,62 +45,69 @@ class _QuranHomeNewState extends State<QuranHomeNew>
     super.dispose();
   }
 
+  String _normalizeText(String text) {
+    return text
+        .replaceAll(RegExp(r'[\u064B-\u0652\u0670]'), '')
+        .replaceAll('أ', 'ا')
+        .replaceAll('إ', 'ا')
+        .replaceAll('آ', 'ا')
+        .replaceAll('ة', 'ه')
+        .replaceAll('ى', 'ي');
+  }
+
   Future<void> _loadSurahs() async {
     try {
-      setState(() {
-        _isSurahsLoading = true;
-        _surahsError = null;
-      });
+      if (!mounted) return;
+      setState(() => _isSurahsLoading = true);
+      
       final surahs = await dbHelper.getSurahs();
+      
+      if (!mounted) return;
       setState(() {
         _allSurahs = surahs;
         _filteredSurahs = surahs;
         _isSurahsLoading = false;
       });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isSurahsLoading = false;
-          _surahsError = e.toString();
-        });
-      }
+      if (mounted) setState(() => _isSurahsLoading = false);
     }
   }
 
   Future<void> _loadJuzs() async {
     try {
-      setState(() {
-        _isJuzsLoading = true;
-        _juzsError = null;
-      });
+      if (!mounted) return;
+      setState(() => _isJuzsLoading = true);
+      
       final juzs = await dbHelper.getJuzs();
+      print('Loaded juzs: $juzs'); // Debug print
+      
+      if (!mounted) return;
       setState(() {
         _juzs = juzs;
         _isJuzsLoading = false;
       });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isJuzsLoading = false;
-          _juzsError = e.toString();
-        });
-      }
+      print('Error loading juzs: $e'); // Debug print
+      if (mounted) setState(() => _isJuzsLoading = false);
     }
   }
 
   void _filterSurahs() {
-    final query = _searchController.text.toLowerCase().trim();
+    if (!mounted) return;
+    final rawQuery = _searchController.text.trim();
+    final query = _normalizeText(rawQuery).toLowerCase();
+    final queryWithoutAl = query.startsWith('ال') ? query.substring(2) : query;
+
     setState(() {
       if (query.isEmpty) {
         _filteredSurahs = _allSurahs;
       } else {
         _filteredSurahs = _allSurahs.where((surah) {
-          final nameAr = surah['name_ar']?.toString().toLowerCase() ?? '';
+          final nameAr = _normalizeText(surah['name_ar'] ?? '');
           final nameEn = surah['name_en']?.toString().toLowerCase() ?? '';
-          final id = surah['id']?.toString() ?? '';
           return nameAr.contains(query) ||
-              nameEn.contains(query) ||
-              id.contains(query);
+              nameAr.contains(queryWithoutAl) ||
+              nameEn.contains(query);
         }).toList();
       }
     });
@@ -111,35 +116,26 @@ class _QuranHomeNewState extends State<QuranHomeNew>
   Future<void> _performGlobalSearch() async {
     final query = _globalSearchController.text.trim();
     if (query.isEmpty) {
-      setState(() {
-        _searchResults = [];
-        _isSearching = false;
-      });
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+          _isSearching = false;
+        });
+      }
       return;
     }
-
-    setState(() {
-      _isSearching = true;
-    });
-
+    
+    if (mounted) setState(() => _isSearching = true);
+    
     try {
       final results = await dbHelper.searchAyahs(query);
+      if (!mounted) return;
       setState(() {
         _searchResults = results;
         _isSearching = false;
       });
     } catch (e) {
-      setState(() {
-        _isSearching = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في البحث: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (mounted) setState(() => _isSearching = false);
     }
   }
 
@@ -150,21 +146,25 @@ class _QuranHomeNewState extends State<QuranHomeNew>
       child: Scaffold(
         backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.primary,
           centerTitle: true,
           title: Text(
             'القرآن الكريم',
-            style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
-          
+            style: GoogleFonts.tajawal(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
+          iconTheme: const IconThemeData(color: Colors.white),
           bottom: TabBar(
             controller: _tabController,
-            indicatorColor: Theme.of(context).colorScheme.onPrimary,
-            labelColor: Theme.of(context).colorScheme.onPrimary,
-            unselectedLabelColor: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.white70 
-                : Colors.black54,
-            labelStyle: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
-            unselectedLabelStyle: GoogleFonts.tajawal(),
+            indicatorColor: Colors.white,
+            indicatorWeight: 4,
+            indicatorSize: TabBarIndicatorSize.label,
+            labelColor: Colors.white,
+            labelStyle: GoogleFonts.tajawal(fontWeight: FontWeight.bold, fontSize: 16),
+            unselectedLabelColor: Colors.white.withOpacity(0.7),
+            unselectedLabelStyle: GoogleFonts.tajawal(fontWeight: FontWeight.normal, fontSize: 14),
             tabs: const [
               Tab(text: 'السور'),
               Tab(text: 'الأجزاء'),
@@ -176,6 +176,7 @@ class _QuranHomeNewState extends State<QuranHomeNew>
           controller: _tabController,
           children: [_buildSurahsTab(), _buildJuzsTab(), _buildSearchTab()],
         ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
         floatingActionButton: Consumer<QuranProvider>(
           builder: (context, quranProvider, child) {
             if (!quranProvider.hasBookmark) return const SizedBox.shrink();
@@ -198,10 +199,7 @@ class _QuranHomeNewState extends State<QuranHomeNew>
                       builder: (context) => SurahViewNew(
                         surah: {
                           'id': quranProvider.lastSurahId,
-                          'name_ar': quranProvider.bookmarkName?.replaceFirst(
-                            'سورة ',
-                            '',
-                          ),
+                          'name_ar': quranProvider.bookmarkName?.replaceFirst('سورة ', '')
                         },
                         initialAyahNumber: quranProvider.lastAyahNumber,
                       ),
@@ -230,14 +228,10 @@ class _QuranHomeNewState extends State<QuranHomeNew>
           padding: const EdgeInsets.all(16.0),
           child: TextField(
             controller: _searchController,
-            textAlign: TextAlign.right,
             decoration: InputDecoration(
               hintText: 'ابحث عن سورة...',
-              hintStyle: GoogleFonts.tajawal(),
               prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.0),
-              ),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
               filled: true,
               fillColor: Theme.of(context).cardColor,
             ),
@@ -246,52 +240,33 @@ class _QuranHomeNewState extends State<QuranHomeNew>
         Expanded(
           child: _isSurahsLoading
               ? const Center(child: CircularProgressIndicator())
-              : _surahsError != null
-              ? _buildErrorWidget(_surahsError!, _loadSurahs)
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   itemCount: _filteredSurahs.length,
                   itemBuilder: (context, index) {
                     final surah = _filteredSurahs[index];
                     return Card(
+                      elevation: 0,
+                      color: Theme.of(context).cardColor,
                       margin: const EdgeInsets.only(bottom: 8.0),
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primary,
+                          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                           child: Text(
                             '${surah['id']}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: TextStyle(color: Theme.of(context).colorScheme.primary),
                           ),
                         ),
                         title: Text(
-                          surah['name_ar'] ?? '',
-                          style: GoogleFonts.tajawal(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          surah['name_ar'],
+                          style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
                         ),
-                        subtitle: Text(
-                          surah['name_en'] ?? '',
-                          style: GoogleFonts.tajawal(fontSize: 12),
+                        subtitle: Text('عدد الآيات: ${surah['ayah_count'] ?? ''}'),
+                        trailing: const Icon(Icons.chevron_left),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => SurahViewNew(surah: surah)),
                         ),
-                        trailing: Text(
-                          '${surah['ayah_count'] ?? 0} آية',
-                          style: GoogleFonts.tajawal(
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => SurahViewNew(surah: surah),
-                            ),
-                          );
-                        },
                       ),
                     );
                   },
@@ -302,17 +277,24 @@ class _QuranHomeNewState extends State<QuranHomeNew>
   }
 
   Widget _buildJuzsTab() {
-    if (_isJuzsLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_juzsError != null) {
-      return _buildErrorWidget(_juzsError!, _loadJuzs);
-    }
+    if (_isJuzsLoading) return const Center(child: CircularProgressIndicator());
     if (_juzs.isEmpty) {
       return Center(
-        child: Text(
-          'لا توجد أجزاء متاحة',
-          style: GoogleFonts.tajawal(color: Colors.grey),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(
+              'لا توجد بيانات الأجزاء',
+              style: GoogleFonts.tajawal(fontSize: 18, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'جاري إصلاح المشكلة...',
+              style: GoogleFonts.tajawal(fontSize: 14, color: Colors.grey),
+            ),
+          ],
         ),
       );
     }
@@ -322,32 +304,27 @@ class _QuranHomeNewState extends State<QuranHomeNew>
       itemBuilder: (context, index) {
         final juz = _juzs[index];
         return Card(
-          margin: const EdgeInsets.only(bottom: 8.0),
+          elevation: 2,
+          margin: const EdgeInsets.only(bottom: 12.0),
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              child: Text(
-                '${juz['id']}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              backgroundColor: Theme.of(context).colorScheme.secondary,
+              foregroundColor: Colors.white,
+              child: Text('${juz['id']}'),
             ),
             title: Text(
               'الجزء ${juz['id']}',
               style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              'من سورة ${juz['start_surah_name']} إلى سورة ${juz['end_surah_name']}',
+              'من: ${juz['start_surah_name']} - إلى: ${juz['end_surah_name']}',
               style: GoogleFonts.tajawal(fontSize: 12),
             ),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => JuzViewNew(juz: juz)),
-              );
-            },
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => JuzViewNew(juz: juz)),
+            ),
           ),
         );
       },
@@ -361,16 +338,10 @@ class _QuranHomeNewState extends State<QuranHomeNew>
           padding: const EdgeInsets.all(16.0),
           child: TextField(
             controller: _globalSearchController,
-            textAlign: TextAlign.right,
             decoration: InputDecoration(
               hintText: 'ابحث في نصوص القرآن...',
-              hintStyle: GoogleFonts.tajawal(),
               prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.0),
-              ),
-              filled: true,
-              fillColor: Theme.of(context).cardColor,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0)),
             ),
           ),
         ),
@@ -378,103 +349,39 @@ class _QuranHomeNewState extends State<QuranHomeNew>
           child: _isSearching
               ? const Center(child: CircularProgressIndicator())
               : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   itemCount: _searchResults.length,
                   itemBuilder: (context, index) {
                     final result = _searchResults[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8.0),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primary,
-                          child: Text(
-                            '${result['surah_id']}',
-                            style: const TextStyle(color: Colors.white),
+                    return ListTile(
+                      title: Text(
+                        result['surah_name_ar'] ?? '',
+                        style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        result['text'] ?? '',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.amiri(),
+                      ),
+                      trailing: Text('آية: ${result['number_in_surah']}'),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SurahViewNew(
+                            surah: {
+                              'id': result['surah_id'],
+                              'name_ar': result['surah_name_ar']
+                            },
+                            initialAyahNumber: result['number_in_surah'],
+                            searchText: _globalSearchController.text.trim(),
                           ),
                         ),
-                        title: Text(
-                          result['surah_name_ar'] ?? '',
-                          style: GoogleFonts.tajawal(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'الآية ${result['number_in_surah']}',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 10,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                            Text(
-                              result['text'] ?? '',
-                              style: const TextStyle(
-                                fontFamily: 'AmiriQuran',
-                                height: 1.5,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => SurahViewNew(
-                                surah: {
-                                  'id': result['surah_id'],
-                                  'name_ar': result['surah_name_ar'],
-                                },
-                                initialAyahNumber: result['number_in_surah'],
-                              ),
-                            ),
-                          );
-                        },
                       ),
                     );
                   },
                 ),
         ),
       ],
-    );
-  }
-
-  Widget _buildErrorWidget(String message, VoidCallback onRetry) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 60),
-            const SizedBox(height: 16),
-            Text(
-              'حدث خطأ غير متوقع',
-              style: GoogleFonts.tajawal(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: GoogleFonts.tajawal(color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: Text('إعادة المحاولة', style: GoogleFonts.tajawal()),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

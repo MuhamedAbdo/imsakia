@@ -1,8 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
-import '../providers/theme_provider.dart';
 
 class SurahHeaderWidget extends StatelessWidget {
   final Map<String, dynamic> surah;
@@ -11,48 +9,26 @@ class SurahHeaderWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDarkMode = themeProvider.isDarkMode;
-
-    // ألوان تحاكي ورق المصحف القديم والتذهيب
-    final Color goldColor = isDarkMode
-        ? const Color(0xFFFFD700).withOpacity(0.5)
-        : const Color(0xFFC5A059);
-    final Color decorationColor = isDarkMode ? Colors.white24 : Colors.white54;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final Color goldColor = isDarkMode ? const Color(0xFFFFD700).withOpacity(0.5) : const Color(0xFFC5A059);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: isDarkMode
+          colors: isDarkMode 
               ? [const Color(0xFF1A1A1A), const Color(0xFF2D2D2D)]
               : [const Color(0xFF8B7355), const Color(0xFF6B5B45)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-        // إطار خارجي مزدوج بسيط
+        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: const Offset(0, 5))],
         border: Border.all(color: goldColor.withOpacity(0.3), width: 1.5),
       ),
       child: Stack(
         children: [
-          // رسم الزخارف الخلفية (الإطار الإسلامي)
-          Positioned.fill(
-            child: CustomPaint(
-              painter: MushafFramePainter(
-                isDarkMode: isDarkMode,
-                accentColor: goldColor,
-              ),
-            ),
-          ),
-
+          Positioned.fill(child: CustomPaint(painter: MushafFramePainter(isDarkMode: isDarkMode, accentColor: goldColor))),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
             child: Column(
@@ -60,45 +36,18 @@ class SurahHeaderWidget extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildInfoTag(
-                      surah['revelation_type'] == 'Meccan' ? 'مكية' : 'مدنية',
-                      isDarkMode,
-                    ),
-
-                    // اسم السورة في المنتصف مع خط أندلسي/كوفي
+                    _buildInfoTag(surah['revelation_type'] == 'Meccan' ? 'مكية' : 'مدنية', isDarkMode),
                     Expanded(
-                      child: Text(
-                        surah['name_ar'] ?? surah['name'] ?? '',
-                        style: GoogleFonts.amiriQuran(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: isDarkMode
-                              ? Colors.white
-                              : const Color(0xFFFEF8F0),
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.5),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
+                      child: Text(surah['name_ar'] ?? '',
+                        style: GoogleFonts.amiriQuran(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                        textAlign: TextAlign.center),
                     ),
-
-                    _buildInfoTag('${surah['ayah_count']} آية', isDarkMode),
+                    _buildInfoTag('${surah['ayah_count'] ?? 0} آية', isDarkMode),
                   ],
                 ),
                 const SizedBox(height: 5),
-                Text(
-                  'ترتيبها: ${surah['id'] ?? surah['number']}',
-                  style: GoogleFonts.tajawal(
-                    fontSize: 10,
-                    color: isDarkMode ? Colors.white38 : Colors.white60,
-                    letterSpacing: 1,
-                  ),
-                ),
+                Text('ترتيبها: ${surah['id']}', 
+                  style: GoogleFonts.tajawal(fontSize: 10, color: Colors.white70)),
               ],
             ),
           ),
@@ -110,120 +59,37 @@ class SurahHeaderWidget extends StatelessWidget {
   Widget _buildInfoTag(String text, bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.black26 : Colors.black12,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isDark ? Colors.white10 : Colors.white24),
-      ),
-      child: Text(
-        text,
-        style: GoogleFonts.tajawal(
-          fontSize: 11,
-          color: isDark ? Colors.white70 : Colors.white,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
+      decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(8)),
+      child: Text(text, style: GoogleFonts.tajawal(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w500)),
     );
   }
 }
 
-// الرسام الخاص بإطار المصحف الواقعي
 class MushafFramePainter extends CustomPainter {
   final bool isDarkMode;
   final Color accentColor;
-
   MushafFramePainter({required this.isDarkMode, required this.accentColor});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = accentColor.withOpacity(0.4)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-
+    final paint = Paint()..color = accentColor.withOpacity(0.4)..style = PaintingStyle.stroke..strokeWidth = 1.0;
     final double w = size.width;
     final double h = size.height;
-    final double padding = 10.0;
+    final double p = 10.0;
+    double cs = 25.0;
 
-    // 1. رسم الإطار الداخلي المنحني (بوابة)
-    Path framePath = Path();
-
-    // الزوايا المزخرفة
-    double cornerSize = 25.0;
-
-    // أعلى يسار
-    framePath.moveTo(padding + cornerSize, padding);
-    framePath.lineTo(w - padding - cornerSize, padding);
-
-    // قوس علوي يمين
-    framePath.quadraticBezierTo(
-      w - padding,
-      padding,
-      w - padding,
-      padding + cornerSize,
-    );
-    framePath.lineTo(w - padding, h - padding - cornerSize);
-
-    // قوس سفلي يمين
-    framePath.quadraticBezierTo(
-      w - padding,
-      h - padding,
-      w - padding - cornerSize,
-      h - padding,
-    );
-    framePath.lineTo(padding + cornerSize, h - padding);
-
-    // قوس سفلي يسار
-    framePath.quadraticBezierTo(
-      padding,
-      h - padding,
-      padding,
-      h - padding - cornerSize,
-    );
-    framePath.lineTo(padding, padding + cornerSize);
-
-    // قوس علوي يسار
-    framePath.quadraticBezierTo(
-      padding,
-      padding,
-      padding + cornerSize,
-      padding,
-    );
-
-    canvas.drawPath(framePath, paint);
-
-    // 2. رسم ثمانيات الأضلاع في الأركان (Islamic Star Corner)
-    _drawCornerStar(canvas, Offset(padding, padding), paint);
-    _drawCornerStar(canvas, Offset(w - padding, padding), paint);
-    _drawCornerStar(canvas, Offset(padding, h - padding), paint);
-    _drawCornerStar(canvas, Offset(w - padding, h - padding), paint);
-
-    // 3. إضافة نقاط تزيينية صغيرة على الأطراف
-    final dotPaint = Paint()
-      ..color = accentColor.withOpacity(0.3)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(w / 2, padding), 2, dotPaint);
-    canvas.drawCircle(Offset(w / 2, h - padding), 2, dotPaint);
+    Path path = Path();
+    path.moveTo(p + cs, p);
+    path.lineTo(w - p - cs, p);
+    path.quadraticBezierTo(w - p, p, w - p, p + cs);
+    path.lineTo(w - p, h - p - cs);
+    path.quadraticBezierTo(w - p, h - p, w - p - cs, h - p);
+    path.lineTo(p + cs, h - p);
+    path.quadraticBezierTo(p, h - p, p, h - p - cs);
+    path.lineTo(p, p + cs);
+    path.quadraticBezierTo(p, p, p + cs, p);
+    canvas.drawPath(path, paint);
   }
-
-  void _drawCornerStar(Canvas canvas, Offset center, Paint paint) {
-    double size = 6.0;
-    Path star = Path();
-    for (int i = 0; i < 8; i++) {
-      double angle = (i * 45) * math.pi / 180;
-      double r = i % 2 == 0 ? size : size / 2;
-      double x = center.dx + r * math.cos(angle);
-      double y = center.dy + r * math.sin(angle);
-      if (i == 0) {
-        star.moveTo(x, y);
-      } else {
-        star.lineTo(x, y);
-      }
-    }
-    star.close();
-    canvas.drawPath(star, paint);
-  }
-
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
