@@ -46,11 +46,8 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   Future<void> _loadSettings() async {
-    _selectedCity =
-        _prefs?.getString(AppConstants.selectedCityKey) ??
-        AppConstants.defaultCity;
-    _selectedCityName =
-        _prefs?.getString('selected_city_name') ?? "القاهرة، مصر";
+    _selectedCity = _prefs?.getString(AppConstants.selectedCityKey) ?? AppConstants.defaultCity;
+    _selectedCityName = _prefs?.getString('selected_city_name') ?? "القاهرة، مصر";
 
     final savedTheme = _prefs?.getString(AppConstants.themeModeKey) ?? 'system';
     _themeMode = AppThemeMode.values.firstWhere(
@@ -58,37 +55,30 @@ class SettingsProvider extends ChangeNotifier {
       orElse: () => AppThemeMode.system,
     );
 
-    _selectedCalculationMethod =
-        _prefs?.getString(AppConstants.calculationMethodKey) ??
-        AppConstants.defaultCalculationMethod;
-    _selectedMadhab =
-        _prefs?.getString(AppConstants.madhabKey) ?? AppConstants.defaultMadhab;
-    _dstEnabled =
-        _prefs?.getBool(AppConstants.dstKey) ?? AppConstants.defaultDST;
-    _notificationsEnabled =
-        _prefs?.getBool(AppConstants.notificationsKey) ?? true;
+    _selectedCalculationMethod = _prefs?.getString(AppConstants.calculationMethodKey) ?? AppConstants.defaultCalculationMethod;
+    _selectedMadhab = _prefs?.getString(AppConstants.madhabKey) ?? AppConstants.defaultMadhab;
+    _dstEnabled = _prefs?.getBool(AppConstants.dstKey) ?? AppConstants.defaultDST;
+    _notificationsEnabled = _prefs?.getBool(AppConstants.notificationsKey) ?? true;
 
-    // تحميل قيمة التعديل الهجري
     _hijriAdjustment = _prefs?.getInt(AppConstants.hijriAdjustmentKey) ?? 0;
-    _autoHijriAdjustment =
-        _prefs?.getBool('auto_hijri_adjustment') ?? (_hijriAdjustment == 0);
+    _autoHijriAdjustment = _prefs?.getBool('auto_hijri_adjustment') ?? (_hijriAdjustment == 0);
 
     _isFirstLaunch = _prefs?.getBool(AppConstants.isFirstLaunchKey) ?? true;
   }
 
-  // تحديث التعديل الهجري مع معالجة وضع "تلقائي"
-  Future<void> updateHijriAdjustment(int adjustment) async {
-    _hijriAdjustment = adjustment;
-    // إذا كانت القيمة 0، نعتبرها تلقائية
-    _autoHijriAdjustment = (adjustment == 0);
+  // التعديل التراكمي: يجمع التعديل الجديد مع المخزن مسبقاً
+  Future<void> updateHijriAdjustment(int additionalAdjustment) async {
+    int currentStored = _prefs?.getInt(AppConstants.hijriAdjustmentKey) ?? 0;
+    _hijriAdjustment = currentStored + additionalAdjustment;
+    
+    _autoHijriAdjustment = (_hijriAdjustment == 0);
 
-    await _prefs?.setInt(AppConstants.hijriAdjustmentKey, adjustment);
+    await _prefs?.setInt(AppConstants.hijriAdjustmentKey, _hijriAdjustment);
     await _prefs?.setBool('auto_hijri_adjustment', _autoHijriAdjustment);
 
     notifyListeners();
   }
 
-  // Setters
   Future<void> setCity(String cityId) async {
     _selectedCity = cityId;
     _selectedCityName = cityId;
@@ -117,10 +107,7 @@ class SettingsProvider extends ChangeNotifier {
 
   Future<void> setThemeMode(AppThemeMode mode) async {
     _themeMode = mode;
-    await _prefs?.setString(
-      AppConstants.themeModeKey,
-      mode.toString().split('.').last,
-    );
+    await _prefs?.setString(AppConstants.themeModeKey, mode.toString().split('.').last);
     notifyListeners();
   }
 
