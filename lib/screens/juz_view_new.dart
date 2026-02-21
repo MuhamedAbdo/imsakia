@@ -162,7 +162,6 @@ class _JuzPageItemState extends State<JuzPageItem> {
     }
   }
 
-  // دالة عرض التفسير عند الضغط
   void _showTafsirDialog(Map<String, dynamic> ayah) async {
     String tafsir = await widget.dbHelper.getTafsir(ayah['surah_id'], ayah['number_in_surah']);
     if (!mounted) return;
@@ -194,7 +193,7 @@ class _JuzPageItemState extends State<JuzPageItem> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
                     ),
-                    child: Text(ayah['text'] ?? '', textAlign: TextAlign.center, 
+                    child: Text(_cleanAyahText(ayah['text'] ?? '', ayah['surah_id'], ayah['number_in_surah']), textAlign: TextAlign.center, 
                       style: const TextStyle(fontFamily: 'AmiriQuran', fontSize: 20)),
                   ),
                   const SizedBox(height: 15),
@@ -208,13 +207,32 @@ class _JuzPageItemState extends State<JuzPageItem> {
     );
   }
 
+  // الدالة المصححة والنهائية لحذف البسملة والرموز الزائدة
   String _cleanAyahText(String text, int surahId, int ayahNum) {
+    String cleaned = text.trim();
+
+    // 1. حذف البسملة المدمجة في بداية السورة (باستثناء الفاتحة)
+    // نستخدم منطق القص (38 حرفاً) المعتمد في الكود الناجح الأول
     if (ayahNum == 1 && surahId != 1) {
-      if (text.startsWith("بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ")) {
-        return text.replaceFirst("بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ", "").trim();
+      if (cleaned.startsWith("بِسْمِ")) {
+        int skipLength = 38; 
+        if (cleaned.length > skipLength) {
+          cleaned = cleaned.substring(skipLength).trim();
+          
+          // إزالة أي رموز غريبة أو مسافات قد تتبقى بعد القص مباشرة
+          while (cleaned.isNotEmpty && (cleaned.startsWith(' ') || cleaned.startsWith('ۏ'))) {
+            cleaned = cleaned.substring(1).trim();
+          }
+        }
       }
     }
-    return text;
+
+    // 2. حذف رموز التجويد التي تظهر كـ ميم زائدة (مع الحفاظ على علامات الوقف ج، صلے، قلے)
+    cleaned = cleaned.replaceAll('\u06E2', ''); // ميم الإقلاب الصغيرة (ۢ)
+    cleaned = cleaned.replaceAll('\u06ED', ''); // ميم الإخفاء الصغيرة (ۭ)
+    cleaned = cleaned.replaceAll('ۏ', '');     // الرمز الذي يظهر كـ ميم في بعض الخطوط
+
+    return cleaned.trim();
   }
 
   List<TextSpan> _buildContinuousAyahText(QuranProvider quranProvider) {
@@ -223,7 +241,6 @@ class _JuzPageItemState extends State<JuzPageItem> {
       final ayahNum = ayah['number_in_surah'];
       final surahId = ayah['surah_id'];
       
-      // مستمع الضغط لكل آية
       TapGestureRecognizer tapRecognizer = TapGestureRecognizer()
         ..onTap = () => _showTafsirDialog(ayah);
 
@@ -247,6 +264,7 @@ class _JuzPageItemState extends State<JuzPageItem> {
             ),
           ),
         ]));
+        
         if (surahId != 1 && surahId != 9) {
           spans.add(TextSpan(children: [
             WidgetSpan(

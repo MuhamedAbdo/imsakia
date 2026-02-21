@@ -89,11 +89,54 @@ class _SurahPageContentState extends State<SurahPageContent> {
     _loadAyahs();
   }
 
+  // الدالة السحرية لحل مشكلة الميم الزائدة ورموز التجويد المزعجة
+  String _cleanAyahText(String text, int numberInSurah, int surahId) {
+    String cleaned = text;
+
+    // 1. معالجة البسملة الملتصقة في الآية الأولى
+    if (numberInSurah == 1 && surahId != 1) {
+      if (cleaned.startsWith("بِسْمِ")) {
+        int skipLength = 38; 
+        if (cleaned.length > skipLength) {
+          cleaned = cleaned.substring(skipLength).trim();
+        }
+      }
+    }
+
+    // 2. حذف رموز الميم الزائدة (رموز الإقلاب والإخفاء التي تظهر كحروف مستقلة)
+    // نستخدم الـ Unicode الخاص بكل أشكال الميم الصغيرة في المصحف
+    cleaned = cleaned.replaceAll('\u06E2', ''); // ميم الإقلاب الصغيرة فوق الكلمة
+    cleaned = cleaned.replaceAll('\u06ED', ''); // ميم الإخفاء الصغيرة
+    cleaned = cleaned.replaceAll('ۭ', '');      // ميم صغيرة أخرى
+    cleaned = cleaned.replaceAll('ۢ', '');      // علامة إقلاب
+    cleaned = cleaned.replaceAll('ۏ', '');      // الرمز الغريب الذي يظهر أحياناً
+
+    // تنظيف المسافات الزائدة الناتجة عن الحذف
+    cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ');
+    
+    return cleaned.trim();
+  }
+
   void _loadAyahs() async {
     final ayahs = await widget.dbHelper.getAyahsBySurah(widget.surahId);
     if (!mounted) return;
-    for (var ayah in ayahs) { _ayahKeys[ayah['number_in_surah']] = GlobalKey(); }
-    setState(() => _ayahItems = ayahs);
+    
+    final processedAyahs = ayahs.map((ayah) {
+      final Map<String, dynamic> mutableAyah = Map.from(ayah);
+      mutableAyah['text'] = _cleanAyahText(
+        ayah['text'] ?? '', 
+        ayah['number_in_surah'], 
+        widget.surahId
+      );
+      return mutableAyah;
+    }).toList();
+
+    for (var ayah in processedAyahs) { 
+      _ayahKeys[ayah['number_in_surah']] = GlobalKey(); 
+    }
+    
+    setState(() => _ayahItems = processedAyahs);
+    
     if (widget.initialAyah != null && widget.initialAyah! > 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToAyah(widget.initialAyah!));
     }
@@ -147,6 +190,7 @@ class _SurahPageContentState extends State<SurahPageContent> {
               child: SingleChildScrollView(
                 child: Column(children: [
                   Container(
+                    width: double.infinity,
                     padding: const EdgeInsets.all(15),
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
@@ -154,10 +198,10 @@ class _SurahPageContentState extends State<SurahPageContent> {
                       border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
                     ),
                     child: Text(ayah['text'] ?? '', textAlign: TextAlign.center, 
-                      style: const TextStyle(fontFamily: 'AmiriQuran', fontSize: 20)),
+                      style: const TextStyle(fontFamily: 'AmiriQuran', fontSize: 22)),
                   ),
                   const SizedBox(height: 15),
-                  Text(tafsir, textAlign: TextAlign.justify, style: GoogleFonts.tajawal(fontSize: 16)),
+                  Text(tafsir, textAlign: TextAlign.justify, style: GoogleFonts.tajawal(fontSize: 17, height: 1.6)),
                 ])
               )
             )
@@ -169,36 +213,19 @@ class _SurahPageContentState extends State<SurahPageContent> {
 
   List<TextSpan> _buildHighlightedSpans(String text, String? query, TextStyle style, Map<String, dynamic> ayah) {
     if (query == null || query.trim().isEmpty) {
-      TapGestureRecognizer tapRecognizer = TapGestureRecognizer()
-        ..onTap = () => _showTafsirDialog(ayah);
-      return [
-        TextSpan(
-          text: text,
-          style: style,
-          recognizer: tapRecognizer,
-        )
-      ];
+      return [TextSpan(text: text, style: style, recognizer: TapGestureRecognizer()..onTap = () => _showTafsirDialog(ayah))];
     }
-
-    String normalize(String s) {
-      return s.replaceAll(RegExp(r'[\u064B-\u0652\u0670]'), '').replaceAll('أ', 'ا').replaceAll('إ', 'ا').replaceAll('آ', 'ا');
-    }
-
+    String normalize(String s) => s.replaceAll(RegExp(r'[\u064B-\u0652\u0670]'), '').replaceAll('أ', 'ا').replaceAll('إ', 'ا').replaceAll('آ', 'ا');
     String normQuery = normalize(query.trim()).replaceFirst('ال', '');
     List<TextSpan> spans = [];
     List<String> words = text.split(' ');
-    TapGestureRecognizer tapRecognizer = TapGestureRecognizer()
-      ..onTap = () => _showTafsirDialog(ayah);
-
     for (int i = 0; i < words.length; i++) {
       String word = words[i];
-      String normWord = normalize(word).replaceFirst('ال', '');
-      bool isMatch = normWord.contains(normQuery);
-
+      bool isMatch = normalize(word).replaceFirst('ال', '').contains(normQuery);
       spans.add(TextSpan(
         text: word,
         style: isMatch ? style.copyWith(backgroundColor: Colors.yellow.withOpacity(0.5), color: Colors.red[900], fontWeight: FontWeight.bold) : style,
-        recognizer: tapRecognizer,
+        recognizer: TapGestureRecognizer()..onTap = () => _showTafsirDialog(ayah),
       ));
       if (i < words.length - 1) spans.add(TextSpan(text: ' ', style: style));
     }
@@ -211,44 +238,24 @@ class _SurahPageContentState extends State<SurahPageContent> {
     if (_ayahItems.isEmpty) return const Center(child: CircularProgressIndicator());
 
     return Scaffold(
-     appBar: AppBar(
-  backgroundColor: Theme.of(context).colorScheme.primary,
-  // هذا السطر يضمن أن سهم الرجوع التلقائي سيظهر باللون الأبيض
-  iconTheme: const IconThemeData(color: Colors.white), 
-  title: Text(
-    widget.surahName, 
-    style: GoogleFonts.tajawal(color: Colors.white, fontWeight: FontWeight.bold)
-  ),
-  centerTitle: true,
-  actions: [
-    IconButton(
-      icon: Icon(
-        quranProvider.lastSurahId == widget.surahId ? Icons.bookmark : Icons.bookmark_border,
-        color: Colors.white, // تم تحديد اللون هنا أيضاً للتأكيد
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        iconTheme: const IconThemeData(color: Colors.white), 
+        title: Text(widget.surahName, style: GoogleFonts.tajawal(color: Colors.white, fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(quranProvider.lastSurahId == widget.surahId ? Icons.bookmark : Icons.bookmark_border, color: Colors.white),
+            onPressed: () {
+              int currentAyah = _calculateCurrentAyah();
+              quranProvider.saveBookmark(surahId: widget.surahId, ayahNumber: currentAyah, isJuzMode: false, name: widget.surahName);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم حفظ المرجعية عند الآية $currentAyah', style: GoogleFonts.tajawal())));
+            },
+          ),
+          IconButton(icon: const Icon(Icons.text_increase, color: Colors.white), onPressed: () => quranProvider.increaseFontSize()),
+          IconButton(icon: const Icon(Icons.text_decrease, color: Colors.white), onPressed: () => quranProvider.decreaseFontSize()),
+        ],
       ),
-      onPressed: () {
-        int currentAyah = _calculateCurrentAyah();
-        quranProvider.saveBookmark(
-          surahId: widget.surahId, 
-          ayahNumber: currentAyah, 
-          isJuzMode: false, 
-          name: widget.surahName
-        );
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تم حفظ المرجعية عند الآية $currentAyah', style: GoogleFonts.tajawal()))
-        );
-      },
-    ),
-    IconButton(
-      icon: const Icon(Icons.text_increase, color: Colors.white), 
-      onPressed: () => quranProvider.increaseFontSize()
-    ),
-    IconButton(
-      icon: const Icon(Icons.text_decrease, color: Colors.white), 
-      onPressed: () => quranProvider.decreaseFontSize()
-    ),
-  ],
-),
       body: SingleChildScrollView(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
@@ -257,15 +264,14 @@ class _SurahPageContentState extends State<SurahPageContent> {
             if (widget.surahId != 1 && widget.surahId != 9)
               Padding(
                 padding: const EdgeInsets.only(bottom: 25),
-                child: Text('بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ', style: TextStyle(fontFamily: 'AmiriQuran', fontSize: quranProvider.fontSize + 6, color: Colors.blue[800], fontWeight: FontWeight.bold)),
+                child: Text('بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ', 
+                  style: TextStyle(fontFamily: 'AmiriQuran', fontSize: quranProvider.fontSize + 6, color: Colors.blue[800], fontWeight: FontWeight.bold)),
               ),
             SelectionArea(
               child: Text.rich(
                 TextSpan(
                   children: _ayahItems.map((ayah) {
                     int num = ayah['number_in_surah'];
-                    TapGestureRecognizer tapRecognizer = TapGestureRecognizer()
-                      ..onTap = () => _showTafsirDialog(ayah);
                     return TextSpan(
                       children: [
                         WidgetSpan(child: SizedBox.fromSize(size: Size.zero, key: _ayahKeys[num])),
@@ -273,7 +279,7 @@ class _SurahPageContentState extends State<SurahPageContent> {
                         TextSpan(
                           text: ' ﴿$num﴾ ',
                           style: TextStyle(fontFamily: 'AmiriQuran', fontSize: quranProvider.fontSize * 0.8, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
-                          recognizer: tapRecognizer,
+                          recognizer: TapGestureRecognizer()..onTap = () => _showTafsirDialog(ayah),
                         ),
                       ],
                     );

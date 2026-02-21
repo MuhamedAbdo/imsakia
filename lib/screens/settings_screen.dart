@@ -57,8 +57,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _autoSelectMethod(String country) {
     String method = 'muslim_world_league';
-    if (country.contains("Egypt")) method = 'egyptian';
-    else if (country.contains("Turkey")) method = 'turkey';
+    if (country.contains("Egypt")) {
+      method = 'egyptian';
+    } else if (country.contains("Turkey")) method = 'turkey';
     else if (country.contains("Saudi Arabia")) method = 'umm_al_qura';
     else if (country.contains("United Arab Emirates")) method = 'dubai';
     else if (country.contains("Kuwait")) method = 'kuwait';
@@ -230,7 +231,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context, settings, _) => SwitchListTile(
         title: Text('التوقيت الصيفي (+1 ساعة)', style: GoogleFonts.tajawal(fontSize: 15)),
         value: settings.dstEnabled,
-        activeColor: Colors.green,
+        activeThumbColor: Colors.green,
         onChanged: (val) {
           settings.setDST(val);
           PrayerTimesService.instance.getCurrentPrayerTimes();
@@ -243,7 +244,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildCalculationMethodSelector() {
     return Consumer<SettingsProvider>(
       builder: (context, settings, _) => DropdownButtonFormField<String>(
-        value: settings.selectedCalculationMethod,
+        initialValue: settings.selectedCalculationMethod,
         isExpanded: true,
         decoration: InputDecoration(labelText: 'طريقة الحساب', labelStyle: GoogleFonts.tajawal()),
         items: _calculationMethods.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, style: GoogleFonts.tajawal(fontSize: 14)))).toList(),
@@ -260,7 +261,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildMadhabSelector() {
     return Consumer<SettingsProvider>(
       builder: (context, settings, _) => DropdownButtonFormField<String>(
-        value: settings.selectedMadhab,
+        initialValue: settings.selectedMadhab,
         decoration: InputDecoration(labelText: 'مذهب صلاة العصر', labelStyle: GoogleFonts.tajawal()),
         items: const [
           DropdownMenuItem(value: 'shafi', child: Text('الجمهور (شافعي، مالكي، حنبلي)')),
