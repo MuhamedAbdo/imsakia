@@ -274,8 +274,11 @@ class _JuzPageItemState extends State<JuzPageItem> {
 
   void _toggleAutoScroll() {
     setState(() => _isAutoScrolling = !_isAutoScrolling);
-    if (_isAutoScrolling) _startScrolling();
-    else _scrollTimer?.cancel();
+    if (_isAutoScrolling) {
+      _startScrolling();
+    } else {
+      _scrollTimer?.cancel();
+    }
   }
 
   void _startScrolling() {
@@ -543,7 +546,7 @@ class _JuzPageItemState extends State<JuzPageItem> {
             FloatingActionButton.small(heroTag: "down_${widget.juzId}", child: const Icon(Icons.remove), onPressed: () => setState(() => _scrollSpeed = (_scrollSpeed - 0.2).clamp(0.2, 8.0))),
             const SizedBox(height: 8),
           ],
-          FloatingActionButton(heroTag: "play_${widget.juzId}", backgroundColor: _isAutoScrolling ? Colors.red : colorScheme.primary, child: Icon(_isAutoScrolling ? Icons.stop : Icons.play_arrow, color: Colors.white), onPressed: _toggleAutoScroll),
+          FloatingActionButton(heroTag: "play_${widget.juzId}", backgroundColor: _isAutoScrolling ? Colors.red : colorScheme.primary, onPressed: _toggleAutoScroll, child: Icon(_isAutoScrolling ? Icons.stop : Icons.play_arrow, color: Colors.white)),
         ],
       ),
       body: CustomScrollView(
