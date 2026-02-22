@@ -1,16 +1,23 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    // The Flutter Gradle Plugin must be applied after Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+import java.util.Properties
+import java.io.FileInputStream
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
     namespace = "com.muhamed.imsakia"
     compileSdk = flutter.compileSdkVersion
-    
-    // تم تعطيل هذا السطر لمنع Gradle من محاولة تحميل نسخة NDK 28 الضخمة والمعلقة
-    // ndkVersion = flutter.ndkVersion
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -18,44 +25,56 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    dependencies {
-        coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    kotlinOptions {
+        jvmTarget = "11"
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties["keyAlias"] as String?
+            keyPassword = keystoreProperties["keyPassword"] as String?
+            storePassword = keystoreProperties["storePassword"] as String?
+            val stFile = keystoreProperties["storeFile"] as String?
+            if (stFile != null) {
+                // Look in android/app/ or android/ root
+                val fileObj = file(stFile)
+                storeFile = if (fileObj.exists()) {
+                    fileObj
+                } else {
+                    val rootFileObj = rootProject.file(stFile)
+                    if (rootFileObj.exists()) {
+                        rootFileObj
+                    } else {
+                        null
+                    }
+                }
+            }
+            enableV1Signing = true
+            enableV2Signing = true
+        }
     }
 
     defaultConfig {
         applicationId = "com.muhamed.imsakia"
-        
-        // استخدام النسخة المحددة من فلاتر
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        
-        // Widget configuration - تثبيت النسخة لضمان عمل home_widget
-        minSdk = flutter.minSdkVersion 
     }
 
     buildTypes {
         release {
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // ربط التوقيع الرسمي
+            signingConfig = signingConfigs.getByName("release")
+            
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
-    
-    // Fix for workmanager duplicate classes
-    configurations.all {
-        resolutionStrategy {
-            eachDependency {
-                if ((requested.group == "androidx.work") && (requested.name.startsWith("work-runtime"))) {
-                    useVersion("2.8.1")
-                }
-            }
-        }
-    }
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 flutter {

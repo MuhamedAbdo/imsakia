@@ -49,19 +49,23 @@ class QuranProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // --- الدالة الجديدة المطلوبة للـ Slider ---
+  Future<void> setFontSize(double size) async {
+    _fontSize = size;
+    notifyListeners(); // لتحديث الواجهة فوراً
+    await _prefs?.setDouble(_fontSizeKey, size); // حفظ في الذاكرة
+  }
+
+  // الدوال القديمة (يمكنك الإبقاء عليها إذا كنت تستخدم أزرار + و - في مكان آخر)
   Future<void> increaseFontSize() async {
     if (_fontSize < 50.0) {
-      _fontSize += 2.0;
-      notifyListeners();
-      await _prefs?.setDouble(_fontSizeKey, _fontSize);
+      await setFontSize(_fontSize + 2.0);
     }
   }
 
   Future<void> decreaseFontSize() async {
     if (_fontSize > 16.0) {
-      _fontSize -= 2.0;
-      notifyListeners();
-      await _prefs?.setDouble(_fontSizeKey, _fontSize);
+      await setFontSize(_fontSize - 2.0);
     }
   }
 

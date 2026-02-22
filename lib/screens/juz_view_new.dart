@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 import '../services/db_helper.dart';
 import '../providers/quran_provider.dart';
 
@@ -39,11 +41,17 @@ class _JuzViewNewState extends State<JuzViewNew> {
     if (!mounted) return;
     ScrollPhysics newPhysics;
     if (id == 1) {
-      newPhysics = (isAtBottom || isShort) ? const BouncingScrollPhysics() : const NeverScrollableScrollPhysics();
+      newPhysics = (isAtBottom || isShort)
+          ? const BouncingScrollPhysics()
+          : const NeverScrollableScrollPhysics();
     } else if (id == 30) {
-      newPhysics = (isAtTop || isShort) ? const BouncingScrollPhysics() : const NeverScrollableScrollPhysics();
+      newPhysics = (isAtTop || isShort)
+          ? const BouncingScrollPhysics()
+          : const NeverScrollableScrollPhysics();
     } else {
-      newPhysics = (isAtTop || isAtBottom || isShort) ? const BouncingScrollPhysics() : const NeverScrollableScrollPhysics();
+      newPhysics = (isAtTop || isAtBottom || isShort)
+          ? const BouncingScrollPhysics()
+          : const NeverScrollableScrollPhysics();
     }
 
     if (_pagePhysics != newPhysics) {
@@ -56,8 +64,11 @@ class _JuzViewNewState extends State<JuzViewNew> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('تم الجزء.. اسحب لليسار للانتقال للتالي', 
-                style: GoogleFonts.tajawal(color: Colors.white), textAlign: TextAlign.center),
+              content: Text(
+                'تم الجزء.. اسحب لليسار للانتقال للتالي',
+                style: GoogleFonts.tajawal(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
               duration: const Duration(seconds: 2),
               behavior: SnackBarBehavior.floating,
               backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.9),
@@ -86,11 +97,18 @@ class _JuzViewNewState extends State<JuzViewNew> {
             });
           },
           itemBuilder: (context, index) {
+            final qProvider = Provider.of<QuranProvider>(context, listen: false);
             return JuzPageItem(
               juzId: index + 1,
               dbHelper: widget.dbHelper,
-              initialAyah: (index + 1 == (widget.juz['id'] ?? 1)) ? widget.initialAyahNumber : null,
-              onScroll: (top, bottom, short) => _updatePhysics(top, bottom, short, index + 1),
+              initialAyah: (index + 1 == (widget.juz['id'] ?? 1))
+                  ? widget.initialAyahNumber
+                  : null,
+              initialSurahId: (index + 1 == (widget.juz['id'] ?? 1))
+                  ? qProvider.lastSurahId
+                  : null,
+              onScroll: (top, bottom, short) =>
+                  _updatePhysics(top, bottom, short, index + 1),
             );
           },
         ),
@@ -103,9 +121,17 @@ class JuzPageItem extends StatefulWidget {
   final int juzId;
   final DbHelper dbHelper;
   final int? initialAyah;
+  final int? initialSurahId;
   final Function(bool, bool, bool) onScroll;
 
-  const JuzPageItem({super.key, required this.juzId, required this.dbHelper, required this.onScroll, this.initialAyah});
+  const JuzPageItem({
+    super.key,
+    required this.juzId,
+    required this.dbHelper,
+    required this.onScroll,
+    this.initialAyah,
+    this.initialSurahId,
+  });
 
   @override
   State<JuzPageItem> createState() => _JuzPageItemState();
@@ -114,6 +140,11 @@ class JuzPageItem extends StatefulWidget {
 class _JuzPageItemState extends State<JuzPageItem> {
   late ScrollController _scrollController;
   List<Map<String, dynamic>> _ayahItems = [];
+  final Map<String, GlobalKey> _ayahKeys = {};
+  bool _isAutoScrolling = false;
+  double _scrollSpeed = 1.0;
+  Timer? _scrollTimer;
+  String _currentVisibleSurah = "";
 
   @override
   void initState() {
@@ -126,29 +157,59 @@ class _JuzPageItemState extends State<JuzPageItem> {
   void _prepareAyahItems() async {
     final ayahs = await widget.dbHelper.getAyahsByJuz(widget.juzId);
     if (!mounted) return;
+
+    for (var ayah in ayahs) {
+      _ayahKeys['${ayah['surah_id']}_${ayah['number_in_surah']}'] = GlobalKey();
+    }
+
     setState(() {
       _ayahItems = ayahs;
+      if (_ayahItems.isNotEmpty) {
+        _currentVisibleSurah = _ayahItems[0]['surah_name_ar'] ?? '';
+      }
     });
 
-    if (widget.initialAyah != null && widget.initialAyah! > 1) {
+    if (widget.initialAyah != null && widget.initialAyah! > 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(const Duration(milliseconds: 600), () {
-          if (mounted) _scrollToAyah(widget.initialAyah!);
+        Future.delayed(const Duration(milliseconds: 700), () {
+          if (mounted) _scrollToInitialLocation();
         });
       });
     }
   }
 
-  void _scrollToAyah(int ayahNum) {
-    if (_ayahItems.isEmpty || !_scrollController.hasClients) return;
-    
-    int targetIndex = _ayahItems.indexWhere((ayah) => ayah['number_in_surah'] == ayahNum);
-    if (targetIndex != -1) {
-      double progress = targetIndex / _ayahItems.length;
-      double targetScroll = progress * _scrollController.position.maxScrollExtent;
-      
-      _scrollController.animateTo(
-        targetScroll,
+  void _scrollToInitialLocation() {
+    if (_ayahItems.isEmpty || widget.initialAyah == null) return;
+
+    Map<String, dynamic>? targetAyahData;
+    String targetKey = "";
+
+    if (widget.initialSurahId != null) {
+      targetKey = '${widget.initialSurahId}_${widget.initialAyah}';
+      // البحث عن بيانات الآية لتحديث اسم السورة
+      try {
+        targetAyahData = _ayahItems.firstWhere(
+          (a) => a['surah_id'] == widget.initialSurahId && a['number_in_surah'] == widget.initialAyah
+        );
+      } catch (_) {}
+    } else {
+      try {
+        targetAyahData = _ayahItems.firstWhere((a) => a['number_in_surah'] == widget.initialAyah);
+        targetKey = '${targetAyahData['surah_id']}_${targetAyahData['number_in_surah']}';
+      } catch (_) {}
+    }
+
+    // --- تحديث اسم السورة يدوياً هنا لحل مشكلة تجمد الـ AppBar ---
+    if (targetAyahData != null && targetAyahData['surah_name_ar'] != null) {
+      setState(() {
+        _currentVisibleSurah = targetAyahData!['surah_name_ar'];
+      });
+    }
+
+    final key = _ayahKeys[targetKey];
+    if (key?.currentContext != null) {
+      Scrollable.ensureVisible(
+        key!.currentContext!,
         duration: const Duration(seconds: 1),
         curve: Curves.easeInOut,
       );
@@ -158,8 +219,208 @@ class _JuzPageItemState extends State<JuzPageItem> {
   void _scrollListener() {
     if (_scrollController.hasClients) {
       final pos = _scrollController.position;
-      widget.onScroll(pos.pixels <= 20, pos.pixels >= pos.maxScrollExtent - 20, pos.maxScrollExtent < 10);
+      widget.onScroll(
+        pos.pixels <= 20,
+        pos.pixels >= pos.maxScrollExtent - 20,
+        pos.maxScrollExtent < 10,
+      );
     }
+  }
+
+  void _saveCurrentLocation() {
+    final quranProvider = Provider.of<QuranProvider>(context, listen: false);
+    
+    int currentSurahId = _ayahItems.first['surah_id'];
+    int currentAyahNum = _ayahItems.first['number_in_surah'];
+    String currentSurahName = _ayahItems.first['surah_name_ar'] ?? '';
+
+    if (_scrollController.hasClients && _ayahItems.isNotEmpty) {
+      for (var ayah in _ayahItems) {
+        final key = _ayahKeys['${ayah['surah_id']}_${ayah['number_in_surah']}'];
+        final RenderBox? box = key?.currentContext?.findRenderObject() as RenderBox?;
+        
+        if (box != null) {
+          final position = box.localToGlobal(Offset.zero).dy;
+          if (position >= 0 && position < MediaQuery.of(context).size.height * 0.5) {
+            currentSurahId = ayah['surah_id'];
+            currentAyahNum = ayah['number_in_surah'];
+            currentSurahName = ayah['surah_name_ar'] ?? '';
+            break;
+          }
+        }
+      }
+    }
+
+    quranProvider.saveBookmark(
+      surahId: currentSurahId,
+      ayahNumber: currentAyahNum,
+      isJuzMode: true,
+      juzId: widget.juzId,
+      name: 'الجزء ${widget.juzId} ($currentSurahName)',
+    );
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'تم حفظ المرجعية: $currentSurahName آية $currentAyahNum',
+          style: GoogleFonts.tajawal(),
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _toggleAutoScroll() {
+    setState(() => _isAutoScrolling = !_isAutoScrolling);
+    if (_isAutoScrolling) _startScrolling();
+    else _scrollTimer?.cancel();
+  }
+
+  void _startScrolling() {
+    _scrollTimer?.cancel();
+    _scrollTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      if (_scrollController.hasClients) {
+        double maxScroll = _scrollController.position.maxScrollExtent;
+        double currentScroll = _scrollController.offset;
+        if (currentScroll < maxScroll) {
+          _scrollController.jumpTo(currentScroll + _scrollSpeed);
+        } else {
+          _toggleAutoScroll();
+        }
+      }
+    });
+  }
+
+  String _cleanAyahText(String text, int surahId, int ayahNum) {
+    String cleaned = text.trim();
+    if (ayahNum == 1 && surahId != 1) {
+      if (cleaned.startsWith("بِسْمِ")) {
+        int skipLength = 38;
+        if (cleaned.length > skipLength) {
+          cleaned = cleaned.substring(skipLength).trim();
+          while (cleaned.isNotEmpty && (cleaned.startsWith(' ') || cleaned.startsWith('ۏ'))) {
+            cleaned = cleaned.substring(1).trim();
+          }
+        }
+      }
+    }
+    cleaned = cleaned.replaceAll('\u06E2', '').replaceAll('\u06ED', '').replaceAll('ۏ', '');
+    return cleaned.trim();
+  }
+
+  List<TextSpan> _buildContinuousAyahText(QuranProvider quranProvider) {
+    List<TextSpan> spans = [];
+    for (var ayah in _ayahItems) {
+      final ayahNum = ayah['number_in_surah'];
+      final surahId = ayah['surah_id'];
+      final surahNameAr = ayah['surah_name_ar'] ?? '';
+      final keyStr = '${surahId}_$ayahNum';
+
+      TapGestureRecognizer tapRecognizer = TapGestureRecognizer()
+        ..onTap = () => _showTafsirDialog(ayah);
+
+      if (ayahNum == 1) {
+        spans.add(
+          TextSpan(
+            children: [
+              WidgetSpan(
+                child: VisibilityDetector(
+                  key: Key('header_${surahId}_${widget.juzId}'),
+                  onVisibilityChanged: (info) {
+                    // إذا أصبحت الترويسة مرئية بنسبة أكثر من 10% نحدث العنوان
+                    if (info.visibleFraction > 0.1) {
+                      if (mounted && _currentVisibleSurah != surahNameAr) {
+                        setState(() => _currentVisibleSurah = surahNameAr);
+                      }
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(top: 25, bottom: 10),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      surahNameAr,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.tajawal(
+                        fontSize: quranProvider.fontSize * 1.1,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.amber[900],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+        
+        if (surahId != 1 && surahId != 9) {
+          spans.add(
+            TextSpan(
+              children: [
+                WidgetSpan(
+                  child: Container(
+                    width: double.infinity,
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.only(bottom: 15, top: 10),
+                    child: Text(
+                      'بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ',
+                      style: TextStyle(
+                        fontFamily: 'AmiriQuran',
+                        fontSize: quranProvider.fontSize + 4,
+                        color: Colors.blue[800],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+      spans.add(
+        TextSpan(
+          children: [
+            WidgetSpan(
+              child: SizedBox(
+                width: 0,
+                height: 0,
+                key: _ayahKeys[keyStr],
+              ),
+            ),
+            TextSpan(
+              text: _cleanAyahText(ayah['text'] ?? '', surahId, ayahNum),
+              recognizer: tapRecognizer,
+              style: TextStyle(
+                fontFamily: 'AmiriQuran',
+                fontSize: quranProvider.fontSize,
+                height: 2.2,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            TextSpan(
+              text: ' ﴿$ayahNum﴾ ',
+              recognizer: tapRecognizer,
+              style: TextStyle(
+                fontFamily: 'AmiriQuran',
+                fontSize: quranProvider.fontSize * 0.8,
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return spans;
   }
 
   void _showTafsirDialog(Map<String, dynamic> ayah) async {
@@ -173,178 +434,116 @@ class _JuzPageItemState extends State<JuzPageItem> {
         height: MediaQuery.of(context).size.height * 0.45,
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(25))
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
         ),
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
             Container(width: 50, height: 5, decoration: BoxDecoration(color: Colors.grey[400], borderRadius: BorderRadius.circular(10))),
             const SizedBox(height: 20),
-            Text("${ayah['surah_name_ar'] ?? ''} - آية ${ayah['number_in_surah']}", 
-              style: GoogleFonts.tajawal(fontWeight: FontWeight.bold)),
+            Text("${ayah['surah_name_ar'] ?? ''} - آية ${ayah['number_in_surah']}", style: GoogleFonts.tajawal(fontWeight: FontWeight.bold)),
             const Divider(),
             Expanded(
               child: SingleChildScrollView(
-                child: Column(children: [
-                  Container(
-                    padding: const EdgeInsets.all(15),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+                child: Column(
+                  children: [
+                    Container(
+                      width: double.infinity, padding: const EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+                      ),
+                      child: Text(_cleanAyahText(ayah['text'] ?? '', ayah['surah_id'], ayah['number_in_surah']), textAlign: TextAlign.center, style: const TextStyle(fontFamily: 'AmiriQuran', fontSize: 20)),
                     ),
-                    child: Text(_cleanAyahText(ayah['text'] ?? '', ayah['surah_id'], ayah['number_in_surah']), textAlign: TextAlign.center, 
-                      style: const TextStyle(fontFamily: 'AmiriQuran', fontSize: 20)),
-                  ),
-                  const SizedBox(height: 15),
-                  Text(tafsir, textAlign: TextAlign.justify, style: GoogleFonts.tajawal(fontSize: 16)),
-                ])
-              )
-            )
+                    const SizedBox(height: 15),
+                    Text(tafsir, textAlign: TextAlign.justify, style: GoogleFonts.tajawal(fontSize: 16)),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  // الدالة المصححة والنهائية لحذف البسملة والرموز الزائدة
-  String _cleanAyahText(String text, int surahId, int ayahNum) {
-    String cleaned = text.trim();
-
-    // 1. حذف البسملة المدمجة في بداية السورة (باستثناء الفاتحة)
-    // نستخدم منطق القص (38 حرفاً) المعتمد في الكود الناجح الأول
-    if (ayahNum == 1 && surahId != 1) {
-      if (cleaned.startsWith("بِسْمِ")) {
-        int skipLength = 38; 
-        if (cleaned.length > skipLength) {
-          cleaned = cleaned.substring(skipLength).trim();
-          
-          // إزالة أي رموز غريبة أو مسافات قد تتبقى بعد القص مباشرة
-          while (cleaned.isNotEmpty && (cleaned.startsWith(' ') || cleaned.startsWith('ۏ'))) {
-            cleaned = cleaned.substring(1).trim();
-          }
-        }
-      }
-    }
-
-    // 2. حذف رموز التجويد التي تظهر كـ ميم زائدة (مع الحفاظ على علامات الوقف ج، صلے، قلے)
-    cleaned = cleaned.replaceAll('\u06E2', ''); // ميم الإقلاب الصغيرة (ۢ)
-    cleaned = cleaned.replaceAll('\u06ED', ''); // ميم الإخفاء الصغيرة (ۭ)
-    cleaned = cleaned.replaceAll('ۏ', '');     // الرمز الذي يظهر كـ ميم في بعض الخطوط
-
-    return cleaned.trim();
-  }
-
-  List<TextSpan> _buildContinuousAyahText(QuranProvider quranProvider) {
-    List<TextSpan> spans = [];
-    for (var ayah in _ayahItems) {
-      final ayahNum = ayah['number_in_surah'];
-      final surahId = ayah['surah_id'];
-      
-      TapGestureRecognizer tapRecognizer = TapGestureRecognizer()
-        ..onTap = () => _showTafsirDialog(ayah);
-
-      if (ayahNum == 1) {
-        spans.add(TextSpan(children: [
-          WidgetSpan(
-            child: Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(top: 25, bottom: 10),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
-              ),
-              child: Text(
-                ayah['surah_name_ar'] ?? '',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.tajawal(fontSize: quranProvider.fontSize * 1.1, fontWeight: FontWeight.bold, color: Colors.amber[900]),
-              ),
+  void _showFontSettings(QuranProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(25))),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text("حجم الخط", style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 10),
+            StatefulBuilder(
+              builder: (context, setModalState) {
+                return Row(
+                  children: [
+                    const Icon(Icons.text_fields, size: 20),
+                    Expanded(
+                      child: Slider(
+                        value: provider.fontSize,
+                        min: 16, max: 40, divisions: 12,
+                        label: provider.fontSize.round().toString(),
+                        onChanged: (value) { provider.setFontSize(value); setModalState(() {}); },
+                      ),
+                    ),
+                    const Icon(Icons.text_fields, size: 30),
+                  ],
+                );
+              },
             ),
-          ),
-        ]));
-        
-        if (surahId != 1 && surahId != 9) {
-          spans.add(TextSpan(children: [
-            WidgetSpan(
-              child: Container(
-                width: double.infinity,
-                alignment: Alignment.center,
-                padding: const EdgeInsets.only(bottom: 15, top: 10),
-                child: Text('بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ',
-                  style: TextStyle(fontFamily: 'AmiriQuran', fontSize: quranProvider.fontSize + 4, color: Colors.blue[800], fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ]));
-        }
-      }
-
-      spans.add(TextSpan(children: [
-        TextSpan(
-          text: _cleanAyahText(ayah['text'] ?? '', surahId, ayahNum),
-          recognizer: tapRecognizer,
-          style: TextStyle(fontFamily: 'AmiriQuran', fontSize: quranProvider.fontSize, height: 2.2, color: Theme.of(context).colorScheme.onSurface),
+            const SizedBox(height: 20),
+          ],
         ),
-        TextSpan(
-          text: ' ﴿$ayahNum﴾ ',
-          recognizer: tapRecognizer,
-          style: TextStyle(fontFamily: 'AmiriQuran', fontSize: quranProvider.fontSize * 0.8, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
-        ),
-      ]));
-    }
-    return spans;
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final quranProvider = Provider.of<QuranProvider>(context);
+    final qProvider = Provider.of<QuranProvider>(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    if (_ayahItems.isEmpty) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    if (_ayahItems.isEmpty) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        title: Text('الجزء ${widget.juzId}', style: GoogleFonts.tajawal(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: isDarkMode ? null : colorScheme.primary,
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('الجزء ${widget.juzId}', style: GoogleFonts.tajawal(color: isDarkMode ? colorScheme.onSurface : Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            if (_currentVisibleSurah.isNotEmpty)
+              Text(_currentVisibleSurah, style: GoogleFonts.tajawal(color: isDarkMode ? colorScheme.onSurface.withOpacity(0.7) : Colors.white.withOpacity(0.8), fontWeight: FontWeight.normal, fontSize: 13)),
+          ],
+        ),
+        iconTheme: IconThemeData(color: isDarkMode ? colorScheme.onSurface : Colors.white),
         actions: [
           IconButton(
-            icon: Icon(quranProvider.lastJuzId == widget.juzId && quranProvider.isJuzMode ? Icons.bookmark : Icons.bookmark_border),
-            onPressed: () {
-              int estimatedAyah = 1;
-              String surahName = "";
-              int surahId = _ayahItems[0]['surah_id'];
-
-              if (_scrollController.hasClients && _ayahItems.isNotEmpty) {
-                double progress = (_scrollController.offset / _scrollController.position.maxScrollExtent).clamp(0.0, 1.0);
-                int index = (progress * (_ayahItems.length - 1)).round();
-                estimatedAyah = _ayahItems[index]['number_in_surah'];
-                surahName = _ayahItems[index]['surah_name_ar'] ?? '';
-                surahId = _ayahItems[index]['surah_id'];
-              }
-
-              quranProvider.saveBookmark(
-                surahId: surahId,
-                ayahNumber: estimatedAyah,
-                isJuzMode: true,
-                juzId: widget.juzId,
-                name: 'الجزء ${widget.juzId}',
-              );
-
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('تم حفظ المرجعية: $surahName آية $estimatedAyah', style: GoogleFonts.tajawal()),
-                  behavior: SnackBarBehavior.floating,
-                )
-              );
-            },
+            icon: Icon(qProvider.lastJuzId == widget.juzId && qProvider.isJuzMode ? Icons.bookmark : Icons.bookmark_border),
+            onPressed: _saveCurrentLocation,
           ),
-          IconButton(icon: const Icon(Icons.text_increase), onPressed: () => quranProvider.increaseFontSize()),
-          IconButton(icon: const Icon(Icons.text_decrease), onPressed: () => quranProvider.decreaseFontSize()),
+          IconButton(icon: const Icon(Icons.text_fields), onPressed: () => _showFontSettings(qProvider)),
+        ],
+      ),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          if (_isAutoScrolling) ...[
+            FloatingActionButton.small(heroTag: "up_${widget.juzId}", child: const Icon(Icons.add), onPressed: () => setState(() => _scrollSpeed = (_scrollSpeed + 0.2).clamp(0.2, 8.0))),
+            const SizedBox(height: 8),
+            FloatingActionButton.small(heroTag: "down_${widget.juzId}", child: const Icon(Icons.remove), onPressed: () => setState(() => _scrollSpeed = (_scrollSpeed - 0.2).clamp(0.2, 8.0))),
+            const SizedBox(height: 8),
+          ],
+          FloatingActionButton(heroTag: "play_${widget.juzId}", backgroundColor: _isAutoScrolling ? Colors.red : colorScheme.primary, child: Icon(_isAutoScrolling ? Icons.stop : Icons.play_arrow, color: Colors.white), onPressed: _toggleAutoScroll),
         ],
       ),
       body: CustomScrollView(
@@ -355,7 +554,7 @@ class _JuzPageItemState extends State<JuzPageItem> {
             sliver: SliverToBoxAdapter(
               child: SelectionArea(
                 child: Text.rich(
-                  TextSpan(children: _buildContinuousAyahText(quranProvider)),
+                  TextSpan(children: _buildContinuousAyahText(qProvider)),
                   textAlign: TextAlign.justify,
                 ),
               ),
@@ -369,6 +568,7 @@ class _JuzPageItemState extends State<JuzPageItem> {
 
   @override
   void dispose() {
+    _scrollTimer?.cancel();
     _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     super.dispose();
