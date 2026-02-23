@@ -60,6 +60,7 @@ dependencies:
   csc_picker_plus: ^0.0.3
   timezone: ^0.11.0
   visibility_detector: ^0.4.0+2
+  wakelock_plus: ^1.4.0
 
 dev_dependencies:
   flutter_test:
