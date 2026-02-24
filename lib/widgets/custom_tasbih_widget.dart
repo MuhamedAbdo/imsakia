@@ -14,26 +14,25 @@ class WoodGrainPainter extends CustomPainter {
     // Main wood grain lines
     final mainPaint = Paint()
       ..color = isDark
-          ? const Color(0xFF2C1810).withOpacity(0.15)
-          : const Color(0xFF8B4513).withOpacity(0.2)
+          ? const Color(0xFF2C1810).withValues(alpha: 0.15) // تحديث هنا
+          : const Color(0xFF8B4513).withValues(alpha: 0.2) // تحديث هنا
       ..strokeWidth = 1.2
       ..style = PaintingStyle.stroke;
 
     // Fine wood grain detail
     final detailPaint = Paint()
       ..color = isDark
-          ? const Color(0xFF1A0E08).withOpacity(0.08)
-          : const Color(0xFFD2691E).withOpacity(0.1)
+          ? const Color(0xFF1A0E08).withValues(alpha: 0.08) // تحديث هنا
+          : const Color(0xFFD2691E).withValues(alpha: 0.1) // تحديث هنا
       ..strokeWidth = 0.3
       ..style = PaintingStyle.stroke;
 
     // Draw main wood grain lines
     for (int i = 0; i < 25; i++) {
       final y = (size.height / 25) * i;
-      final startX = 0.0;
+      const startX = 0.0;
       final endX = size.width;
 
-      // Add natural curve to wood grain
       final path = Path();
       path.moveTo(startX, y);
 
@@ -49,7 +48,7 @@ class WoodGrainPainter extends CustomPainter {
     // Draw fine wood grain details
     for (int i = 0; i < 40; i++) {
       final y = (size.height / 40) * i + 5;
-      final startX = 10.0;
+      const startX = 10.0;
       final endX = size.width - 10;
 
       final path = Path();
@@ -67,11 +66,10 @@ class WoodGrainPainter extends CustomPainter {
     // Add wood knots
     final knotPaint = Paint()
       ..color = isDark
-          ? const Color(0xFF1A0E08).withOpacity(0.3)
-          : const Color(0xFF8B4513).withOpacity(0.4)
+          ? const Color(0xFF1A0E08).withValues(alpha: 0.3) // تحديث هنا
+          : const Color(0xFF8B4513).withValues(alpha: 0.4) // تحديث هنا
       ..style = PaintingStyle.fill;
 
-    // Draw a few wood knots for realism
     final knots = [
       Offset(size.width * 0.3, size.height * 0.2),
       Offset(size.width * 0.7, size.height * 0.4),
@@ -156,13 +154,12 @@ class _CustomTasbihState extends State<CustomTasbih>
     final prefs = await SharedPreferences.getInstance();
     final today = DateTime.now();
     final todayKey = 'daily_count_${today.day}_${today.month}_${today.year}';
-    final lastResetKey = 'last_reset_date';
+    const lastResetKey = 'last_reset_date';
 
     final lastResetDate = prefs.getString(lastResetKey);
     final todayString = '${today.day}_${today.month}_${today.year}';
 
     if (lastResetDate != todayString) {
-      // New day, reset daily counter
       await prefs.setString(lastResetKey, todayString);
       await prefs.setInt(todayKey, 0);
       _dailyCount = 0;
@@ -184,16 +181,16 @@ class _CustomTasbihState extends State<CustomTasbih>
     try {
       await _audioPlayer.play(AssetSource('sounds/click.mp3'));
     } catch (e) {
-      // Sound file not found, continue without sound
+      // ignore
     }
   }
 
   Future<void> _incrementCount() async {
     HapticFeedback.heavyImpact();
     _playClickSound();
-    _largeButtonController.forward().then((_) {
-      _largeButtonController.reverse();
-    });
+    _largeButtonController.forward().then(
+      (_) => _largeButtonController.reverse(),
+    );
     setState(() {
       _count++;
       _dailyCount++;
@@ -205,9 +202,9 @@ class _CustomTasbihState extends State<CustomTasbih>
   Future<void> _resetCount() async {
     HapticFeedback.mediumImpact();
     _playClickSound();
-    _smallButtonController.forward().then((_) {
-      _smallButtonController.reverse();
-    });
+    _smallButtonController.forward().then(
+      (_) => _smallButtonController.reverse(),
+    );
     setState(() {
       _count = 0;
     });
@@ -221,13 +218,12 @@ class _CustomTasbihState extends State<CustomTasbih>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Daily Counter Display at the top
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           decoration: BoxDecoration(
             color: isDark
-                ? const Color(0xFF2C1810).withOpacity(0.9)
-                : const Color(0xFF8B4513).withOpacity(0.9),
+                ? const Color(0xFF2C1810).withValues(alpha: 0.9)
+                : const Color(0xFF8B4513).withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: isDark ? const Color(0xFF1A0E08) : const Color(0xFF654321),
@@ -235,14 +231,14 @@ class _CustomTasbihState extends State<CustomTasbih>
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
               BoxShadow(
                 color: isDark
-                    ? Colors.white.withOpacity(0.1)
-                    : Colors.black.withOpacity(0.1),
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.black.withValues(alpha: 0.1),
                 blurRadius: 20,
                 offset: const Offset(0, 3),
               ),
@@ -261,8 +257,8 @@ class _CustomTasbihState extends State<CustomTasbih>
                   shadows: [
                     Shadow(
                       color: isDark
-                          ? Colors.black.withOpacity(0.3)
-                          : Colors.white.withOpacity(0.3),
+                          ? Colors.black.withValues(alpha: 0.3)
+                          : Colors.white.withValues(alpha: 0.3),
                       blurRadius: 2,
                       offset: const Offset(0, 1),
                     ),
@@ -280,8 +276,8 @@ class _CustomTasbihState extends State<CustomTasbih>
                   shadows: [
                     Shadow(
                       color: isDark
-                          ? Colors.black.withOpacity(0.3)
-                          : Colors.white.withOpacity(0.3),
+                          ? Colors.black.withValues(alpha: 0.3)
+                          : Colors.white.withValues(alpha: 0.3),
                       blurRadius: 2,
                       offset: const Offset(0, 1),
                     ),
@@ -291,9 +287,7 @@ class _CustomTasbihState extends State<CustomTasbih>
             ],
           ),
         ),
-
         const SizedBox(height: 25),
-
         Container(
           width: 280,
           height: 450,
@@ -304,24 +298,24 @@ class _CustomTasbihState extends State<CustomTasbih>
               radius: 1.8,
               colors: isDark
                   ? [
-                      const Color(0xFF3E2723), // Dark coffee center
-                      const Color(0xFF2C1810), // Medium coffee
-                      const Color(0xFF1A0E08), // Dark coffee edges
+                      const Color(0xFF3E2723),
+                      const Color(0xFF2C1810),
+                      const Color(0xFF1A0E08),
                     ]
                   : [
-                      const Color(0xFFD2691E), // Light mahogany center
-                      const Color(0xFFB8956A), // Medium mahogany
-                      const Color(0xFF8B4513), // Dark mahogany edges
+                      const Color(0xFFD2691E),
+                      const Color(0xFFB8956A),
+                      const Color(0xFF8B4513),
                     ],
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.4),
+                color: Colors.black.withValues(alpha: 0.4),
                 blurRadius: 25,
                 offset: const Offset(0, 12),
               ),
               BoxShadow(
-                color: Colors.black.withOpacity(0.15),
+                color: Colors.black.withValues(alpha: 0.15),
                 blurRadius: 40,
                 offset: const Offset(0, 6),
               ),
@@ -336,8 +330,8 @@ class _CustomTasbihState extends State<CustomTasbih>
                 colors: [
                   Colors.transparent,
                   isDark
-                      ? Colors.black.withOpacity(0.1)
-                      : Colors.brown.withOpacity(0.05),
+                      ? Colors.black.withValues(alpha: 0.1)
+                      : Colors.brown.withValues(alpha: 0.05),
                 ],
                 stops: const [0.7, 1.0],
               ),
@@ -346,7 +340,6 @@ class _CustomTasbihState extends State<CustomTasbih>
               painter: WoodGrainPainter(isDark: isDark),
               child: Stack(
                 children: [
-                  // LCD Screen positioned inside wooden body
                   Positioned(
                     top: 60,
                     left: 40,
@@ -357,26 +350,26 @@ class _CustomTasbihState extends State<CustomTasbih>
                         color: const Color(0xFF0A0A0A),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.black.withOpacity(0.8),
+                          color: Colors.black.withValues(alpha: 0.8),
                           width: 8,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.9),
+                            color: Colors.black.withValues(alpha: 0.9),
                             blurRadius: 15,
                             spreadRadius: -5,
                             offset: const Offset(0, 6),
                             blurStyle: BlurStyle.inner,
                           ),
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.6),
+                            color: Colors.black.withValues(alpha: 0.6),
                             blurRadius: 8,
                             spreadRadius: -3,
                             offset: const Offset(0, 3),
                             blurStyle: BlurStyle.inner,
                           ),
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
+                            color: Colors.black.withValues(alpha: 0.3),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -387,46 +380,32 @@ class _CustomTasbihState extends State<CustomTasbih>
                         decoration: BoxDecoration(
                           color: const Color(0xFF1A1A1A),
                           borderRadius: BorderRadius.circular(8),
-                          gradient: LinearGradient(
+                          gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              const Color(0xFF222222),
-                              const Color(0xFF1A1A1A),
-                              const Color(0xFF151515),
+                              Color(0xFF222222),
+                              Color(0xFF1A1A1A),
+                              Color(0xFF151515),
                             ],
                           ),
                         ),
                         child: Center(
-                          child: _count > 0
-                              ? Text(
-                                  _count.toString(),
-                                  style: const TextStyle(
-                                    fontSize: 42,
-                                    fontWeight: FontWeight.w900,
-                                    color: Color(0xFF00FF41),
-                                    fontFamily: 'Courier New',
-                                    letterSpacing: 8,
-                                    height: 1.0,
-                                  ),
-                                )
-                              : Text(
-                                  '0',
-                                  style: const TextStyle(
-                                    fontSize: 42,
-                                    fontWeight: FontWeight.w900,
-                                    color: Color(0xFF00FF41),
-                                    fontFamily: 'Courier New',
-                                    letterSpacing: 8,
-                                    height: 1.0,
-                                  ),
-                                ),
+                          child: Text(
+                            _count.toString(),
+                            style: const TextStyle(
+                              fontSize: 42,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF00FF41),
+                              fontFamily: 'Courier New',
+                              letterSpacing: 8,
+                              height: 1.0,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-
-                  // Buttons positioned at bottom inside wooden body
                   Positioned(
                     bottom: 70,
                     left: 50,
@@ -435,105 +414,8 @@ class _CustomTasbihState extends State<CustomTasbih>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Small reset button
-                        AnimatedBuilder(
-                          animation: _smallButtonScale,
-                          builder: (context, child) {
-                            return Transform.scale(
-                              scale: _smallButtonScale.value,
-                              child: GestureDetector(
-                                onTap: _resetCount,
-                                child: Container(
-                                  width: 50,
-                                  height: 50,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: RadialGradient(
-                                      center: const Alignment(-0.3, -0.3),
-                                      radius: 1.5,
-                                      colors: const [
-                                        Color(0xFFF8F8F8),
-                                        Color(0xFFE8E8E8),
-                                        Color(0xFFD0D0D0),
-                                        Color(0xFFB8B8B8),
-                                      ],
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.white.withOpacity(0.6),
-                                        blurRadius: 8,
-                                        spreadRadius: -2,
-                                        offset: const Offset(-5, -5),
-                                      ),
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.5),
-                                        blurRadius: 12,
-                                        spreadRadius: 1,
-                                        offset: const Offset(5, 5),
-                                      ),
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.2),
-                                        blurRadius: 20,
-                                        offset: const Offset(0, 8),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Center(),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-
-                        // Large increment button
-                        AnimatedBuilder(
-                          animation: _largeButtonScale,
-                          builder: (context, child) {
-                            return Transform.scale(
-                              scale: _largeButtonScale.value,
-                              child: GestureDetector(
-                                onTap: _incrementCount,
-                                child: Container(
-                                  width: 85,
-                                  height: 85,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: RadialGradient(
-                                      center: const Alignment(-0.3, -0.3),
-                                      radius: 1.5,
-                                      colors: const [
-                                        Color(0xFFF8F8F8),
-                                        Color(0xFFE8E8E8),
-                                        Color(0xFFD0D0D0),
-                                        Color(0xFFB8B8B8),
-                                      ],
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.white.withOpacity(0.6),
-                                        blurRadius: 8,
-                                        spreadRadius: -2,
-                                        offset: const Offset(-5, -5),
-                                      ),
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.5),
-                                        blurRadius: 12,
-                                        spreadRadius: 1,
-                                        offset: const Offset(5, 5),
-                                      ),
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.2),
-                                        blurRadius: 20,
-                                        offset: const Offset(0, 8),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Center(),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                        _buildButton(_resetCount, 50, _smallButtonScale),
+                        _buildButton(_incrementCount, 85, _largeButtonScale),
                       ],
                     ),
                   ),
@@ -543,6 +425,61 @@ class _CustomTasbihState extends State<CustomTasbih>
           ),
         ),
       ],
+    );
+  }
+
+  // دالة مساعدة لتجنب تكرار كود الأزرار
+  Widget _buildButton(
+    VoidCallback onTap,
+    double size,
+    Animation<double> animation,
+  ) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: animation.value,
+          child: GestureDetector(
+            onTap: onTap,
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const RadialGradient(
+                  center: Alignment(-0.3, -0.3),
+                  radius: 1.5,
+                  colors: [
+                    Color(0xFFF8F8F8),
+                    Color(0xFFE8E8E8),
+                    Color(0xFFD0D0D0),
+                    Color(0xFFB8B8B8),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    blurRadius: 8,
+                    spreadRadius: -2,
+                    offset: const Offset(-5, -5),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 12,
+                    spreadRadius: 1,
+                    offset: const Offset(5, 5),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

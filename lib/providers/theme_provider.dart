@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // نحتاج هذا المكتبة للوصول لـ PlatformDispatcher
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'settings_provider.dart';
@@ -16,20 +17,16 @@ class ThemeProvider extends ChangeNotifier {
       case AppThemeMode.light:
         return false;
       case AppThemeMode.system:
-        return WidgetsBinding.instance.window.platformBrightness == Brightness.dark;
+        // تم استبدال window.platformBrightness بـ platformDispatcher
+        return PlatformDispatcher.instance.platformBrightness == Brightness.dark;
     }
   }
 
-  ThemeProvider() {
-    // Don't load theme mode here - let SettingsProvider handle it
-    // This prevents duplicate loading and race conditions
-  }
+  ThemeProvider();
 
-  /// Sync theme mode with SettingsProvider
   void syncWithSettingsProvider(AppThemeMode mode) {
     if (_themeMode != mode) {
       _themeMode = mode;
-      // Defer notifyListeners to avoid calling during build phase
       WidgetsBinding.instance.addPostFrameCallback((_) {
         notifyListeners();
       });
@@ -51,8 +48,9 @@ class ThemeProvider extends ChangeNotifier {
       brightness: Brightness.light,
       primary: const Color(0xFF1E88E5),
       secondary: const Color(0xFFD4AF37),
-      surface: const Color(0xFFF5F5F5),
-      background: const Color(0xFFFAFAFA),
+      // تم حذف background واستخدام surface بدلاً منها
+      surface: const Color(0xFFFAFAFA), 
+      surfaceContainer: const Color(0xFFF5F5F5), // بديل إضافي للأسطح الثانوية
     ),
     scaffoldBackgroundColor: const Color(0xFFFAFAFA),
     appBarTheme: const AppBarTheme(
@@ -60,7 +58,7 @@ class ThemeProvider extends ChangeNotifier {
       foregroundColor: Colors.white,
       elevation: 0,
     ),
-    cardTheme: CardThemeData(
+    cardTheme: const CardThemeData(
       color: Colors.white,
       elevation: 2,
       shadowColor: Colors.black12,
@@ -95,8 +93,9 @@ class ThemeProvider extends ChangeNotifier {
       brightness: Brightness.dark,
       primary: const Color(0xFF64B5F6),
       secondary: const Color(0xFFD4AF37),
-      surface: const Color(0xFF1E1E1E),
-      background: const Color(0xFF121212),
+      // تم حذف background واستخدام surface بدلاً منها
+      surface: const Color(0xFF121212),
+      surfaceContainer: const Color(0xFF1E1E1E), // بديل للـ surface القديمة في الوضع الداكن
     ),
     scaffoldBackgroundColor: const Color(0xFF121212),
     appBarTheme: const AppBarTheme(
@@ -104,8 +103,8 @@ class ThemeProvider extends ChangeNotifier {
       foregroundColor: Color(0xFF64B5F6),
       elevation: 0,
     ),
-    cardTheme: CardThemeData(
-      color: const Color(0xFF1E1E1E),
+    cardTheme: const CardThemeData(
+      color: Color(0xFF1E1E1E),
       elevation: 4,
       shadowColor: Colors.black26,
     ),

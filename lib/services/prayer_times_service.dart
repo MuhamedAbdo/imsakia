@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:geocoding/geocoding.dart';
 import '../utils/app_constants.dart';
+import '../utils/logger.dart'; // تأكد من وجود هذا المسار
 import 'hijri_date_service.dart';
 
 class PrayerTimesService {
@@ -18,8 +19,8 @@ class PrayerTimesService {
   Timer? _updateTimer;
   SharedPreferences? _sharedPreferences;
 
+  // حذفنا _lastRamadanCalculation لأنه لم يكن يُستخدم
   Duration? _cachedTimeUntilRamadan;
-  DateTime? _lastRamadanCalculation;
 
   Stream<Map<String, DateTime>> get prayerTimesStream =>
       (_prayerTimesController ??=
@@ -99,7 +100,7 @@ class PrayerTimesService {
     } else if (country.contains("united arab emirates") ||
         country.contains("emirates") ||
         country.contains("uae")) {
-      targetOffsetHours = 4; // الإمارات GMT+4
+      targetOffsetHours = 4;
     }
 
     final timezoneCorrection = Duration(
@@ -155,7 +156,8 @@ class PrayerTimesService {
         );
       }
     } catch (e) {
-      print("Geocoding Error: $e");
+      // استبدال print بـ Logger
+      Logger.error("Geocoding Error: $e");
     }
 
     return LocationSettings(
@@ -210,15 +212,12 @@ class PrayerTimesService {
     DateTime start = HijriDateService.getNextRamadanStart(now, adj);
     Duration diff = start.difference(now);
 
-    // معالجة مشكلة القفز للسنة القادمة (إذا كان الفارق يقارب سنة كاملة ونحن في شعبان)
     if (diff.inDays > 350) {
-      // طرح سنة هجرية (354 يوم تقريباً) للحصول على موعد رمضان الحالي المتوقع
       start = start.subtract(const Duration(days: 354));
       diff = start.difference(now);
     }
 
     _cachedTimeUntilRamadan = diff;
-    _lastRamadanCalculation = now;
     return _cachedTimeUntilRamadan;
   }
 

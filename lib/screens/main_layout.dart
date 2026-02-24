@@ -63,7 +63,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             color: Theme.of(context).cardColor,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                // تم التحديث هنا
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 4,
                 offset: const Offset(0, -2),
               ),
@@ -286,7 +287,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       decoration: BoxDecoration(
         gradient: AppConstants.goldGradient,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -333,7 +334,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              // تم التحديث هنا
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(30),
             ),
             child: Row(
@@ -380,7 +382,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       );
     }
 
-    // حساب العد التنازلي بناءً على التعديل اليدوي
     if (month != 9) {
       return _buildRamadanCounter(adjustment);
     }
@@ -389,17 +390,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildRamadanCounter(int adjustment) {
-    // 1. جلب التاريخ الهجري الحالي مع مراعاة الـ adjustment
     final hNow = HijriCalendar.now();
-    hNow.hDay += adjustment; // تطبيق التعديل اليدوي
+    hNow.hDay += adjustment;
 
-    // 2. تحديد هدفنا: 1 رمضان للسنة الهجرية الحالية أو القادمة
     int targetYear = hNow.hYear;
     if (hNow.hMonth > 9 || (hNow.hMonth == 9 && hNow.hDay >= 1)) {
       targetYear++;
     }
 
-    // 3. تحويل التاريخ الهجري "المعدل" إلى ميلادي للمقارنة
     final targetRamadan = HijriCalendar();
     targetRamadan.hYear = targetYear;
     targetRamadan.hMonth = 9;
@@ -410,7 +408,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       9,
       1,
     );
-    // الوقت الحالي مع إضافة الـ adjustment ليتوافق مع البطاقة العلوية
     DateTime nowAdjusted = DateTime.now().add(Duration(days: adjustment));
 
     Duration diff = targetDateTime.difference(nowAdjusted);
@@ -418,7 +415,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     int hours = diff.inHours.remainder(24);
     int minutes = diff.inMinutes.remainder(60);
 
-    // إذا انتهى العد التنازلي وبدأ رمضان، نعرض الحديث
     if (days < 0) return _buildHadithOfTheDayCard();
 
     return Container(
@@ -468,7 +464,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             border: Border.all(
               color: isDark
                   ? Colors.grey[800]!
-                  : Theme.of(context).primaryColor.withOpacity(0.3),
+                  // تم التحديث هنا
+                  : Theme.of(context).primaryColor.withValues(alpha: 0.3),
             ),
           ),
           child: Column(
@@ -589,7 +586,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: isNext
-            ? Theme.of(context).primaryColor.withOpacity(0.12)
+            // تم التحديث هنا
+            ? Theme.of(context).primaryColor.withValues(alpha: 0.12)
             : Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
@@ -623,7 +621,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.4),
+            // تم التحديث هنا
+            color: Colors.white.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
@@ -651,7 +650,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [color.withOpacity(0.7), color]),
+        // تم التحديث هنا
+        gradient: LinearGradient(colors: [color.withValues(alpha: 0.7), color]),
         borderRadius: BorderRadius.circular(15),
       ),
       child: Column(

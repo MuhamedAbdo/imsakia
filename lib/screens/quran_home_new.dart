@@ -141,32 +141,23 @@ class _QuranHomeNewState extends State<QuranHomeNew>
       child: Scaffold(
         backgroundColor: colorScheme.surface,
         appBar: AppBar(
-          backgroundColor: isDarkMode
-              ? null
-              : colorScheme.primary, // أزرق في الفاتح، تلقائي في الداكن
+          backgroundColor: isDarkMode ? null : colorScheme.primary,
           centerTitle: true,
           title: Text(
             'القرآن الكريم',
             style: GoogleFonts.tajawal(
               fontWeight: FontWeight.bold,
-              color: isDarkMode
-                  ? colorScheme.onSurface
-                  : Colors.white, // أبيض في الفاتح ليتناسب مع الأزرق
+              color: isDarkMode ? colorScheme.onSurface : Colors.white,
             ),
           ),
           bottom: TabBar(
             controller: _tabController,
-            // التعديل هنا:
             indicatorColor: isDarkMode ? colorScheme.primary : Colors.white,
             indicatorWeight: 3,
-            labelColor: isDarkMode
-                ? colorScheme.primary
-                : Colors.white, // أبيض للتبويب المفعل في الوضع الفاتح
+            labelColor: isDarkMode ? colorScheme.primary : Colors.white,
             unselectedLabelColor: isDarkMode
-                ? colorScheme.onSurface.withOpacity(0.6)
-                : Colors.white.withOpacity(
-                    0.7,
-                  ), // أبيض شفاف للتبويبات غير المفعلة
+                ? colorScheme.onSurface.withValues(alpha: 0.6) // تم التحديث هنا
+                : Colors.white.withValues(alpha: 0.7), // تم التحديث هنا
             labelStyle: GoogleFonts.tajawal(
               fontWeight: FontWeight.bold,
               fontSize: 16,
@@ -237,8 +228,6 @@ class _QuranHomeNewState extends State<QuranHomeNew>
     );
   }
 
-  // الدوال الأخرى (_buildSurahsTab, _buildJuzsTab, _buildSearchTab) تبقى كما هي في الكود السابق...
-
   Widget _buildSurahsTab(ColorScheme colorScheme) {
     return Column(
       children: [
@@ -256,7 +245,9 @@ class _QuranHomeNewState extends State<QuranHomeNew>
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(15.0),
                 borderSide: BorderSide(
-                  color: colorScheme.primary.withOpacity(0.3),
+                  color: colorScheme.primary.withValues(
+                    alpha: 0.3,
+                  ), // تم التحديث هنا
                 ),
               ),
               filled: true,
@@ -285,7 +276,9 @@ class _QuranHomeNewState extends State<QuranHomeNew>
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: colorScheme.primary.withOpacity(0.1),
+                            color: colorScheme.primary.withValues(
+                              alpha: 0.1,
+                            ), // تم التحديث هنا
                             shape: BoxShape.circle,
                           ),
                           alignment: Alignment.center,
@@ -346,7 +339,9 @@ class _QuranHomeNewState extends State<QuranHomeNew>
           margin: const EdgeInsets.only(bottom: 12.0),
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: colorScheme.secondary.withOpacity(0.8),
+              backgroundColor: colorScheme.secondary.withValues(
+                alpha: 0.8,
+              ), // تم التحديث هنا
               foregroundColor: Colors.white,
               child: Text(
                 '${juz['id']}',
@@ -435,7 +430,9 @@ class _QuranHomeNewState extends State<QuranHomeNew>
                         trailing: Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: colorScheme.primary.withOpacity(0.1),
+                            color: colorScheme.primary.withValues(
+                              alpha: 0.1,
+                            ), // تم التحديث هنا
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(

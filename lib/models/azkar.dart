@@ -125,8 +125,9 @@ class AzkarCategory {
       'id': id,
       'title': title,
       'description': description,
+      // تم استبدال .value بـ .toARGB32() لإصلاح تحذير الـ Deprecation
       'icon': icon.codePoint.toString(),
-      'color': color.value.toString(),
+      'color': color.toARGB32().toString(), 
       'gradient': _gradientToString(gradient),
       'azkar': azkar.map((azkar) => azkar.toJson()).toList(),
     };

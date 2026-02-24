@@ -188,9 +188,17 @@ class _SurahPageContentState extends State<SurahPageContent> {
       _isAutoScrolling = !_isAutoScrolling;
       if (!_isAutoScrolling) {
         _showSpeedSlider = false;
-        try { WakelockPlus.disable(); } catch (e) { debugPrint(e.toString()); }
+        try {
+          WakelockPlus.disable();
+        } catch (e) {
+          debugPrint(e.toString());
+        }
       } else {
-        try { WakelockPlus.enable(); } catch (e) { debugPrint(e.toString()); }
+        try {
+          WakelockPlus.enable();
+        } catch (e) {
+          debugPrint(e.toString());
+        }
       }
     });
 
@@ -223,7 +231,8 @@ class _SurahPageContentState extends State<SurahPageContent> {
     if (_scrollController.hasClients && _ayahItems.isNotEmpty) {
       for (var ayah in _ayahItems) {
         final key = _ayahKeys[ayah['number_in_surah']];
-        final RenderBox? box = key?.currentContext?.findRenderObject() as RenderBox?;
+        final RenderBox? box =
+            key?.currentContext?.findRenderObject() as RenderBox?;
         if (box != null) {
           final position = box.localToGlobal(Offset.zero).dy;
           if (position >= 0) {
@@ -261,15 +270,26 @@ class _SurahPageContentState extends State<SurahPageContent> {
       builder: (context) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('حجم خط القرآن', style: GoogleFonts.tajawal(fontWeight: FontWeight.w600)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'حجم خط القرآن',
+            style: GoogleFonts.tajawal(fontWeight: FontWeight.w600),
+          ),
           content: StatefulBuilder(
             builder: (context, dialogSetState) {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('${quranProvider.fontSize.toInt()}',
-                      style: GoogleFonts.tajawal(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+                  Text(
+                    '${quranProvider.fontSize.toInt()}',
+                    style: GoogleFonts.tajawal(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
                   Slider(
                     value: quranProvider.fontSize,
                     min: 16.0,
@@ -285,7 +305,13 @@ class _SurahPageContentState extends State<SurahPageContent> {
             },
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text('تم', style: GoogleFonts.tajawal(fontWeight: FontWeight.bold))),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'تم',
+                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
       ),
@@ -293,7 +319,10 @@ class _SurahPageContentState extends State<SurahPageContent> {
   }
 
   void _showTafsirDialog(Map<String, dynamic> ayah) async {
-    String tafsir = await widget.dbHelper.getTafsir(ayah['surah_id'], ayah['number_in_surah']);
+    String tafsir = await widget.dbHelper.getTafsir(
+      ayah['surah_id'],
+      ayah['number_in_surah'],
+    );
     if (!mounted) return;
     showModalBottomSheet(
       context: context,
@@ -301,29 +330,60 @@ class _SurahPageContentState extends State<SurahPageContent> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         height: MediaQuery.of(context).size.height * 0.45,
-        decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(25))),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+        ),
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            Container(width: 50, height: 5, decoration: BoxDecoration(color: Colors.grey[400], borderRadius: BorderRadius.circular(10))),
+            Container(
+              width: 50,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.grey[400],
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
             const SizedBox(height: 20),
-            Text("${widget.surahName} - آية ${ayah['number_in_surah']}", style: GoogleFonts.tajawal(fontWeight: FontWeight.bold)),
+            Text(
+              "${widget.surahName} - آية ${ayah['number_in_surah']}",
+              style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+            ),
             const Divider(),
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
                   children: [
                     Container(
-                      width: double.infinity, padding: const EdgeInsets.all(15),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(15),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        color: Theme.of(context).colorScheme.primary.withValues(
+                          alpha: 0.1,
+                        ), // تم التحديث هنا
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+                        border: Border.all(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.3),
+                        ), // تم التحديث هنا
                       ),
-                      child: Text(ayah['text'] ?? '', textAlign: TextAlign.center, style: const TextStyle(fontFamily: 'AmiriQuran', fontSize: 22)),
+                      child: Text(
+                        ayah['text'] ?? '',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontFamily: 'AmiriQuran',
+                          fontSize: 22,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 15),
-                    Text(tafsir, textAlign: TextAlign.justify, style: GoogleFonts.tajawal(fontSize: 17, height: 1.6)),
+                    Text(
+                      tafsir,
+                      textAlign: TextAlign.justify,
+                      style: GoogleFonts.tajawal(fontSize: 17, height: 1.6),
+                    ),
                   ],
                 ),
               ),
@@ -334,22 +394,47 @@ class _SurahPageContentState extends State<SurahPageContent> {
     );
   }
 
-  List<TextSpan> _buildHighlightedSpans(String text, String? query, TextStyle style, Map<String, dynamic> ayah) {
+  List<TextSpan> _buildHighlightedSpans(
+    String text,
+    String? query,
+    TextStyle style,
+    Map<String, dynamic> ayah,
+  ) {
     if (query == null || query.trim().isEmpty) {
-      return [TextSpan(text: text, style: style, recognizer: TapGestureRecognizer()..onTap = () => _showTafsirDialog(ayah))];
+      return [
+        TextSpan(
+          text: text,
+          style: style,
+          recognizer: TapGestureRecognizer()
+            ..onTap = () => _showTafsirDialog(ayah),
+        ),
+      ];
     }
-    String normalize(String s) => s.replaceAll(RegExp(r'[\u064B-\u0652\u0670]'), '').replaceAll('أ', 'ا').replaceAll('إ', 'ا').replaceAll('آ', 'ا');
+    String normalize(String s) => s
+        .replaceAll(RegExp(r'[\u064B-\u0652\u0670]'), '')
+        .replaceAll('أ', 'ا')
+        .replaceAll('إ', 'ا')
+        .replaceAll('آ', 'ا');
     String normQuery = normalize(query.trim()).replaceFirst('ال', '');
     List<TextSpan> spans = [];
     List<String> words = text.split(' ');
     for (int i = 0; i < words.length; i++) {
       String word = words[i];
       bool isMatch = normalize(word).replaceFirst('ال', '').contains(normQuery);
-      spans.add(TextSpan(
-        text: word,
-        style: isMatch ? style.copyWith(backgroundColor: Colors.yellow.withOpacity(0.5), color: Colors.red[900], fontWeight: FontWeight.bold) : style,
-        recognizer: TapGestureRecognizer()..onTap = () => _showTafsirDialog(ayah),
-      ));
+      spans.add(
+        TextSpan(
+          text: word,
+          style: isMatch
+              ? style.copyWith(
+                  backgroundColor: Colors.yellow.withValues(alpha: 0.5),
+                  color: Colors.red[900],
+                  fontWeight: FontWeight.bold,
+                )
+              : style, // تم التحديث هنا
+          recognizer: TapGestureRecognizer()
+            ..onTap = () => _showTafsirDialog(ayah),
+        ),
+      );
       if (i < words.length - 1) spans.add(TextSpan(text: ' ', style: style));
     }
     return spans;
@@ -358,21 +443,35 @@ class _SurahPageContentState extends State<SurahPageContent> {
   @override
   Widget build(BuildContext context) {
     final quranProvider = Provider.of<QuranProvider>(context);
-    if (_ayahItems.isEmpty) return const Center(child: CircularProgressIndicator());
+    if (_ayahItems.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.surahName, style: GoogleFonts.tajawal(fontWeight: FontWeight.bold)),
+        title: Text(
+          widget.surahName,
+          style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         actions: [
           if (_isAutoScrolling)
             IconButton(
               icon: const Icon(Icons.speed),
-              onPressed: () => setState(() => _showSpeedSlider = !_showSpeedSlider),
+              onPressed: () =>
+                  setState(() => _showSpeedSlider = !_showSpeedSlider),
             ),
-          IconButton(icon: const Icon(Icons.text_fields), onPressed: _showFontSizeDialog),
           IconButton(
-            icon: Icon(quranProvider.lastSurahId == widget.surahId && !quranProvider.isJuzMode ? Icons.bookmark : Icons.bookmark_border),
+            icon: const Icon(Icons.text_fields),
+            onPressed: _showFontSizeDialog,
+          ),
+          IconButton(
+            icon: Icon(
+              quranProvider.lastSurahId == widget.surahId &&
+                      !quranProvider.isJuzMode
+                  ? Icons.bookmark
+                  : Icons.bookmark_border,
+            ),
             onPressed: _saveCurrentLocation,
           ),
         ],
@@ -386,20 +485,32 @@ class _SurahPageContentState extends State<SurahPageContent> {
               margin: const EdgeInsets.only(bottom: 15, right: 10),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: Theme.of(context).cardColor.withOpacity(0.95),
+                color: Theme.of(
+                  context,
+                ).cardColor.withValues(alpha: 0.95), // تم التحديث هنا
                 borderRadius: BorderRadius.circular(30),
-                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 10),
+                ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const SizedBox(width: 10),
-                  Text("${_scrollSpeed.toStringAsFixed(1)}x", style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(
+                    "${_scrollSpeed.toStringAsFixed(1)}x",
+                    style: GoogleFonts.tajawal(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
                   SizedBox(
                     width: MediaQuery.of(context).size.width * 0.4,
                     child: Slider(
                       value: _scrollSpeed,
-                      min: 0.2, max: 6.0, divisions: 29,
+                      min: 0.2,
+                      max: 6.0,
+                      divisions: 29,
                       onChanged: (val) => setState(() => _scrollSpeed = val),
                     ),
                   ),
@@ -407,9 +518,14 @@ class _SurahPageContentState extends State<SurahPageContent> {
               ),
             ),
           FloatingActionButton(
-            backgroundColor: _isAutoScrolling ? Colors.red : Theme.of(context).colorScheme.primary,
+            backgroundColor: _isAutoScrolling
+                ? Colors.red
+                : Theme.of(context).colorScheme.primary,
             onPressed: _toggleAutoScroll,
-            child: Icon(_isAutoScrolling ? Icons.stop : Icons.play_arrow, color: Colors.white),
+            child: Icon(
+              _isAutoScrolling ? Icons.stop : Icons.play_arrow,
+              color: Colors.white,
+            ),
           ),
         ],
       ),
@@ -421,8 +537,15 @@ class _SurahPageContentState extends State<SurahPageContent> {
             if (widget.surahId != 1 && widget.surahId != 9)
               Padding(
                 padding: const EdgeInsets.only(bottom: 25),
-                child: Text('بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ',
-                    style: TextStyle(fontFamily: 'AmiriQuran', fontSize: quranProvider.fontSize + 6, color: Colors.blue[800], fontWeight: FontWeight.bold)),
+                child: Text(
+                  'بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ',
+                  style: TextStyle(
+                    fontFamily: 'AmiriQuran',
+                    fontSize: quranProvider.fontSize + 6,
+                    color: Colors.blue[800],
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             SelectionArea(
               child: Text.rich(
@@ -431,13 +554,34 @@ class _SurahPageContentState extends State<SurahPageContent> {
                     int num = ayah['number_in_surah'];
                     return TextSpan(
                       children: [
-                        WidgetSpan(child: SizedBox(width: 0, height: 0, key: _ayahKeys[num])),
-                        ..._buildHighlightedSpans(ayah['text'], widget.searchText,
-                            TextStyle(fontFamily: 'AmiriQuran', fontSize: quranProvider.fontSize, height: 2.2, color: Theme.of(context).colorScheme.onSurface), ayah),
+                        WidgetSpan(
+                          child: SizedBox(
+                            width: 0,
+                            height: 0,
+                            key: _ayahKeys[num],
+                          ),
+                        ),
+                        ..._buildHighlightedSpans(
+                          ayah['text'],
+                          widget.searchText,
+                          TextStyle(
+                            fontFamily: 'AmiriQuran',
+                            fontSize: quranProvider.fontSize,
+                            height: 2.2,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                          ayah,
+                        ),
                         TextSpan(
                           text: ' ﴿$num﴾ ',
-                          style: TextStyle(fontFamily: 'AmiriQuran', fontSize: quranProvider.fontSize * 0.8, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
-                          recognizer: TapGestureRecognizer()..onTap = () => _showTafsirDialog(ayah),
+                          style: TextStyle(
+                            fontFamily: 'AmiriQuran',
+                            fontSize: quranProvider.fontSize * 0.8,
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () => _showTafsirDialog(ayah),
                         ),
                       ],
                     );
@@ -455,7 +599,11 @@ class _SurahPageContentState extends State<SurahPageContent> {
 
   @override
   void dispose() {
-    try { WakelockPlus.disable(); } catch (e) { debugPrint(e.toString()); }
+    try {
+      WakelockPlus.disable();
+    } catch (e) {
+      debugPrint(e.toString());
+    }
     _scrollTimer?.cancel();
     _scrollController.dispose();
     super.dispose();

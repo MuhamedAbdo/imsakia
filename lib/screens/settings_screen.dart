@@ -59,18 +59,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
     String method = 'muslim_world_league';
     if (country.contains("Egypt")) {
       method = 'egyptian';
-    } else if (country.contains("Turkey")) method = 'turkey';
-    else if (country.contains("Saudi Arabia")) method = 'umm_al_qura';
-    else if (country.contains("United Arab Emirates")) method = 'dubai';
-    else if (country.contains("Kuwait")) method = 'kuwait';
-    else if (country.contains("Qatar")) method = 'qatar';
+    } else if (country.contains("Turkey")) {
+      method = 'turkey';
+    } else if (country.contains("Saudi Arabia")) {
+      method = 'umm_al_qura';
+    } else if (country.contains("United Arab Emirates")) {
+      method = 'dubai';
+    } else if (country.contains("Kuwait")) {
+      method = 'kuwait';
+    } else if (country.contains("Qatar")) {
+      method = 'qatar';
+    }
     _settingsProvider.setCalculationMethod(method);
   }
 
   Future<void> _saveSettings() async {
-    if (widget.isFirstTimeSetup && (_selectedState == null || _selectedCountry == null)) {
+    if (widget.isFirstTimeSetup &&
+        (_selectedState == null || _selectedCountry == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('يرجى اختيار الدولة والمحافظة', style: GoogleFonts.tajawal())),
+        SnackBar(
+          content: Text(
+            'يرجى اختيار الدولة والمحافظة',
+            style: GoogleFonts.tajawal(),
+          ),
+        ),
       );
       return;
     }
@@ -87,27 +99,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
             await prefs.setDouble('last_lat', locations.first.latitude);
             await prefs.setDouble('last_lng', locations.first.longitude);
           }
-        } catch (e) { debugPrint("Geocoding Error: $e"); }
+        } catch (e) {
+          debugPrint("Geocoding Error: $e");
+        }
       }
 
-      // تطبيق التعديل الهجري التراكمي وتصفير العداد المؤقت
       if (_tempAdjustment != 0) {
         await _settingsProvider.updateHijriAdjustment(_tempAdjustment);
-        setState(() => _tempAdjustment = 0);
+        setState(() {
+          _tempAdjustment = 0;
+        });
       }
 
-      if (widget.isFirstTimeSetup) await _settingsProvider.setFirstLaunchComplete();
+      if (widget.isFirstTimeSetup) {
+        await _settingsProvider.setFirstLaunchComplete();
+      }
 
       await PrayerTimesService.instance.getCurrentPrayerTimes();
 
       if (mounted) {
         if (widget.isFirstTimeSetup) {
-          Navigator.of(context).pushNamedAndRemoveUntil('/main', (route) => false);
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil('/main', (route) => false);
         } else {
           Navigator.of(context).pop();
         }
       }
-    } catch (e) { debugPrint("Error saving settings: $e"); }
+    } catch (e) {
+      debugPrint("Error saving settings: $e");
+    }
   }
 
   @override
@@ -116,11 +137,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF8F9FA),
-        appBar: widget.isFirstTimeSetup ? null : AppBar(
-          title: Text('إعدادات المواقيت', style: GoogleFonts.tajawal(fontWeight: FontWeight.bold)),
-          centerTitle: true,
-        ),
+        backgroundColor: isDark
+            ? const Color(0xFF121212)
+            : const Color(0xFFF8F9FA),
+        appBar: widget.isFirstTimeSetup
+            ? null
+            : AppBar(
+                title: Text(
+                  'إعدادات المواقيت',
+                  style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+                ),
+                centerTitle: true,
+              ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -140,9 +168,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     dropdownDecoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
                       color: isDark ? Colors.grey[900] : Colors.white,
-                      border: Border.all(color: isDark ? Colors.white24 : Colors.grey.shade300),
+                      border: Border.all(
+                        color: isDark ? Colors.white24 : Colors.grey.shade300,
+                      ),
                     ),
-                    selectedItemStyle: GoogleFonts.tajawal(fontSize: 15, color: isDark ? Colors.white : Colors.black),
+                    selectedItemStyle: GoogleFonts.tajawal(
+                      fontSize: 15,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
                     countryDropdownLabel: "اختر الدولة",
                     stateDropdownLabel: "اختر المحافظة / الولاية",
                     onCountryChanged: (value) {
@@ -151,7 +184,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _autoSelectMethod(value);
                       });
                     },
-                    onStateChanged: (value) => setState(() => _selectedState = value),
+                    onStateChanged: (value) =>
+                        setState(() => _selectedState = value),
                     onCityChanged: (value) {},
                   ),
                 ],
@@ -203,12 +237,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               decoration: BoxDecoration(
-                color: _tempAdjustment == 0 ? Colors.grey.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                color: _tempAdjustment == 0
+                    ? Colors.grey.withValues(alpha: 0.1)
+                    : Colors.green.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                _tempAdjustment == 0 ? "تلقائي" : (_tempAdjustment > 0 ? "+$_tempAdjustment يوم" : "$_tempAdjustment يوم"),
-                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, fontSize: 16, color: _tempAdjustment == 0 ? Colors.grey : Colors.green),
+                _tempAdjustment == 0
+                    ? "تلقائي"
+                    : (_tempAdjustment > 0
+                          ? "+$_tempAdjustment يوم"
+                          : "$_tempAdjustment يوم"),
+                style: GoogleFonts.tajawal(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: _tempAdjustment == 0 ? Colors.grey : Colors.green,
+                ),
               ),
             ),
             IconButton(
@@ -220,7 +264,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (_tempAdjustment != 0)
           Padding(
             padding: const EdgeInsets.only(top: 8.0),
-            child: Text("* سيتم تطبيق التعديل عند الضغط على حفظ", style: GoogleFonts.tajawal(fontSize: 11, color: Colors.orange)),
+            child: Text(
+              "* سيتم تطبيق التعديل عند الضغط على حفظ",
+              style: GoogleFonts.tajawal(fontSize: 11, color: Colors.orange),
+            ),
           ),
       ],
     );
@@ -229,7 +276,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildDstToggle() {
     return Consumer<SettingsProvider>(
       builder: (context, settings, _) => SwitchListTile(
-        title: Text('التوقيت الصيفي (+1 ساعة)', style: GoogleFonts.tajawal(fontSize: 15)),
+        title: Text(
+          'التوقيت الصيفي (+1 ساعة)',
+          style: GoogleFonts.tajawal(fontSize: 15),
+        ),
         value: settings.dstEnabled,
         activeThumbColor: Colors.green,
         onChanged: (val) {
@@ -246,8 +296,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context, settings, _) => DropdownButtonFormField<String>(
         initialValue: settings.selectedCalculationMethod,
         isExpanded: true,
-        decoration: InputDecoration(labelText: 'طريقة الحساب', labelStyle: GoogleFonts.tajawal()),
-        items: _calculationMethods.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, style: GoogleFonts.tajawal(fontSize: 14)))).toList(),
+        decoration: InputDecoration(
+          labelText: 'طريقة الحساب',
+          labelStyle: GoogleFonts.tajawal(),
+        ),
+        items: _calculationMethods.entries
+            .map(
+              (e) => DropdownMenuItem(
+                value: e.key,
+                child: Text(e.value, style: GoogleFonts.tajawal(fontSize: 14)),
+              ),
+            )
+            .toList(),
         onChanged: (val) {
           if (val != null) {
             settings.setCalculationMethod(val);
@@ -262,12 +322,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Consumer<SettingsProvider>(
       builder: (context, settings, _) => DropdownButtonFormField<String>(
         initialValue: settings.selectedMadhab,
-        decoration: InputDecoration(labelText: 'مذهب صلاة العصر', labelStyle: GoogleFonts.tajawal()),
+        decoration: InputDecoration(
+          labelText: 'مذهب صلاة العصر',
+          labelStyle: GoogleFonts.tajawal(),
+        ),
         items: const [
-          DropdownMenuItem(value: 'shafi', child: Text('الجمهور (شافعي، مالكي، حنبلي)')),
+          DropdownMenuItem(
+            value: 'shafi',
+            child: Text('الجمهور (شافعي، مالكي، حنبلي)'),
+          ),
           DropdownMenuItem(value: 'hanafi', child: Text('الحنفي')),
         ],
-        onChanged: (val) => val != null ? settings.setMadhab(val) : null,
+        onChanged: (val) {
+          if (val != null) {
+            settings.setMadhab(val);
+          }
+        },
       ),
     );
   }
@@ -277,7 +347,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context, settings, theme, _) => Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text("الوضع الداكن", style: GoogleFonts.tajawal(fontWeight: FontWeight.w500)),
+          Text(
+            "الوضع الداكن",
+            style: GoogleFonts.tajawal(fontWeight: FontWeight.w500),
+          ),
           Switch(
             value: settings.themeMode == AppThemeMode.dark,
             onChanged: (val) {
@@ -296,33 +369,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
       width: double.infinity,
       height: 55,
       child: ElevatedButton(
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+        ),
         onPressed: _saveSettings,
-        child: Text(widget.isFirstTimeSetup ? "ابدأ الاستخدام" : "حفظ التغييرات", style: GoogleFonts.tajawal(color: Colors.white, fontWeight: FontWeight.bold)),
+        child: Text(
+          widget.isFirstTimeSetup ? "ابدأ الاستخدام" : "حفظ التغييرات",
+          style: GoogleFonts.tajawal(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildSection({required String title, required IconData icon, required List<Widget> children}) {
+  Widget _buildSection({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 15),
-      decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(20)),
-      child: Column(children: [
-        Row(children: [Icon(icon, color: Colors.green, size: 20), const SizedBox(width: 10), Text(title, style: GoogleFonts.tajawal(fontWeight: FontWeight.bold))]),
-        const Divider(height: 25),
-        ...children,
-      ]),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: Colors.green, size: 20),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const Divider(height: 25),
+          ...children,
+        ],
+      ),
     );
   }
 
   Widget _buildHeader() {
-    return Column(children: [
-      const SizedBox(height: 30),
-      const Icon(Icons.settings_suggest_outlined, size: 80, color: Colors.green),
-      const SizedBox(height: 15),
-      Text('إعداد التطبيق', style: GoogleFonts.tajawal(fontSize: 26, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 30),
-    ]);
+    return Column(
+      children: [
+        const SizedBox(height: 30),
+        const Icon(
+          Icons.settings_suggest_outlined,
+          size: 80,
+          color: Colors.green,
+        ),
+        const SizedBox(height: 15),
+        Text(
+          'إعداد التطبيق',
+          style: GoogleFonts.tajawal(fontSize: 26, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 30),
+      ],
+    );
   }
 }

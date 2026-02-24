@@ -170,7 +170,10 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
           color: isDark ? Colors.grey[900] : Colors.white,
           borderRadius: BorderRadius.circular(15),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1), // تم التعديل هنا
+              blurRadius: 10,
+            ),
           ],
         ),
         child: TextField(
@@ -221,7 +224,9 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: isDark ? Colors.black38 : Colors.grey.withOpacity(0.1),
+            color: isDark 
+                ? Colors.black38 
+                : Colors.grey.withValues(alpha: 0.1), // تم التعديل هنا
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -252,7 +257,7 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.15),
+                    color: primaryColor.withValues(alpha: 0.15), // تم التعديل هنا
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -313,8 +318,9 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        // تم استبدال Colors.white05 بالخيار الصحيح أدناه
-        color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey[100],
+        color: isDark 
+            ? Colors.white.withValues(alpha: 0.05) // تم التعديل هنا
+            : Colors.grey[100],
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey[300]!),
       ),

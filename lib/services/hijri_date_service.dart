@@ -29,9 +29,6 @@ class HijriDateService {
 
   /// تحويل التاريخ الميلادي إلى هجري باستخدام مكتبة hijri
   static Map<String, dynamic> getHijriDate(DateTime dateTime, int adjustment) {
-    // إعداد التعديل (Adjustment) إذا كان المستخدم حدده من الإعدادات
-    // مكتبة hijri تستخدم HijriCalendar.addAdjustment لضبط الأيام
-
     var hDate = HijriCalendar.fromDate(dateTime);
 
     // تطبيق التعديل يدويًا إذا وجد (Adjustment)
@@ -68,40 +65,22 @@ class HijriDateService {
   static int getDaysUntilRamadan(DateTime dateTime, int adjustment) {
     final hijriDate = getHijriDate(dateTime, adjustment);
     final currentMonth = hijriDate['monthIndex'] as int;
-    final currentDay = hijriDate['dayIndex'] as int;
     final currentYear = int.parse(hijriDate['year']);
 
     if (currentMonth == 9) return 0;
 
-    // حساب الأيام المتبقية في السنة الحالية حتى رمضان
-    int days = 0;
-    var tempDate = HijriCalendar.fromDate(dateTime);
+    var ramadanStart = HijriCalendar();
+    
+    // لو كنا قبل رمضان في نفس السنة أو بعده (للسنة القادمة)
+    ramadanStart.hYear = (currentMonth < 9) ? currentYear : currentYear + 1;
+    ramadanStart.hMonth = 9;
+    ramadanStart.hDay = 1;
 
-    // لو إنا قبل رمضان في نفس السنة
-    if (currentMonth < 9) {
-      // نحسب الفرق بين اليوم الحالي وأول يوم في رمضان
-      var ramadanStart = HijriCalendar();
-      ramadanStart.hYear = currentYear;
-      ramadanStart.hMonth = 9;
-      ramadanStart.hDay = 1;
-
-      // نستخدم تحويل المكتبة لمعرفة الفرق بالأيام الميلادية
-      return ramadanStart
-          .hijriToGregorian(ramadanStart.hYear, 9, 1)
-          .difference(dateTime)
-          .inDays;
-    } else {
-      // رمضان في السنة القادمة
-      var ramadanStart = HijriCalendar();
-      ramadanStart.hYear = currentYear + 1;
-      ramadanStart.hMonth = 9;
-      ramadanStart.hDay = 1;
-
-      return ramadanStart
-          .hijriToGregorian(ramadanStart.hYear, 9, 1)
-          .difference(dateTime)
-          .inDays;
-    }
+    // نستخدم تحويل المكتبة لمعرفة الفرق بالأيام الميلادية
+    return ramadanStart
+        .hijriToGregorian(ramadanStart.hYear, 9, 1)
+        .difference(dateTime)
+        .inDays;
   }
 
   static DateTime getNextRamadanStart(DateTime dateTime, int adjustment) {

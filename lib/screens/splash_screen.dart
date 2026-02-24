@@ -6,7 +6,6 @@ import '../utils/app_constants.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
 import '../screens/settings_screen.dart';
-import '../screens/main_layout.dart';
 import '../services/hadith_service.dart';
 import '../services/azkar_service.dart';
 
@@ -46,7 +45,6 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   void _initializeServicesInBackground() {
-    // Initialize SettingsProvider
     final settingsProvider = Provider.of<SettingsProvider>(
       context,
       listen: false,
@@ -57,42 +55,39 @@ class _SplashScreenState extends State<SplashScreen>
           .timeout(
             const Duration(seconds: 3),
             onTimeout: () {
-              print('⚠️ SettingsProvider initialization timeout');
+              debugPrint('⚠️ SettingsProvider initialization timeout');
             },
           )
           .catchError((e) {
-            print('❌ SettingsProvider initialization error: $e');
+            debugPrint('❌ SettingsProvider initialization error: $e');
           });
     }
 
-    // Initialize ThemeProvider and sync with SettingsProvider
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     themeProvider.syncWithSettingsProvider(settingsProvider.themeMode);
 
-    // Initialize HadithService in background
     HadithService.instance
         .initialize()
         .timeout(
           const Duration(seconds: 3),
           onTimeout: () {
-            print('⚠️ HadithService initialization timeout');
+            debugPrint('⚠️ HadithService initialization timeout');
           },
         )
         .catchError((e) {
-          print('❌ HadithService initialization error: $e');
+          debugPrint('❌ HadithService initialization error: $e');
         });
 
-    // Initialize AzkarService in background
     AzkarService.instance
         .initialize()
         .timeout(
           const Duration(seconds: 3),
           onTimeout: () {
-            print('⚠️ AzkarService initialization timeout');
+            debugPrint('⚠️ AzkarService initialization timeout');
           },
         )
         .catchError((e) {
-          print('❌ AzkarService initialization error: $e');
+          debugPrint('❌ AzkarService initialization error: $e');
         });
   }
 
@@ -158,41 +153,6 @@ class _SplashScreenState extends State<SplashScreen>
     _pulseController.repeat(reverse: true);
   }
 
-  void _navigateToNextScreen() {
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/main');
-      }
-    });
-  }
-
-  Future<void> _navigateToNextScreenAsync() async {
-    await Future.delayed(AppConstants.splashDuration);
-
-    // Initialize SettingsProvider if not already done
-    final settingsProvider = Provider.of<SettingsProvider>(
-      context,
-      listen: false,
-    );
-    if (!settingsProvider.isInitialized) {
-      await settingsProvider.initialize();
-    }
-
-    if (mounted) {
-      if (settingsProvider.isFirstLaunch) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const SettingsScreen(isFirstTimeSetup: true),
-          ),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const MainLayout()),
-        );
-      }
-    }
-  }
-
   @override
   void dispose() {
     _fadeController.dispose();
@@ -206,7 +166,7 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -226,10 +186,7 @@ class _SplashScreenState extends State<SplashScreen>
             child: IntrinsicHeight(
               child: Stack(
                 children: [
-                  // Background decorative elements
                   _buildBackgroundDecorations(),
-
-                  // Main content
                   Center(
                     child: AnimatedBuilder(
                       animation: Listenable.merge([
@@ -245,7 +202,6 @@ class _SplashScreenState extends State<SplashScreen>
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                // Animated Logo Container
                                 AnimatedBuilder(
                                   animation: _rotationAnimation,
                                   builder: (context, child) {
@@ -254,17 +210,9 @@ class _SplashScreenState extends State<SplashScreen>
                                       child: ScaleTransition(
                                         scale: _pulseAnimation,
                                         child: Container(
-                                          width:
-                                              MediaQuery.of(
-                                                context,
-                                              ).size.width *
-                                              0.3,
-                                          height:
-                                              MediaQuery.of(
-                                                context,
-                                              ).size.width *
-                                              0.3,
-                                          constraints: BoxConstraints(
+                                          width: MediaQuery.of(context).size.width * 0.3,
+                                          height: MediaQuery.of(context).size.width * 0.3,
+                                          constraints: const BoxConstraints(
                                             minWidth: 100,
                                             maxWidth: 140,
                                             minHeight: 100,
@@ -275,31 +223,23 @@ class _SplashScreenState extends State<SplashScreen>
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
                                               colors: [
-                                                Colors.white.withOpacity(0.2),
-                                                Colors.white.withOpacity(0.1),
+                                                Colors.white.withValues(alpha: 0.2),
+                                                Colors.white.withValues(alpha: 0.1),
                                               ],
                                             ),
-                                            borderRadius: BorderRadius.circular(
-                                              70,
-                                            ),
+                                            borderRadius: BorderRadius.circular(70),
                                             border: Border.all(
-                                              color: Colors.white.withOpacity(
-                                                0.4,
-                                              ),
+                                              color: Colors.white.withValues(alpha: 0.4),
                                               width: 3,
                                             ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.white.withOpacity(
-                                                  0.3,
-                                                ),
+                                                color: Colors.white.withValues(alpha: 0.3),
                                                 blurRadius: 20,
                                                 spreadRadius: 5,
                                               ),
                                               BoxShadow(
-                                                color: Colors.black.withOpacity(
-                                                  0.2,
-                                                ),
+                                                color: Colors.black.withValues(alpha: 0.2),
                                                 blurRadius: 15,
                                                 offset: const Offset(0, 8),
                                               ),
@@ -315,29 +255,19 @@ class _SplashScreenState extends State<SplashScreen>
                                     );
                                   },
                                 ),
-
-                                SizedBox(
-                                  height:
-                                      MediaQuery.of(context).size.height * 0.05,
-                                ),
-
-                                // Main Title with shadow
+                                SizedBox(height: MediaQuery.of(context).size.height * 0.05),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
                                   child: Text(
                                     AppConstants.splashTitle,
                                     style: GoogleFonts.tajawal(
-                                      fontSize:
-                                          MediaQuery.of(context).size.width *
-                                          0.07,
+                                      fontSize: MediaQuery.of(context).size.width * 0.07,
                                       fontWeight: FontWeight.w700,
                                       color: Colors.white,
                                       height: 1.5,
                                       shadows: [
                                         Shadow(
-                                          color: Colors.black.withOpacity(0.3),
+                                          color: Colors.black.withValues(alpha: 0.3),
                                           blurRadius: 10,
                                           offset: const Offset(0, 4),
                                         ),
@@ -346,29 +276,19 @@ class _SplashScreenState extends State<SplashScreen>
                                     textAlign: TextAlign.center,
                                   ),
                                 ),
-
-                                SizedBox(
-                                  height:
-                                      MediaQuery.of(context).size.height * 0.02,
-                                ),
-
-                                // Subtitle with glow effect
+                                SizedBox(height: MediaQuery.of(context).size.height * 0.02),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 30,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 30),
                                   child: Text(
                                     AppConstants.splashSubtitle,
                                     style: GoogleFonts.reemKufi(
-                                      fontSize:
-                                          MediaQuery.of(context).size.width *
-                                          0.045,
+                                      fontSize: MediaQuery.of(context).size.width * 0.045,
                                       fontWeight: FontWeight.w500,
-                                      color: Colors.white.withOpacity(0.9),
+                                      color: Colors.white.withValues(alpha: 0.9),
                                       height: 1.5,
                                       shadows: [
                                         Shadow(
-                                          color: Colors.white.withOpacity(0.5),
+                                          color: Colors.white.withValues(alpha: 0.5),
                                           blurRadius: 8,
                                           offset: const Offset(0, 2),
                                         ),
@@ -377,25 +297,15 @@ class _SplashScreenState extends State<SplashScreen>
                                     textAlign: TextAlign.center,
                                   ),
                                 ),
-
-                                SizedBox(
-                                  height:
-                                      MediaQuery.of(context).size.height * 0.04,
-                                ),
-
-                                // Enhanced Dedication Card
+                                SizedBox(height: MediaQuery.of(context).size.height * 0.04),
                                 Container(
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                  ),
+                                  margin: const EdgeInsets.symmetric(horizontal: 20),
                                   padding: EdgeInsets.symmetric(
-                                    horizontal:
-                                        MediaQuery.of(context).size.width *
-                                        0.06,
+                                    horizontal: MediaQuery.of(context).size.width * 0.06,
                                     vertical: 16,
                                   ),
                                   decoration: BoxDecoration(
-                                    gradient: LinearGradient(
+                                    gradient: const LinearGradient(
                                       begin: Alignment.topLeft,
                                       end: Alignment.bottomRight,
                                       colors: [
@@ -406,17 +316,17 @@ class _SplashScreenState extends State<SplashScreen>
                                     ),
                                     borderRadius: BorderRadius.circular(35),
                                     border: Border.all(
-                                      color: Colors.white.withOpacity(0.3),
+                                      color: Colors.white.withValues(alpha: 0.3),
                                       width: 2,
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.orange.withOpacity(0.4),
+                                        color: Colors.orange.withValues(alpha: 0.4),
                                         blurRadius: 15,
                                         spreadRadius: 3,
                                       ),
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.3),
+                                        color: Colors.black.withValues(alpha: 0.3),
                                         blurRadius: 10,
                                         offset: const Offset(0, 6),
                                       ),
@@ -425,15 +335,13 @@ class _SplashScreenState extends State<SplashScreen>
                                   child: Text(
                                     AppConstants.splashDedication,
                                     style: GoogleFonts.reemKufi(
-                                      fontSize:
-                                          MediaQuery.of(context).size.width *
-                                          0.07,
+                                      fontSize: MediaQuery.of(context).size.width * 0.07,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF8B4513),
+                                      color: const Color(0xFF8B4513),
                                       height: 1.4,
                                       shadows: [
                                         Shadow(
-                                          color: Colors.black.withOpacity(0.5),
+                                          color: Colors.black.withValues(alpha: 0.5),
                                           blurRadius: 4,
                                           offset: const Offset(0, 2),
                                         ),
@@ -442,13 +350,7 @@ class _SplashScreenState extends State<SplashScreen>
                                     textAlign: TextAlign.center,
                                   ),
                                 ),
-
-                                SizedBox(
-                                  height:
-                                      MediaQuery.of(context).size.height * 0.06,
-                                ),
-
-                                // Enhanced Loading Indicator
+                                SizedBox(height: MediaQuery.of(context).size.height * 0.06),
                                 AnimatedBuilder(
                                   animation: _fadeController,
                                   builder: (context, child) {
@@ -457,22 +359,15 @@ class _SplashScreenState extends State<SplashScreen>
                                       child: Container(
                                         padding: const EdgeInsets.all(16),
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(
-                                            25,
-                                          ),
+                                          color: Colors.white.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(25),
                                           border: Border.all(
-                                            color: Colors.white.withOpacity(
-                                              0.3,
-                                            ),
+                                            color: Colors.white.withValues(alpha: 0.3),
                                             width: 2,
                                           ),
                                         ),
                                         child: const CircularProgressIndicator(
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                                Colors.white,
-                                              ),
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                           strokeWidth: 3,
                                         ),
                                       ),
@@ -498,7 +393,6 @@ class _SplashScreenState extends State<SplashScreen>
   Widget _buildBackgroundDecorations() {
     return Stack(
       children: [
-        // Floating circles
         Positioned(
           top: 100,
           left: 50,
@@ -510,7 +404,7 @@ class _SplashScreenState extends State<SplashScreen>
                 height: 60,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.1 * _pulseAnimation.value),
+                  color: Colors.white.withValues(alpha: 0.1 * _pulseAnimation.value),
                 ),
               );
             },
@@ -529,7 +423,7 @@ class _SplashScreenState extends State<SplashScreen>
                   height: 40,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.15),
+                    color: Colors.white.withValues(alpha: 0.15),
                   ),
                 ),
               );
@@ -547,7 +441,7 @@ class _SplashScreenState extends State<SplashScreen>
                 height: 80,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.08 * _pulseAnimation.value),
+                  color: Colors.white.withValues(alpha: 0.08 * _pulseAnimation.value),
                 ),
               );
             },
@@ -566,7 +460,7 @@ class _SplashScreenState extends State<SplashScreen>
                   height: 50,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.12),
+                    color: Colors.white.withValues(alpha: 0.12),
                   ),
                 ),
               );

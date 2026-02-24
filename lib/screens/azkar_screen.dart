@@ -227,15 +227,12 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
   }
 
   Widget _buildCategoryCard(AzkarCategory category) {
-    // التحقق من فئة الحج والعمرة
     final bool isHajjCategory =
         category.id == 'hajj_umrah' || category.title.contains('الحج');
 
-    // التحقق من فئة جوامع الدعاء
     final bool isDuasCategory =
         category.id == 'daily_duas' || category.title.contains('الدعاء');
 
-    // تحديد مسار الصورة إذا كانت الفئة مخصصة
     String? assetPath;
     if (isHajjCategory) assetPath = 'assets/images/kaaba.png';
     if (isDuasCategory) assetPath = 'assets/images/duas.png';
@@ -250,11 +247,14 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
           gradient: LinearGradient(
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
-            colors: [category.color.withOpacity(0.85), category.color],
+            colors: [
+              category.color.withValues(alpha: 0.85), // تم التعديل هنا
+              category.color,
+            ],
           ),
           boxShadow: [
             BoxShadow(
-              color: category.color.withOpacity(0.3),
+              color: category.color.withValues(alpha: 0.3), // تم التعديل هنا
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),
@@ -262,7 +262,6 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
         ),
         child: Stack(
           children: [
-            // أيقونة خلفية جمالية (علامة مائية)
             Positioned(
               left: -10,
               bottom: -10,
@@ -280,7 +279,7 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
                   : Icon(
                       category.icon,
                       size: 80,
-                      color: Colors.white.withOpacity(0.12),
+                      color: Colors.white.withValues(alpha: 0.12), // تم التعديل هنا
                     ),
             ),
             Padding(
@@ -292,7 +291,7 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.25),
+                      color: Colors.white.withValues(alpha: 0.25), // تم التعديل هنا
                     ),
                     child: assetPath != null
                         ? Image.asset(assetPath, width: 30, height: 30)
@@ -314,7 +313,7 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
                     borderRadius: BorderRadius.circular(10),
                     child: LinearProgressIndicator(
                       value: category.overallProgress,
-                      backgroundColor: Colors.white.withOpacity(0.2),
+                      backgroundColor: Colors.white.withValues(alpha: 0.2), // تم التعديل هنا
                       valueColor: const AlwaysStoppedAnimation<Color>(
                         Colors.white,
                       ),
@@ -327,7 +326,7 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
                     style: GoogleFonts.tajawal(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white.withOpacity(0.95),
+                      color: Colors.white.withValues(alpha: 0.95), // تم التعديل هنا
                     ),
                   ),
                 ],
