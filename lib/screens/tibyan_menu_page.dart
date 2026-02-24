@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+import 'package:flutter_svg/flutter_svg.dart'; // أضفنا مكتبة الـ SVG
 import '../providers/settings_provider.dart';
 import '../services/hijri_date_service.dart';
 import 'quran_home_new.dart';
 import 'bukhari_library_page.dart';
+import 'allah_names_page.dart'; // استيراد صفحة أسماء الله الحسنى
 
 /// صفحة بسيطة للأقسام التي تحت التطوير
 class UnderDevelopmentPage extends StatelessWidget {
@@ -16,13 +18,12 @@ class UnderDevelopmentPage extends StatelessWidget {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Directionality(
-      textDirection: TextDirection.rtl, // لضمان ظهور زر الرجوع على اليمين
+      textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF5F5F0),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          // Flutter سيتكفل بوضع السهم على اليمين تلقائياً بسبب Directionality
           iconTheme: IconThemeData(
             color: isDarkMode ? Colors.white : Colors.black,
           ),
@@ -31,7 +32,6 @@ class UnderDevelopmentPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // أيقونة لطيفة تعبر عن العمل الجاري
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -68,6 +68,7 @@ class UnderDevelopmentPage extends StatelessWidget {
     );
   }
 }
+
 class TibyanMenuPage extends StatelessWidget {
   const TibyanMenuPage({super.key});
 
@@ -92,15 +93,26 @@ class TibyanMenuPage extends StatelessWidget {
     final Color secondaryTextColor = isDarkMode ? Colors.white70 : Colors.brown[400]!;
     final Color cardColor = isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
 
-    // تم حذف السبحة والأذكار والأدعية من القائمة
+    // القائمة المحدثة مع الصور الجديدة
     final List<Map<String, dynamic>> menuItems = [
-      {'title': 'صوتيات', 'icon': Icons.library_music, 'color': Colors.blueAccent},
-      {'title': 'مكتبة الحديث', 'icon': Icons.collections_bookmark, 'color': Colors.tealAccent},
-      {'title': 'الراديو', 'icon': Icons.radio, 'color': Colors.greenAccent},
-      {'title': 'القبلة', 'icon': Icons.explore, 'color': Colors.orangeAccent},
-      {'title': 'أسماء الله الحسنى', 'icon': Icons.wb_sunny, 'color': Colors.amberAccent},
-      {'title': 'الاشعارات', 'icon': Icons.notifications_active, 'color': Colors.orange},
-      {'title': 'التقويم الهجري', 'icon': Icons.event_note, 'color': Colors.lightBlueAccent},
+      {'title': 'صوتيات', 'icon': Icons.library_music, 'isAsset': false, 'color': Colors.blueAccent},
+      {
+        'title': 'مكتبة الحديث', 
+        'asset': 'assets/images/muhammed.png', // الصورة المطلوبة
+        'isAsset': true, 
+        'color': Colors.tealAccent
+      },
+      {'title': 'الراديو', 'icon': Icons.radio, 'isAsset': false, 'color': Colors.greenAccent},
+      {'title': 'القبلة', 'icon': Icons.explore, 'isAsset': false, 'color': Colors.orangeAccent},
+      {
+        'title': 'أسماء الله الحسنى', 
+        'asset': 'assets/images/names.svg', // صورة الـ SVG المطلوبة
+        'isAsset': true, 
+        'isSvg': true,
+        'color': Colors.amberAccent
+      },
+      {'title': 'الاشعارات', 'icon': Icons.notifications_active, 'isAsset': false, 'color': Colors.orange},
+      {'title': 'التقويم الهجري', 'icon': Icons.event_note, 'isAsset': false, 'color': Colors.lightBlueAccent},
     ];
 
     return Directionality(
@@ -108,13 +120,16 @@ class TibyanMenuPage extends StatelessWidget {
       child: Scaffold(
         backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF5F5F0),
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
+          backgroundColor: isDarkMode ? Colors.transparent : Colors.blue,
           elevation: 0,
+          iconTheme: IconThemeData(
+            color: isDarkMode ? Colors.white : Colors.white,
+          ),
           title: Text(
             'تبيان',
             style: GoogleFonts.tajawal(
               fontWeight: FontWeight.bold,
-              color: primaryTextColor,
+              color: isDarkMode ? primaryTextColor : Colors.white,
             ),
           ),
           centerTitle: true,
@@ -148,7 +163,7 @@ class TibyanMenuPage extends StatelessWidget {
               ),
             ),
 
-            // زر القرآن الكريم
+            // زر القرآن الكريم بالصورة الجديدة quraan.png
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -167,10 +182,28 @@ class TibyanMenuPage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: isDarkMode ? 0.4 : 0.05),
+                          color: isDarkMode 
+                            ? Colors.black.withValues(alpha: 0.6)
+                            : Colors.blue.withValues(alpha: 0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                          spreadRadius: 2,
+                        ),
+                        BoxShadow(
+                          color: isDarkMode 
+                            ? Colors.blue.withValues(alpha: 0.1)
+                            : Colors.white.withValues(alpha: 0.8),
                           blurRadius: 15,
+                          offset: const Offset(-2, -2),
+                          spreadRadius: 1,
                         ),
                       ],
+                      border: Border.all(
+                        color: isDarkMode 
+                          ? Colors.blue.withValues(alpha: 0.3)
+                          : Colors.blue.withValues(alpha: 0.2),
+                        width: 1,
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -183,10 +216,10 @@ class TibyanMenuPage extends StatelessWidget {
                             color: primaryTextColor,
                           ),
                         ),
-                        Icon(
-                          Icons.menu_book_rounded,
-                          size: 60,
-                          color: isDarkMode ? Colors.orangeAccent : Colors.orange[300],
+                        Image.asset(
+                          'assets/images/quraan.png', // الصورة المطلوبة
+                          height: 70,
+                          fit: BoxFit.contain,
                         ),
                       ],
                     ),
@@ -195,7 +228,7 @@ class TibyanMenuPage extends StatelessWidget {
               ),
             ),
 
-            // شبكة الأيقونات المحدثة
+            // شبكة الأيقونات
             SliverPadding(
               padding: const EdgeInsets.all(16.0),
               sliver: SliverGrid(
@@ -215,8 +248,12 @@ class TibyanMenuPage extends StatelessWidget {
                           context,
                           MaterialPageRoute(builder: (context) => const BukhariLibraryPage()),
                         );
+                      } else if (item['title'] == 'أسماء الله الحسنى') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const AllahNamesPage()), // الانتقال لصفحة الأسماء
+                        );
                       } else {
-                        // أي زر آخر يفتح صفحة "سيتم تطويره قريباً"
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (context) => const UnderDevelopmentPage()),
@@ -227,16 +264,54 @@ class TibyanMenuPage extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: cardColor,
                         borderRadius: BorderRadius.circular(15),
-                        border: isDarkMode ? Border.all(color: Colors.white12) : null,
+                        boxShadow: [
+                          BoxShadow(
+                            color: isDarkMode 
+                              ? Colors.black.withValues(alpha: 0.4)
+                              : Colors.grey.withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
+                            spreadRadius: 1,
+                          ),
+                          BoxShadow(
+                            color: isDarkMode 
+                              ? Colors.white.withValues(alpha: 0.05)
+                              : Colors.white.withValues(alpha: 0.6),
+                            blurRadius: 10,
+                            offset: const Offset(-1, -1),
+                            spreadRadius: 1,
+                          ),
+                        ],
+                        border: Border.all(
+                          color: isDarkMode 
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.grey.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            item['icon'] as IconData,
-                            size: 32,
-                            color: item['color'] as Color,
-                          ),
+                          // منطق عرض الأيقونة أو الصورة (SVG أو PNG)
+                          if (item['isAsset'] == true)
+                            item['isSvg'] == true
+                                ? SvgPicture.asset(
+                                    item['asset'],
+                                    height: 35,
+                                    width: 35,
+                                    colorFilter: ColorFilter.mode(item['color'], BlendMode.srcIn),
+                                  )
+                                : Image.asset(
+                                    item['asset'],
+                                    height: 35,
+                                    width: 35,
+                                  )
+                          else
+                            Icon(
+                              item['icon'] as IconData,
+                              size: 32,
+                              color: item['color'] as Color,
+                            ),
                           const SizedBox(height: 10),
                           Text(
                             item['title'] as String,

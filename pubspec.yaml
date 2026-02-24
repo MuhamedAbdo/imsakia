@@ -18,7 +18,7 @@ dependencies:
   shared_preferences: ^2.3.3
   
   # UI & Fonts
-  google_fonts: ^6.2.1
+  google_fonts: ^8.0.2
   flutter_svg: ^2.0.14
   cached_network_image: ^3.4.1
   
@@ -61,6 +61,13 @@ dependencies:
   timezone: ^0.11.0
   visibility_detector: ^0.4.0+2
   wakelock_plus: ^1.4.0
+  font_awesome_flutter: ^10.12.0
+  animate_do: ^4.2.0
+  flutter_screenutil: ^5.9.3
+  easy_localization: ^3.0.8
+  back_button_interceptor: ^8.0.4
+  fluttericon: ^2.0.0
+  adhan_dart: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -73,7 +80,12 @@ flutter:
   assets:
     - assets/quran.db
     - assets/data/
-    - assets/images/
+    - assets/images/duas.png
+    - assets/images/muhammed.png
+    - assets/images/names.svg
+    - assets/images/quraan.png
+    - assets/images/kaaba.png
+    - assets/images/nameborder.png
     - assets/fonts/
 
   fonts:
