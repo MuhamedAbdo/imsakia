@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'providers/theme_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/quran_provider.dart';
+import 'providers/bukhari_provider.dart'; // تأكد من وجود هذا الاستيراد
 import 'screens/splash_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/main_layout.dart';
@@ -13,7 +15,10 @@ import 'services/azkar_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. تهيئة الخدمات
+  // Initialize Arabic locale for date formatting
+  await initializeDateFormatting('ar', null);
+
+  // تهيئة الخدمات
   await HadithService.instance.initialize();
   await AzkarService.instance.initialize();
   final settingsProvider = SettingsProvider();
@@ -35,12 +40,12 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider.value(value: HadithService.instance),
         ChangeNotifierProvider(create: (_) => QuranProvider()),
+        ChangeNotifierProvider(create: (_) => BukhariProvider()), // إضافة البروفايدر هنا
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
           return Consumer<SettingsProvider>(
             builder: (context, settingsProvider, child) {
-              // Sync theme providers
               themeProvider.syncWithSettingsProvider(
                 settingsProvider.themeMode,
               );
@@ -57,11 +62,9 @@ class MyApp extends StatelessWidget {
                   '/main': (context) => const MainLayout(),
                 },
                 builder: (context, child) {
-                  // منع الوضع الأفقي وتثبيت الوضع الرأسي فقط
                   SystemChrome.setPreferredOrientations([
                     DeviceOrientation.portraitUp,
                   ]);
-
                   return child!;
                 },
               );

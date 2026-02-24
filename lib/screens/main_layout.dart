@@ -9,10 +9,11 @@ import '../services/prayer_times_service.dart';
 import '../services/hadith_service.dart';
 import '../services/hijri_date_service.dart';
 import '../utils/app_constants.dart';
-import 'quran_home_new.dart';
+// ستبقى للاستخدام داخل صفحة تبيان
 import 'tasbih_screen.dart';
 import 'azkar_screen.dart';
 import 'fasting_fiqh_screen.dart';
+import 'tibyan_menu_page.dart'; // استيراد الصفحة الجديدة
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -24,9 +25,10 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _currentIndex = 0;
 
+  // تحديث قائمة الشاشات: استبدال QuranHomeNew بـ TibyanMenuPage في الفهرس رقم 1
   final List<Widget> _screens = [
     const HomeScreen(),
-    const QuranHomeNew(),
+    const TibyanMenuPage(), // التبويب الجديد
     const TasbihScreen(),
     const AzkarScreenWidget(),
     const FastingFiqhScreen(),
@@ -63,7 +65,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             color: Theme.of(context).cardColor,
             boxShadow: [
               BoxShadow(
-                // تم التحديث هنا
                 color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 4,
                 offset: const Offset(0, -2),
@@ -78,14 +79,21 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             elevation: 0,
             selectedItemColor: Theme.of(context).colorScheme.primary,
             unselectedItemColor: Colors.grey,
+            selectedLabelStyle: GoogleFonts.tajawal(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+            unselectedLabelStyle: GoogleFonts.tajawal(fontSize: 11),
             items: const [
               BottomNavigationBarItem(
                 icon: Icon(Icons.access_time),
                 label: 'المواقيت',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.menu_book),
-                label: 'القرآن',
+                icon: Icon(
+                  Icons.grid_view_rounded,
+                ), // أيقونة الشبكة لتدل على أقسام تبيان
+                label: 'تبيان',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.fingerprint),
@@ -139,6 +147,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     );
   }
 }
+
+// --- شاشة HomeScreen تبقى كما هي دون تغيير في منطقها ---
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -334,7 +344,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              // تم التحديث هنا
               color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(30),
             ),
@@ -464,7 +473,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             border: Border.all(
               color: isDark
                   ? Colors.grey[800]!
-                  // تم التحديث هنا
                   : Theme.of(context).primaryColor.withValues(alpha: 0.3),
             ),
           ),
@@ -586,7 +594,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: isNext
-            // تم التحديث هنا
             ? Theme.of(context).primaryColor.withValues(alpha: 0.12)
             : Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(15),
@@ -621,7 +628,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            // تم التحديث هنا
             color: Colors.white.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(10),
           ),
@@ -650,7 +656,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        // تم التحديث هنا
         gradient: LinearGradient(colors: [color.withValues(alpha: 0.7), color]),
         borderRadius: BorderRadius.circular(15),
       ),
