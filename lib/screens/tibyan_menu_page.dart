@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:imsakia/screens/calendar_page.dart';
+import 'package:imsakia/services/bukhari_database_service.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:flutter_svg/flutter_svg.dart'; // أضفنا مكتبة الـ SVG
@@ -8,6 +10,7 @@ import '../services/hijri_date_service.dart';
 import 'quran_home_new.dart';
 import 'bukhari_library_page.dart';
 import 'allah_names_page.dart'; // استيراد صفحة أسماء الله الحسنى
+import 'radio_page.dart'; // استيراد صفحة الراديو
 
 /// صفحة بسيطة للأقسام التي تحت التطوير
 class UnderDevelopmentPage extends StatelessWidget {
@@ -253,7 +256,18 @@ class TibyanMenuPage extends StatelessWidget {
                           context,
                           MaterialPageRoute(builder: (context) => const AllahNamesPage()), // الانتقال لصفحة الأسماء
                         );
-                      } else {
+                      } else if (item['title'] == 'الراديو') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const RadioPage()), // الانتقال لصفحة الراديو
+                        );
+                      }
+                      else if (item['title'] == 'التقويم الهجري') { // التعديل هنا
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CalendarPage()),
+    );}
+                       else {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (context) => const UnderDevelopmentPage()),
@@ -329,9 +343,169 @@ class TibyanMenuPage extends StatelessWidget {
                 }, childCount: menuItems.length),
               ),
             ),
-          ],
+// أضف هذا الجزء في الـ CustomScrollView بعد SliverPadding الخاص بالشبكة
+// داخل قائمة الـ Widgets في صفحة تبيان
+SliverToBoxAdapter(
+  child: FutureBuilder<Map<String, dynamic>?>(
+    future: BukhariDatabaseService.getDailyHadith(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: CircularProgressIndicator(),
+        ));
+      }
+      
+      // إذا لم توجد بيانات أو حدث خطأ
+      if (!snapshot.hasData || snapshot.data == null) {
+        return const SizedBox.shrink();
+      }
+
+      final String hadithText = snapshot.data!['text'] ?? "لا يوجد نص متاح";
+      final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+        child: InkWell(
+          onTap: () => _showHadithDetails(context, hadithText),
+          borderRadius: BorderRadius.circular(25),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDarkMode ? const Color(0xFF2A2A2A) : Colors.white,
+              borderRadius: BorderRadius.circular(25),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+              border: Border.all(color: Colors.amber.withOpacity(0.2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                    const SizedBox(width: 10),
+                    Text(
+                      'حديث اليوم',
+                      style: GoogleFonts.tajawal(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                        color: Colors.amber[800],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 15),
+                Text(
+                  hadithText,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.amiri(
+                    fontSize: 18,
+                    height: 1.6,
+                    color: isDarkMode ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 15),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      'إضغط للتفاصيل',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 13,
+                        color: Colors.blueAccent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Icon(Icons.arrow_right_alt, color: Colors.blueAccent),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  ),
+), ],
         ),
       ),
     );
   }
+void _showHadithDetails(BuildContext context, String text) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => Container(
+      height: MediaQuery.of(context).size.height * 0.7,
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Container(
+            width: 40,
+            height: 5,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  Text(
+                    'الحديث الشريف',
+                    style: GoogleFonts.tajawal(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(height: 30),
+                  Text(
+                    text,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.amiri(
+                      fontSize: 22,
+                      height: 1.8,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber[700],
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                padding: const EdgeInsets.symmetric(vertical: 15),
+              ),
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'إغلاق',
+                style: GoogleFonts.tajawal(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 }

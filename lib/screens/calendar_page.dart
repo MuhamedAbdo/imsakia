@@ -1,0 +1,243 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:hijri/hijri_calendar.dart';
+import 'package:table_calendar/table_calendar.dart';
+import '../services/hijri_date_service.dart';
+
+class CalendarPage extends StatefulWidget {
+  const CalendarPage({super.key});
+
+  @override
+  State<CalendarPage> createState() => _CalendarPageState();
+}
+
+class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderStateMixin {
+  TabController? _tabController;
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController!.addListener(() {
+      if (!_tabController!.indexIsChanging) setState(() {});
+    });
+    _selectedDay = _focusedDay;
+    HijriCalendar.setLocal('ar');
+  }
+
+  @override
+  void dispose() {
+    _tabController?.dispose();
+    super.dispose();
+  }
+
+  void _moveMonth({required bool isNext}) {
+    setState(() {
+      if (_tabController!.index == 0) {
+        var hDate = HijriCalendar.fromDate(_focusedDay);
+        if (isNext) {
+          if (hDate.hMonth == 12) { hDate.hMonth = 1; hDate.hYear++; } else { hDate.hMonth++; }
+        } else {
+          if (hDate.hMonth == 1) { hDate.hMonth = 12; hDate.hYear--; } else { hDate.hMonth--; }
+        }
+        _focusedDay = hDate.hijriToGregorian(hDate.hYear, hDate.hMonth, 1);
+      } else {
+        _focusedDay = DateTime(_focusedDay.year, isNext ? _focusedDay.month + 1 : _focusedDay.month - 1, 1);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_tabController == null) return const SizedBox.shrink();
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF5F5F0),
+        appBar: AppBar(
+          backgroundColor: isDarkMode ? Colors.black : Colors.blue,
+          title: Text('التقويم', style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, color: Colors.white)),
+          centerTitle: true,
+          elevation: 0,
+          bottom: TabBar(
+            controller: _tabController,
+            indicatorColor: Colors.white,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white.withValues(alpha: 0.6),
+            tabs: const [Tab(text: "الهجري"), Tab(text: "الميلادي")],
+          ),
+        ),
+        body: Column(
+          children: [
+            _buildCustomHeader(isDarkMode),
+            _buildDaysOfWeekHeader(isDarkMode),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildHijriCustomGridView(isDarkMode),
+                  _buildGregorianView(isDarkMode),
+                ],
+              ),
+            ),
+            if (_selectedDay != null) _buildSelectedDateCard(_selectedDay!, isDarkMode),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomHeader(bool isDarkMode) {
+    String title = "";
+    if (_tabController!.index == 0) {
+      var hDate = HijriCalendar.fromDate(_focusedDay);
+      title = "${hDate.longMonthName} ${hDate.hYear}";
+    } else {
+      const months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+      title = "${months[_focusedDay.month - 1]} ${_focusedDay.year}";
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(icon: Icon(Icons.chevron_left, color: isDarkMode ? Colors.white : Colors.black), onPressed: () => _moveMonth(isNext: false)),
+          Text(title, style: GoogleFonts.tajawal(fontSize: 20, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87)),
+          IconButton(icon: Icon(Icons.chevron_right, color: isDarkMode ? Colors.white : Colors.black), onPressed: () => _moveMonth(isNext: true)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDaysOfWeekHeader(bool isDarkMode) {
+    const days = ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: days.map((day) => Expanded(
+          child: Center(child: Text(day, style: GoogleFonts.tajawal(fontSize: 12, fontWeight: FontWeight.w600, color: isDarkMode ? Colors.grey : Colors.black54))),
+        )).toList(),
+      ),
+    );
+  }
+
+  Widget _buildHijriCustomGridView(bool isDarkMode) {
+    var hDate = HijriCalendar.fromDate(_focusedDay);
+    // تصحيح: الحصول على أول يوم في الشهر الهجري
+    var firstDayOfMonth = hDate.hijriToGregorian(hDate.hYear, hDate.hMonth, 1);
+    
+    // حساب الإزاحة بناءً على أن السبت هو 6 في DateTime.weekday والأسبوع يبدأ بالسبت في تصميمنا
+    // الأيام في Flutter: Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6, Sun=7
+    int offset;
+    if (firstDayOfMonth.weekday == DateTime.saturday) {
+      offset = 0;
+    } else if (firstDayOfMonth.weekday == DateTime.sunday) {
+      offset = 1;
+    } else {
+      offset = firstDayOfMonth.weekday + 1;
+    }
+
+    // تصحيح: استخدام getMonthLength() بدلاً من length
+    int daysInMonth = hDate.getDaysInMonth(hDate.hYear, hDate.hMonth);
+
+    return GridView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
+      itemCount: daysInMonth + offset,
+      itemBuilder: (context, index) {
+        if (index < offset) return const SizedBox.shrink();
+        
+        int dayNo = index - offset + 1;
+        DateTime currentGregorian = hDate.hijriToGregorian(hDate.hYear, hDate.hMonth, dayNo);
+        bool isSelected = isSameDay(_selectedDay, currentGregorian);
+        bool isToday = isSameDay(DateTime.now(), currentGregorian);
+
+        return GestureDetector(
+          onTap: () => setState(() { 
+            _selectedDay = currentGregorian; 
+            _focusedDay = currentGregorian; 
+          }),
+          child: _customDayItem(dayNo.toString(), isDarkMode, isSelected: isSelected, isToday: isToday),
+        );
+      },
+    );
+  }
+
+  Widget _buildGregorianView(bool isDarkMode) {
+    return TableCalendar(
+      locale: 'ar_SA',
+      firstDay: DateTime.utc(2020, 1, 1),
+      lastDay: DateTime.utc(2045, 12, 31),
+      focusedDay: _focusedDay,
+      startingDayOfWeek: StartingDayOfWeek.saturday,
+      headerVisible: false,
+      daysOfWeekVisible: false,
+      calendarFormat: CalendarFormat.month,
+      selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+      onDaySelected: (selectedDay, focusedDay) => setState(() { _selectedDay = selectedDay; _focusedDay = focusedDay; }),
+      calendarStyle: CalendarStyle(
+        outsideDaysVisible: false,
+        todayDecoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.3), shape: BoxShape.circle),
+        selectedDecoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
+      ),
+    );
+  }
+
+  Widget _customDayItem(String text, bool isDarkMode, {required bool isSelected, required bool isToday}) {
+    return Container(
+      margin: const EdgeInsets.all(4),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isSelected ? Colors.blue : (isToday ? Colors.blue.withValues(alpha: 0.2) : Colors.transparent),
+        border: isToday ? Border.all(color: Colors.blue, width: 1) : null,
+      ),
+      child: Text(text, style: GoogleFonts.tajawal(color: isSelected ? Colors.white : (isDarkMode ? Colors.white : Colors.black), fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal)),
+    );
+  }
+
+  Widget _buildSelectedDateCard(DateTime date, bool isDarkMode) {
+    final hijriData = HijriDateService.getHijriDate(date, 0);
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 4))],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), shape: BoxShape.circle),
+              child: const Icon(Icons.event_available, color: Colors.blue, size: 28),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(hijriData['formatted'], style: GoogleFonts.tajawal(fontSize: 17, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.amber[200] : Colors.blue[900])),
+                  Text("${_getDayName(date.weekday)}، ${date.day}/${date.month}/${date.year} م", style: GoogleFonts.tajawal(fontSize: 13, color: isDarkMode ? Colors.white70 : Colors.grey[700])),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getDayName(int day) {
+    const days = ["الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"];
+    return days[day - 1];
+  }
+}
