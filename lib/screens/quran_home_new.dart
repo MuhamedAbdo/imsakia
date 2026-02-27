@@ -156,8 +156,8 @@ class _QuranHomeNewState extends State<QuranHomeNew>
             indicatorWeight: 3,
             labelColor: isDarkMode ? colorScheme.primary : Colors.white,
             unselectedLabelColor: isDarkMode
-                ? colorScheme.onSurface.withValues(alpha: 0.6) // تم التحديث هنا
-                : Colors.white.withValues(alpha: 0.7), // تم التحديث هنا
+                ? colorScheme.onSurface.withValues(alpha: 0.6)
+                : Colors.white.withValues(alpha: 0.7),
             labelStyle: GoogleFonts.tajawal(
               fontWeight: FontWeight.bold,
               fontSize: 16,
@@ -179,17 +179,18 @@ class _QuranHomeNewState extends State<QuranHomeNew>
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
         floatingActionButton: Consumer<QuranProvider>(
-          builder: (context, quranProvider, child) {
-            if (!quranProvider.hasBookmark) return const SizedBox.shrink();
+          builder: (context, qp, child) {
+            // استخدام العلامة المرجعية اليدوية فقط
+            if (!qp.hasBookmark) return const SizedBox.shrink();
             return FloatingActionButton.extended(
               onPressed: () {
-                if (quranProvider.isJuzMode) {
+                if (qp.isJuzMode) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => JuzViewNew(
-                        juz: {'id': quranProvider.lastJuzId},
-                        initialAyahNumber: quranProvider.lastAyahNumber,
+                        juz: {'id': qp.lastJuzId},
+                        initialAyahNumber: qp.lastAyahNumber,
                       ),
                     ),
                   );
@@ -199,28 +200,25 @@ class _QuranHomeNewState extends State<QuranHomeNew>
                     MaterialPageRoute(
                       builder: (context) => SurahViewNew(
                         surah: {
-                          'id': quranProvider.lastSurahId,
-                          'name_ar': quranProvider.bookmarkName?.replaceFirst(
-                            'سورة ',
-                            '',
-                          ),
+                          'id': qp.lastSurahId,
+                          'name_ar': qp.bookmarkName?.replaceFirst('سورة ', ''),
                         },
-                        initialAyahNumber: quranProvider.lastAyahNumber,
+                        initialAyahNumber: qp.lastAyahNumber,
                       ),
                     ),
                   );
                 }
               },
-              icon: const Icon(Icons.bookmark),
+              icon: const Icon(Icons.bookmark, color: Colors.white),
               label: Text(
-                'متابعة القراءة: ${quranProvider.bookmarkName}',
+                'متابعة القراءة: ${qp.bookmarkName}',
                 style: GoogleFonts.tajawal(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               backgroundColor: colorScheme.primary,
-              foregroundColor: colorScheme.onPrimary,
+              foregroundColor: Colors.white,
             );
           },
         ),
@@ -245,9 +243,7 @@ class _QuranHomeNewState extends State<QuranHomeNew>
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(15.0),
                 borderSide: BorderSide(
-                  color: colorScheme.primary.withValues(
-                    alpha: 0.3,
-                  ), // تم التحديث هنا
+                  color: colorScheme.primary.withValues(alpha: 0.3),
                 ),
               ),
               filled: true,
@@ -261,10 +257,20 @@ class _QuranHomeNewState extends State<QuranHomeNew>
                   child: CircularProgressIndicator(color: colorScheme.primary),
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  // أضفت padding bottom لتجنب تغطية الـ FAB لآخر عنصر
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
                   itemCount: _filteredSurahs.length,
                   itemBuilder: (context, index) {
                     final surah = _filteredSurahs[index];
+                    
+                    // استخدام حقل 'type' من قاعدة البيانات للتحقق من مكان النزول
+                    final String typeStr = surah['type']?.toString().toLowerCase() ?? '';
+                    final bool isMeccan = typeStr.contains('meccan') || typeStr.contains('makki');
+
+                    final String revelationIcon = isMeccan
+                        ? 'assets/images/Makkah.png'
+                        : 'assets/images/Madinah.png';
+
                     return Card(
                       elevation: 0.5,
                       shape: RoundedRectangleBorder(
@@ -276,9 +282,7 @@ class _QuranHomeNewState extends State<QuranHomeNew>
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: colorScheme.primary.withValues(
-                              alpha: 0.1,
-                            ), // تم التحديث هنا
+                            color: colorScheme.primary.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           alignment: Alignment.center,
@@ -290,15 +294,28 @@ class _QuranHomeNewState extends State<QuranHomeNew>
                             ),
                           ),
                         ),
-                        title: Text(
-                          surah['name_ar'],
-                          style: GoogleFonts.tajawal(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 17,
-                          ),
+                        title: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              surah['name_ar'] ?? '',
+                              style: GoogleFonts.tajawal(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 17,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Image.asset(
+                              revelationIcon,
+                              width: 22,
+                              height: 22,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.location_on_outlined, size: 18),
+                            ),
+                          ],
                         ),
                         subtitle: Text(
-                          'عدد الآيات: ${surah['ayah_count'] ?? ''}',
+                          'عدد الآيات: ${surah['ayah_count'] ?? surah['number_of_ayahs'] ?? ''}',
                           style: GoogleFonts.tajawal(fontSize: 13),
                         ),
                         trailing: Icon(
@@ -327,7 +344,7 @@ class _QuranHomeNewState extends State<QuranHomeNew>
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
       itemCount: _juzs.length,
       itemBuilder: (context, index) {
         final juz = _juzs[index];
@@ -339,9 +356,7 @@ class _QuranHomeNewState extends State<QuranHomeNew>
           margin: const EdgeInsets.only(bottom: 12.0),
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: colorScheme.secondary.withValues(
-                alpha: 0.8,
-              ), // تم التحديث هنا
+              backgroundColor: colorScheme.secondary.withValues(alpha: 0.8),
               foregroundColor: Colors.white,
               child: Text(
                 '${juz['id']}',
@@ -400,7 +415,7 @@ class _QuranHomeNewState extends State<QuranHomeNew>
                 )
               : ListView.builder(
                   itemCount: _searchResults.length,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
                   itemBuilder: (context, index) {
                     final result = _searchResults[index];
                     return Card(
@@ -430,9 +445,7 @@ class _QuranHomeNewState extends State<QuranHomeNew>
                         trailing: Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: colorScheme.primary.withValues(
-                              alpha: 0.1,
-                            ), // تم التحديث هنا
+                            color: colorScheme.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(

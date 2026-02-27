@@ -91,6 +91,8 @@ flutter:
     - assets/images/quraan.png
     - assets/images/kaaba.png
     - assets/images/nameborder.png
+    - assets/images/Madinah.png
+    - assets/images/Makkah.png
     - assets/fonts/
 
   fonts:
