@@ -333,6 +333,19 @@ class _JuzPageItemState extends State<JuzPageItem> {
         .replaceAll('\u06E2', '')
         .replaceAll('\u06ED', '')
         .replaceAll('ۏ', '');
+    
+    // Add spacing around Quranic stop signs
+    cleaned = cleaned
+        .replaceAll(RegExp(r'(صلى)'), ' صلى ')
+        .replaceAll(RegExp(r'(قلى)'), ' قلى ')
+        .replaceAll(RegExp(r'(\sج\s)'), ' ج ')
+        .replaceAll(RegExp(r'(\sلا\s)'), ' لا ')
+        .replaceAll(RegExp(r'(مـ)'), ' مـ ')
+        .replaceAll(RegExp(r'(\.\.\.)'), ' ... ')
+        .replaceAll(RegExp(r'(۝)'), ' ۝ ')
+        .replaceAll(RegExp(r'(\sق\s)'), ' ق ')
+        .replaceAll(RegExp(r'(صلي)'), ' صلي ');
+    
     return cleaned.trim();
   }
 
@@ -427,8 +440,8 @@ class _JuzPageItemState extends State<JuzPageItem> {
               style: TextStyle(
                 fontFamily: 'AmiriQuran',
                 fontSize: quranProvider.fontSize,
-                height: 1.8,
-                letterSpacing: -2.0,
+                height: 2.3,
+                letterSpacing: -5.0,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
@@ -436,7 +449,7 @@ class _JuzPageItemState extends State<JuzPageItem> {
               child: GestureDetector(
                 onTap: () => _showTafsirDialog(ayah),
                 child: Transform.translate(
-                  offset: Offset(0, 4),
+                  offset: Offset(0, 14),
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
