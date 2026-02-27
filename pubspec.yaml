@@ -93,6 +93,7 @@ flutter:
     - assets/images/nameborder.png
     - assets/images/Madinah.png
     - assets/images/Makkah.png
+    - assets/images/aya_number.png
     - assets/fonts/
 
   fonts:

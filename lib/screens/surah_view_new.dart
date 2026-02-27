@@ -567,21 +567,41 @@ class _SurahPageContentState extends State<SurahPageContent> {
                           TextStyle(
                             fontFamily: 'AmiriQuran',
                             fontSize: quranProvider.fontSize,
-                            height: 2.2,
+                            height: 1.8,
+                            letterSpacing: -2.0,
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
                           ayah,
                         ),
-                        TextSpan(
-                          text: ' ﴿$num﴾ ',
-                          style: TextStyle(
-                            fontFamily: 'AmiriQuran',
-                            fontSize: quranProvider.fontSize * 0.8,
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.bold,
+                        WidgetSpan(
+                          child: GestureDetector(
+                            onTap: () => _showTafsirDialog(ayah),
+                            child: Transform.translate(
+                              offset: Offset(0, 4),
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Image.asset(
+                                    'assets/images/aya_number.png',
+                                    width: quranProvider.fontSize * 1.8,
+                                    height: quranProvider.fontSize * 1.8,
+                                  ),
+                                  Transform.translate(
+                                    offset: Offset(0, -4),
+                                    child: Text(
+                                      '$num',
+                                      style: TextStyle(
+                                        fontFamily: 'AmiriQuran',
+                                        fontSize: quranProvider.fontSize * 0.6,
+                                        color: Theme.of(context).colorScheme.primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                          recognizer: TapGestureRecognizer()
-                            ..onTap = () => _showTafsirDialog(ayah),
                         ),
                       ],
                     );
