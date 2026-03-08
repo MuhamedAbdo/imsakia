@@ -1,8 +1,29 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:audioplayers/audioplayers.dart';
 
+MyAudioHandler? audioHandler;
+
+Future<void> initAudioService() async {
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
+    return;
+  }
+  audioHandler = await AudioService.init(
+    builder: () => MyAudioHandler(AudioPlayer()),
+    config: const AudioServiceConfig(
+      androidNotificationChannelId: 'com.ryanheise.bg_audio.channel.audio',
+      androidNotificationChannelName: 'Audio playback',
+      androidNotificationOngoing: true,
+      androidStopForegroundOnPause: true, // Allow swipe to dismiss when paused
+    ),
+  );
+}
+
 class MyAudioHandler extends BaseAudioHandler with SeekHandler {
   final AudioPlayer _player;
+  AudioPlayer get player => _player;
+
   void Function()? onNext;
   void Function()? onPrevious;
   void Function()? onStopCustom;
@@ -16,13 +37,15 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
         controls: [
           MediaControl.skipToPrevious,
           playing ? MediaControl.pause : MediaControl.play,
-          MediaControl.stop,
           MediaControl.skipToNext,
+          MediaControl.stop,
         ],
         systemActions: const {
           MediaAction.seek,
           MediaAction.seekForward,
           MediaAction.seekBackward,
+          MediaAction.stop,
+          MediaAction.playPause,
         },
       ));
     });
@@ -45,6 +68,33 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
       ));
       // Auto-next will be handled in the provider, which also listens to onPlayerComplete
     });
+  }
+
+  void setMediaItem({
+    required String id,
+    required String title,
+    required String artist,
+    required Uri artUri,
+  }) {
+    mediaItem.add(MediaItem(
+      id: id,
+      album: "تلاوات القرآن",
+      title: title,
+      artist: artist,
+      artUri: artUri,
+    ));
+    
+    // Ensure the notification appears immediately while buffering
+    playbackState.add(playbackState.value.copyWith(
+      processingState: AudioProcessingState.buffering,
+      playing: true,
+      controls: [
+        MediaControl.skipToPrevious,
+        MediaControl.pause,
+        MediaControl.skipToNext,
+        MediaControl.stop,
+      ],
+    ));
   }
 
   @override

@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/prayer_times_service.dart';
+import '../widgets/neumorphic_box.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool isFirstTimeSetup;
@@ -392,28 +393,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required IconData icon,
     required List<Widget> children,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 15),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: Colors.green, size: 20),
-              const SizedBox(width: 10),
-              Text(
-                title,
-                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          const Divider(height: 25),
-          ...children,
-        ],
+    return NeumorphicBox(
+      borderRadius: 20,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: Colors.green, size: 20),
+                const SizedBox(width: 10),
+                Text(
+                  title,
+                  style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const Divider(height: 25),
+            ...children,
+          ],
+        ),
       ),
     );
   }

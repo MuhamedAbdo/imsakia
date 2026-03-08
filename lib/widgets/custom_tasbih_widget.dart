@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:math' as math;
+import 'neumorphic_box.dart';
 
 class WoodGrainPainter extends CustomPainter {
   final bool isDark;
@@ -218,35 +219,13 @@ class _CustomTasbihState extends State<CustomTasbih>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          decoration: BoxDecoration(
-            color: isDark
-                ? const Color(0xFF2C1810).withValues(alpha: 0.9)
-                : const Color(0xFF8B4513).withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isDark ? const Color(0xFF1A0E08) : const Color(0xFF654321),
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
-              ),
-              BoxShadow(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.black.withValues(alpha: 0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+        NeumorphicBox(
+          borderRadius: 20,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               Text(
                 'تسبيحات اليوم',
                 style: TextStyle(
@@ -287,7 +266,8 @@ class _CustomTasbihState extends State<CustomTasbih>
             ],
           ),
         ),
-        const SizedBox(height: 25),
+      ),
+      const SizedBox(height: 25),
         Container(
           width: 280,
           height: 450,

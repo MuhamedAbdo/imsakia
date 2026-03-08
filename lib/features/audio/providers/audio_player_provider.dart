@@ -1,19 +1,21 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/surah_audio.dart';
 import '../models/reciter.dart';
-import 'package:audio_service/audio_service.dart';
 import '../services/audio_handler.dart';
 
 class AudioPlayerProvider with ChangeNotifier {
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  late final AudioPlayer _audioPlayer;
 
   SurahAudio? _currentSurah;
   Reciter? _currentReciter;
   List<SurahAudio> _currentPlaylist = [];
+  Uri? _localArtUri;
 
   bool _isPlaying = false;
   Duration _currentPosition = Duration.zero;
@@ -26,36 +28,15 @@ class AudioPlayerProvider with ChangeNotifier {
   Reciter? get currentReciter => _currentReciter;
   List<SurahAudio> get currentPlaylist => _currentPlaylist;
 
-  MyAudioHandler? _audioHandler;
-
   AudioPlayerProvider() {
+    _audioPlayer = audioHandler?.player ?? AudioPlayer();
     _initAudioSession();
     _setupAudioListeners();
-    _initAudioHandler();
-  }
-
-  Future<void> _initAudioHandler() async {
-    try {
-      // audio_service does not have native Windows/Linux implementations yet.
-      // We skip initialization on these platforms to prevent MissingPluginException.
-      if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
-        return;
-      }
-
-      _audioHandler = await AudioService.init(
-        builder: () => MyAudioHandler(_audioPlayer),
-        config: const AudioServiceConfig(
-          androidNotificationChannelId: 'com.yourcompany.imsakia.channel.audio',
-          androidNotificationChannelName: 'تلاوات القرآن',
-          androidNotificationOngoing: true,
-        ),
-      );
-
-      _audioHandler!.onNext = skipToNext;
-      _audioHandler!.onPrevious = skipToPrevious;
-      _audioHandler!.onStopCustom = stop;
-    } catch (e) {
-      debugPrint("AudioService could not be initialized: $e");
+    
+    if (audioHandler != null) {
+      audioHandler!.onNext = skipToNext;
+      audioHandler!.onPrevious = skipToPrevious;
+      audioHandler!.onStopCustom = stop;
     }
   }
 
@@ -132,13 +113,15 @@ class AudioPlayerProvider with ChangeNotifier {
     notifyListeners();
 
     // Update audio_service metadata
-    _audioHandler?.mediaItem.add(MediaItem(
+    // We use a local file URI by copying the asset image to the app directory first
+    Uri? artUri = await _getArtUri();
+    
+    audioHandler?.setMediaItem(
       id: surah.id.toString(),
-      album: "تلاوات القرآن",
       title: "سورة ${surah.name}",
       artist: reciter.name,
-      artUri: Uri.parse(reciter.serverUrl), // Can be anything, just a placeholder or reciter image
-    ));
+      artUri: artUri ?? Uri.parse('https://raw.githubusercontent.com/ryanheise/audio_service/master/example/web/media/art.jpg'),
+    );
 
     // Reset volume mapping
     await _audioPlayer.setVolume(1.0);
@@ -148,6 +131,27 @@ class AudioPlayerProvider with ChangeNotifier {
       await _audioPlayer.play(DeviceFileSource(surah.localPath!));
     } else {
       await _audioPlayer.play(UrlSource(surah.audioUrl));
+    }
+  }
+
+  Future<Uri?> _getArtUri() async {
+    if (_localArtUri != null) return _localArtUri;
+    try {
+      final docDir = await getApplicationDocumentsDirectory();
+      final file = File('${docDir.path}/app_logo.png');
+      
+      // If not already copied, extract from assets
+      if (!await file.exists()) {
+        final byteData = await rootBundle.load('assets/images/quranlogo.png');
+        await file.writeAsBytes(byteData.buffer.asUint8List(
+          byteData.offsetInBytes, byteData.lengthInBytes));
+      }
+      
+      _localArtUri = Uri.file(file.path);
+      return _localArtUri;
+    } catch (e) {
+      debugPrint('Error loading local artUri: $e');
+      return null;
     }
   }
 
@@ -173,7 +177,7 @@ class AudioPlayerProvider with ChangeNotifier {
     _currentPosition = Duration.zero;
     _currentSurah = null;
     _currentReciter = null;
-    _audioHandler?.stop();
+    audioHandler?.stop();
     notifyListeners();
   }
 

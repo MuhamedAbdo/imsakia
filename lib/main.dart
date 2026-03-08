@@ -16,6 +16,7 @@ import 'package:imsakia/features/quran_madinah/providers/quran_provider.dart'
     as madinah;
 import 'features/audio/providers/audio_player_provider.dart';
 import 'features/audio/providers/download_provider.dart';
+import 'features/audio/services/audio_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,9 +24,12 @@ void main() async {
   // Initialize Arabic locale for date formatting
   await initializeDateFormatting('ar', null);
 
-  // تهيئة الخدمات
-  await HadithService.instance.initialize();
-  await AzkarService.instance.initialize();
+  // تأخير تهيئة الخدمات غير الحرجة لتسريع بدء التطبيق وتجنب تقطيع الواجهة
+  Future.delayed(const Duration(milliseconds: 500), () async {
+    await initAudioService();
+    await HadithService.instance.initialize();
+    await AzkarService.instance.initialize();
+  });
   final settingsProvider = SettingsProvider();
   await settingsProvider.initialize();
 

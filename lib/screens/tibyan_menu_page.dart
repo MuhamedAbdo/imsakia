@@ -12,6 +12,7 @@ import 'allah_names_page.dart'; // استيراد صفحة أسماء الله �
 import 'radio_page.dart'; // استيراد صفحة الراديو
 import 'quran_selection_page.dart';
 import '../features/audio/screens/audio_reciters_screen.dart'; // Audio module
+import '../widgets/neumorphic_box.dart';
 
 /// صفحة بسيطة للأقسام التي تحت التطوير
 class UnderDevelopmentPage extends StatelessWidget {
@@ -101,7 +102,7 @@ class TibyanMenuPage extends StatelessWidget {
     final Color secondaryTextColor = isDarkMode
         ? Colors.white70
         : Colors.brown[400]!;
-    final Color cardColor = isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
+
 
     // القائمة المحدثة مع الصور الجديدة
     final List<Map<String, dynamic>> menuItems = [
@@ -209,66 +210,41 @@ class TibyanMenuPage extends StatelessWidget {
                   horizontal: 16.0,
                   vertical: 8.0,
                 ),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const QuranSelectionPage(),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    height: 115,
-                    decoration: BoxDecoration(
-                      color: cardColor,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: isDarkMode
-                              ? Colors.black.withValues(alpha: 0.6)
-                              : Colors.blue.withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                          spreadRadius: 2,
+                child: NeumorphicBox(
+                  borderRadius: 20,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const QuranSelectionPage(),
                         ),
-                        BoxShadow(
-                          color: isDarkMode
-                              ? Colors.blue.withValues(alpha: 0.1)
-                              : Colors.white.withValues(alpha: 0.8),
-                          blurRadius: 15,
-                          offset: const Offset(-2, -2),
-                          spreadRadius: 1,
-                        ),
-                      ],
-                      border: Border.all(
-                        color: isDarkMode
-                            ? Colors.blue.withValues(alpha: 0.3)
-                            : Colors.blue.withValues(alpha: 0.2),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Text(
-                          'القرآن الكريم',
-                          style: GoogleFonts.tajawal(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: primaryTextColor,
+                      );
+                    },
+                    child: SizedBox(
+                      height: 115,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Text(
+                            'القرآن الكريم',
+                            style: GoogleFonts.tajawal(
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                              color: primaryTextColor,
+                            ),
                           ),
-                        ),
-                        Hero(
-                          tag: 'quran_logo_hero',
-                          child: Image.asset(
-                            'assets/images/quranlogo.png', // Changed to match destination for smooth Hero animation
-                            height: 70,
-                            fit: BoxFit.contain,
+                          Hero(
+                            tag: 'quran_logo_hero',
+                            child: Image.asset(
+                              'assets/images/quranlogo.png', // Changed to match destination for smooth Hero animation
+                              height: 70,
+                              fit: BoxFit.contain,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -287,120 +263,96 @@ class TibyanMenuPage extends StatelessWidget {
                 ),
                 delegate: SliverChildBuilderDelegate((context, index) {
                   final item = menuItems[index];
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(15),
-                    onTap: () {
-                      if (item['title'] == 'مكتبة الحديث') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const BukhariLibraryPage(),
-                          ),
-                        );
-                      } else if (item['title'] == 'أسماء الله الحسنى') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AllahNamesPage(),
-                          ), // الانتقال لصفحة الأسماء
-                        );
-                      } else if (item['title'] == 'صوتيات') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AudioRecitersScreen(),
-                          ),
-                        );
-                      } else if (item['title'] == 'الراديو') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const RadioPage(),
-                          ), // الانتقال لصفحة الراديو
-                        );
-                      } else if (item['title'] == 'التقويم الهجري') {
-                        // التعديل هنا
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CalendarPage(),
-                          ),
-                        );
-                      } else {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const UnderDevelopmentPage(),
-                          ),
-                        );
-                      }
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: cardColor,
-                        borderRadius: BorderRadius.circular(15),
-                        boxShadow: [
-                          BoxShadow(
-                            color: isDarkMode
-                                ? Colors.black.withValues(alpha: 0.4)
-                                : Colors.grey.withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 6),
-                            spreadRadius: 1,
-                          ),
-                          BoxShadow(
-                            color: isDarkMode
-                                ? Colors.white.withValues(alpha: 0.05)
-                                : Colors.white.withValues(alpha: 0.6),
-                            blurRadius: 10,
-                            offset: const Offset(-1, -1),
-                            spreadRadius: 1,
-                          ),
-                        ],
-                        border: Border.all(
-                          color: isDarkMode
-                              ? Colors.white.withValues(alpha: 0.1)
-                              : Colors.grey.withValues(alpha: 0.2),
-                          width: 1,
+                  return NeumorphicBox(
+                    borderRadius: 15,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(15),
+                      onTap: () {
+                        if (item['title'] == 'مكتبة الحديث') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const BukhariLibraryPage(),
+                            ),
+                          );
+                        } else if (item['title'] == 'أسماء الله الحسنى') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AllahNamesPage(),
+                            ), // الانتقال لصفحة الأسماء
+                          );
+                        } else if (item['title'] == 'صوتيات') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AudioRecitersScreen(),
+                            ),
+                          );
+                        } else if (item['title'] == 'الراديو') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const RadioPage(),
+                            ), // الانتقال لصفحة الراديو
+                          );
+                        } else if (item['title'] == 'التقويم الهجري') {
+                          // التعديل هنا
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CalendarPage(),
+                            ),
+                          );
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const UnderDevelopmentPage(),
+                            ),
+                          );
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // منطق عرض الأيقونة أو الصورة (SVG أو PNG)
+                            if (item['isAsset'] == true)
+                              item['isSvg'] == true
+                                  ? SvgPicture.asset(
+                                      item['asset'],
+                                      height: 35,
+                                      width: 35,
+                                      colorFilter: ColorFilter.mode(
+                                        item['color'],
+                                        BlendMode.srcIn,
+                                      ),
+                                    )
+                                  : Image.asset(
+                                      item['asset'],
+                                      height: 35,
+                                      width: 35,
+                                    )
+                            else
+                              Icon(
+                                item['icon'] as IconData,
+                                size: 32,
+                                color: item['color'] as Color,
+                              ),
+                            const SizedBox(height: 10),
+                            Text(
+                              item['title'] as String,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.tajawal(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: primaryTextColor,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // منطق عرض الأيقونة أو الصورة (SVG أو PNG)
-                          if (item['isAsset'] == true)
-                            item['isSvg'] == true
-                                ? SvgPicture.asset(
-                                    item['asset'],
-                                    height: 35,
-                                    width: 35,
-                                    colorFilter: ColorFilter.mode(
-                                      item['color'],
-                                      BlendMode.srcIn,
-                                    ),
-                                  )
-                                : Image.asset(
-                                    item['asset'],
-                                    height: 35,
-                                    width: 35,
-                                  )
-                          else
-                            Icon(
-                              item['icon'] as IconData,
-                              size: 32,
-                              color: item['color'] as Color,
-                            ),
-                          const SizedBox(height: 10),
-                          Text(
-                            item['title'] as String,
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.tajawal(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                              color: primaryTextColor,
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   );
@@ -434,80 +386,67 @@ class TibyanMenuPage extends StatelessWidget {
 
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
-                    child: InkWell(
-                      onTap: () => _showHadithDetails(context, hadithText),
-                      borderRadius: BorderRadius.circular(25),
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: isDarkMode
-                              ? const Color(0xFF2A2A2A)
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(25),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.06),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                          border: Border.all(
-                            color: Colors.amber.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.auto_awesome,
-                                  color: Colors.amber,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  'حديث اليوم',
-                                  style: GoogleFonts.tajawal(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 17,
-                                    color: Colors.amber[800],
+                    child: NeumorphicBox(
+                      borderRadius: 25,
+                      child: InkWell(
+                        onTap: () => _showHadithDetails(context, hadithText),
+                        borderRadius: BorderRadius.circular(25),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.auto_awesome,
+                                    color: Colors.amber,
+                                    size: 20,
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 15),
-                            Text(
-                              hadithText,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.amiri(
-                                fontSize: 18,
-                                height: 1.6,
-                                color: isDarkMode
-                                    ? Colors.white70
-                                    : Colors.black87,
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'حديث اليوم',
+                                    style: GoogleFonts.tajawal(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 17,
+                                      color: Colors.amber[800],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(height: 15),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                Text(
-                                  'إضغط للتفاصيل',
-                                  style: GoogleFonts.tajawal(
-                                    fontSize: 13,
-                                    color: Colors.blueAccent,
-                                    fontWeight: FontWeight.w600,
+                              const SizedBox(height: 15),
+                              Text(
+                                hadithText,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.amiri(
+                                  fontSize: 18,
+                                  height: 1.6,
+                                  color: isDarkMode
+                                      ? Colors.white70
+                                      : Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 15),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    'إضغط للتفاصيل',
+                                    style: GoogleFonts.tajawal(
+                                      fontSize: 13,
+                                      color: Colors.blueAccent,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
-                                ),
-                                const Icon(
-                                  Icons.arrow_right_alt,
-                                  color: Colors.blueAccent,
-                                ),
-                              ],
-                            ),
-                          ],
+                                  const Icon(
+                                    Icons.arrow_right_alt,
+                                    color: Colors.blueAccent,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
