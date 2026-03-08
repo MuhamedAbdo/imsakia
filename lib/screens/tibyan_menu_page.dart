@@ -11,6 +11,7 @@ import 'bukhari_library_page.dart';
 import 'allah_names_page.dart'; // استيراد صفحة أسماء الله الحسنى
 import 'radio_page.dart'; // استيراد صفحة الراديو
 import 'quran_selection_page.dart';
+import '../features/audio/screens/audio_reciters_screen.dart'; // Audio module
 
 /// صفحة بسيطة للأقسام التي تحت التطوير
 class UnderDevelopmentPage extends StatelessWidget {
@@ -302,6 +303,13 @@ class TibyanMenuPage extends StatelessWidget {
                           MaterialPageRoute(
                             builder: (context) => const AllahNamesPage(),
                           ), // الانتقال لصفحة الأسماء
+                        );
+                      } else if (item['title'] == 'صوتيات') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AudioRecitersScreen(),
+                          ),
                         );
                       } else if (item['title'] == 'الراديو') {
                         Navigator.push(

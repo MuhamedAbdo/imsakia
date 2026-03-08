@@ -14,6 +14,8 @@ import 'services/azkar_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:imsakia/features/quran_madinah/providers/quran_provider.dart'
     as madinah;
+import 'features/audio/providers/audio_player_provider.dart';
+import 'features/audio/providers/download_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,6 +52,8 @@ class MyApp extends StatelessWidget {
           create: (_) => BukhariProvider(),
         ), // إضافة البروفايدر هنا
         ChangeNotifierProvider(create: (_) => madinah.QuranProvider(prefs)),
+        ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
+        ChangeNotifierProvider(create: (_) => DownloadProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
