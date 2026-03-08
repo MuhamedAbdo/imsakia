@@ -108,7 +108,7 @@ class _MushafScreenState extends State<MushafScreen> {
             "الجزء $_currentJuz | $_hizbInfo",
             style: TextStyle(
               fontSize: 12,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.8),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
             ),
           ),
         ],
@@ -191,7 +191,7 @@ class _MushafScreenState extends State<MushafScreen> {
         height: 48,
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
-          border: Border(top: BorderSide(color: Colors.grey.withOpacity(0.2))),
+          border: Border(top: BorderSide(color: Colors.grey.withValues(alpha: 0.2))),
         ),
         alignment: Alignment.center,
         child: Text(

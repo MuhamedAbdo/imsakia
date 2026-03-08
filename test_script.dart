@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 class ParsedSpanData {
   final String text;
@@ -52,7 +53,7 @@ List<ParsedSpanData> parseVerse(String text, String? searchQuery) {
 
     // DEBUG:
     if (cleanWord.contains('لل')) {
-      print(
+      debugPrint(
         "WORD: $word -> NO DIACRITICS: $noDiacritics -> CLEAN: $cleanWord -> isAllah: $isAllah",
       );
     }
@@ -67,8 +68,8 @@ void main() async {
 
   int mismatchCount = 0;
   for (var item in jsonList) {
-    int ayaNo = item['aya_no'];
-    int suraNo = item['sura_no'];
+    // int ayaNo = item['aya_no'];
+    // int suraNo = item['sura_no'];
     // Removed the skip condition to test ALL ayahs
 
     final text = item['aya_text'] as String;
@@ -92,5 +93,5 @@ void main() async {
       }
     }
   }
-  print("Total mismatches (excluding Basmalah): $mismatchCount");
+  debugPrint("Total mismatches (excluding Basmalah): $mismatchCount");
 }

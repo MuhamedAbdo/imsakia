@@ -222,7 +222,7 @@ class _RadioPageState extends State<RadioPage> {
                   color: const Color(0xff2196F3),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       blurRadius: 10,
                       offset: const Offset(0, -2),
                     ),
@@ -245,7 +245,7 @@ class _RadioPageState extends State<RadioPage> {
                             Text(
                               'الإذاعة الحالية',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
+                                color: Colors.white.withValues(alpha: 0.8),
                                 fontSize: 12,
                                 fontFamily: 'Tajawal',
                               ),
@@ -276,7 +276,7 @@ class _RadioPageState extends State<RadioPage> {
                           width: 50,
                           height: 50,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
@@ -302,7 +302,7 @@ class _RadioPageState extends State<RadioPage> {
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(

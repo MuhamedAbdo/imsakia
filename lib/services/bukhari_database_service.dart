@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -53,7 +54,7 @@ class BukhariDatabaseService {
         return results.first;
       }
     } catch (e) {
-      print("خطأ في جلب حديث اليوم: $e");
+      debugPrint("خطأ في جلب حديث اليوم: $e");
     }
     return null;
   }

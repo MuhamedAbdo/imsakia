@@ -148,7 +148,7 @@ class _AllahNamesPageState extends State<AllahNamesPage> {
               allahNamesAr[index]["text"] ?? "",
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: textColor.withOpacity(0.7), fontFamily: 'cairo', fontSize: 13),
+              style: TextStyle(color: textColor.withValues(alpha: 0.7), fontFamily: 'cairo', fontSize: 13),
             ),
             trailing: Icon(Icons.arrow_back_ios_new, size: 14, color: accentColor),
           ),

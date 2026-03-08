@@ -90,13 +90,13 @@ class QuranSelectionPage extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: isDark ? Colors.black26 : Colors.black.withOpacity(0.05),
+              color: isDark ? Colors.black26 : Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
           ],
           border: Border.all(
-            color: isDark ? Colors.white10 : primaryColor.withOpacity(0.1),
+            color: isDark ? Colors.white10 : primaryColor.withValues(alpha: 0.1),
           ),
         ),
         child: Row(
@@ -104,7 +104,7 @@ class QuranSelectionPage extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: primaryColor.withOpacity(0.1),
+                color: primaryColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: primaryColor, size: 32),
@@ -128,7 +128,7 @@ class QuranSelectionPage extends StatelessWidget {
                       fontSize: 14,
                       color: Theme.of(
                         context,
-                      ).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                      ).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -136,7 +136,7 @@ class QuranSelectionPage extends StatelessWidget {
             ),
             Icon(
               Icons.arrow_forward_ios,
-              color: primaryColor.withOpacity(0.5),
+              color: primaryColor.withValues(alpha: 0.5),
               size: 20,
             ),
           ],

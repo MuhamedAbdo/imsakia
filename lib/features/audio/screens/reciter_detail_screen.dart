@@ -434,10 +434,16 @@ class _ReciterDetailScreenState extends State<ReciterDetailScreen> {
                     } else {
                       // Offline Guard
                       if (!isDownloaded) {
+                        final scaffoldMessenger = ScaffoldMessenger.of(context);
                         var connectivityResult = await (Connectivity().checkConnectivity());
                         if (connectivityResult.contains(ConnectivityResult.none)) {
                           if (mounted) {
-                            _showMessage(context, "يرجى الاتصال بالإنترنت لتشغيل هذه السورة", Colors.red);
+                            scaffoldMessenger.showSnackBar(
+                              const SnackBar(
+                                content: Text("يرجى الاتصال بالإنترنت لتشغيل هذه السورة"),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
                           }
                           return;
                         }

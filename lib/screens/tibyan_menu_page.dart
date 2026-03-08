@@ -446,13 +446,13 @@ class TibyanMenuPage extends StatelessWidget {
                           borderRadius: BorderRadius.circular(25),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.06),
+                              color: Colors.black.withValues(alpha: 0.06),
                               blurRadius: 20,
                               offset: const Offset(0, 10),
                             ),
                           ],
                           border: Border.all(
-                            color: Colors.amber.withOpacity(0.2),
+                            color: Colors.amber.withValues(alpha: 0.2),
                           ),
                         ),
                         child: Column(
