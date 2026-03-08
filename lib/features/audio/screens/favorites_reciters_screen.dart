@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +16,18 @@ class FavoritesRecitersScreen extends StatefulWidget {
       _FavoritesRecitersScreenState();
 }
 
+// Top-level function for Isolate:
+List<Reciter> _parseFavoriteReciters(Map<String, dynamic> data) {
+  final String jsonString = data['jsonString'];
+  final List<String> favoriteIds = List<String>.from(data['favoriteIds']);
+  
+  final List<dynamic> recitersList = jsonDecode(jsonString)['reciters'];
+  return recitersList
+      .map((json) => Reciter.fromJson(json))
+      .where((r) => r.serverUrl.isNotEmpty && favoriteIds.contains(r.id))
+      .toList();
+}
+
 class _FavoritesRecitersScreenState extends State<FavoritesRecitersScreen> {
   final Dio _dio = Dio();
   List<Reciter> _favoriteReciters = [];
@@ -23,45 +37,75 @@ class _FavoritesRecitersScreenState extends State<FavoritesRecitersScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchAndFilterFavorites();
+    _loadInitialData();
   }
 
-  Future<void> _fetchAndFilterFavorites() async {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
+  Future<void> _loadInitialData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> favoriteIds = prefs.getStringList('favorite_reciters') ?? [];
 
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final List<String> favoriteIds =
-          prefs.getStringList('favorite_reciters') ?? [];
-
-      if (favoriteIds.isEmpty) {
+    if (favoriteIds.isEmpty) {
+      if (mounted) {
         setState(() {
           _favoriteReciters = [];
           _isLoading = false;
         });
-        return;
       }
+      return;
+    }
 
+    await _loadCachedFavorites(favoriteIds);
+    _fetchAndFilterFavorites(favoriteIds); // fetch silently in background
+  }
+
+  Future<void> _loadCachedFavorites(List<String> favoriteIds) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cachedJson = prefs.getString('audio_reciters_cache');
+    if (cachedJson != null) {
+      try {
+        final parsed = await compute(_parseFavoriteReciters, {
+          'jsonString': cachedJson,
+          'favoriteIds': favoriteIds,
+        });
+        
+        if (mounted) {
+          setState(() {
+            _favoriteReciters = parsed;
+            _isLoading = false;
+          });
+        }
+      } catch (e) {
+        // Cache corrupted
+      }
+    }
+  }
+
+  Future<void> _fetchAndFilterFavorites(List<String> favoriteIds) async {
+    if (_favoriteReciters.isEmpty) {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+    }
+
+    try {
       final response = await _dio.get(
         'https://mp3quran.net/api/v3/reciters?language=ar',
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> recitersList = response.data['reciters'];
+        final prefs = await SharedPreferences.getInstance();
+        prefs.setString('audio_reciters_cache', jsonEncode(response.data));
 
-        List<Reciter> mappedList = recitersList
-            .map((json) => Reciter.fromJson(json))
-            .where(
-              (r) => r.serverUrl.isNotEmpty && favoriteIds.contains(r.id),
-            ) // Filter broken and non-fav
-            .toList();
+        final jsonString = jsonEncode(response.data);
+        final parsed = await compute(_parseFavoriteReciters, {
+          'jsonString': jsonString,
+          'favoriteIds': favoriteIds,
+        });
 
         if (mounted) {
           setState(() {
-            _favoriteReciters = mappedList;
+            _favoriteReciters = parsed;
             _isLoading = false;
           });
         }
@@ -69,7 +113,7 @@ class _FavoritesRecitersScreenState extends State<FavoritesRecitersScreen> {
         throw Exception('Failed to load API');
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && _favoriteReciters.isEmpty) {
         setState(() {
           _isLoading = false;
           _hasError = true;
@@ -146,7 +190,12 @@ class _FavoritesRecitersScreenState extends State<FavoritesRecitersScreen> {
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
-              onPressed: _fetchAndFilterFavorites,
+              onPressed: () {
+                SharedPreferences.getInstance().then((prefs) {
+                  final ids = prefs.getStringList('favorite_reciters') ?? [];
+                  _fetchAndFilterFavorites(ids);
+                });
+              },
               icon: const Icon(Icons.refresh),
               label: Text("إعادة المحاولة", style: GoogleFonts.tajawal()),
             ),

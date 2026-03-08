@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/surah_audio.dart';
+import '../models/reciter.dart';
 
 class DownloadProvider with ChangeNotifier {
   final Dio _dio = Dio();
@@ -18,6 +19,9 @@ class DownloadProvider with ChangeNotifier {
 
   // Cancel tokens for active downloads
   final Map<String, CancelToken> _cancelTokens = {};
+
+  bool _isDownloadingAll = false;
+  bool get isDownloadingAll => _isDownloadingAll;
 
   DownloadProvider() {
     _initStorage();
@@ -137,6 +141,64 @@ class DownloadProvider with ChangeNotifier {
     if (_cancelTokens.containsKey(audioKey)) {
       _cancelTokens[audioKey]!.cancel("Cancelled by user");
       _cleanupFailedDownload(audioKey, reciterId, surahId);
+    }
+  }
+
+  Future<void> downloadAll(
+    Reciter reciter,
+    List<SurahAudio> surahs, {
+    required Function(String) onStatus,
+    required Function() onComplete,
+  }) async {
+    if (_isDownloadingAll) return;
+    _isDownloadingAll = true;
+    notifyListeners();
+
+    for (var surah in surahs) {
+      if (!_isDownloadingAll) break; // Check if cancelled
+
+      final audioKey = _getAudioKey(reciter.id, surah.id);
+      if (_localPaths.containsKey(audioKey)) continue; // Already downloaded
+
+      try {
+        final completer = Completer<void>();
+        
+        await downloadSurah(
+          surah,
+          onStart: () => onStatus("جاري تحميل سورة ${surah.name}..."),
+          onSuccess: () {
+            if (!completer.isCompleted) completer.complete();
+          },
+          onError: (err) {
+            onStatus("خطأ في ${surah.name}: $err");
+            if (!completer.isCompleted) completer.complete(); // Resilience: continue even on error
+          },
+        );
+        
+        await completer.future;
+      } catch (e) {
+        onStatus("تم تخطي ${surah.name} بسبب خطأ");
+        continue;
+      }
+    }
+
+    _isDownloadingAll = false;
+    notifyListeners();
+    onComplete();
+  }
+
+  void cancelAllDownloads(String reciterId) {
+    _isDownloadingAll = false;
+    notifyListeners();
+
+    // Cancel all active individual downloads for this reciter
+    final keys = _cancelTokens.keys.where((k) => k.startsWith('${reciterId}_')).toList();
+    for (var key in keys) {
+      _cancelTokens[key]?.cancel("Cancelled bulk download");
+      final parts = key.split('_');
+      if (parts.length == 2) {
+        _cleanupFailedDownload(key, parts[0], int.tryParse(parts[1]) ?? 0);
+      }
     }
   }
 

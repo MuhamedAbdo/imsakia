@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +14,15 @@ class AudioRecitersScreen extends StatefulWidget {
 
   @override
   State<AudioRecitersScreen> createState() => _AudioRecitersScreenState();
+}
+
+// Top-level function for Isolate:
+List<Reciter> _parseRecitersResponse(String jsonString) {
+  final List<dynamic> recitersList = jsonDecode(jsonString)['reciters'];
+  return recitersList
+      .map((json) => Reciter.fromJson(json))
+      .where((r) => r.serverUrl.isNotEmpty)
+      .toList();
 }
 
 class _AudioRecitersScreenState extends State<AudioRecitersScreen> {
@@ -30,8 +41,44 @@ class _AudioRecitersScreenState extends State<AudioRecitersScreen> {
   @override
   void initState() {
     super.initState();
-    _loadFavorites();
-    _fetchReciters();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    await _loadFavorites();
+    await _loadCachedReciters();
+    _fetchReciters(); // Silently update in background
+  }
+
+  Future<void> _loadCachedReciters() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cachedJson = prefs.getString('audio_reciters_cache');
+    if (cachedJson != null) {
+      try {
+        final parsed = await compute(_parseRecitersResponse, cachedJson);
+        _applyRecitersList(parsed);
+      } catch (e) {
+        // Cache corrupted
+      }
+    }
+  }
+
+  void _applyRecitersList(List<Reciter> mappedList) {
+    mappedList.sort((a, b) {
+      bool aFav = _favoriteIds.contains(a.id);
+      bool bFav = _favoriteIds.contains(b.id);
+      if (aFav && !bFav) return -1;
+      if (!aFav && bFav) return 1;
+      return a.name.compareTo(b.name);
+    });
+
+    if (mounted) {
+      setState(() {
+        _allReciters = mappedList;
+        _filteredReciters = _allReciters;
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadFavorites() async {
@@ -58,10 +105,12 @@ class _AudioRecitersScreenState extends State<AudioRecitersScreen> {
   }
 
   Future<void> _fetchReciters() async {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
+    if (_allReciters.isEmpty) {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+    }
 
     try {
       final response = await _dio.get(
@@ -69,35 +118,19 @@ class _AudioRecitersScreenState extends State<AudioRecitersScreen> {
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        final List<dynamic> recitersList = response.data['reciters'];
+        // Cache the raw JSON payload
+        final prefs = await SharedPreferences.getInstance();
+        prefs.setString('audio_reciters_cache', jsonEncode(response.data));
 
-        // Parse and limit to famous top voices
-        List<Reciter> mappedList = recitersList
-            .map((json) => Reciter.fromJson(json))
-            .where((r) => r.serverUrl.isNotEmpty) // Filter broken APIs
-            .toList();
-
-        // Sort to bring favorites to top, then normally
-        mappedList.sort((a, b) {
-          bool aFav = _favoriteIds.contains(a.id);
-          bool bFav = _favoriteIds.contains(b.id);
-          if (aFav && !bFav) return -1;
-          if (!aFav && bFav) return 1;
-          return a.name.compareTo(b.name);
-        });
-
-        if (mounted) {
-          setState(() {
-            _allReciters = mappedList;
-            _filteredReciters = _allReciters;
-            _isLoading = false;
-          });
-        }
+        final jsonString = jsonEncode(response.data);
+        final parsed = await compute(_parseRecitersResponse, jsonString);
+        
+        _applyRecitersList(parsed);
       } else {
         throw Exception('Failed to load API');
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && _allReciters.isEmpty) {
         setState(() {
           _isLoading = false;
           _hasError = true;

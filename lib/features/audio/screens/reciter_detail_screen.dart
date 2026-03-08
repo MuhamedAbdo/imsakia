@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -137,10 +138,26 @@ class _ReciterDetailScreenState extends State<ReciterDetailScreen> {
     'الناس',
   ];
 
+  List<SurahAudio> _allSurahs = [];
+
   @override
   void initState() {
     super.initState();
+    _initSurahs();
     _checkFavorite();
+  }
+
+  void _initSurahs() {
+    _allSurahs = List.generate(114, (index) {
+      final surahId = index + 1;
+      final audioUrl = _formatUrl(widget.reciter.serverUrl, surahId);
+      return SurahAudio(
+        id: surahId,
+        name: _surahNames[index],
+        reciterId: widget.reciter.id,
+        audioUrl: audioUrl,
+      );
+    });
   }
 
   Future<void> _checkFavorite() async {
@@ -202,6 +219,36 @@ class _ReciterDetailScreenState extends State<ReciterDetailScreen> {
             onPressed: () => Navigator.pop(context),
           ),
           actions: [
+            Consumer<DownloadProvider>(
+              builder: (context, downloadProvider, child) {
+                final isDownloadingAll = downloadProvider.isDownloadingAll;
+                return IconButton(
+                  icon: Icon(
+                    isDownloadingAll ? Icons.stop_circle_outlined : Icons.download_for_offline,
+                    color: isDownloadingAll ? Colors.orange : Colors.white,
+                  ),
+                  tooltip: isDownloadingAll ? "إيقاف التحميل" : "تحميل الكل",
+                  onPressed: () {
+                    if (isDownloadingAll) {
+                      downloadProvider.cancelAllDownloads(widget.reciter.id);
+                      _showMessage(context, "تم إيقاف التحميل", Colors.orange);
+                    } else {
+                      downloadProvider.downloadAll(
+                        widget.reciter,
+                        _allSurahs,
+                        onStatus: (msg) {
+                          // Prevent spamming snackbars too fast, or just show them
+                          _showMessage(context, msg, Colors.blue);
+                        },
+                        onComplete: () {
+                          _showMessage(context, "اكتمل تحميل جميع السور المحددة", Colors.green);
+                        },
+                      );
+                    }
+                  },
+                );
+              },
+            ),
             IconButton(
               icon: Icon(
                 _isFavorite ? Icons.favorite : Icons.favorite_border,
@@ -219,17 +266,7 @@ class _ReciterDetailScreenState extends State<ReciterDetailScreen> {
               ), // padding for global bottom sheet UI
               itemCount: 114,
               itemBuilder: (context, index) {
-                final surahId = index + 1;
-                final audioUrl = _formatUrl(widget.reciter.serverUrl, surahId);
-
-                final surahModel = SurahAudio(
-                  id: surahId,
-                  name: _surahNames[index],
-                  reciterId: widget.reciter.id,
-                  audioUrl: audioUrl,
-                );
-
-                return _buildSurahRow(context, surahModel, isDarkMode);
+                return _buildSurahRow(context, _allSurahs[index], isDarkMode);
               },
             ),
             const AudioBottomSheet(),
@@ -391,10 +428,26 @@ class _ReciterDetailScreenState extends State<ReciterDetailScreen> {
                         : (isDarkMode ? Colors.white : Colors.blue[800]),
                     size: 34,
                   ),
-                  onPressed: () {
+                  onPressed: () async {
                     if (isPlayingHere) {
                       audioProvider.togglePlayPause();
                     } else {
+                      // Offline Guard
+                      if (!isDownloaded) {
+                        var connectivityResult = await (Connectivity().checkConnectivity());
+                        if (connectivityResult.contains(ConnectivityResult.none)) {
+                          if (mounted) {
+                            _showMessage(context, "يرجى الاتصال بالإنترنت لتشغيل هذه السورة", Colors.red);
+                          }
+                          return;
+                        }
+                      }
+                      
+                      // Ensure playlist is set up
+                      if (audioProvider.currentPlaylist != _allSurahs) {
+                         audioProvider.setPlaylist(_allSurahs);
+                      }
+                      
                       audioProvider.playSurah(surah, widget.reciter);
                     }
                   },

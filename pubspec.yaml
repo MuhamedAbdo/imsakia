@@ -74,6 +74,7 @@ dependencies:
   easy_container: ^1.0.5+1
   url_launcher: ^6.3.2
   audio_session: ^0.2.2
+  audio_service: ^0.18.18
 
 dev_dependencies:
   flutter_test:
