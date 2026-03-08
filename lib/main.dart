@@ -11,6 +11,9 @@ import 'screens/settings_screen.dart';
 import 'screens/main_layout.dart';
 import 'services/hadith_service.dart';
 import 'services/azkar_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:imsakia/features/quran_madinah/providers/quran_provider.dart'
+    as madinah;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,13 +27,16 @@ void main() async {
   final settingsProvider = SettingsProvider();
   await settingsProvider.initialize();
 
-  runApp(MyApp(settingsProvider: settingsProvider));
+  final prefs = await SharedPreferences.getInstance();
+
+  runApp(MyApp(settingsProvider: settingsProvider, prefs: prefs));
 }
 
 class MyApp extends StatelessWidget {
   final SettingsProvider settingsProvider;
+  final SharedPreferences prefs;
 
-  const MyApp({super.key, required this.settingsProvider});
+  const MyApp({super.key, required this.settingsProvider, required this.prefs});
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +46,10 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider.value(value: HadithService.instance),
         ChangeNotifierProvider(create: (_) => QuranProvider()),
-        ChangeNotifierProvider(create: (_) => BukhariProvider()), // إضافة البروفايدر هنا
+        ChangeNotifierProvider(
+          create: (_) => BukhariProvider(),
+        ), // إضافة البروفايدر هنا
+        ChangeNotifierProvider(create: (_) => madinah.QuranProvider(prefs)),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {

@@ -70,7 +70,7 @@ class HijriDateService {
     if (currentMonth == 9) return 0;
 
     var ramadanStart = HijriCalendar();
-    
+
     // لو كنا قبل رمضان في نفس السنة أو بعده (للسنة القادمة)
     ramadanStart.hYear = (currentMonth < 9) ? currentYear : currentYear + 1;
     ramadanStart.hMonth = 9;
@@ -79,6 +79,7 @@ class HijriDateService {
     // نستخدم تحويل المكتبة لمعرفة الفرق بالأيام الميلادية
     return ramadanStart
         .hijriToGregorian(ramadanStart.hYear, 9, 1)
+        .subtract(Duration(days: adjustment))
         .difference(dateTime)
         .inDays;
   }
@@ -93,6 +94,8 @@ class HijriDateService {
     ramadanStart.hMonth = 9;
     ramadanStart.hDay = 1;
 
-    return ramadanStart.hijriToGregorian(ramadanStart.hYear, 9, 1);
+    return ramadanStart
+        .hijriToGregorian(ramadanStart.hYear, 9, 1)
+        .subtract(Duration(days: adjustment));
   }
 }

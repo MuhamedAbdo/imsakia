@@ -13,7 +13,8 @@ class CalendarPage extends StatefulWidget {
   State<CalendarPage> createState() => _CalendarPageState();
 }
 
-class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderStateMixin {
+class _CalendarPageState extends State<CalendarPage>
+    with SingleTickerProviderStateMixin {
   TabController? _tabController;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
@@ -25,6 +26,10 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     _tabController!.addListener(() {
       if (!_tabController!.indexIsChanging) setState(() {});
     });
+
+    // Normalize selected day to midnight so TimeOfDay doesn't break equality checks
+    final now = DateTime.now();
+    _focusedDay = DateTime(now.year, now.month, now.day);
     _selectedDay = _focusedDay;
     HijriCalendar.setLocal('ar');
   }
@@ -38,25 +43,47 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   void _moveMonth({required bool isNext}) {
     setState(() {
       if (_tabController!.index == 0) {
-        final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
-        final hijriData = HijriDateService.getHijriDate(_focusedDay, settingsProvider.hijriAdjustment);
-        
+        final settingsProvider = Provider.of<SettingsProvider>(
+          context,
+          listen: false,
+        );
+        final hijriData = HijriDateService.getHijriDate(
+          _focusedDay,
+          settingsProvider.hijriAdjustment,
+        );
+
         int hYear = int.parse(hijriData['year']);
         int hMonth = hijriData['monthIndex'];
-        
+
         if (isNext) {
-          if (hMonth == 12) { hMonth = 1; hYear++; } else { hMonth++; }
+          if (hMonth == 12) {
+            hMonth = 1;
+            hYear++;
+          } else {
+            hMonth++;
+          }
         } else {
-          if (hMonth == 1) { hMonth = 12; hYear--; } else { hMonth--; }
+          if (hMonth == 1) {
+            hMonth = 12;
+            hYear--;
+          } else {
+            hMonth--;
+          }
         }
-        
+
         var hDate = HijriCalendar();
         hDate.hYear = hYear;
         hDate.hMonth = hMonth;
         hDate.hDay = 1;
-        _focusedDay = hDate.hijriToGregorian(hYear, hMonth, 1);
+        _focusedDay = hDate
+            .hijriToGregorian(hYear, hMonth, 1)
+            .subtract(Duration(days: settingsProvider.hijriAdjustment));
       } else {
-        _focusedDay = DateTime(_focusedDay.year, isNext ? _focusedDay.month + 1 : _focusedDay.month - 1, 1);
+        _focusedDay = DateTime(
+          _focusedDay.year,
+          isNext ? _focusedDay.month + 1 : _focusedDay.month - 1,
+          1,
+        );
       }
     });
   }
@@ -69,10 +96,18 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF5F5F0),
+        backgroundColor: isDarkMode
+            ? const Color(0xFF121212)
+            : const Color(0xFFF5F5F0),
         appBar: AppBar(
           backgroundColor: isDarkMode ? Colors.black : Colors.blue,
-          title: Text('التقويم', style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, color: Colors.white)),
+          title: Text(
+            'التقويم',
+            style: GoogleFonts.tajawal(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
           centerTitle: true,
           elevation: 0,
           bottom: TabBar(
@@ -80,7 +115,10 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
             indicatorColor: Colors.white,
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white.withValues(alpha: 0.6),
-            tabs: const [Tab(text: "الهجري"), Tab(text: "الميلادي")],
+            tabs: const [
+              Tab(text: "الهجري"),
+              Tab(text: "الميلادي"),
+            ],
           ),
         ),
         body: Column(
@@ -96,7 +134,8 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
                 ],
               ),
             ),
-            if (_selectedDay != null) _buildSelectedDateCard(_selectedDay!, isDarkMode),
+            if (_selectedDay != null)
+              _buildSelectedDateCard(_selectedDay!, isDarkMode),
           ],
         ),
       ),
@@ -106,11 +145,30 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   Widget _buildCustomHeader(bool isDarkMode) {
     String title = "";
     if (_tabController!.index == 0) {
-      final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
-      final hijriData = HijriDateService.getHijriDate(_focusedDay, settingsProvider.hijriAdjustment);
+      final settingsProvider = Provider.of<SettingsProvider>(
+        context,
+        listen: false,
+      );
+      final hijriData = HijriDateService.getHijriDate(
+        _focusedDay,
+        settingsProvider.hijriAdjustment,
+      );
       title = "${hijriData['month']} ${hijriData['year']}";
     } else {
-      const months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+      const months = [
+        "يناير",
+        "فبراير",
+        "مارس",
+        "أبريل",
+        "مايو",
+        "يونيو",
+        "يوليو",
+        "أغسطس",
+        "سبتمبر",
+        "أكتوبر",
+        "نوفمبر",
+        "ديسمبر",
+      ];
       title = "${months[_focusedDay.month - 1]} ${_focusedDay.year}";
     }
 
@@ -119,41 +177,89 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(icon: Icon(Icons.chevron_left, color: isDarkMode ? Colors.white : Colors.black), onPressed: () => _moveMonth(isNext: false)),
-          Text(title, style: GoogleFonts.tajawal(fontSize: 20, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87)),
-          IconButton(icon: Icon(Icons.chevron_right, color: isDarkMode ? Colors.white : Colors.black), onPressed: () => _moveMonth(isNext: true)),
+          IconButton(
+            icon: Icon(
+              Icons.chevron_left,
+              color: isDarkMode ? Colors.white : Colors.black,
+            ),
+            onPressed: () => _moveMonth(isNext: false),
+          ),
+          Text(
+            title,
+            style: GoogleFonts.tajawal(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? Colors.white : Colors.black87,
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.chevron_right,
+              color: isDarkMode ? Colors.white : Colors.black,
+            ),
+            onPressed: () => _moveMonth(isNext: true),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildDaysOfWeekHeader(bool isDarkMode) {
-    const days = ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
+    const days = [
+      "السبت",
+      "الأحد",
+      "الاثنين",
+      "الثلاثاء",
+      "الأربعاء",
+      "الخميس",
+      "الجمعة",
+    ];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
-        children: days.map((day) => Expanded(
-          child: Center(child: Text(day, style: GoogleFonts.tajawal(fontSize: 12, fontWeight: FontWeight.w600, color: isDarkMode ? Colors.grey : Colors.black54))),
-        )).toList(),
+        children: days
+            .map(
+              (day) => Expanded(
+                child: Center(
+                  child: Text(
+                    day,
+                    style: GoogleFonts.tajawal(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isDarkMode ? Colors.grey : Colors.black54,
+                    ),
+                  ),
+                ),
+              ),
+            )
+            .toList(),
       ),
     );
   }
 
   Widget _buildHijriCustomGridView(bool isDarkMode) {
-    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
-    
+    final settingsProvider = Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    );
+
     // استخدام _focusedDay مع التعديل للحصول على الشهر والسنة الصحيحين المعروضين حالياً
-    final focusedHijriData = HijriDateService.getHijriDate(_focusedDay, settingsProvider.hijriAdjustment);
+    final focusedHijriData = HijriDateService.getHijriDate(
+      _focusedDay,
+      settingsProvider.hijriAdjustment,
+    );
     int hYear = int.parse(focusedHijriData['year']);
     int hMonth = focusedHijriData['monthIndex'];
-    
+
     // الحصول على أول يوم في الشهر الهجري المعدل
     var hDate = HijriCalendar();
     hDate.hYear = hYear;
     hDate.hMonth = hMonth;
     hDate.hDay = 1;
-    var firstDayOfMonth = hDate.hijriToGregorian(hYear, hMonth, 1);
-    
+    var firstDayOfMonth = hDate
+        .hijriToGregorian(hYear, hMonth, 1)
+        .subtract(Duration(days: settingsProvider.hijriAdjustment));
+
     // حساب الإزاحة بناءً على أن السبت هو 6 في DateTime.weekday والأسبوع يبدأ بالسبت في تصميمنا
     // الأيام في Flutter: Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6, Sun=7
     int offset;
@@ -171,44 +277,56 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
     return GridView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 7,
+      ),
       itemCount: daysInMonth + offset,
       itemBuilder: (context, index) {
         if (index < offset) return const SizedBox.shrink();
-        
+
         int dayNo = index - offset + 1;
-        
+
         // إنشاء HijriCalendar جديد لكل يوم مع تطبيق التعديل
         var dayHijri = HijriCalendar();
         dayHijri.hYear = hYear;
         dayHijri.hMonth = hMonth;
         dayHijri.hDay = dayNo;
-        
+
         // تطبيق التعديل عكسياً للحصول على التاريخ الميلادي الصحيح
-        DateTime currentGregorian = dayHijri.hijriToGregorian(hYear, hMonth, dayNo);
-        
+        DateTime currentGregorian = dayHijri
+            .hijriToGregorian(hYear, hMonth, dayNo)
+            .subtract(Duration(days: settingsProvider.hijriAdjustment));
+
         // التحقق إذا كان هذا اليوم هو اليوم الحالي بعد تطبيق التعديل
-        final currentDayHijri = HijriDateService.getHijriDate(currentGregorian, settingsProvider.hijriAdjustment);
-        bool isToday = currentDayHijri['dayIndex'] == dayNo && 
-                       currentDayHijri['monthIndex'] == hMonth && 
-                       currentDayHijri['year'] == hYear.toString();
-        
+        DateTime todayMidnight = DateTime(
+          DateTime.now().year,
+          DateTime.now().month,
+          DateTime.now().day,
+        );
+        bool isToday = currentGregorian.isAtSameMomentAs(todayMidnight);
+
         // تحديد ما إذا كان هذا اليوم هو اليوم المحدد حاليًا
         bool isSelected = false;
         if (_selectedDay != null) {
-          final selectedHijriData = HijriDateService.getHijriDate(_selectedDay!, settingsProvider.hijriAdjustment);
-          isSelected = selectedHijriData['dayIndex'] == dayNo && 
-                       selectedHijriData['monthIndex'] == hMonth && 
-                       selectedHijriData['year'] == hYear.toString();
+          isSelected = currentGregorian.isAtSameMomentAs(_selectedDay!);
         }
 
         return GestureDetector(
           onTap: () => setState(() {
-            // عند النقر، يجب أن نحدد _selectedDay بناءً على التاريخ الميلادي المقابل لليوم الهجري المعدل
-            _selectedDay = currentGregorian;
-            _focusedDay = currentGregorian;
+            // Normalize to prevent time-of-day mismatch
+            _selectedDay = DateTime(
+              currentGregorian.year,
+              currentGregorian.month,
+              currentGregorian.day,
+            );
+            _focusedDay = _selectedDay!;
           }),
-          child: _customDayItem(dayNo.toString(), isDarkMode, isSelected: isSelected, isToday: isToday),
+          child: _customDayItem(
+            dayNo.toString(),
+            isDarkMode,
+            isSelected: isSelected,
+            isToday: isToday,
+          ),
         );
       },
     );
@@ -225,31 +343,65 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
       daysOfWeekVisible: false,
       calendarFormat: CalendarFormat.month,
       selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-      onDaySelected: (selectedDay, focusedDay) => setState(() { _selectedDay = selectedDay; _focusedDay = focusedDay; }),
+      onDaySelected: (selectedDay, focusedDay) => setState(() {
+        _selectedDay = selectedDay;
+        _focusedDay = focusedDay;
+      }),
       calendarStyle: CalendarStyle(
         outsideDaysVisible: false,
-        todayDecoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.3), shape: BoxShape.circle),
-        selectedDecoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
+        todayDecoration: BoxDecoration(
+          color: Colors.blue.withValues(alpha: 0.3),
+          shape: BoxShape.circle,
+        ),
+        selectedDecoration: const BoxDecoration(
+          color: Colors.blue,
+          shape: BoxShape.circle,
+        ),
       ),
     );
   }
 
-  Widget _customDayItem(String text, bool isDarkMode, {required bool isSelected, required bool isToday}) {
+  Widget _customDayItem(
+    String text,
+    bool isDarkMode, {
+    required bool isSelected,
+    required bool isToday,
+  }) {
     return Container(
       margin: const EdgeInsets.all(4),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: isSelected ? Colors.blue : (isToday ? Colors.blue.withValues(alpha: 0.2) : Colors.transparent),
+        color: isSelected
+            ? Colors.blue
+            : (isToday
+                  ? Colors.blue.withValues(alpha: 0.2)
+                  : Colors.transparent),
         border: isToday ? Border.all(color: Colors.blue, width: 1) : null,
       ),
-      child: Text(text, style: GoogleFonts.tajawal(color: isSelected ? Colors.white : (isDarkMode ? Colors.white : Colors.black), fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal)),
+      child: Text(
+        text,
+        style: GoogleFonts.tajawal(
+          color: isSelected
+              ? Colors.white
+              : (isDarkMode ? Colors.white : Colors.black),
+          fontWeight: isSelected || isToday
+              ? FontWeight.bold
+              : FontWeight.normal,
+        ),
+      ),
     );
   }
 
   Widget _buildSelectedDateCard(DateTime date, bool isDarkMode) {
-    final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
-    final hijriData = HijriDateService.getHijriDate(date, settingsProvider.hijriAdjustment);
+    final settingsProvider = Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    );
+    final hijriData = HijriDateService.getHijriDate(
+      date,
+      settingsProvider.hijriAdjustment,
+    );
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Container(
@@ -257,22 +409,48 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
         decoration: BoxDecoration(
           color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), shape: BoxShape.circle),
-              child: const Icon(Icons.event_available, color: Colors.blue, size: 28),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.event_available,
+                color: Colors.blue,
+                size: 28,
+              ),
             ),
             const SizedBox(width: 15),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(hijriData['formatted'], style: GoogleFonts.tajawal(fontSize: 17, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.amber[200] : Colors.blue[900])),
-                  Text("${_getDayName(date.weekday)}، ${date.day}/${date.month}/${date.year} م", style: GoogleFonts.tajawal(fontSize: 13, color: isDarkMode ? Colors.white70 : Colors.grey[700])),
+                  Text(
+                    hijriData['formatted'],
+                    style: GoogleFonts.tajawal(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: isDarkMode ? Colors.amber[200] : Colors.blue[900],
+                    ),
+                  ),
+                  Text(
+                    "${_getDayName(date.weekday)}، ${date.day}/${date.month}/${date.year} م",
+                    style: GoogleFonts.tajawal(
+                      fontSize: 13,
+                      color: isDarkMode ? Colors.white70 : Colors.grey[700],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -283,7 +461,15 @@ class _CalendarPageState extends State<CalendarPage> with SingleTickerProviderSt
   }
 
   String _getDayName(int day) {
-    const days = ["الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"];
+    const days = [
+      "الاثنين",
+      "الثلاثاء",
+      "الأربعاء",
+      "الخميس",
+      "الجمعة",
+      "السبت",
+      "الأحد",
+    ];
     return days[day - 1];
   }
 }

@@ -94,9 +94,15 @@ flutter:
     - assets/images/Madinah.png
     - assets/images/Makkah.png
     - assets/images/aya_number.png
+    - assets/images/fateha_image.png
+    - assets/images/quranlogo.png
+    - assets/images/sura_hedder.png
     - assets/fonts/
 
   fonts:
+    - family: HafsSmart
+      fonts:
+        - asset: assets/fonts/HafsSmart_08.ttf
     - family: Tajawal
       fonts:
         - asset: assets/fonts/Tajawal-Regular.ttf
