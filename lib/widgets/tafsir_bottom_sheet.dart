@@ -95,7 +95,8 @@ class TafsirBottomSheet extends StatelessWidget {
                   ),
                   child: Text(
                     ayah['text'] ?? '',
-                    style: GoogleFonts.amiriQuran(
+                    style: TextStyle(
+                      fontFamily: 'HafsSmart',
                       fontSize: 20,
                       height: 1.8,
                       // التعديل هنا أيضاً
@@ -113,19 +114,18 @@ class TafsirBottomSheet extends StatelessWidget {
 
           // Tafsir content
           Expanded(
-            child: FutureBuilder<Map<String, dynamic>?>(
-              future: dbHelper.getTafsirByAyah(ayah['id']),
+            child: FutureBuilder<String>(
+              future: dbHelper.getTafsir(ayah['surah_id'] ?? 1, ayah['number_in_surah'] ?? 1),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                final tafsirData = snapshot.data;
-                final tafsirText = tafsirData?['data'];
+                final tafsirText = snapshot.data;
 
                 return Container(
                   padding: const EdgeInsets.all(20),
-                  child: tafsirText != null
+                  child: (tafsirText != null && tafsirText != "لا يوجد تفسير متاح." && tafsirText != "التفسير غير متوفر.")
                       ? SingleChildScrollView(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

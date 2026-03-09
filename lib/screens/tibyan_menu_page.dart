@@ -10,7 +10,7 @@ import '../services/hijri_date_service.dart';
 import 'bukhari_library_page.dart';
 import 'allah_names_page.dart'; // استيراد صفحة أسماء الله الحسنى
 import 'radio_page.dart'; // استيراد صفحة الراديو
-import 'quran_selection_page.dart';
+import '../features/quran_madinah/ui/index_screen.dart'; // استيراد صفحة الفهرس مباشرة بدلاً من صفحة الاختيار
 import '../features/audio/screens/audio_reciters_screen.dart'; // Audio module
 import '../widgets/neumorphic_box.dart';
 
@@ -218,7 +218,7 @@ class TibyanMenuPage extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const QuranSelectionPage(),
+                          builder: (context) => const IndexScreen(),
                         ),
                       );
                     },

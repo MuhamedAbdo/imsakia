@@ -59,12 +59,13 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
-  void _navigateToPage(int pageNumber) {
+  void _navigateToPage(Aya aya) {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => MushafScreen(
-          initialPage: pageNumber,
+          initialPage: aya.page,
           searchQuery: _searchController.text,
+          targetAyaId: aya.id,
         ),
       ),
     );
@@ -82,15 +83,14 @@ class _SearchScreenState extends State<SearchScreen> {
             hintText: "ابحث في القرآن (بدون تشكيل)...",
             border: InputBorder.none,
             hintStyle: TextStyle(
-              color: Theme.of(
-                context,
-              ).colorScheme.primary.withValues(alpha: 0.5),
+              color: Colors.white.withValues(alpha: 0.7),
             ),
           ),
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.primary,
+          style: const TextStyle(
+            color: Colors.white,
             fontSize: 18,
           ),
+          cursorColor: Colors.white,
           onChanged: _performSearch,
         ),
         actions: [
@@ -127,7 +127,7 @@ class _SearchScreenState extends State<SearchScreen> {
         final isDark = Theme.of(context).brightness == Brightness.dark;
 
         return ListTile(
-          onTap: () => _navigateToPage(aya.page),
+          onTap: () => _navigateToPage(aya),
           title: Directionality(
             textDirection: TextDirection.rtl,
             child: RichText(

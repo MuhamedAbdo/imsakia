@@ -251,15 +251,6 @@ class IndexScreen extends StatelessWidget {
                         },
                       ),
               ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: const Text('عن التطبيق'),
-                onTap: () {
-                  Navigator.pop(context); // Close Drawer
-                  _showAboutDialog(context);
-                },
-              ),
               const SizedBox(height: 16),
             ],
           );
@@ -268,59 +259,4 @@ class IndexScreen extends StatelessWidget {
     );
   }
 
-  void _showAboutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Center(
-            child: Text(
-              'القرآن الكريم',
-              style: TextStyle(
-                fontFamily: 'HafsSmart',
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'صدقة جارية عن روح المغفور له بإذن الله:',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'عبدالعال حسن عبدالعال\n(Abdel-Aal Hassan Abdel-Aal)',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'المصدر: مجمع الملك فهد لطباعة المصحف الشريف (KFGQPC)',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('إغلاق'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 }

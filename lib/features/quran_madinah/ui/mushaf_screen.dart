@@ -8,8 +8,9 @@ import 'package:imsakia/features/quran_madinah/utils/madinah_quran_utils.dart';
 class MushafScreen extends StatefulWidget {
   final int initialPage;
   final String? searchQuery;
+  final int? targetAyaId;
 
-  const MushafScreen({super.key, required this.initialPage, this.searchQuery});
+  const MushafScreen({super.key, required this.initialPage, this.searchQuery, this.targetAyaId});
 
   @override
   State<MushafScreen> createState() => _MushafScreenState();
@@ -80,6 +81,7 @@ class _MushafScreenState extends State<MushafScreen> {
             ),
             pageNumber: quranPageNumber,
             searchQuery: widget.searchQuery,
+            targetAyaId: widget.targetAyaId,
           );
         },
       ),
@@ -97,10 +99,11 @@ class _MushafScreenState extends State<MushafScreen> {
             fit: BoxFit.scaleDown,
             child: Text(
               _pageSurahNames,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'HafsSmart',
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
           ),
@@ -108,7 +111,7 @@ class _MushafScreenState extends State<MushafScreen> {
             "الجزء $_currentJuz | $_hizbInfo",
             style: TextStyle(
               fontSize: 12,
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
             ),
           ),
         ],

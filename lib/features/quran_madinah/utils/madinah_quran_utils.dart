@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter/gestures.dart';
 class QuranUtils {
   /// Regular expression to match God's names with optional Arabic diacritics.
   /// Handles prefixes: ب، ف، ت، ل and variations of Allah.
@@ -50,17 +50,42 @@ class QuranUtils {
     return 1;
   }
 
-  /// Calculates the current Hizb and Quarter based on the page number.
-  /// This is an approximation based on the standard 20 pages per Juz (8 quarters per Juz).
-  /// For absolute precision in Quran apps, a per-ayah database mapping is usually used.
-  static String getHizbInfo(int page) {
-    int juz = getJuzNumber(page);
-    int pagesInJuz = page - juzStarts[juz]! + 1;
+  /// Absolute mapping of all 240 quarter starting pages in the Madinah Mushaf.
+  static const List<int> quarterStarts = [
+    1, 5, 7, 9, 11, 14, 17, 19, 22, 24, 27, 29, 32, 34, 37, 39, 42, 44, 46, 49, 
+    51, 54, 56, 59, 62, 64, 67, 69, 72, 74, 77, 79, 82, 84, 87, 89, 92, 94, 97, 
+    100, 102, 104, 106, 109, 112, 114, 117, 119, 121, 124, 126, 129, 132, 134, 
+    137, 140, 142, 144, 146, 148, 151, 154, 156, 158, 162, 164, 167, 170, 173, 
+    175, 177, 179, 182, 184, 187, 189, 192, 194, 196, 199, 201, 204, 206, 209, 
+    212, 214, 217, 219, 222, 224, 226, 228, 231, 233, 236, 238, 242, 244, 247, 
+    249, 252, 254, 256, 259, 262, 264, 267, 270, 272, 275, 277, 280, 282, 284, 
+    287, 289, 292, 295, 297, 299, 302, 304, 306, 309, 312, 315, 317, 319, 322, 
+    324, 326, 329, 332, 334, 336, 339, 342, 344, 347, 350, 352, 354, 356, 359, 
+    362, 364, 367, 369, 371, 374, 377, 379, 382, 384, 386, 389, 392, 394, 396, 
+    399, 402, 404, 407, 410, 413, 415, 418, 420, 422, 425, 426, 429, 431, 433, 
+    436, 439, 442, 444, 446, 449, 451, 454, 456, 459, 462, 464, 467, 469, 472, 
+    474, 477, 479, 482, 484, 486, 488, 491, 493, 496, 499, 502, 505, 507, 510, 
+    513, 515, 517, 519, 522, 524, 526, 529, 531, 534, 536, 539, 542, 544, 547, 
+    550, 553, 554, 558, 560, 562, 564, 566, 569, 572, 575, 577, 579, 582, 585, 
+    587, 589, 591, 594, 596, 599
+  ];
 
-    // Each Juz has 2 Hizbs (10 pages each), each Hizb has 4 Quarters (2.5 pages each)
-    int quarter = ((pagesInJuz - 1) / 2.5).floor() + 1;
-    int hizb = ((juz - 1) * 2) + ((quarter > 4) ? 2 : 1);
-    int quarterInHizb = (quarter > 4) ? (quarter - 4) : quarter;
+  /// Calculates the current Hizb and Quarter based on the absolute array.
+  /// This guarantees 100% precision for every page in the Madinah Mushaf.
+  static String getHizbInfo(int page) {
+    int quarterIndex = 0;
+    // Find the latest quarter that starts on or before this page
+    for (int i = 0; i < quarterStarts.length; i++) {
+      if (page >= quarterStarts[i]) {
+        quarterIndex = i;
+      } else {
+        break; // Array is sorted, we can stop
+      }
+    }
+
+    int quarterNumber = quarterIndex + 1; // 1 to 240
+    int hizb = ((quarterNumber - 1) / 4).floor() + 1;
+    int quarterInHizb = ((quarterNumber - 1) % 4) + 1;
 
     String quarterText = "";
     switch (quarterInHizb) {
@@ -145,17 +170,17 @@ class QuranUtils {
     List<ParsedSpanData> parsedWords,
     BuildContext context,
     double fontSize,
+    [TapGestureRecognizer? recognizer, bool isTargetAya = false]
   ) {
     List<InlineSpan> spans = [];
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     // Theming requirements: Red in Light Mode, Amber/Gold in Dark Mode
-    final Color normalColor =
-        Theme.of(context).textTheme.bodyMedium?.color ??
-        (isDarkMode ? Colors.white : Colors.black);
+    final Color normalColor = isDarkMode ? Colors.white : Colors.black;
 
     final Color allahColor = isDarkMode ? Colors.amber : Colors.red;
     final Color highlightColor = Colors.yellow.withValues(alpha: 0.5);
+    final Color targetAyaColor = isDarkMode ? Colors.blue.withValues(alpha: 0.3) : Colors.green.withValues(alpha: 0.2);
 
     for (var parsed in parsedWords) {
       if (parsed.isAllah) {
@@ -166,10 +191,14 @@ class QuranUtils {
         fontFamily: 'HafsSmart',
         fontSize: fontSize,
         color: parsed.isAllah ? allahColor : normalColor,
-        backgroundColor: parsed.isHighlight ? highlightColor : null,
+        backgroundColor: parsed.isHighlight ? highlightColor : (isTargetAya ? targetAyaColor : null),
       );
 
-      spans.add(TextSpan(text: parsed.text, style: baseStyle));
+      spans.add(TextSpan(
+        text: parsed.text,
+        style: baseStyle,
+        recognizer: recognizer,
+      ));
     }
 
     return spans;

@@ -4,15 +4,19 @@ import 'package:imsakia/features/quran_madinah/models/aya.dart';
 import 'package:imsakia/features/quran_madinah/providers/quran_provider.dart';
 import 'package:imsakia/features/quran_madinah/services/madinah_db_helper.dart';
 import 'package:imsakia/features/quran_madinah/utils/madinah_quran_utils.dart';
+import 'package:flutter/gestures.dart';
+import 'package:imsakia/widgets/tafsir_bottom_sheet.dart';
 
 class MushafPageBuilder extends StatefulWidget {
   final int pageNumber;
   final String? searchQuery;
+  final int? targetAyaId;
 
   const MushafPageBuilder({
     super.key,
     required this.pageNumber,
     this.searchQuery,
+    this.targetAyaId,
   });
 
   @override
@@ -23,6 +27,7 @@ class _MushafPageBuilderState extends State<MushafPageBuilder> {
   List<Aya> _ayahs = [];
   List<List<ParsedSpanData>> _parsedAyahs = [];
   bool _isLoading = true;
+  final Map<int, TapGestureRecognizer> _recognizers = {};
 
   @override
   void initState() {
@@ -36,6 +41,29 @@ class _MushafPageBuilderState extends State<MushafPageBuilder> {
     if (oldWidget.pageNumber != widget.pageNumber) {
       _loadPage();
     }
+  }
+
+  @override
+  void dispose() {
+    for (var recognizer in _recognizers.values) {
+      recognizer.dispose();
+    }
+    _recognizers.clear();
+    super.dispose();
+  }
+
+  void _showTafsir(int surahId, int ayahNum, String ayahText) {
+    final ayahData = {
+      'surah_id': surahId,
+      'number_in_surah': ayahNum,
+      'text': ayahText,
+    };
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TafsirBottomSheet(ayah: ayahData),
+    );
   }
 
   Future<void> _loadPage() async {
@@ -110,9 +138,16 @@ class _MushafPageBuilderState extends State<MushafPageBuilder> {
         }
       }
 
+      final recognizer = _recognizers.putIfAbsent(
+        aya.id,
+        () => TapGestureRecognizer()..onTap = () => _showTafsir(aya.suraNo, aya.ayaNo, aya.ayaText),
+      );
+
+      bool isTargetAya = widget.targetAyaId != null && aya.id == widget.targetAyaId;
+
       // Build verse spans directly from the pre-parsed memory
       currentSpans.addAll(
-        QuranUtils.buildSpansFromParsed(_parsedAyahs[i], context, fontSize),
+        QuranUtils.buildSpansFromParsed(_parsedAyahs[i], context, fontSize, recognizer, isTargetAya),
       );
     }
 
