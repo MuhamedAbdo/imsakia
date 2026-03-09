@@ -126,49 +126,52 @@ class TafsirBottomSheet extends StatelessWidget {
                 return Container(
                   padding: const EdgeInsets.all(20),
                   child: (tafsirText != null && tafsirText != "لا يوجد تفسير متاح." && tafsirText != "التفسير غير متوفر.")
-                      ? SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Tafsir title
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  // التعديل هنا أيضاً في لون السمة الأساسي
-                                  color: Theme.of(
-                                    context,
-                                  ).primaryColor.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  'تفسير الآية',
-                                  style: GoogleFonts.tajawal(
-                                    fontSize: 18,
-                                    color: Theme.of(context).primaryColor,
-                                    fontWeight: FontWeight.bold,
+                      ? Directionality(
+                          textDirection: TextDirection.rtl,
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Tafsir title
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isDarkMode 
+                                        ? Colors.white12 
+                                        : Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    'تفسير الآية',
+                                    style: GoogleFonts.tajawal(
+                                      fontSize: 18,
+                                      color: isDarkMode 
+                                          ? const Color(0xFFfef8f0) 
+                                          : Theme.of(context).primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
-                              ),
 
-                              const SizedBox(height: 16),
+                                const SizedBox(height: 16),
 
-                              // Tafsir text
-                              Text(
-                                tafsirText,
-                                style: GoogleFonts.tajawal(
-                                  fontSize: 16,
-                                  height: 1.6,
-                                  color: isDarkMode
-                                      ? Colors.white70
-                                      : Colors.black87,
+                                // Tafsir text
+                                Text(
+                                  tafsirText,
+                                  style: GoogleFonts.tajawal(
+                                    fontSize: 16,
+                                    height: 1.6,
+                                    color: isDarkMode
+                                        ? Colors.white70
+                                        : Colors.black87,
+                                  ),
+                                  textAlign: TextAlign.justify,
                                 ),
-                                textAlign: TextAlign.justify,
-                                textDirection: TextDirection.rtl,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         )
                       : Center(
