@@ -22,6 +22,7 @@ Future<void> initAudioService() async {
 
 class MyAudioHandler extends BaseAudioHandler with SeekHandler {
   final AudioPlayer _player;
+  final AudioPlayer _athanPlayer = AudioPlayer();
   AudioPlayer get player => _player;
 
   void Function()? onNext;
@@ -29,6 +30,15 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
   void Function()? onStopCustom;
 
   MyAudioHandler(this._player) {
+    _athanPlayer.onPlayerComplete.listen((_) {
+       if (mediaItem.value?.id == 'athan_alert') {
+          playbackState.add(playbackState.value.copyWith(
+             playing: false,
+             processingState: AudioProcessingState.idle,
+          ));
+       }
+    });
+
     _player.onPlayerStateChanged.listen((state) {
       final playing = state == PlayerState.playing;
       
@@ -98,6 +108,42 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   @override
+  Future<dynamic> customAction(String name, [Map<String, dynamic>? extras]) async {
+    if (name == 'stopAthan') {
+       if (mediaItem.value?.id == 'athan_alert') {
+         await stop();
+       }
+       return;
+    }
+  
+    if (name == 'playAthan' && extras != null) {
+      final String path = extras['path'] as String;
+      
+      // Pause the main player gracefully without breaking queue
+      if (_player.state == PlayerState.playing) {
+        await _player.pause();
+      }
+      
+      mediaItem.add(const MediaItem(
+        id: 'athan_alert',
+        album: "تنبيه الأذان",
+        title: "وقت الصلاة",
+        artist: "إمساكية",
+      ));
+      
+      playbackState.add(playbackState.value.copyWith(
+        playing: true,
+        processingState: AudioProcessingState.ready,
+        controls: [MediaControl.stop],
+        systemActions: const {MediaAction.stop},
+      ));
+      
+      return await _athanPlayer.play(DeviceFileSource(path));
+    }
+    return super.customAction(name, extras);
+  }
+
+  @override
   Future<void> play() => _player.resume();
 
   @override
@@ -105,6 +151,15 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> stop() async {
+    if (mediaItem.value?.id == 'athan_alert') {
+      await _athanPlayer.stop();
+      playbackState.add(playbackState.value.copyWith(
+        playing: false,
+        processingState: AudioProcessingState.idle,
+      ));
+      return;
+    }
+
     await _player.stop();
     if (onStopCustom != null) onStopCustom!();
     await super.stop();

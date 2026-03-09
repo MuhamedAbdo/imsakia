@@ -17,6 +17,8 @@ import 'package:imsakia/features/quran_madinah/providers/quran_provider.dart'
 import 'features/audio/providers/audio_player_provider.dart';
 import 'features/audio/providers/download_provider.dart';
 import 'features/audio/services/audio_handler.dart';
+import 'features/athan/providers/athan_provider.dart';
+import 'features/athan/services/athan_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +29,7 @@ void main() async {
   // تأخير تهيئة الخدمات غير الحرجة لتسريع بدء التطبيق وتجنب تقطيع الواجهة
   Future.delayed(const Duration(milliseconds: 500), () async {
     await initAudioService();
+    await AthanManager.initialize();
     await HadithService.instance.initialize();
     await AzkarService.instance.initialize();
   });
@@ -58,6 +61,11 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => madinah.QuranProvider(prefs)),
         ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
         ChangeNotifierProvider(create: (_) => DownloadProvider()),
+        ChangeNotifierProvider<AthanProvider>(create: (_) {
+           final provider = AthanProvider();
+           provider.fetchMuezzins(); // Pre-fetch UI options
+           return provider;
+        }),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {

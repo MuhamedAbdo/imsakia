@@ -47,6 +47,7 @@ dependencies:
   # Background Tasks & Audio
   workmanager: ^0.9.0+3
   audioplayers: ^5.2.1
+  android_alarm_manager_plus: ^4.0.4
   
   # UI Helpers
   scrollable_positioned_list: ^0.3.8
@@ -75,6 +76,7 @@ dependencies:
   url_launcher: ^6.3.2
   audio_session: ^0.2.2
   audio_service: ^0.18.18
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:

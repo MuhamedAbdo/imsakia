@@ -1,13 +1,18 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hijri/hijri_calendar.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../providers/settings_provider.dart';
+import '../features/athan/providers/athan_provider.dart';
 import '../services/prayer_times_service.dart';
 import '../services/hadith_service.dart';
 import '../services/hijri_date_service.dart';
+import 'package:audio_service/audio_service.dart';
+import '../features/audio/services/audio_handler.dart';
 
 // ستبقى للاستخدام داخل صفحة تبيان
 import 'tasbih_screen.dart';
@@ -61,6 +66,26 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       },
       child: Scaffold(
         body: _screens[_currentIndex],
+        floatingActionButton: StreamBuilder<MediaItem?>(
+          stream: audioHandler?.mediaItem,
+          builder: (context, snapshot) {
+            if (snapshot.hasData && snapshot.data?.id == 'athan_alert') {
+              return FloatingActionButton.extended(
+                onPressed: () {
+                  audioHandler?.customAction('stopAthan');
+                },
+                backgroundColor: Colors.redAccent,
+                icon: const Icon(Icons.stop_circle_outlined, color: Colors.white),
+                label: Text(
+                  'إيقاف الأذان',
+                  style: GoogleFonts.tajawal(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
@@ -172,6 +197,52 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _loadInitialData();
     _startCountdownTimer();
+    
+    // Check alarm permissions after a short delay to allow UI to render first
+    Future.delayed(const Duration(seconds: 2), _checkAlarmPermissions);
+  }
+
+  Future<void> _checkAlarmPermissions() async {
+    if (!mounted || !Platform.isAndroid) return;
+    
+    final athanProvider = Provider.of<AthanProvider>(context, listen: false);
+    if (!athanProvider.isAthanEnabled) return;
+
+    final status = await Permission.scheduleExactAlarm.status;
+    if (status.isDenied || status.isRestricted) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'تنبيه الأذان',
+            style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, color: Colors.red),
+          ),
+          content: Text(
+            'لضمان عمل الأذان في الخلفية في الوقت الدقيق، نرجو منح التطبيق صلاحية ضبط التنبيهات الدقيقة (Alarms & Reminders).',
+            style: GoogleFonts.tajawal(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                athanProvider.setAthanEnabled(false); // Disable it so we don't spam the user
+              },
+              child: Text('إلغاء', style: GoogleFonts.tajawal()),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await athanProvider.requestExactAlarmPermission();
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              child: Text('منح الصلاحية', style: GoogleFonts.tajawal(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   void _loadInitialData() async {

@@ -6,6 +6,7 @@ import 'package:geocoding/geocoding.dart';
 import '../utils/app_constants.dart';
 import '../utils/logger.dart'; // تأكد من وجود هذا المسار
 import 'hijri_date_service.dart';
+import '../features/athan/services/athan_manager.dart';
 
 class PrayerTimesService {
   static PrayerTimesService? _instance;
@@ -21,6 +22,7 @@ class PrayerTimesService {
 
   // حذفنا _lastRamadanCalculation لأنه لم يكن يُستخدم
   Duration? _cachedTimeUntilRamadan;
+  Map<String, DateTime>? _lastScheduledTimes;
 
   Stream<Map<String, DateTime>> get prayerTimesStream =>
       (_prayerTimesController ??=
@@ -119,9 +121,44 @@ class PrayerTimesService {
       'isha': prayerTimes.isha.add(totalOffset),
     };
 
+    _scheduleAthanAlarmsIfNeeded(_currentPrayerTimes!);
+
     _prayerTimesController?.add(_currentPrayerTimes!);
     _startUpdateTimer();
     return _currentPrayerTimes;
+  }
+
+  void _scheduleAthanAlarmsIfNeeded(Map<String, DateTime> newTimes) {
+    if (_lastScheduledTimes != null && _isSameMap(_lastScheduledTimes!, newTimes)) {
+      return;
+    }
+    
+    _lastScheduledTimes = Map.from(newTimes);
+    
+    final now = DateTime.now();
+    int idBase = 0;
+    for (var entry in newTimes.entries) {
+      final name = entry.key;
+      final time = entry.value;
+      
+      // لا نؤذن في وقت الشروق
+      if (name != 'sunrise' && time.isAfter(now)) {
+        AthanManager.scheduleNextAthan(
+          alarmId: idBase,
+          time: time,
+          isFajr: name == 'fajr',
+        );
+      }
+      idBase++;
+    }
+  }
+
+  bool _isSameMap(Map<String, DateTime> a, Map<String, DateTime> b) {
+    if (a.length != b.length) return false;
+    for (var key in a.keys) {
+      if (a[key] != b[key]) return false;
+    }
+    return true;
   }
 
   Future<LocationSettings?> _getCurrentLocation() async {

@@ -7,6 +7,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
+import '../features/athan/providers/athan_provider.dart';
 import '../services/prayer_times_service.dart';
 import '../widgets/neumorphic_box.dart';
 
@@ -203,6 +204,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildDstToggle(),
                 ],
               ),
+              const SizedBox(height: 15),
+              _buildAthanSection(isDark),
               const SizedBox(height: 15),
               _buildSection(
                 title: 'التقويم والمظهر',
@@ -433,6 +436,112 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 30),
       ],
+    );
+  }
+
+  Widget _buildAthanSection(bool isDark) {
+    return Consumer<AthanProvider>(
+      builder: (context, provider, child) {
+        return _buildSection(
+          title: 'إعدادات الأذان (الآذان متوفر بعد اختيار الموقع)',
+          icon: Icons.notifications_active_outlined,
+          children: [
+            // Master Toggle
+            SwitchListTile(
+              title: Text(
+                'تفعيل الأذان',
+                style: GoogleFonts.tajawal(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              value: provider.isAthanEnabled,
+              activeThumbColor: Colors.green,
+              onChanged: (val) => provider.setAthanEnabled(val),
+              contentPadding: EdgeInsets.zero,
+            ),
+            if (provider.isAthanEnabled) ...[
+              const Divider(height: 20),
+              SwitchListTile(
+                title: Text(
+                  'توحيد المؤذن لجميع الصلوات',
+                  style: GoogleFonts.tajawal(fontSize: 15),
+                ),
+                value: provider.isUnifiedMuezzin,
+                activeThumbColor: Colors.green,
+                onChanged: (val) => provider.setUnifiedMuezzin(val),
+                contentPadding: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 10),
+              if (provider.isLoading)
+                const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Center(
+                    child: CircularProgressIndicator(color: Colors.green),
+                  ),
+                ),
+              if (provider.isUnifiedMuezzin)
+                _buildMuezzinDropdown(
+                  label: 'صوت المؤذن',
+                  muezzins: provider.muezzins,
+                  selected: provider.selectedNormalMuezzin,
+                  onChanged: (m) => provider.selectMuezzinForNormal(m!),
+                )
+              else
+                Theme(
+                  data: Theme.of(
+                    context,
+                  ).copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    title: Text(
+                      'تخصيص الأذان',
+                      style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+                    ),
+                    children: [
+                      _buildMuezzinDropdown(
+                        label: 'الظهر، العصر، المغرب، العشاء',
+                        muezzins: provider.muezzins,
+                        selected: provider.selectedNormalMuezzin,
+                        onChanged: (m) => provider.selectMuezzinForNormal(m!),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildMuezzinDropdown(
+                        label: 'أذان الفجر (الصلاة خير من النوم)',
+                        muezzins: provider.muezzins,
+                        selected: provider.selectedFajrMuezzin,
+                        onChanged: (m) => provider.selectMuezzinForFajr(m!),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMuezzinDropdown({
+    required String label,
+    required List<Muezzin> muezzins,
+    required Muezzin? selected,
+    required void Function(Muezzin?) onChanged,
+  }) {
+    return DropdownButtonFormField<Muezzin>(
+      isExpanded: true,
+      initialValue: selected,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.tajawal(),
+      ),
+      items: muezzins.map((m) {
+        return DropdownMenuItem<Muezzin>(
+          value: m,
+          child: Text(m.name, style: GoogleFonts.tajawal(fontSize: 14)),
+        );
+      }).toList(),
+      onChanged: onChanged,
     );
   }
 }
