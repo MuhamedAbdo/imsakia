@@ -90,9 +90,15 @@ class _MushafScreenState extends State<MushafScreen> {
   }
 
   PreferredSizeWidget _buildDynamicAppBar(BuildContext context) {
+    // In light mode, the primary color is used for the AppBar background, so text must be light.
+    final appBarTextColor = Theme.of(context).brightness == Brightness.light
+        ? Colors.white
+        : Theme.of(context).colorScheme.onSurface;
+
     return AppBar(
       elevation: 2,
       centerTitle: true,
+      foregroundColor: appBarTextColor,
       title: Column(
         children: [
           FittedBox(
@@ -103,7 +109,7 @@ class _MushafScreenState extends State<MushafScreen> {
                 fontFamily: 'HafsSmart',
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
+                color: appBarTextColor,
               ),
             ),
           ),
@@ -111,7 +117,7 @@ class _MushafScreenState extends State<MushafScreen> {
             "الجزء $_currentJuz | $_hizbInfo",
             style: TextStyle(
               fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+              color: appBarTextColor.withValues(alpha: 0.8),
             ),
           ),
         ],

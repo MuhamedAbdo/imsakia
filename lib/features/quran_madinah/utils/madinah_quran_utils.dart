@@ -115,11 +115,20 @@ class QuranUtils {
 
     // Clean text and split into words
     String cleanedText = text.replaceFirst(RegExp(r'\s*\d+\s*(?=﴿|$)'), ' ');
+    
+    // Fix known Emlaey word splits to match Uthmani spacing for better 1:1 alignment
+    String normalizedEmlaey = emlaey
+        .replaceAll('أو لم ', 'أولم ')
+        .replaceAll('يا أيها ', 'يأيها ')
+        .replaceAll('يا أيتها ', 'يأيتها ')
+        .replaceAll('يا ويلتى ', 'يويلتى ')
+        .replaceAll('يا ليتني ', 'يليتني ');
+
     List<String> textWords = cleanedText
         .split(' ')
         .where((w) => w.trim().isNotEmpty)
         .toList();
-    List<String> emlaeyWords = emlaey
+    List<String> emlaeyWords = normalizedEmlaey
         .split(' ')
         .where((w) => w.trim().isNotEmpty)
         .toList();
@@ -155,7 +164,7 @@ class QuranUtils {
 
       parsedWords.add(
         ParsedSpanData(
-          text: '$wordText ',
+          text: wordText, // Without trailing space
           isAllah: isAllah,
           isHighlight: isHighlighted,
         ),
@@ -194,9 +203,22 @@ class QuranUtils {
         backgroundColor: parsed.isHighlight ? highlightColor : (isTargetAya ? targetAyaColor : null),
       );
 
+      // We add the word without the trailing space to prevent RTL style bleeding across lines
       spans.add(TextSpan(
         text: parsed.text,
         style: baseStyle,
+        recognizer: recognizer,
+      ));
+
+      // Add the trailing space as a separate TextSpan with normal color and transparent background
+      spans.add(TextSpan(
+        text: ' ',
+        style: TextStyle(
+          fontFamily: 'HafsSmart',
+          fontSize: fontSize,
+          color: normalColor,
+          backgroundColor: isTargetAya ? targetAyaColor : null,
+        ),
         recognizer: recognizer,
       ));
     }
