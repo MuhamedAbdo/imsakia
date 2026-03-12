@@ -10,6 +10,7 @@ import '../providers/theme_provider.dart';
 import '../features/athan/providers/athan_provider.dart';
 import '../services/prayer_times_service.dart';
 import '../widgets/neumorphic_box.dart';
+import '../features/audio/services/audio_handler.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool isFirstTimeSetup;
@@ -53,6 +54,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _selectedState = parts[0].trim();
           _selectedCountry = parts[1].trim();
         });
+      }
+    }
+  }
+
+  void _testPlayAthan(bool isFajr) async {
+    final provider = Provider.of<AthanProvider>(context, listen: false);
+    final path = isFajr ? provider.localFajrPath : provider.localNormalPath;
+    if (path != null && audioHandler != null) {
+      await audioHandler!.customAction('playAthan', {'path': path, 'prayerName': 'تجربة'});
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('جاري تهيئة الصوت، يرجى المحاولة لاحقاً', style: GoogleFonts.tajawal())),
+        );
       }
     }
   }
@@ -486,6 +501,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   muezzins: provider.muezzins,
                   selected: provider.selectedNormalMuezzin,
                   onChanged: (m) => provider.selectMuezzinForNormal(m!),
+                  onTestPlay: () => _testPlayAthan(false),
                 )
               else
                 Theme(
@@ -504,6 +520,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         muezzins: provider.muezzins,
                         selected: provider.selectedNormalMuezzin,
                         onChanged: (m) => provider.selectMuezzinForNormal(m!),
+                        onTestPlay: () => _testPlayAthan(false),
                       ),
                       const SizedBox(height: 10),
                       _buildMuezzinDropdown(
@@ -511,6 +528,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         muezzins: provider.muezzins,
                         selected: provider.selectedFajrMuezzin,
                         onChanged: (m) => provider.selectMuezzinForFajr(m!),
+                        onTestPlay: () => _testPlayAthan(true),
                       ),
                     ],
                   ),
@@ -527,21 +545,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required List<Muezzin> muezzins,
     required Muezzin? selected,
     required void Function(Muezzin?) onChanged,
+    required VoidCallback onTestPlay,
   }) {
-    return DropdownButtonFormField<Muezzin>(
-      isExpanded: true,
-      initialValue: selected,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: GoogleFonts.tajawal(),
-      ),
-      items: muezzins.map((m) {
-        return DropdownMenuItem<Muezzin>(
-          value: m,
-          child: Text(m.name, style: GoogleFonts.tajawal(fontSize: 14)),
-        );
-      }).toList(),
-      onChanged: onChanged,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: DropdownButtonFormField<Muezzin>(
+            isExpanded: true,
+            initialValue: selected,
+            decoration: InputDecoration(
+              labelText: label,
+              labelStyle: GoogleFonts.tajawal(),
+            ),
+            items: muezzins.map((m) {
+              return DropdownMenuItem<Muezzin>(
+                value: m,
+                child: Text(m.name, style: GoogleFonts.tajawal(fontSize: 14)),
+              );
+            }).toList(),
+            onChanged: onChanged,
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          icon: const Icon(Icons.play_circle_outline, color: Colors.green, size: 30),
+          tooltip: 'تشغيل تجريبي',
+          onPressed: onTestPlay,
+        ),
+      ],
     );
   }
 }

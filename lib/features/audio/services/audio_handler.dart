@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 MyAudioHandler? audioHandler;
 
@@ -16,6 +18,7 @@ Future<void> initAudioService() async {
       androidNotificationChannelName: 'Audio playback',
       androidNotificationOngoing: true,
       androidStopForegroundOnPause: true, // Allow swipe to dismiss when paused
+      androidNotificationIcon: 'mipmap/ic_launcher',
     ),
   );
 }
@@ -30,12 +33,32 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
   void Function()? onStopCustom;
 
   MyAudioHandler(this._player) {
+    _athanPlayer.setReleaseMode(ReleaseMode.stop);
+    _athanPlayer.setAudioContext(const AudioContext(
+      android: AudioContextAndroid(
+        isSpeakerphoneOn: true,
+        stayAwake: true,
+        contentType: AndroidContentType.sonification,
+        usageType: AndroidUsageType.alarm,
+        audioFocus: AndroidAudioFocus.gainTransientExclusive,
+      ),
+      iOS: AudioContextIOS(
+        category: AVAudioSessionCategory.playback,
+        options: [
+          AVAudioSessionOptions.defaultToSpeaker,
+          AVAudioSessionOptions.mixWithOthers,
+        ],
+      ),
+    ));
+
     _athanPlayer.onPlayerComplete.listen((_) {
        if (mediaItem.value?.id == 'athan_alert') {
+          WakelockPlus.disable();
           playbackState.add(playbackState.value.copyWith(
              playing: false,
              processingState: AudioProcessingState.idle,
           ));
+          mediaItem.add(null);
        }
     });
 
@@ -113,21 +136,30 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
        if (mediaItem.value?.id == 'athan_alert') {
          await stop();
        }
+       // Always cancel the athan notification (id 888) so it doesn't linger
+       try {
+         final plugin = FlutterLocalNotificationsPlugin();
+         await plugin.cancel(id: 888);
+       } catch (_) {}
        return;
     }
   
     if (name == 'playAthan' && extras != null) {
       final String path = extras['path'] as String;
+      final String prayerName = extras['prayerName'] as String? ?? "الصلاة";
+      final String title = 'حان الآن موعد أذان $prayerName';
       
       // Pause the main player gracefully without breaking queue
       if (_player.state == PlayerState.playing) {
         await _player.pause();
       }
       
-      mediaItem.add(const MediaItem(
+      WakelockPlus.enable();
+
+      mediaItem.add(MediaItem(
         id: 'athan_alert',
         album: "تنبيه الأذان",
-        title: "وقت الصلاة",
+        title: title,
         artist: "إمساكية",
       ));
       
@@ -153,10 +185,12 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
   Future<void> stop() async {
     if (mediaItem.value?.id == 'athan_alert') {
       await _athanPlayer.stop();
+      WakelockPlus.disable();
       playbackState.add(playbackState.value.copyWith(
         playing: false,
         processingState: AudioProcessingState.idle,
       ));
+      mediaItem.add(null);
       return;
     }
 

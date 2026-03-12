@@ -270,23 +270,77 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  // Smart adaptive countdown timer.
+  // - While remaining > 60s: fires every minute (on the minute boundary)
+  //   → saves ~59/60 battery compared to always firing every second
+  // - When remaining ≤ 60s: switches to per-second updates automatically
+  // - Cancels and reschedules itself to stay aligned with real-time.
   void _startCountdownTimer() {
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
+    _countdownTimer?.cancel();
+
+    final remaining = _prayerService.getTimeUntilNextPrayer();
+    final totalSeconds = remaining?.inSeconds ?? 0;
+
+    if (totalSeconds > 60) {
+      // ── Minute mode ──────────────────────────────────────────────────────────
+      // Fire once at the next whole minute boundary so the display updates exactly
+      // when the minute digit changes (e.g. 05:00 → 04:00).
+      final secondsIntoCurrentMinute = totalSeconds % 60;
+      // How many seconds until the next whole minute tick?
+      final secsUntilMinuteBoundary =
+          secondsIntoCurrentMinute == 0 ? 60 : secondsIntoCurrentMinute;
+
+      _countdownTimer =
+          Timer(Duration(seconds: secsUntilMinuteBoundary), () {
+        if (!mounted) return;
         setState(() {
           _timeUntilNextPrayer = _prayerService.getTimeUntilNextPrayer();
           _nextPrayer = _prayerService.getNextPrayer();
         });
-      }
-    });
+        // After the first boundary tick, keep ticking every 60 seconds
+        // — unless we've now entered the last minute, in which case re-enter
+        // this method to switch to per-second mode.
+        _startCountdownTimer();
+      });
+    } else {
+      // ── Second mode (last 60 seconds) ────────────────────────────────────────
+      _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        final left = _prayerService.getTimeUntilNextPrayer();
+        setState(() {
+          _timeUntilNextPrayer = left;
+          _nextPrayer = _prayerService.getNextPrayer();
+        });
+        // Once the prayer time passes (≤ 0), reset and switch back to minute mode
+        if ((left?.inSeconds ?? 0) <= 0) {
+          _startCountdownTimer();
+        }
+      });
+    }
   }
 
+  /// Formats a Duration for display.
+  /// - ≥ 60 seconds remaining → show minutes only, no seconds ("H:MM" or "HH:MM")
+  ///   e.g. 2h 35m → "02:35" means "2 hr 35 min"
+  /// - < 60 seconds remaining → show "00:SS" (seconds visible)
   String _formatDuration(Duration duration) {
     final absDiff = duration.abs();
-    final hours = absDiff.inHours;
-    final minutes = absDiff.inMinutes.remainder(60);
-    final seconds = absDiff.inSeconds.remainder(60);
-    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    final totalSeconds = absDiff.inSeconds;
+
+    if (totalSeconds >= 60) {
+      // Show hours + minutes only — no seconds flicker
+      final hours = absDiff.inHours;
+      final minutes = absDiff.inMinutes.remainder(60);
+      if (hours > 0) {
+        return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
+      } else {
+        return '${minutes.toString().padLeft(2, '0')}:00';
+      }
+    } else {
+      // Last minute: show seconds
+      final seconds = absDiff.inSeconds.remainder(60);
+      return '00:${seconds.toString().padLeft(2, '0')}';
+    }
   }
 
   @override

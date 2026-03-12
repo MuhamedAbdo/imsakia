@@ -141,12 +141,16 @@ class PrayerTimesService {
       final name = entry.key;
       final time = entry.value;
       
+      // Cancel the old alarm for this ID to prevent false triggers when times shift
+      AthanManager.cancelAthan(idBase);
+
       // لا نؤذن في وقت الشروق
       if (name != 'sunrise' && time.isAfter(now)) {
         AthanManager.scheduleNextAthan(
           alarmId: idBase,
           time: time,
           isFajr: name == 'fajr',
+          prayerName: _getArabicName(name),
         );
       }
       idBase++;
@@ -159,6 +163,18 @@ class PrayerTimesService {
       if (a[key] != b[key]) return false;
     }
     return true;
+  }
+
+  String _getArabicName(String name) {
+    switch (name) {
+      case 'fajr': return 'الفجر';
+      case 'sunrise': return 'الشروق';
+      case 'dhuhr': return 'الظهر';
+      case 'asr': return 'العصر';
+      case 'maghrib': return 'المغرب';
+      case 'isha': return 'العشاء';
+      default: return 'الصلاة';
+    }
   }
 
   Future<LocationSettings?> _getCurrentLocation() async {
