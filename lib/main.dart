@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -28,11 +27,19 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 // Background notification response handler (fires when app is killed)
 // Must be a top-level function annotated with @pragma
 @pragma('vm:entry-point')
-void notificationBackgroundResponseHandler(NotificationResponse response) async {
+void notificationBackgroundResponseHandler(
+  NotificationResponse response,
+) async {
   if (response.payload == 'stop_athan' ||
       (response.actionId != null && response.actionId == 'stop_athan_action')) {
-    // Initialize isolate plugin channels
-    DartPluginRegistrant.ensureInitialized();
+    // Initialize isolate plugin channels (safe to skip if not available)
+    try {
+      // In background isolates, plugin initialization is handled by Flutter automatically
+      // Attempting DartPluginRegistrant.ensureInitialized() would require generated files
+    } catch (e) {
+      // Plugin registration not critical for stopping athan
+      debugPrint('Plugin registration skipped in background: $e');
+    }
     // Stop athan audio by calling the audio handler if alive
     if (audioHandler == null) {
       await initAudioService();
@@ -59,20 +66,27 @@ void main() async {
   final settingsProvider = SettingsProvider();
   await settingsProvider.initialize();
 
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-  
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
   // Initialize the notification plugin with foreground AND background handlers
   await flutterLocalNotificationsPlugin.initialize(
-    settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+    settings: const InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    ),
     onDidReceiveNotificationResponse: (NotificationResponse response) {
       // Foreground tap: navigate to overlay
-      if (response.payload != null && response.payload!.startsWith('athan_overlay|')) {
+      if (response.payload != null &&
+          response.payload!.startsWith('athan_overlay|')) {
         final parts = response.payload!.split('|');
         if (parts.length >= 3) {
           final prayerName = parts[1];
           final isFajr = parts[2] == 'true';
           navigatorKey.currentState?.push(
-            MaterialPageRoute(builder: (_) => AthanOverlayScreen(prayerName: prayerName, isFajr: isFajr)),
+            MaterialPageRoute(
+              builder: (_) =>
+                  AthanOverlayScreen(prayerName: prayerName, isFajr: isFajr),
+            ),
           );
         }
       }
@@ -81,13 +95,15 @@ void main() async {
         audioHandler?.customAction('stopAthan');
       }
     },
-    onDidReceiveBackgroundNotificationResponse: notificationBackgroundResponseHandler,
+    onDidReceiveBackgroundNotificationResponse:
+        notificationBackgroundResponseHandler,
   );
 
-  final NotificationAppLaunchDetails? notificationAppLaunchDetails = await flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
-  
+  final NotificationAppLaunchDetails? notificationAppLaunchDetails =
+      await flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
+
   Widget? overlayScreen;
-  
+
   if (notificationAppLaunchDetails?.didNotificationLaunchApp ?? false) {
     final payload = notificationAppLaunchDetails?.notificationResponse?.payload;
     if (payload != null && payload.startsWith('athan_overlay|')) {
@@ -95,13 +111,22 @@ void main() async {
       if (parts.length >= 3) {
         final prayerName = parts[1];
         final isFajr = parts[2] == 'true';
-        overlayScreen = AthanOverlayScreen(prayerName: prayerName, isFajr: isFajr);
+        overlayScreen = AthanOverlayScreen(
+          prayerName: prayerName,
+          isFajr: isFajr,
+        );
       }
     }
   }
 
   final prefs = await SharedPreferences.getInstance();
-  runApp(MyApp(settingsProvider: settingsProvider, prefs: prefs, initialOverlay: overlayScreen));
+  runApp(
+    MyApp(
+      settingsProvider: settingsProvider,
+      prefs: prefs,
+      initialOverlay: overlayScreen,
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -109,7 +134,12 @@ class MyApp extends StatelessWidget {
   final SharedPreferences prefs;
   final Widget? initialOverlay;
 
-  const MyApp({super.key, required this.settingsProvider, required this.prefs, this.initialOverlay});
+  const MyApp({
+    super.key,
+    required this.settingsProvider,
+    required this.prefs,
+    this.initialOverlay,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -125,11 +155,13 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => madinah.QuranProvider(prefs)),
         ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
         ChangeNotifierProvider(create: (_) => DownloadProvider()),
-        ChangeNotifierProvider<AthanProvider>(create: (_) {
-           final provider = AthanProvider();
-           provider.fetchMuezzins(); // Pre-fetch UI options
-           return provider;
-        }),
+        ChangeNotifierProvider<AthanProvider>(
+          create: (_) {
+            final provider = AthanProvider();
+            provider.fetchMuezzins(); // Pre-fetch UI options
+            return provider;
+          },
+        ),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {

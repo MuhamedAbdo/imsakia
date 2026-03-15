@@ -19,7 +19,7 @@ dependencies:
   
   # UI & Fonts
   google_fonts: ^8.0.2
-  flutter_svg: ^2.0.14
+  flutter_svg: ^2.0.10
   cached_network_image: ^3.4.1
   
   # Islamic Core Logic
@@ -83,6 +83,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
@@ -124,3 +125,11 @@ flutter:
     - family: UthmanTN
       fonts:
         - asset: assets/fonts/UthmanTN1-Regular.ttf
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/zad_icon.png"
+  remove_alpha_ios: false
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/zad_icon.png"

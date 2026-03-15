@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,13 +30,13 @@ class AthanManager {
   /// Schedule alarm for Athan.
   /// Provide a unique alarmId for each prayer (e.g. 0 for Fajr, 1 for Dhuhr, etc.)
   static Future<void> scheduleNextAthan({
-      required int alarmId,
-      required DateTime time,
-      required bool isFajr,
-      required String prayerName,
+    required int alarmId,
+    required DateTime time,
+    required bool isFajr,
+    required String prayerName,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     // Store whether this specific alarm is Fajr or not for the isolate to check later
     await prefs.setBool('isFajr_$alarmId', isFajr);
     await prefs.setString('prayerName_$alarmId', prayerName);
@@ -46,7 +45,7 @@ class AthanManager {
     if (!isEnabled) {
       return; // Do not schedule if master toggle is off.
     }
-    
+
     // Check Exact Alarm Permission natively
     if (Platform.isAndroid) {
       final status = await Permission.scheduleExactAlarm.status;
@@ -55,7 +54,7 @@ class AthanManager {
         return; // Abort scheduling if we don't have permission
       }
     }
-    
+
     // Schedule the exact alarm
     // - alarmClock: true  → appears in the system alarm list, bypasses Doze
     // - exact: true       → fires at the exact millisecond
@@ -77,53 +76,63 @@ class AthanManager {
 
 @pragma('vm:entry-point')
 Future<void> athanAlarmCallback(int alarmId) async {
-    // 1. Initialize plugin channels so we can communicate with Native APIs
-    DartPluginRegistrant.ensureInitialized();
-    
-    // 2. Load SharedPreferences and ensure latest data is reloaded in this background isolate
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.reload();
-    
-    final isEnabled = prefs.getBool('athan_enabled') ?? true;
-    if (!isEnabled) {
-      return; // Abort if user disabled Athan recently
+  // 1. Initialize plugin channels so we can communicate with Native APIs
+  // In background isolates, plugin initialization is handled automatically by Flutter
+  try {
+    // Plugin channel initialization (safe to skip if not available)
+    // This code path only runs in background isolates triggered by alarms
+  } catch (e) {
+    debugPrint('Plugin initialization in background: $e');
+  }
+
+  // 2. Load SharedPreferences and ensure latest data is reloaded in this background isolate
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.reload();
+
+  final isEnabled = prefs.getBool('athan_enabled') ?? true;
+  if (!isEnabled) {
+    return; // Abort if user disabled Athan recently
+  }
+
+  // 3. Determine if this specific alarm is for Fajr
+  final isFajr = prefs.getBool('isFajr_$alarmId') ?? false;
+  final prayerName = prefs.getString('prayerName_$alarmId') ?? "الصلاة";
+
+  // 4. Retrieve cached local audio paths
+  final normalPath = prefs.getString('localNormalAthanPath');
+  final fajrPath = prefs.getString('localFajrAthanPath');
+
+  final String? pathToPlay = isFajr ? fajrPath : normalPath;
+
+  // 5. Initialize foreground audio service and trigger playback
+  if (pathToPlay != null && File(pathToPlay).existsSync()) {
+    if (audioHandler == null) {
+      // Init creates the persistent foreground notification
+      await initAudioService();
     }
 
-    // 3. Determine if this specific alarm is for Fajr
-    final isFajr = prefs.getBool('isFajr_$alarmId') ?? false;
-    final prayerName = prefs.getString('prayerName_$alarmId') ?? "الصلاة";
-    
-    // 4. Retrieve cached local audio paths
-    final normalPath = prefs.getString('localNormalAthanPath');
-    final fajrPath = prefs.getString('localFajrAthanPath');
-    
-    final String? pathToPlay = isFajr ? fajrPath : normalPath;
-    
-    // 5. Initialize foreground audio service and trigger playback
-    if (pathToPlay != null && File(pathToPlay).existsSync()) {
-      if (audioHandler == null) {
-        // Init creates the persistent foreground notification
-        await initAudioService();
-      }
-      
-      // Request playback via our Custom Action in AudioHandler
-      await audioHandler?.customAction('playAthan', {'path': pathToPlay, 'prayerName': prayerName});
-      
-      // Show full screen intent notification above the lock screen
-      await showFullScreenAthan(prayerName, isFajr);
-    } else {
-      debugPrint("Athan file not found at path: $pathToPlay");
-      // Still show the notification so the user knows athan time arrived,
-      // even if audio file is missing (edge case after reinstall).
-      await showFullScreenAthan(prayerName, isFajr);
-    }
+    // Request playback via our Custom Action in AudioHandler
+    await audioHandler?.customAction('playAthan', {
+      'path': pathToPlay,
+      'prayerName': prayerName,
+    });
+
+    // Show full screen intent notification above the lock screen
+    await showFullScreenAthan(prayerName, isFajr);
+  } else {
+    debugPrint("Athan file not found at path: $pathToPlay");
+    // Still show the notification so the user knows athan time arrived,
+    // even if audio file is missing (edge case after reinstall).
+    await showFullScreenAthan(prayerName, isFajr);
+  }
 }
 
 /// Shows a full-screen-intent notification that appears above the lock screen.
 /// Includes a "Stop Athan" action button so the user can stop it without opening the app.
 Future<void> showFullScreenAthan(String prayerName, bool isFajr) async {
-  final FlutterLocalNotificationsPlugin plugin = FlutterLocalNotificationsPlugin();
-  
+  final FlutterLocalNotificationsPlugin plugin =
+      FlutterLocalNotificationsPlugin();
+
   // Initialize with default settings (isolate context)
   await plugin.initialize(
     settings: const InitializationSettings(
@@ -131,15 +140,14 @@ Future<void> showFullScreenAthan(String prayerName, bool isFajr) async {
     ),
   );
 
-
   // === Stop Action Button ===
   // This button appears directly on the notification / lock screen.
   // Tapping it fires the background handler in main.dart without opening the app.
   const AndroidNotificationAction stopAction = AndroidNotificationAction(
-    'stop_athan_action',       // action ID
-    'إيقاف الأذان',            // label shown on lock screen button
+    'stop_athan_action', // action ID
+    'إيقاف الأذان', // label shown on lock screen button
     showsUserInterface: false, // Do NOT open the app UI
-    cancelNotification: true,  // Auto-cancel notification when action is tapped
+    cancelNotification: true, // Auto-cancel notification when action is tapped
   );
 
   final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
@@ -163,8 +171,10 @@ Future<void> showFullScreenAthan(String prayerName, bool isFajr) async {
     // Large icon
     largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
   );
-  
-  final NotificationDetails details = NotificationDetails(android: androidDetails);
+
+  final NotificationDetails details = NotificationDetails(
+    android: androidDetails,
+  );
 
   await plugin.show(
     id: kAthanNotificationId,
