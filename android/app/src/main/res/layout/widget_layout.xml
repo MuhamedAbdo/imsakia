@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="110dp"
+    android:background="@drawable/widget_bg"
+    android:padding="0dp">
+
+    <LinearLayout
+        android:id="@+id/ll_hours"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_centerVertical="true"
+        android:layout_marginStart="48dp" 
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/tv_hours_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="س"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/tv_hours"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="00"
+            android:textColor="#D4AF37"
+            android:textSize="21sp"
+            android:textStyle="bold"
+            android:layout_marginTop="-4dp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tv_colon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toEndOf="@id/ll_hours"
+        android:layout_centerVertical="true"
+        android:text=":"
+        android:textColor="#D4AF37"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginStart="1dp"
+        android:layout_marginEnd="1dp"
+        android:paddingTop="10dp" />
+
+    <LinearLayout
+        android:id="@+id/ll_minutes"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toEndOf="@id/tv_colon"
+        android:layout_centerVertical="true"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/tv_minutes_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="د"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/tv_minutes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="00"
+            android:textColor="#D4AF37"
+            android:textSize="21sp"
+            android:textStyle="bold"
+            android:layout_marginTop="-4dp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tv_app_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="32dp"
+        android:layout_marginEnd="32dp"
+        android:text="زاد"
+        android:textColor="#FFFFFF"
+        android:textSize="11sp"
+        android:fontFamily="sans-serif-medium"
+        android:alpha="0.8" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_toEndOf="@id/ll_minutes"
+        android:layout_marginStart="64dp"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tv_missed_prayer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="المغرب 6:03"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:alpha="0.6"
+            android:fontFamily="sans-serif-light" />
+
+        <TextView
+            android:id="@+id/tv_next_prayer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="العشاء 7:20"
+            android:textColor="#FFFFFF"
+            android:textSize="21sp"
+            android:textStyle="bold"
+            android:layout_marginTop="-4dp" />
+    </LinearLayout>
+
+</RelativeLayout>

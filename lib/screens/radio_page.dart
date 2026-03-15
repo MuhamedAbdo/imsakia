@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart';
 
 class RadioPage extends StatefulWidget {
   const RadioPage({super.key});
@@ -30,10 +30,10 @@ class _RadioPageState extends State<RadioPage> {
     debugPrint("Initializing AudioPlayer for radio...");
     
     // Listen to player state changes
-    _audioPlayer.onPlayerStateChanged.listen((state) {
+    _audioPlayer.playerStateStream.listen((state) {
       debugPrint("Playback state changed: $state");
       if (mounted) {
-        setState(() => isPlaying = state == PlayerState.playing);
+        setState(() => isPlaying = state.playing);
       }
     });
   }
@@ -98,7 +98,8 @@ class _RadioPageState extends State<RadioPage> {
         await _audioPlayer.setVolume(1.0);
         
         // Play the radio stream URL
-        await _audioPlayer.play(UrlSource(radioUrl));
+        await _audioPlayer.setUrl(radioUrl);
+        await _audioPlayer.play();
         
         setState(() => currentIndex = index);
         debugPrint("Playback started for index: $index");

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart';
+
 import 'dart:math' as math;
 import 'neumorphic_box.dart';
 
@@ -180,7 +181,8 @@ class _CustomTasbihState extends State<CustomTasbih>
 
   Future<void> _playClickSound() async {
     try {
-      await _audioPlayer.play(AssetSource('sounds/click.mp3'));
+      await _audioPlayer.setAsset('assets/sounds/click.mp3');
+      await _audioPlayer.play();
     } catch (e) {
       // ignore
     }

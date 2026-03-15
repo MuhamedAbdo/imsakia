@@ -1,127 +1,163 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/app_constants.dart';
-
-enum AppThemeMode { light, dark, system }
+import '../core/models/settings_model.dart';
+import '../core/services/storage_service.dart';
+import '../core/services/background_service.dart';
 
 class SettingsProvider extends ChangeNotifier {
-  SharedPreferences? _prefs;
-  bool _isInitialized = false;
+  final StorageService _storage;
+  late SettingsModel _settings;
 
-  AppThemeMode _themeMode = AppThemeMode.system;
-  String _selectedCity = AppConstants.defaultCity;
-  String _selectedCityName = "القاهرة، مصر";
-  String _selectedCalculationMethod = AppConstants.defaultCalculationMethod;
-  String _selectedMadhab = AppConstants.defaultMadhab;
-  bool _dstEnabled = AppConstants.defaultDST;
-  bool _notificationsEnabled = true;
-  bool _isFirstLaunch = true;
-  int _hijriAdjustment = 0;
-  bool _autoHijriAdjustment = true;
-
-  // Getters
-  AppThemeMode get themeMode => _themeMode;
-  String get selectedCity => _selectedCity;
-  String get selectedCityName => _selectedCityName;
-  String get selectedCalculationMethod => _selectedCalculationMethod;
-  String get selectedMadhab => _selectedMadhab;
-  bool get dstEnabled => _dstEnabled;
-  bool get notificationsEnabled => _notificationsEnabled;
-  bool get isFirstLaunch => _isFirstLaunch;
-  bool get isInitialized => _isInitialized;
-  int get hijriAdjustment => _hijriAdjustment;
-  bool get autoHijriAdjustment => _autoHijriAdjustment;
-
-  Future<void> initialize() async {
-    if (_isInitialized) return;
-    try {
-      _prefs = await SharedPreferences.getInstance();
-      await _loadSettings();
-      _isInitialized = true;
-      notifyListeners();
-    } catch (e) {
-      _setDefaults();
-      notifyListeners();
+  SettingsProvider(this._storage) {
+    _settings = _storage.getSettings();
+    if (_settings.languageCode != 'ar') {
+      _settings = _settings.copyWith(languageCode: 'ar');
+      _storage.saveSettings(_settings);
     }
   }
 
-  Future<void> _loadSettings() async {
-    _selectedCity = _prefs?.getString(AppConstants.selectedCityKey) ?? AppConstants.defaultCity;
-    _selectedCityName = _prefs?.getString('selected_city_name') ?? "القاهرة، مصر";
+  SettingsModel get settings => _settings;
+  CalculationMethod get calculationMethod => _settings.calculationMethod;
+  LocationMode get locationMode => _settings.locationMode;
 
-    final savedTheme = _prefs?.getString(AppConstants.themeModeKey) ?? 'system';
-    _themeMode = AppThemeMode.values.firstWhere(
-      (mode) => mode.toString().split('.').last == savedTheme,
-      orElse: () => AppThemeMode.system,
+  int get hijriBaseOffset => _settings.hijriBaseOffset;
+  int get hijriOffset => _settings.hijriOffset;
+
+  bool get athanEnabled => _settings.athanEnabled;
+  bool get notificationsEnabled => _settings.notificationsEnabled;
+  String get languageCode => _settings.languageCode;
+  bool get isDarkMode => _settings.isDarkMode;
+  bool get athanSoundEnabled => _settings.athanSoundEnabled;
+  bool get isUnifiedAthan => _settings.isUnifiedAthan;
+  bool get qiblaVibrationEnabled => _settings.qiblaVibrationEnabled;
+
+  // Sounds
+  String get selectedAthanSound => _settings.selectedAthanSound;
+  String get selectedFajrSound => _settings.selectedFajrSound;
+  String get selectedDhuhrSound => _settings.selectedDhuhrSound;
+  String get selectedAsrSound => _settings.selectedAsrSound;
+  String get selectedMaghribSound => _settings.selectedMaghribSound;
+  String get selectedIshaSound => _settings.selectedIshaSound;
+
+  Future<void> setCalculationMethod(CalculationMethod method) async {
+    _settings = _settings.copyWith(calculationMethod: method);
+    await _save();
+  }
+
+  Future<void> setLocationMode(LocationMode mode) async {
+    _settings = _settings.copyWith(locationMode: mode);
+    await _save();
+  }
+
+  /// Applies a Hijri day correction cumulatively.
+  Future<void> applyHijriOffset(int delta) async {
+    final newBase = _settings.hijriBaseOffset + delta;
+    _settings = _settings.copyWith(
+      hijriBaseOffset: newBase,
+      hijriOffset: 0,
     );
-
-    _selectedCalculationMethod = _prefs?.getString(AppConstants.calculationMethodKey) ?? AppConstants.defaultCalculationMethod;
-    _selectedMadhab = _prefs?.getString(AppConstants.madhabKey) ?? AppConstants.defaultMadhab;
-    _dstEnabled = _prefs?.getBool(AppConstants.dstKey) ?? AppConstants.defaultDST;
-    _notificationsEnabled = _prefs?.getBool(AppConstants.notificationsKey) ?? true;
-
-    _hijriAdjustment = _prefs?.getInt(AppConstants.hijriAdjustmentKey) ?? 0;
-    _autoHijriAdjustment = _prefs?.getBool('auto_hijri_adjustment') ?? (_hijriAdjustment == 0);
-
-    _isFirstLaunch = _prefs?.getBool(AppConstants.isFirstLaunchKey) ?? true;
+    await _save();
   }
 
-  // التعديل التراكمي: يجمع التعديل الجديد مع المخزن مسبقاً
-  Future<void> updateHijriAdjustment(int additionalAdjustment) async {
-    int currentStored = _prefs?.getInt(AppConstants.hijriAdjustmentKey) ?? 0;
-    _hijriAdjustment = currentStored + additionalAdjustment;
-    
-    _autoHijriAdjustment = (_hijriAdjustment == 0);
+  Future<void> setAthanEnabled(bool enabled) async {
+    _settings = _settings.copyWith(athanEnabled: enabled);
+    if (enabled) {
+      await BackgroundService.start();
+    } else {
+      await BackgroundService.stop();
+    }
+    await _save();
+  }
 
-    await _prefs?.setInt(AppConstants.hijriAdjustmentKey, _hijriAdjustment);
-    await _prefs?.setBool('auto_hijri_adjustment', _autoHijriAdjustment);
+  Future<void> setNotificationsEnabled(bool enabled) async {
+    _settings = _settings.copyWith(notificationsEnabled: enabled);
+    await _save();
+  }
 
+  Future<void> setLanguageCode(String code) async {
+    _settings = _settings.copyWith(languageCode: code);
+    await _save();
+  }
+
+  Future<void> setDarkMode(bool dark) async {
+    _settings = _settings.copyWith(isDarkMode: dark);
+    await _save();
+  }
+
+  Future<void> setAthanSoundEnabled(bool enabled) async {
+    _settings = _settings.copyWith(athanSoundEnabled: enabled);
+    await _save();
+  }
+
+  Future<void> setQiblaVibrationEnabled(bool enabled) async {
+    _settings = _settings.copyWith(qiblaVibrationEnabled: enabled);
+    await _save();
+  }
+
+  /// Toggles unified-athan mode.
+  /// When enabling: syncs all per-prayer sounds to the current general sound
+  ///               (Fajr keeps its dedicated sound).
+  /// When disabling: per-prayer sounds keep their last values.
+  Future<void> setIsUnifiedAthan(bool unified) async {
+    if (unified) {
+      // Sync all prayers to the current general sound; Fajr keeps own
+      _settings = _settings.copyWith(
+        isUnifiedAthan: true,
+        selectedFajrSound: _settings.selectedFajrSound,
+        selectedDhuhrSound: _settings.selectedAthanSound,
+        selectedAsrSound: _settings.selectedAthanSound,
+        selectedMaghribSound: _settings.selectedAthanSound,
+        selectedIshaSound: _settings.selectedAthanSound,
+      );
+    } else {
+      _settings = _settings.copyWith(isUnifiedAthan: false);
+    }
+    await _save();
+  }
+
+  /// Sets the unified Athan sound and syncs all non-Fajr prayers.
+  Future<void> setSelectedAthanSound(String path) async {
+    _settings = _settings.copyWith(
+      selectedAthanSound: path,
+      // When unified, update all non-Fajr prayers
+      selectedDhuhrSound:
+          _settings.isUnifiedAthan ? path : _settings.selectedDhuhrSound,
+      selectedAsrSound:
+          _settings.isUnifiedAthan ? path : _settings.selectedAsrSound,
+      selectedMaghribSound:
+          _settings.isUnifiedAthan ? path : _settings.selectedMaghribSound,
+      selectedIshaSound:
+          _settings.isUnifiedAthan ? path : _settings.selectedIshaSound,
+    );
+    await _save();
+  }
+
+  Future<void> setSelectedFajrSound(String path) async {
+    _settings = _settings.copyWith(selectedFajrSound: path);
+    await _save();
+  }
+
+  Future<void> setSelectedDhuhrSound(String path) async {
+    _settings = _settings.copyWith(selectedDhuhrSound: path);
+    await _save();
+  }
+
+  Future<void> setSelectedAsrSound(String path) async {
+    _settings = _settings.copyWith(selectedAsrSound: path);
+    await _save();
+  }
+
+  Future<void> setSelectedMaghribSound(String path) async {
+    _settings = _settings.copyWith(selectedMaghribSound: path);
+    await _save();
+  }
+
+  Future<void> setSelectedIshaSound(String path) async {
+    _settings = _settings.copyWith(selectedIshaSound: path);
+    await _save();
+  }
+
+  Future<void> _save() async {
+    await _storage.saveSettings(_settings);
     notifyListeners();
-  }
-
-  Future<void> setCity(String cityId) async {
-    _selectedCity = cityId;
-    _selectedCityName = cityId;
-    await _prefs?.setString(AppConstants.selectedCityKey, cityId);
-    await _prefs?.setString('selected_city_name', cityId);
-    notifyListeners();
-  }
-
-  Future<void> setCalculationMethod(String method) async {
-    _selectedCalculationMethod = method;
-    await _prefs?.setString(AppConstants.calculationMethodKey, method);
-    notifyListeners();
-  }
-
-  Future<void> setDST(bool enabled) async {
-    _dstEnabled = enabled;
-    await _prefs?.setBool(AppConstants.dstKey, enabled);
-    notifyListeners();
-  }
-
-  Future<void> setMadhab(String madhab) async {
-    _selectedMadhab = madhab;
-    await _prefs?.setString(AppConstants.madhabKey, madhab);
-    notifyListeners();
-  }
-
-  Future<void> setThemeMode(AppThemeMode mode) async {
-    _themeMode = mode;
-    await _prefs?.setString(AppConstants.themeModeKey, mode.toString().split('.').last);
-    notifyListeners();
-  }
-
-  Future<void> setFirstLaunchComplete() async {
-    _isFirstLaunch = false;
-    await _prefs?.setBool(AppConstants.isFirstLaunchKey, false);
-    notifyListeners();
-  }
-
-  void _setDefaults() {
-    _selectedCity = AppConstants.defaultCity;
-    _selectedCityName = "القاهرة، مصر";
-    _themeMode = AppThemeMode.system;
-    _hijriAdjustment = 0;
-    _autoHijriAdjustment = true;
   }
 }

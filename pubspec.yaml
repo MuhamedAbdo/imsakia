@@ -46,8 +46,10 @@ dependencies:
   
   # Background Tasks & Audio
   workmanager: ^0.9.0+3
-  audioplayers: ^5.2.1
-  android_alarm_manager_plus: ^4.0.4
+  flutter_background_service: any
+  just_audio: ^0.9.40
+  home_widget: ^0.9.0
+  flutter_qiblah: ^3.1.0+1
   
   # UI Helpers
   scrollable_positioned_list: ^0.3.8
@@ -74,10 +76,10 @@ dependencies:
   lottie: ^3.3.2
   easy_container: ^1.0.5+1
   url_launcher: ^6.3.2
-  audio_session: ^0.2.2
-  audio_service: ^0.18.18
+  audio_session: ^0.1.25
   permission_handler: ^12.0.1
   flutter_local_notifications: ^21.0.0
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -91,6 +93,7 @@ flutter:
   assets:
     - assets/quran.db
     - assets/data/
+    - assets/data/cities.json
     - assets/images/duas.png
     - assets/images/muhammed.png
     - assets/images/names.svg
@@ -108,6 +111,11 @@ flutter:
     - assets/images/header_maghrib.png
     - assets/images/header_isha.png
     - assets/images/zad_icon.png
+    - assets/images/qibla_compass.svg
+    - assets/images/qibla_kaaba.svg
+    - assets/images/qibla_needle.svg
+    - assets/images/background_widget.png
+    - assets/audio/
     - assets/fonts/
 
   fonts:
@@ -132,7 +140,7 @@ flutter:
         - asset: assets/fonts/UthmanTN1-Regular.ttf
 
 flutter_launcher_icons:
-  android: "launcher_icon"
+  android: true
   ios: true
   image_path: "assets/images/zad_icon.png"
   remove_alpha_ios: false

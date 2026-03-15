@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // نحتاج هذا المكتبة للوصول لـ PlatformDispatcher
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'settings_provider.dart';
+
+enum AppThemeMode { system, light, dark }
 
 class ThemeProvider extends ChangeNotifier {
   AppThemeMode _themeMode = AppThemeMode.system;

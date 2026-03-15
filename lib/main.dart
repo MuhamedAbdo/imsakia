@@ -1,52 +1,44 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest.dart' as tz;
+
+// Zad legacy providers (Keep these)
 import 'providers/theme_provider.dart';
-import 'providers/settings_provider.dart';
 import 'providers/quran_provider.dart';
-import 'providers/bukhari_provider.dart'; // تأكد من وجود هذا الاستيراد
-import 'screens/splash_screen.dart';
-import 'screens/settings_screen.dart';
-import 'screens/main_layout.dart';
+import 'providers/bukhari_provider.dart';
 import 'services/hadith_service.dart';
 import 'services/azkar_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:imsakia/features/quran_madinah/providers/quran_provider.dart'
-    as madinah;
-import 'features/audio/providers/audio_player_provider.dart';
-import 'features/audio/providers/download_provider.dart';
-import 'features/audio/services/audio_handler.dart';
-import 'features/athan/providers/athan_provider.dart';
-import 'features/athan/services/athan_manager.dart';
-import 'features/athan/ui/athan_overlay_screen.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:imsakia/features/quran_madinah/providers/quran_provider.dart' as madinah;
+
+// New Adhan Core Engine Services
+import 'core/services/storage_service.dart';
+import 'core/services/location_service.dart';
+import 'core/services/prayer_times_service.dart';
+import 'core/services/hijri_calendar_service.dart';
+import 'core/services/aladhan_api_service.dart';
+import 'core/services/notification_service.dart';
+import 'core/services/background_service.dart' as bg;
+
+// New Adhan Core Engine Providers
+import 'providers/settings_provider.dart';
+import 'providers/location_provider.dart';
+import 'providers/prayer_times_provider.dart';
+import 'providers/hijri_calendar_provider.dart';
+import 'providers/qibla_provider.dart';
+
+// Screens
+import 'screens/splash/splash_screen.dart';
+import 'screens/settings/settings_screen.dart';
+import 'screens/main_layout.dart';
+import 'screens/athan/athan_overlay_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
-// Background notification response handler (fires when app is killed)
-// Must be a top-level function annotated with @pragma
-@pragma('vm:entry-point')
-void notificationBackgroundResponseHandler(
-  NotificationResponse response,
-) async {
-  if (response.payload == 'stop_athan' ||
-      (response.actionId != null && response.actionId == 'stop_athan_action')) {
-    // Initialize isolate plugin channels (safe to skip if not available)
-    try {
-      // In background isolates, plugin initialization is handled by Flutter automatically
-      // Attempting DartPluginRegistrant.ensureInitialized() would require generated files
-    } catch (e) {
-      // Plugin registration not critical for stopping athan
-      debugPrint('Plugin registration skipped in background: $e');
-    }
-    // Stop athan audio by calling the audio handler if alive
-    if (audioHandler == null) {
-      await initAudioService();
-    }
-    await audioHandler?.customAction('stopAthan');
-  }
-}
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,157 +46,135 @@ void main() async {
   // Initialize Arabic locale for date formatting
   await initializeDateFormatting('ar', null);
 
-  // Критично: audio service and alarm manager MUST be initialized before the
-  // notification plugin, so audioHandler is not null when the athan overlay opens.
-  await initAudioService();
-  await AthanManager.initialize();
+  // Time zones
+  tz.initializeTimeZones();
 
-  // Start non-critical services without blocking
+  // Status bar style
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+  ));
+
+  // Initialize Adhan Storage Service
+  final storageService = await StorageService.create();
+  final settings = storageService.getSettings();
+
+  // Initialize Adhan Notification Service
+  final notificationService = NotificationService();
+  await notificationService.initialize();
+
+  // Wire Adhan Services
+  final aladhanApi = AladhanApiService();
+  final hijriService = HijriCalendarService(aladhanApi);
+  final locationService = LocationService();
+  final prayerService = PrayerTimesService();
+
+  // Start background service manually if athan is enabled
+  await bg.BackgroundService.initialize();
+  if (settings.athanEnabled) {
+    await bg.BackgroundService.start();
+  }
+
+  // Start Zad non-critical services
   HadithService.instance.initialize();
   AzkarService.instance.initialize();
 
-  final settingsProvider = SettingsProvider();
-  await settingsProvider.initialize();
+  // Handle notification taps (Athan overlay)
+  final initialNotification = await flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
+  final launchFromAthan = initialNotification?.didNotificationLaunchApp == true;
+  
+  String prayerNameAr = 'الصلاة';
+  String prayerNameEn = 'Prayer';
 
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-
-  // Initialize the notification plugin with foreground AND background handlers
-  await flutterLocalNotificationsPlugin.initialize(
-    settings: const InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-    ),
-    onDidReceiveNotificationResponse: (NotificationResponse response) {
-      // Foreground tap: navigate to overlay
-      if (response.payload != null &&
-          response.payload!.startsWith('athan_overlay|')) {
-        final parts = response.payload!.split('|');
-        if (parts.length >= 3) {
-          final prayerName = parts[1];
-          final isFajr = parts[2] == 'true';
-          navigatorKey.currentState?.push(
-            MaterialPageRoute(
-              builder: (_) =>
-                  AthanOverlayScreen(prayerName: prayerName, isFajr: isFajr),
-            ),
-          );
-        }
+  if (launchFromAthan) {
+    try {
+      final payloadStr = initialNotification?.notificationResponse?.payload;
+      if (payloadStr != null && payloadStr.isNotEmpty) {
+        final payload = jsonDecode(payloadStr);
+        prayerNameAr = payload['ar'] ?? 'الصلاة';
+        prayerNameEn = payload['en'] ?? 'Prayer';
       }
-      // Foreground action button tap: stop athan
-      if (response.actionId == 'stop_athan_action') {
-        audioHandler?.customAction('stopAthan');
-      }
-    },
-    onDidReceiveBackgroundNotificationResponse:
-        notificationBackgroundResponseHandler,
-  );
-
-  final NotificationAppLaunchDetails? notificationAppLaunchDetails =
-      await flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
-
-  Widget? overlayScreen;
-
-  if (notificationAppLaunchDetails?.didNotificationLaunchApp ?? false) {
-    final payload = notificationAppLaunchDetails?.notificationResponse?.payload;
-    if (payload != null && payload.startsWith('athan_overlay|')) {
-      final parts = payload.split('|');
-      if (parts.length >= 3) {
-        final prayerName = parts[1];
-        final isFajr = parts[2] == 'true';
-        overlayScreen = AthanOverlayScreen(
-          prayerName: prayerName,
-          isFajr: isFajr,
-        );
-      }
-    }
+    } catch (_) {}
   }
 
   final prefs = await SharedPreferences.getInstance();
+
   runApp(
-    MyApp(
-      settingsProvider: settingsProvider,
-      prefs: prefs,
-      initialOverlay: overlayScreen,
+    MultiProvider(
+      providers: [
+        // Zad Legacy Providers
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider.value(value: HadithService.instance),
+        ChangeNotifierProvider(create: (_) => QuranProvider()),
+        ChangeNotifierProvider(create: (_) => BukhariProvider()),
+        ChangeNotifierProvider(create: (_) => madinah.QuranProvider(prefs)),
+
+        // New Adhan Providers
+        ChangeNotifierProvider(create: (_) => SettingsProvider(storageService)),
+        ChangeNotifierProvider(create: (_) => LocationProvider(locationService, storageService)),
+        ChangeNotifierProvider(create: (_) => PrayerTimesProvider(prayerService)),
+        ChangeNotifierProvider(create: (_) => HijriCalendarProvider(hijriService)),
+        ChangeNotifierProvider(create: (_) => QiblaProvider()),
+      ],
+      child: MyApp(
+        launchFromAthan: launchFromAthan,
+        prayerNameAr: prayerNameAr,
+        prayerNameEn: prayerNameEn,
+      ),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  final SettingsProvider settingsProvider;
-  final SharedPreferences prefs;
-  final Widget? initialOverlay;
+  final bool launchFromAthan;
+  final String prayerNameAr;
+  final String prayerNameEn;
 
   const MyApp({
     super.key,
-    required this.settingsProvider,
-    required this.prefs,
-    this.initialOverlay,
+    this.launchFromAthan = false,
+    this.prayerNameAr = 'الصلاة',
+    this.prayerNameEn = 'Prayer',
   });
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: settingsProvider),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider.value(value: HadithService.instance),
-        ChangeNotifierProvider(create: (_) => QuranProvider()),
-        ChangeNotifierProvider(
-          create: (_) => BukhariProvider(),
-        ), // إضافة البروفايدر هنا
-        ChangeNotifierProvider(create: (_) => madinah.QuranProvider(prefs)),
-        ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
-        ChangeNotifierProvider(create: (_) => DownloadProvider()),
-        ChangeNotifierProvider<AthanProvider>(
-          create: (_) {
-            final provider = AthanProvider();
-            provider.fetchMuezzins(); // Pre-fetch UI options
-            return provider;
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return Consumer<SettingsProvider>(
+          builder: (context, settingsProvider, child) {
+            themeProvider.syncWithSettingsProvider(
+              // Assuming settingsProvider.isDarkMode handles boolean now (from adhan logic)
+              settingsProvider.isDarkMode ? AppThemeMode.dark : AppThemeMode.light,
+            );
+
+            return MaterialApp(
+              title: settingsProvider.languageCode == 'ar' ? 'زاد' : 'Zad',
+              navigatorKey: navigatorKey,
+              debugShowCheckedModeBanner: false,
+              theme: themeProvider.lightTheme,
+              darkTheme: themeProvider.darkTheme,
+              themeMode: settingsProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+              home: launchFromAthan
+                  ? AthanOverlayScreen(
+                      prayerNameAr: prayerNameAr,
+                      prayerNameEn: prayerNameEn,
+                    )
+                  : const SplashScreen(),
+              routes: {
+                '/settings': (context) => const SettingsScreen(),
+                '/main': (context) => const MainLayout(),
+              },
+              builder: (context, child) {
+                SystemChrome.setPreferredOrientations([
+                  DeviceOrientation.portraitUp,
+                ]);
+                return child!;
+              },
+            );
           },
-        ),
-      ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) {
-          return Consumer<SettingsProvider>(
-            builder: (context, settingsProvider, child) {
-              themeProvider.syncWithSettingsProvider(
-                settingsProvider.themeMode,
-              );
-
-              return MaterialApp(
-                title: 'إمساكية',
-                navigatorKey: navigatorKey,
-                debugShowCheckedModeBanner: false,
-                theme: themeProvider.lightTheme,
-                darkTheme: themeProvider.darkTheme,
-                themeMode: _getThemeMode(settingsProvider.themeMode),
-                home: initialOverlay ?? const SplashScreen(),
-                routes: {
-                  '/settings': (context) => const SettingsScreen(),
-                  '/main': (context) => const MainLayout(),
-                },
-                builder: (context, child) {
-                  SystemChrome.setPreferredOrientations([
-                    DeviceOrientation.portraitUp,
-                  ]);
-                  return child!;
-                },
-              );
-            },
-          );
-        },
-      ),
+        );
+      },
     );
-  }
-}
-
-ThemeMode _getThemeMode(AppThemeMode mode) {
-  switch (mode) {
-    case AppThemeMode.light:
-      return ThemeMode.light;
-    case AppThemeMode.dark:
-      return ThemeMode.dark;
-    case AppThemeMode.system:
-      return ThemeMode.system;
   }
 }

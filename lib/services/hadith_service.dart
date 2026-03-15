@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../models/hadith_model.dart';
-import 'hijri_date_service.dart';
+import 'package:hijri/hijri_calendar.dart';
 import '../utils/logger.dart';
 
 class HadithService extends ChangeNotifier {
@@ -80,11 +80,11 @@ class HadithService extends ChangeNotifier {
       final now = DateTime.now();
 
       // جلب التاريخ الهجري بناءً على التعديل
-      final hijriDate = HijriDateService.getHijriDate(now, adjustment);
+      final hijriDate = HijriCalendar.fromDate(now);
 
       // التأكد من تحويل القيم لنوع int بأمان
-      final int hijriDay = hijriDate['dayIndex'] ?? 1;
-      final int currentHijriYear = hijriDate['hYear'] ?? 1445;
+      final int hijriDay = hijriDate.hDay;
+      final int currentHijriYear = hijriDate.hYear;
 
       // معادلة اختيار الحديث بناءً على اليوم الهجري
       final int newIndex =

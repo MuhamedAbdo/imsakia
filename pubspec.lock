@@ -17,14 +17,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.2.0"
-  android_alarm_manager_plus:
-    dependency: "direct main"
-    description:
-      name: android_alarm_manager_plus
-      sha256: d243b5abd9e656fafd1d46f39e43196dd60df33aace1b11e04ecf01d6c6046f9
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.0.8"
   animate_do:
     dependency: "direct main"
     description:
@@ -57,40 +49,16 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.13.0"
-  audio_service:
-    dependency: "direct main"
-    description:
-      name: audio_service
-      sha256: cb122c7c2639d2a992421ef96b67948ad88c5221da3365ccef1031393a76e044
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.18.18"
-  audio_service_platform_interface:
-    dependency: transitive
-    description:
-      name: audio_service_platform_interface
-      sha256: "6283782851f6c8b501b60904a32fc7199dc631172da0629d7301e66f672ab777"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.1.3"
-  audio_service_web:
-    dependency: transitive
-    description:
-      name: audio_service_web
-      sha256: b8ea9243201ee53383157fbccf13d5d2a866b5dda922ec19d866d1d5d70424df
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.1.4"
   audio_session:
     dependency: "direct main"
     description:
       name: audio_session
-      sha256: "8f96a7fecbb718cb093070f868b4cdcb8a9b1053dce342ff8ab2fde10eb9afb7"
+      sha256: "2b7fff16a552486d078bfc09a8cde19f426dc6d6329262b684182597bec5b1ac"
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.2"
+    version: "0.1.25"
   audioplayers:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: audioplayers
       sha256: c05c6147124cd63e725e861335a8b4d57300b80e6e92cea7c145c739223bbaef
@@ -389,6 +357,38 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_background_service:
+    dependency: "direct main"
+    description:
+      name: flutter_background_service
+      sha256: "70a1c185b1fa1a44f8f14ecd6c86f6e50366e3562f00b2fa5a54df39b3324d3d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.1.0"
+  flutter_background_service_android:
+    dependency: transitive
+    description:
+      name: flutter_background_service_android
+      sha256: ca0793d4cd19f1e194a130918401a3d0b1076c81236f7273458ae96987944a87
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.3.1"
+  flutter_background_service_ios:
+    dependency: transitive
+    description:
+      name: flutter_background_service_ios
+      sha256: "6037ffd45c4d019dab0975c7feb1d31012dd697e25edc05505a4a9b0c7dc9fba"
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.0.3"
+  flutter_background_service_platform_interface:
+    dependency: transitive
+    description:
+      name: flutter_background_service_platform_interface
+      sha256: ca74aa95789a8304f4d3f57f07ba404faa86bed6e415f83e8edea6ad8b904a41
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.1.2"
   flutter_cache_manager:
     dependency: transitive
     description:
@@ -397,6 +397,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.4.1"
+  flutter_compass_v2:
+    dependency: transitive
+    description:
+      name: flutter_compass_v2
+      sha256: c17b1533a43f5192e73d2f475ec2c142cc1e193eba6a9b49433d1ab68d70606b
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.3"
   flutter_launcher_icons:
     dependency: "direct dev"
     description:
@@ -450,6 +458,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_qiblah:
+    dependency: "direct main"
+    description:
+      name: flutter_qiblah
+      sha256: "5184b24bd6d9931221ac8bed6dd9399cc9af709973c8b88e77a49626122e00a3"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.0+1"
   flutter_screenutil:
     dependency: "direct main"
     description:
@@ -596,6 +612,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.0"
+  home_widget:
+    dependency: "direct main"
+    description:
+      name: home_widget
+      sha256: d794a73894012459a4c63b94a6dc2cb3ccaa6eb08fb15b974aa7ac642594aed5
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.0"
   hooks:
     dependency: transitive
     description:
@@ -652,6 +676,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.11.0"
+  just_audio:
+    dependency: "direct main"
+    description:
+      name: just_audio
+      sha256: f978d5b4ccea08f267dae0232ec5405c1b05d3f3cd63f82097ea46c015d5c09e
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.46"
+  just_audio_platform_interface:
+    dependency: transitive
+    description:
+      name: just_audio_platform_interface
+      sha256: "2532c8d6702528824445921c5ff10548b518b13f808c2e34c2fd54793b999a6a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.6.0"
+  just_audio_web:
+    dependency: transitive
+    description:
+      name: just_audio_web
+      sha256: "6ba8a2a7e87d57d32f0f7b42856ade3d6a9fbe0f1a11fabae0a4f00bb73f0663"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.16"
   leak_tracker:
     dependency: transitive
     description:
@@ -1036,6 +1084,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.4.1"
+  shimmer:
+    dependency: "direct main"
+    description:
+      name: shimmer
+      sha256: "5f88c883a22e9f9f299e5ba0e4f7e6054857224976a5d9f839d4ebdc94a14ac9"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.0.0"
   simple_gesture_detector:
     dependency: transitive
     description:
@@ -1129,6 +1185,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.4"
+  stream_transform:
+    dependency: transitive
+    description:
+      name: stream_transform
+      sha256: ad47125e588cfd37a9a7f86c7d6356dde8dfe89d071d293f80ca9e9273a33871
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.1"
   string_scanner:
     dependency: transitive
     description:

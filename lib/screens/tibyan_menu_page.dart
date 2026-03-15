@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:imsakia/screens/calendar_page.dart';
 import 'package:imsakia/services/bukhari_database_service.dart';
-import 'package:provider/provider.dart';
+
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:flutter_svg/flutter_svg.dart'; // أضفنا مكتبة الـ SVG
-import '../providers/settings_provider.dart';
-import '../services/hijri_date_service.dart';
+
 import 'bukhari_library_page.dart';
 import 'allah_names_page.dart'; // استيراد صفحة أسماء الله الحسنى
 import 'radio_page.dart'; // استيراد صفحة الراديو
 import '../features/quran_madinah/ui/index_screen.dart'; // استيراد صفحة الفهرس مباشرة بدلاً من صفحة الاختيار
-import '../features/audio/screens/audio_reciters_screen.dart'; // Audio module
+import 'package:hijri/hijri_calendar.dart';
 import '../widgets/neumorphic_box.dart';
 
 /// صفحة بسيطة للأقسام التي تحت التطوير
@@ -81,7 +80,7 @@ class TibyanMenuPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settings = Provider.of<SettingsProvider>(context);
+
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     final DateTime now = DateTime.now();
@@ -90,11 +89,8 @@ class TibyanMenuPage extends StatelessWidget {
       'ar',
     ).format(now);
 
-    final hijriDateMap = HijriDateService.getHijriDate(
-      now,
-      settings.hijriAdjustment,
-    );
-    final String formattedHijri = hijriDateMap['formatted'];
+    final hDate = HijriCalendar.fromDate(now);
+    final String formattedHijri = "${hDate.hDay} ${hDate.longMonthName} ${hDate.hYear}";
 
     final Color primaryTextColor = isDarkMode
         ? Colors.white
@@ -286,7 +282,7 @@ class TibyanMenuPage extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const AudioRecitersScreen(),
+                              builder: (context) => const UnderDevelopmentPage(),
                             ),
                           );
                         } else if (item['title'] == 'الراديو') {

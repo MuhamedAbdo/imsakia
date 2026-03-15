@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hijri/hijri_calendar.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:provider/provider.dart';
-import '../services/hijri_date_service.dart';
-import '../providers/settings_provider.dart';
+
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -43,17 +41,9 @@ class _CalendarPageState extends State<CalendarPage>
   void _moveMonth({required bool isNext}) {
     setState(() {
       if (_tabController!.index == 0) {
-        final settingsProvider = Provider.of<SettingsProvider>(
-          context,
-          listen: false,
-        );
-        final hijriData = HijriDateService.getHijriDate(
-          _focusedDay,
-          settingsProvider.hijriAdjustment,
-        );
-
-        int hYear = int.parse(hijriData['year']);
-        int hMonth = hijriData['monthIndex'];
+        final hDateNow = HijriCalendar.fromDate(_focusedDay);
+        int hYear = hDateNow.hYear;
+        int hMonth = hDateNow.hMonth;
 
         if (isNext) {
           if (hMonth == 12) {
@@ -75,9 +65,7 @@ class _CalendarPageState extends State<CalendarPage>
         hDate.hYear = hYear;
         hDate.hMonth = hMonth;
         hDate.hDay = 1;
-        _focusedDay = hDate
-            .hijriToGregorian(hYear, hMonth, 1)
-            .subtract(Duration(days: settingsProvider.hijriAdjustment));
+        _focusedDay = hDate.hijriToGregorian(hYear, hMonth, 1);
       } else {
         _focusedDay = DateTime(
           _focusedDay.year,
@@ -145,15 +133,8 @@ class _CalendarPageState extends State<CalendarPage>
   Widget _buildCustomHeader(bool isDarkMode) {
     String title = "";
     if (_tabController!.index == 0) {
-      final settingsProvider = Provider.of<SettingsProvider>(
-        context,
-        listen: false,
-      );
-      final hijriData = HijriDateService.getHijriDate(
-        _focusedDay,
-        settingsProvider.hijriAdjustment,
-      );
-      title = "${hijriData['month']} ${hijriData['year']}";
+      final hDateNow = HijriCalendar.fromDate(_focusedDay);
+      title = "${hDateNow.longMonthName} ${hDateNow.hYear}";
     } else {
       const months = [
         "يناير",
@@ -238,27 +219,17 @@ class _CalendarPageState extends State<CalendarPage>
   }
 
   Widget _buildHijriCustomGridView(bool isDarkMode) {
-    final settingsProvider = Provider.of<SettingsProvider>(
-      context,
-      listen: false,
-    );
-
     // استخدام _focusedDay مع التعديل للحصول على الشهر والسنة الصحيحين المعروضين حالياً
-    final focusedHijriData = HijriDateService.getHijriDate(
-      _focusedDay,
-      settingsProvider.hijriAdjustment,
-    );
-    int hYear = int.parse(focusedHijriData['year']);
-    int hMonth = focusedHijriData['monthIndex'];
+    final hDateNow = HijriCalendar.fromDate(_focusedDay);
+    int hYear = hDateNow.hYear;
+    int hMonth = hDateNow.hMonth;
 
     // الحصول على أول يوم في الشهر الهجري المعدل
     var hDate = HijriCalendar();
     hDate.hYear = hYear;
     hDate.hMonth = hMonth;
     hDate.hDay = 1;
-    var firstDayOfMonth = hDate
-        .hijriToGregorian(hYear, hMonth, 1)
-        .subtract(Duration(days: settingsProvider.hijriAdjustment));
+    var firstDayOfMonth = hDate.hijriToGregorian(hYear, hMonth, 1);
 
     // حساب الإزاحة بناءً على أن السبت هو 6 في DateTime.weekday والأسبوع يبدأ بالسبت في تصميمنا
     // الأيام في Flutter: Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6, Sun=7
@@ -293,9 +264,7 @@ class _CalendarPageState extends State<CalendarPage>
         dayHijri.hDay = dayNo;
 
         // تطبيق التعديل عكسياً للحصول على التاريخ الميلادي الصحيح
-        DateTime currentGregorian = dayHijri
-            .hijriToGregorian(hYear, hMonth, dayNo)
-            .subtract(Duration(days: settingsProvider.hijriAdjustment));
+        DateTime currentGregorian = dayHijri.hijriToGregorian(hYear, hMonth, dayNo);
 
         // التحقق إذا كان هذا اليوم هو اليوم الحالي بعد تطبيق التعديل
         DateTime todayMidnight = DateTime(
@@ -394,14 +363,7 @@ class _CalendarPageState extends State<CalendarPage>
   }
 
   Widget _buildSelectedDateCard(DateTime date, bool isDarkMode) {
-    final settingsProvider = Provider.of<SettingsProvider>(
-      context,
-      listen: false,
-    );
-    final hijriData = HijriDateService.getHijriDate(
-      date,
-      settingsProvider.hijriAdjustment,
-    );
+    final hDateNow = HijriCalendar.fromDate(date);
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Container(
@@ -437,7 +399,7 @@ class _CalendarPageState extends State<CalendarPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    hijriData['formatted'],
+                    "${hDateNow.hDay} ${hDateNow.longMonthName} ${hDateNow.hYear}",
                     style: GoogleFonts.tajawal(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
