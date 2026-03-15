@@ -6,21 +6,89 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hijri/hijri_calendar.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/settings_provider.dart';
 import '../features/athan/providers/athan_provider.dart';
 import '../services/prayer_times_service.dart';
 import '../services/hadith_service.dart';
 import '../services/hijri_date_service.dart';
+import '../services/bukhari_database_service.dart';
 import 'package:audio_service/audio_service.dart';
 import '../features/audio/services/audio_handler.dart';
 
-// ستبقى للاستخدام داخل صفحة تبيان
+// Screen imports
 import 'tasbih_screen.dart';
-import 'azkar_screen.dart';
 import 'fasting_fiqh_screen.dart';
-import 'tibyan_menu_page.dart';
+import 'azkar_screen.dart';
+import 'allah_names_page.dart';
+import 'radio_page.dart';
+import 'calendar_page.dart';
+import 'bukhari_library_page.dart';
 import '../widgets/neumorphic_box.dart';
+import '../features/quran_madinah/ui/index_screen.dart';
+import '../features/audio/screens/audio_reciters_screen.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Helper: UnderDevelopmentPage (kept here, same as before in tibyan_menu_page)
+// ─────────────────────────────────────────────────────────────────────────────
+class UnderDevelopmentPage extends StatelessWidget {
+  const UnderDevelopmentPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor:
+            isDark ? const Color(0xFF121212) : const Color(0xFFF5F5F0),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          iconTheme:
+              IconThemeData(color: isDark ? Colors.white : Colors.black),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.construction_rounded,
+                    size: 80, color: Colors.amber),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'سيتم تطويره قريباً',
+                style: GoogleFonts.tajawal(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'نحن نعمل على إضافة هذا القسم المميّز',
+                style: GoogleFonts.tajawal(
+                  fontSize: 14,
+                  color: isDark ? Colors.white70 : Colors.black54,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  MainLayout — 3-tab shell
+// ─────────────────────────────────────────────────────────────────────────────
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
 
@@ -31,12 +99,10 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _currentIndex = 0;
 
-  // تحديث قائمة الشاشات: استبدال QuranHomeNew بـ TibyanMenuPage في الفهرس رقم 1
+  /// 3 tabs: Home Dashboard, Tasbih, Figh
   final List<Widget> _screens = [
     const HomeScreen(),
-    const TibyanMenuPage(), // التبويب الجديد
     const TasbihScreen(),
-    const AzkarScreenWidget(),
     const FastingFiqhScreen(),
   ];
 
@@ -54,6 +120,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
@@ -75,65 +143,61 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   audioHandler?.customAction('stopAthan');
                 },
                 backgroundColor: Colors.redAccent,
-                icon: const Icon(Icons.stop_circle_outlined, color: Colors.white),
+                icon: const Icon(Icons.stop_circle_outlined,
+                    color: Colors.white),
                 label: Text(
                   'إيقاف الأذان',
-                  style: GoogleFonts.tajawal(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.tajawal(
+                      color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               );
             }
             return const SizedBox.shrink();
           },
         ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+        floatingActionButtonLocation:
+            FloatingActionButtonLocation.centerFloat,
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
+            color: isDark ? const Color(0xFF1E2024) : Colors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 4,
-                offset: const Offset(0, -2),
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 12,
+                offset: const Offset(0, -3),
               ),
             ],
           ),
-          child: BottomNavigationBar(
-            currentIndex: _currentIndex,
-            onTap: (index) => setState(() => _currentIndex = index),
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            selectedItemColor: Theme.of(context).colorScheme.primary,
-            unselectedItemColor: Colors.grey,
-            selectedLabelStyle: GoogleFonts.tajawal(
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
+          child: SafeArea(
+            child: BottomNavigationBar(
+              currentIndex: _currentIndex,
+              onTap: (index) => setState(() => _currentIndex = index),
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: Theme.of(context).colorScheme.primary,
+              unselectedItemColor:
+                  isDark ? Colors.grey[500] : Colors.grey[400],
+              selectedLabelStyle: GoogleFonts.tajawal(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+              unselectedLabelStyle: GoogleFonts.tajawal(fontSize: 11),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home_rounded),
+                  label: 'زاد',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.fingerprint),
+                  label: 'المسبحة',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.menu_book_rounded),
+                  label: 'الفقه',
+                ),
+              ],
             ),
-            unselectedLabelStyle: GoogleFonts.tajawal(fontSize: 11),
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.access_time),
-                label: 'المواقيت',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(
-                  Icons.grid_view_rounded,
-                ), // أيقونة الشبكة لتدل على أقسام تبيان
-                label: 'تبيان',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.fingerprint),
-                label: 'المسبحة',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.auto_stories),
-                label: 'الأذكار',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.help_outline),
-                label: 'الفقه',
-              ),
-            ],
           ),
         ),
       ),
@@ -144,15 +208,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          'تأكيد الخروج',
-          style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
-        ),
-        content: Text(
-          'هل تريد الخروج من التطبيق؟',
-          style: GoogleFonts.tajawal(),
-        ),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('تأكيد الخروج',
+            style: GoogleFonts.tajawal(fontWeight: FontWeight.bold)),
+        content: Text('هل تريد الخروج من التطبيق؟',
+            style: GoogleFonts.tajawal()),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -163,10 +224,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
             ),
-            child: Text(
-              'خروج',
-              style: GoogleFonts.tajawal(color: Colors.white),
-            ),
+            child: Text('خروج',
+                style: GoogleFonts.tajawal(color: Colors.white)),
           ),
         ],
       ),
@@ -174,8 +233,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 }
 
-// --- شاشة HomeScreen تبقى كما هي دون تغيير في منطقها ---
-
+// ─────────────────────────────────────────────────────────────────────────────
+//  HomeScreen — Zad Dashboard
+// ─────────────────────────────────────────────────────────────────────────────
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -191,21 +251,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Timer? _countdownTimer;
   String? _lastLoadedCity;
 
+  // ── Lifecycle ──────────────────────────────────────────────────────────────
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadInitialData();
     _startCountdownTimer();
-    
-    // Check alarm permissions after a short delay to allow UI to render first
     Future.delayed(const Duration(seconds: 2), _checkAlarmPermissions);
   }
 
   Future<void> _checkAlarmPermissions() async {
     if (!mounted || !Platform.isAndroid) return;
-    
-    final athanProvider = Provider.of<AthanProvider>(context, listen: false);
+    final athanProvider =
+        Provider.of<AthanProvider>(context, listen: false);
     if (!athanProvider.isAthanEnabled) return;
 
     final status = await Permission.scheduleExactAlarm.status;
@@ -214,11 +274,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(
-            'تنبيه الأذان',
-            style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, color: Colors.red),
-          ),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16)),
+          title: Text('تنبيه الأذان',
+              style: GoogleFonts.tajawal(
+                  fontWeight: FontWeight.bold, color: Colors.red)),
           content: Text(
             'لضمان عمل الأذان في الخلفية في الوقت الدقيق، نرجو منح التطبيق صلاحية ضبط التنبيهات الدقيقة (Alarms & Reminders).',
             style: GoogleFonts.tajawal(),
@@ -227,7 +287,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
-                athanProvider.setAthanEnabled(false); // Disable it so we don't spam the user
+                athanProvider.setAthanEnabled(false);
               },
               child: Text('إلغاء', style: GoogleFonts.tajawal()),
             ),
@@ -236,8 +296,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 Navigator.pop(context);
                 await athanProvider.requestExactAlarmPermission();
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              child: Text('منح الصلاحية', style: GoogleFonts.tajawal(color: Colors.white)),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              child: Text('منح الصلاحية',
+                  style:
+                      GoogleFonts.tajawal(color: Colors.white)),
             ),
           ],
         ),
@@ -270,48 +333,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  // Smart adaptive countdown timer.
-  // - While remaining > 60s: fires every minute (on the minute boundary)
-  //   → saves ~59/60 battery compared to always firing every second
-  // - When remaining ≤ 60s: switches to per-second updates automatically
-  // - Cancels and reschedules itself to stay aligned with real-time.
+  // Smart adaptive countdown timer (unchanged logic)
   void _startCountdownTimer() {
     _countdownTimer?.cancel();
-
     final remaining = _prayerService.getTimeUntilNextPrayer();
     final totalSeconds = remaining?.inSeconds ?? 0;
 
     if (totalSeconds > 60) {
-      // ── Minute mode ──────────────────────────────────────────────────────────
-      // Fire once at the next whole minute boundary so the display updates exactly
-      // when the minute digit changes (e.g. 05:00 → 04:00).
       final secondsIntoCurrentMinute = totalSeconds % 60;
-      // How many seconds until the next whole minute tick?
       final secsUntilMinuteBoundary =
           secondsIntoCurrentMinute == 0 ? 60 : secondsIntoCurrentMinute;
-
       _countdownTimer =
           Timer(Duration(seconds: secsUntilMinuteBoundary), () {
         if (!mounted) return;
         setState(() {
-          _timeUntilNextPrayer = _prayerService.getTimeUntilNextPrayer();
+          _timeUntilNextPrayer =
+              _prayerService.getTimeUntilNextPrayer();
           _nextPrayer = _prayerService.getNextPrayer();
         });
-        // After the first boundary tick, keep ticking every 60 seconds
-        // — unless we've now entered the last minute, in which case re-enter
-        // this method to switch to per-second mode.
         _startCountdownTimer();
       });
     } else {
-      // ── Second mode (last 60 seconds) ────────────────────────────────────────
-      _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _countdownTimer =
+          Timer.periodic(const Duration(seconds: 1), (_) {
         if (!mounted) return;
         final left = _prayerService.getTimeUntilNextPrayer();
         setState(() {
           _timeUntilNextPrayer = left;
           _nextPrayer = _prayerService.getNextPrayer();
         });
-        // Once the prayer time passes (≤ 0), reset and switch back to minute mode
         if ((left?.inSeconds ?? 0) <= 0) {
           _startCountdownTimer();
         }
@@ -319,16 +369,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// Formats a Duration for display.
-  /// - ≥ 60 seconds remaining → show minutes only, no seconds ("H:MM" or "HH:MM")
-  ///   e.g. 2h 35m → "02:35" means "2 hr 35 min"
-  /// - < 60 seconds remaining → show "00:SS" (seconds visible)
+  // Duration formatter (unchanged logic)
   String _formatDuration(Duration duration) {
     final absDiff = duration.abs();
     final totalSeconds = absDiff.inSeconds;
-
     if (totalSeconds >= 60) {
-      // Show hours + minutes only — no seconds flicker
       final hours = absDiff.inHours;
       final minutes = absDiff.inMinutes.remainder(60);
       if (hours > 0) {
@@ -337,11 +382,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         return '${minutes.toString().padLeft(2, '0')}:00';
       }
     } else {
-      // Last minute: show seconds
       final seconds = absDiff.inSeconds.remainder(60);
       return '00:${seconds.toString().padLeft(2, '0')}';
     }
   }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -362,52 +408,49 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       settings.hijriAdjustment,
     );
 
-    return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 70,
-        title: Column(
-          children: [
-            Text(
-              'مواقيت الصلاة',
-              style: GoogleFonts.tajawal(
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: isDark
+            ? const Color(0xFF121212)
+            : const Color(0xFFF0F2F5),
+        body: RefreshIndicator(
+          onRefresh: _loadPrayerTimes,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              // ── Dynamic Header ─────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _buildDynamicHeader(
+                    context, isDark, cityName, countryName),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              cityName.isEmpty
-                  ? 'لم يتم تحديد موقع'
-                  : '$cityName - $countryName',
-              style: GoogleFonts.tajawal(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: isDark ? Colors.grey[300] : Colors.grey[700],
+
+              // ── Quran Card ─────────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _buildQuranCard(context, isDark),
               ),
-            ),
-          ],
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.pushNamed(context, '/settings'),
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadPrayerTimes,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              _buildHijriCard(hijriDateMap['formatted']),
-              _buildNextPrayerCard(),
-              const SizedBox(height: 20),
-              _buildSpecialEventCard(settings.hijriAdjustment),
-              const SizedBox(height: 20),
-              _buildPrayerTimesList(hijriDateMap['monthIndex'] as int),
+
+              // ── Prayer Times Horizontal Row ────────────────────────────────
+              SliverToBoxAdapter(
+                child: _buildHorizontalPrayerRow(
+                    context, isDark, hijriDateMap['monthIndex'] as int),
+              ),
+
+              // ── Services Grid ──────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _buildServicesSection(context, isDark),
+              ),
+
+              // ── Hadith / Special Event Card ────────────────────────────────
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding:
+                      const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  child: _buildSpecialEventCard(settings.hijriAdjustment),
+                ),
+              ),
+
+              const SliverToBoxAdapter(child: SizedBox(height: 80)),
             ],
           ),
         ),
@@ -415,83 +458,374 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildHijriCard(String formattedDate) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 16, left: 4, right: 4, top: 4),
-      child: NeumorphicBox(
-        borderRadius: 15,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.calendar_month, color: Color(0xFF8B4513)),
-              const SizedBox(width: 12),
-              Text(
-                formattedDate,
-                style: GoogleFonts.tajawal(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF8B4513),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  // ── 1. Dynamic Header ─────────────────────────────────────────────────────
+
+  /// Returns the background image asset path based on the current prayer period.
+  String _getHeaderImage() {
+    final now = DateTime.now();
+    final fajr = _prayerTimes['fajr'];
+    final sunrise = _prayerTimes['sunrise'];
+    final dhuhr = _prayerTimes['dhuhr'];
+    final asr = _prayerTimes['asr'];
+    final maghrib = _prayerTimes['maghrib'];
+    final isha = _prayerTimes['isha'];
+
+    if (fajr != null && sunrise != null &&
+        now.isAfter(fajr) && now.isBefore(sunrise)) {
+      return 'assets/images/header_fajr.png';
+    }
+    if (dhuhr != null && asr != null &&
+        now.isAfter(dhuhr) && now.isBefore(asr)) {
+      return 'assets/images/header_dhuhr.png';
+    }
+    if (maghrib != null && now.isAfter(maghrib)) {
+      if (isha == null || now.isBefore(isha)) {
+        return 'assets/images/header_maghrib.png';
+      }
+      return 'assets/images/header_isha.png';
+    }
+    if (isha != null && now.isAfter(isha)) {
+      return 'assets/images/header_isha.png';
+    }
+    if (sunrise != null && dhuhr != null &&
+        now.isAfter(sunrise) && now.isBefore(dhuhr)) {
+      return 'assets/images/header_dhuhr.png';
+    }
+    if (asr != null && maghrib != null &&
+        now.isAfter(asr) && now.isBefore(maghrib)) {
+      return 'assets/images/header_maghrib.png';
+    }
+    // Default: night/isha before fajr
+    return 'assets/images/header_isha.png';
   }
-  Widget _buildNextPrayerCard() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
+
+  /// Returns gradient overlay colors based on time-of-day and theme.
+  List<Color> _getHeaderGradient(bool isDark) {
+    final img = _getHeaderImage();
+    if (isDark) {
+      // Dark mode: always cool dark overlay
+      return [
+        const Color(0xFF0D1B2A).withValues(alpha: 0.75),
+        const Color(0xFF0D1B2A).withValues(alpha: 0.50),
+        Colors.transparent,
+      ];
+    }
+    if (img.contains('fajr')) {
+      return [
+        const Color(0xFF1A1040).withValues(alpha: 0.70),
+        const Color(0xFF4B2C6E).withValues(alpha: 0.45),
+        Colors.transparent,
+      ];
+    }
+    if (img.contains('dhuhr')) {
+      return [
+        const Color(0xFF0B3D6B).withValues(alpha: 0.65),
+        const Color(0xFF1565C0).withValues(alpha: 0.35),
+        Colors.transparent,
+      ];
+    }
+    if (img.contains('maghrib')) {
+      return [
+        const Color(0xFF7B2C1E).withValues(alpha: 0.70),
+        const Color(0xFFBF5A2B).withValues(alpha: 0.40),
+        Colors.transparent,
+      ];
+    }
+    // Night/isha
+    return [
+      const Color(0xFF050D1A).withValues(alpha: 0.80),
+      const Color(0xFF0A1628).withValues(alpha: 0.50),
+      Colors.transparent,
+    ];
+  }
+
+  Widget _buildDynamicHeader(
+    BuildContext context,
+    bool isDark,
+    String cityName,
+    String countryName,
+  ) {
+    final headerImage = _getHeaderImage();
+    final gradient = _getHeaderGradient(isDark);
+
+    return SizedBox(
       width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-      child: NeumorphicBox(
-        borderRadius: 20,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              Text(
-                'الصلاة القادمة',
-                style: GoogleFonts.tajawal(
-                  color: isDark ? Colors.white70 : Theme.of(context).primaryColor, 
-                  fontSize: 16,
+      height: 285,
+      child: Stack(
+        children: [
+          // Background image
+          Positioned.fill(
+            child: Image.asset(
+              headerImage,
+              fit: BoxFit.cover,
+            ),
+          ),
+          // Gradient overlay
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: gradient,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                _getPrayerName(_nextPrayer ?? ''),
-                style: GoogleFonts.tajawal(
-                  fontSize: 32,
-                  color: isDark ? Colors.white : Theme.of(context).primaryColor,
-                  fontWeight: FontWeight.bold,
+            ),
+          ),
+          // Full-height overlay for text readability (top part)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 180,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.55),
+                    Colors.transparent,
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              NeumorphicBox(
-                borderRadius: 30,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.timer_outlined, 
-                        color: isDark ? Colors.white70 : Theme.of(context).primaryColor, 
-                        size: 20,
+            ),
+          ),
+          // Content
+          Padding(
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 16,
+              right: 16,
+              bottom: 12,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Row: App name + Settings
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'زاد',
+                          style: GoogleFonts.tajawal(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: 1.2,
+                            shadows: [
+                              Shadow(
+                                color:
+                                    Colors.black.withValues(alpha: 0.4),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on,
+                                color: Colors.white70, size: 13),
+                            const SizedBox(width: 3),
+                            Text(
+                              cityName.isEmpty
+                                  ? 'لم يتم تحديد موقع'
+                                  : '$cityName${countryName.isNotEmpty ? ' - $countryName' : ''}',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 12,
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    // Settings icon
+                    GestureDetector(
+                      onTap: () =>
+                          Navigator.pushNamed(context, '/settings'),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color:
+                              Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.settings_outlined,
+                            color: Colors.white, size: 22),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _formatDuration(_timeUntilNextPrayer ?? Duration.zero),
-                        style: GoogleFonts.tajawal(
-                          fontSize: 22,
-                          color: isDark ? Colors.white : Theme.of(context).primaryColor,
-                          fontWeight: FontWeight.w600,
+                    ),
+                  ],
+                ),
+
+                const Spacer(),
+
+                // "الصلاة القادمة" card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: isDark ? 0.12 : 0.22),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color:
+                          Colors.white.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color:
+                            Colors.black.withValues(alpha: 0.18),
+                        blurRadius: 20,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // Prayer name block
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'الصلاة القادمة',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 12,
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _getPrayerName(_nextPrayer ?? ''),
+                              style: GoogleFonts.tajawal(
+                                fontSize: 26,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Countdown chip
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1565C0),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF1565C0)
+                                  .withValues(alpha: 0.45),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          _formatDuration(
+                              _timeUntilNextPrayer ?? Duration.zero),
+                          style: GoogleFonts.tajawal(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 1.5,
+                          ),
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 2. Quran Card ─────────────────────────────────────────────────────────
+
+  Widget _buildQuranCard(BuildContext context, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const IndexScreen(),
+            ),
+          );
+        },
+        child: Container(
+          height: 110,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: isDark
+                ? const LinearGradient(
+                    colors: [Color(0xFF1B3A4B), Color(0xFF0D2233)],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                  )
+                : const LinearGradient(
+                    colors: [Color(0xFF1565C0), Color(0xFF0288D1)],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                  ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF1565C0).withValues(alpha: 0.30),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              const SizedBox(width: 20),
+              // Text content
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'القرآن الكريم',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'قراءة الورد اليومي',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 13,
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Quran logo
+              Hero(
+                tag: 'quran_logo_hero',
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 12, right: 16),
+                  child: Image.asset(
+                    'assets/images/quranlogo.png',
+                    height: 70,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
@@ -502,33 +836,336 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  // ── 3. Horizontal Prayer Times Row ───────────────────────────────────────
+
+  Widget _buildHorizontalPrayerRow(
+      BuildContext context, bool isDark, int currentMonth) {
+    final prayerKeys = [
+      'fajr',
+      'sunrise',
+      'dhuhr',
+      'asr',
+      'maghrib',
+      'isha',
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'مواقيت الصلاة اليوم',
+            style: GoogleFonts.tajawal(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                // Imsak card only in Ramadan (month 9)
+                if (currentMonth == 9 && _prayerTimes['fajr'] != null)
+                  _buildPrayerCard(
+                    context,
+                    isDark,
+                    key: 'imsak',
+                    name: 'الإمساك',
+                    icon: Icons.bedtime_outlined,
+                    time: _prayerTimes['fajr']!
+                        .subtract(const Duration(minutes: 15)),
+                    isNext: _nextPrayer == 'fajr',
+                  ),
+                ...prayerKeys.map((key) {
+                  final time = _prayerTimes[key];
+                  return _buildPrayerCard(
+                    context,
+                    isDark,
+                    key: key,
+                    name: _getPrayerName(key),
+                    icon: _getPrayerIcon(key),
+                    time: time,
+                    isNext: _nextPrayer == key,
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPrayerCard(
+    BuildContext context,
+    bool isDark, {
+    required String key,
+    required String name,
+    required IconData icon,
+    required DateTime? time,
+    required bool isNext,
+  }) {
+    final Color activeColor = const Color(0xFFE65100);
+    final Color cardBg = isNext
+        ? activeColor
+        : (isDark ? const Color(0xFF1E2428) : Colors.white);
+    final Color textColor =
+        isNext ? Colors.white : (isDark ? Colors.white : Colors.black87);
+    final Color subColor =
+        isNext ? Colors.white70 : (isDark ? Colors.grey[400]! : Colors.grey[600]!);
+
+    return Container(
+      width: 82,
+      margin: const EdgeInsets.only(left: 10),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isNext
+              ? activeColor
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.grey.withValues(alpha: 0.15)),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isNext
+                ? activeColor.withValues(alpha: 0.30)
+                : Colors.black.withValues(alpha: isDark ? 0.25 : 0.07),
+            blurRadius: isNext ? 14 : 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: subColor, size: 20),
+          const SizedBox(height: 8),
+          Text(
+            name,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.tajawal(
+              fontSize: 11,
+              fontWeight:
+                  isNext ? FontWeight.bold : FontWeight.w500,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            time.getFormattedTime(),
+            style: GoogleFonts.tajawal(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 4. Services Grid ──────────────────────────────────────────────────────
+
+  Widget _buildServicesSection(BuildContext context, bool isDark) {
+    final List<Map<String, dynamic>> services = [
+      {
+        'title': 'الأذكار',
+        'icon': Icons.auto_stories,
+        'onTap': () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const AzkarScreenWidget())),
+      },
+      {
+        'title': 'القرآن الكريم',
+        'icon': Icons.menu_book_rounded,
+        'onTap': () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const IndexScreen())),
+      },
+      {
+        'title': 'مكتبة الحديث',
+        'asset': 'assets/images/muhammed.png',
+        'isAsset': true,
+        'onTap': () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const BukhariLibraryPage())),
+      },
+      {
+        'title': 'الراديو',
+        'icon': Icons.radio,
+        'onTap': () => Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const RadioPage())),
+      },
+      {
+        'title': 'أسماء الله',
+        'asset': 'assets/images/names.svg',
+        'isSvg': true,
+        'isAsset': true,
+        'onTap': () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const AllahNamesPage())),
+      },
+      {
+        'title': 'التقويم',
+        'icon': Icons.event_note_rounded,
+        'onTap': () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const CalendarPage())),
+      },
+      {
+        'title': 'القبلة',
+        'icon': Icons.explore_rounded,
+        'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => const UnderDevelopmentPage())),
+      },
+      {
+        'title': 'المسبحة',
+        'icon': Icons.fingerprint,
+        'onTap': () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const TasbihScreen())),
+      },
+      {
+        'title': 'الصوتيات',
+        'icon': Icons.library_music_rounded,
+        'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => const AudioRecitersScreen())),
+      },
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'خدمات التطبيق',
+            style: GoogleFonts.tajawal(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Wrap in a fixed-height scrollable
+          SizedBox(
+            height: 205,
+            child: GridView.builder(
+              scrollDirection: Axis.horizontal,
+              gridDelegate:
+                  const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.85,
+              ),
+              itemCount: services.length,
+              itemBuilder: (context, index) {
+                final item = services[index];
+                return _buildServiceCard(context, isDark, item);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServiceCard(
+      BuildContext context, bool isDark, Map<String, dynamic> item) {
+    final Color iconColor =
+        isDark ? Colors.grey[400]! : Colors.grey[600]!;
+
+    return GestureDetector(
+      onTap: item['onTap'] as VoidCallback?,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E2428) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.07)
+                : Colors.grey.withValues(alpha: 0.12),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(
+                  alpha: isDark ? 0.22 : 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Icon or Image
+            if (item['isAsset'] == true)
+              (item['isSvg'] == true)
+                  ? SvgPicture.asset(
+                      item['asset'] as String,
+                      height: 28,
+                      width: 28,
+                      colorFilter: ColorFilter.mode(
+                          iconColor, BlendMode.srcIn),
+                    )
+                  : Image.asset(
+                      item['asset'] as String,
+                      height: 28,
+                      width: 28,
+                    )
+            else
+              Icon(
+                item['icon'] as IconData,
+                size: 28,
+                color: iconColor,
+              ),
+            const SizedBox(height: 8),
+            Text(
+              item['title'] as String,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.tajawal(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white70 : Colors.black87,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── 5. Special Event / Hadith / Ramadan ───────────────────────────────────
+  // All existing logic below is UNCHANGED
+
   Widget _buildSpecialEventCard(int adjustment) {
-    final hijriDate = HijriDateService.getHijriDate(DateTime.now(), adjustment);
+    final hijriDate =
+        HijriDateService.getHijriDate(DateTime.now(), adjustment);
     final day = hijriDate['dayIndex'] as int;
     final month = hijriDate['monthIndex'] as int;
 
     if (month == 10 && day == 1) {
       return _buildGreetingCard(
-        'عيد فطر مبارك',
-        'تقبل الله صيامكم وقيامكم',
-        Colors.orange,
-      );
+          'عيد فطر مبارك', 'تقبل الله صيامكم وقيامكم', Colors.orange);
     }
     if (month == 12 && day == 9) {
-      return _buildGreetingCard('وقفة عرفات', 'لبيك اللهم لبيك', Colors.brown);
+      return _buildGreetingCard(
+          'وقفة عرفات', 'لبيك اللهم لبيك', Colors.brown);
     }
     if (month == 12 && day >= 10 && day <= 13) {
       return _buildGreetingCard(
-        'عيد أضحى مبارك',
-        'أيام تشريق مباركة',
-        Colors.green,
-      );
+          'عيد أضحى مبارك', 'أيام تشريق مباركة', Colors.green);
     }
-
     if (month != 9) {
       return _buildRamadanCounter(adjustment);
     }
-
     return _buildHadithOfTheDayCard();
   }
 
@@ -537,7 +1174,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     hNow.hDay += adjustment;
 
     int targetYear = hNow.hYear;
-    if (hNow.hMonth > 9 || (hNow.hMonth == 9 && hNow.hDay >= 1)) {
+    if (hNow.hMonth > 9 ||
+        (hNow.hMonth == 9 && hNow.hDay >= 1)) {
       targetYear++;
     }
 
@@ -547,11 +1185,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     targetRamadan.hDay = 1;
 
     DateTime targetDateTime = targetRamadan.hijriToGregorian(
-      targetRamadan.hYear,
-      9,
-      1,
-    );
-    DateTime nowAdjusted = DateTime.now().add(Duration(days: adjustment));
+        targetRamadan.hYear, 9, 1);
+    DateTime nowAdjusted =
+        DateTime.now().add(Duration(days: adjustment));
 
     Duration diff = targetDateTime.difference(nowAdjusted);
     int days = diff.inDays;
@@ -560,35 +1196,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     if (days < 0) return _buildHadithOfTheDayCard();
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      child: NeumorphicBox(
-        borderRadius: 20,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Text(
-                'باقي على شهر رمضان المبارك',
-                style: GoogleFonts.tajawal(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF8B4513),
-                ),
+    return NeumorphicBox(
+      borderRadius: 20,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Text(
+              'باقي على شهر رمضان المبارك',
+              style: GoogleFonts.tajawal(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF8B4513),
               ),
-              const SizedBox(height: 15),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildTimeUnit(days.toString().padLeft(2, '0'), 'يوم'),
-                  const SizedBox(width: 15),
-                  _buildTimeUnit(hours.toString().padLeft(2, '0'), 'ساعة'),
-                  const SizedBox(width: 15),
-                  _buildTimeUnit(minutes.toString().padLeft(2, '0'), 'دقيقة'),
-                ],
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 15),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildTimeUnit(
+                    days.toString().padLeft(2, '0'), 'يوم'),
+                const SizedBox(width: 15),
+                _buildTimeUnit(
+                    hours.toString().padLeft(2, '0'), 'ساعة'),
+                const SizedBox(width: 15),
+                _buildTimeUnit(
+                    minutes.toString().padLeft(2, '0'), 'دقيقة'),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -598,174 +1234,91 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return Consumer<HadithService>(
       builder: (context, service, _) {
         final hadith = service.getTodayHadith();
-        if (hadith == null) return const SizedBox.shrink();
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return Container(
-          width: double.infinity,
-          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-          child: NeumorphicBox(
-            borderRadius: 20,
-            child: Padding(
-              padding: const EdgeInsets.all(22),
-              child: Column(
-                children: [
-                  Text(
-                    'حديث اليوم',
-                    style: GoogleFonts.tajawal(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: isDark
-                          ? Colors.amber[200]
-                          : Theme.of(context).primaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    hadith.text,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.tajawal(
-                      fontSize: 17,
-                      height: 1.6,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '[ ${hadith.source} ]',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 12,
-                      color: isDark ? Colors.grey[400] : Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
+        if (hadith == null) {
+          // Fallback: show daily Bukhari hadith
+          return FutureBuilder<Map<String, dynamic>?>(
+            future: BukhariDatabaseService.getDailyHadith(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState ==
+                  ConnectionState.waiting) {
+                return const Center(
+                    child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator()));
+              }
+              if (!snapshot.hasData || snapshot.data == null) {
+                return const SizedBox.shrink();
+              }
+              return _buildHadithCard(
+                  context, snapshot.data!['text'] ?? '');
+            },
+          );
+        }
+        return _buildHadithCard(context, hadith.text);
       },
     );
   }
 
-  Widget _buildPrayerTimesList(int currentMonth) {
-    final prayerKeys = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Text(
-            'مواقيت الصلاة اليوم',
-            style: GoogleFonts.tajawal(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
-        ),
-        ...prayerKeys.map((key) {
-          final time = _prayerTimes[key];
-          if (key == 'fajr' && currentMonth == 9 && time != null) {
-            final imsakTime = time.subtract(const Duration(minutes: 15));
-            return Column(
-              children: [
-                _buildImsakRow(imsakTime),
-                _buildPrayerTile(key, time),
-              ],
-            );
-          }
-          return _buildPrayerTile(key, time);
-        }),
-      ],
-    );
-  }
-
-  Widget _buildImsakRow(DateTime imsakTime) {
-    bool isNext = _nextPrayer == 'fajr';
-    
-    final Color coloredBase = const Color(0xFFE68A00); // Softer orange for imsak
-    final Color coloredDarkShadow = const Color(0xFFCC7A00).withValues(alpha: 0.4);
-    final Color coloredLightShadow = const Color(0xFFFF9900).withValues(alpha: 0.4);
-
-    return Container(
-        margin: const EdgeInsets.only(bottom: 12, left: 4, right: 4, top: 4),
-        child: NeumorphicBox(
-          borderRadius: 15,
-          baseColor: isNext ? coloredBase : null,
-          darkShadowColor: isNext ? coloredDarkShadow : null,
-          lightShadowColor: isNext ? coloredLightShadow : null,
-          child: ListTile(
-            leading: const Icon(Icons.bedtime_outlined, color: Color(0xFF8B4513)),
-            title: Text(
-              'الإمساك',
-              style: GoogleFonts.tajawal(
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF8B4513),
-              ),
-            ),
-            subtitle: isNext
-                ? Text(
-                    'حان الآن موعد الإمساك',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF8B4513),
-                    ),
-                  )
-                : null,
-            trailing: Text(
-              imsakTime.getFormattedTime(),
-              style: GoogleFonts.tajawal(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: const Color(0xFF8B4513),
-              ),
-            ),
-          ),
-        ),
-    );
-  }
-
-  Widget _buildPrayerTile(String key, DateTime? time) {
-    bool isNext = _nextPrayer == key;
+  Widget _buildHadithCard(BuildContext context, String text) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Colored Neumorphism for the active prayer
-    final Color? coloredBase = isNext ? const Color(0xFF388E3C) : null; // Softer green
-    final Color? coloredDarkShadow = isNext ? const Color(0xFF2E7D32).withValues(alpha: 0.4) : null;
-    final Color? coloredLightShadow = isNext ? const Color(0xFF4CAF50).withValues(alpha: 0.4) : null;
-
-    final Color iconColor = isNext
-        ? Colors.white
-        : (isDark ? Colors.grey[400]! : Colors.grey);
-    final Color textColor = isNext
-        ? Colors.white
-        : (isDark ? Colors.white : Colors.black87);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12, left: 4, right: 4, top: 4),
-      child: NeumorphicBox(
-        borderRadius: 15,
-        baseColor: coloredBase,
-        darkShadowColor: coloredDarkShadow,
-        lightShadowColor: coloredLightShadow,
-        child: ListTile(
-          leading: Icon(
-            _getPrayerIcon(key),
-            color: iconColor,
-          ),
-          title: Text(
-            _getPrayerName(key),
-            style: GoogleFonts.tajawal(
-              fontWeight: isNext ? FontWeight.bold : FontWeight.normal,
-              color: textColor,
+    return NeumorphicBox(
+      borderRadius: 20,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.auto_awesome,
+                    color: Colors.amber, size: 20),
+                const SizedBox(width: 10),
+                Text(
+                  'حديث اليوم',
+                  style: GoogleFonts.tajawal(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                    color: Colors.amber[800],
+                  ),
+                ),
+              ],
             ),
-          ),
-          trailing: Text(
-            time.getFormattedTime(),
-            style: GoogleFonts.tajawal(
-              fontWeight: FontWeight.bold,
-              color: textColor,
+            const SizedBox(height: 14),
+            Text(
+              text,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.amiri(
+                fontSize: 17,
+                height: 1.7,
+                color: isDark ? Colors.white70 : Colors.black87,
+              ),
             ),
-          ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGreetingCard(String title, String sub, Color color) {
+    return NeumorphicBox(
+      borderRadius: 15,
+      baseColor: color,
+      lightShadowColor: color.withValues(alpha: 0.5),
+      darkShadowColor: color.withValues(alpha: 0.8),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Text(title,
+                style: GoogleFonts.tajawal(
+                    fontSize: 22,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold)),
+            Text(sub,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.tajawal(color: Colors.white70)),
+          ],
         ),
       ),
     );
@@ -775,7 +1328,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(10),
@@ -789,49 +1343,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
           ),
         ),
-        Text(
-          label,
-          style: GoogleFonts.tajawal(
-            fontSize: 12,
-            color: const Color(0xFF8B4513),
-          ),
-        ),
+        Text(label,
+            style: GoogleFonts.tajawal(
+                fontSize: 12, color: const Color(0xFF8B4513))),
       ],
     );
   }
 
-  Widget _buildGreetingCard(String title, String sub, Color color) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      child: NeumorphicBox(
-        borderRadius: 15,
-        baseColor: color,
-        lightShadowColor: color.withValues(alpha: 0.5),
-        darkShadowColor: color.withValues(alpha: 0.8),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.tajawal(
-                  fontSize: 22,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                sub,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.tajawal(color: Colors.white70),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // ── Helpers (unchanged) ───────────────────────────────────────────────────
 
   String _getPrayerName(String key) {
     switch (key) {

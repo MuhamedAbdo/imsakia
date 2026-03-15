@@ -103,6 +103,11 @@ flutter:
     - assets/images/fateha_image.png
     - assets/images/quranlogo.png
     - assets/images/sura_hedder.png
+    - assets/images/header_fajr.png
+    - assets/images/header_dhuhr.png
+    - assets/images/header_maghrib.png
+    - assets/images/header_isha.png
+    - assets/images/zad_icon.png
     - assets/fonts/
 
   fonts:
