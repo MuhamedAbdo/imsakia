@@ -330,15 +330,23 @@ class _QiblahCompassWidgetState extends State<QiblahCompassWidget> {
 
         final qiblahDirection = snapshot.data!;
         
-        // Exact angle rotation math from reference project (handling shortest path with AnimatedRotation)
+        // Exact angle rotation math handling shortest path
         final double turns = (qiblahDirection.qiblah * -1) / 360.0;
 
-        // Alignment logic (within 1.5 degrees)
-        bool isAligned = qiblahDirection.qiblah.abs() <= 1.5 || (360 - qiblahDirection.qiblah.abs()) <= 1.5;
+        // NEW: Shortest angular distance logic to avoid 180° false positives.
+        // Normalize the qiblah angle to the [-180, 180] range.
+        double diff = qiblahDirection.qiblah % 360;
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+
+        // Alignment logic: Strictly near 0 degrees (needle tip points to Kaaba)
+        // 2 degrees tolerance for haptic/color feedback
+        bool isAligned = diff.abs() <= 2.0;
 
         // Trigger haptic feedback when entering aligned state
         if (isAligned && !_wasAligned) {
           _wasAligned = true;
+          debugPrint("[Qibla] Aligned with Kaaba! Angle diff: ${diff.toStringAsFixed(1)}°");
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             final settings = context.read<SettingsProvider>();
