@@ -284,26 +284,32 @@ class _QiblahCompassWidgetState extends State<QiblahCompassWidget> {
                     child: Stack(
                       alignment: Alignment.center,
                       children: <Widget>[
+                        // Dial (Fixed)
                         SvgPicture.asset(
                           'assets/images/qibla_compass.svg',
                           colorFilter: const ColorFilter.mode(
                             Colors.white,
                             BlendMode.srcIn,
                           ),
+                          fit: BoxFit.contain,
                         ),
+                        // Kaaba (Fixed at top)
                         SvgPicture.asset(
                           'assets/images/qibla_kaaba.svg',
                           colorFilter: const ColorFilter.mode(
                             Colors.white,
                             BlendMode.srcIn,
                           ),
+                          fit: BoxFit.contain,
                         ),
+                        // Needle (Static in placeholder)
                         SvgPicture.asset(
                           'assets/images/qibla_needle.svg',
                           colorFilter: const ColorFilter.mode(
                             Colors.white,
                             BlendMode.srcIn,
                           ),
+                          fit: BoxFit.contain,
                         ),
                       ],
                     ),
@@ -361,35 +367,35 @@ class _QiblahCompassWidgetState extends State<QiblahCompassWidget> {
                     child: Stack(
                       alignment: Alignment.center,
                       children: <Widget>[
+                        // 1. Dial (Static)
+                        SvgPicture.asset(
+                          'assets/images/qibla_compass.svg',
+                          colorFilter: ColorFilter.mode(
+                            currentColor,
+                            BlendMode.srcIn,
+                          ),
+                          fit: BoxFit.contain,
+                        ),
+                        
+                        // 2. Kaaba (Static at the 0° position)
+                        SvgPicture.asset(
+                          'assets/images/qibla_kaaba.svg',
+                          fit: BoxFit.contain,
+                        ),
+
+                        // 3. Needle (Rotating)
                         AnimatedRotation(
                           turns: turns,
                           duration: const Duration(milliseconds: 400),
                           curve: Curves.easeOut,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              SvgPicture.asset(
-                                'assets/images/qibla_compass.svg',
-                                colorFilter: ColorFilter.mode(
-                                  currentColor,
-                                  BlendMode.srcIn,
-                                ),
-                                fit: BoxFit.contain,
-                              ),
-                              SvgPicture.asset(
-                                'assets/images/qibla_needle.svg',
-                                colorFilter: ColorFilter.mode(
-                                  currentColor,
-                                  BlendMode.srcIn,
-                                ),
-                                fit: BoxFit.contain,
-                              ),
-                            ],
+                          child: SvgPicture.asset(
+                            'assets/images/qibla_needle.svg',
+                            colorFilter: ColorFilter.mode(
+                              currentColor,
+                              BlendMode.srcIn,
+                            ),
+                            fit: BoxFit.contain,
                           ),
-                        ),
-                        SvgPicture.asset(
-                          'assets/images/qibla_kaaba.svg',
-                          fit: BoxFit.contain,
                         ),
                       ],
                     ),
