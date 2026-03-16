@@ -73,7 +73,7 @@ class AzkarService {
           end: Alignment.bottomRight,
           colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
         ),
-        azkar: morningAzkarList, // <-- هنا الاستدعاء السحري! سطر واحد بدل 100 سطر
+        azkar: List<Azkar>.from(morningAzkarList),
       ),
       AzkarCategory(
         id: 'evening',
@@ -86,7 +86,7 @@ class AzkarService {
           end: Alignment.bottomRight,
           colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
         ),
-        azkar: eveningAzkarList,
+        azkar: List<Azkar>.from(eveningAzkarList),
       ),
       AzkarCategory(
         id: 'prayer',
@@ -99,7 +99,7 @@ class AzkarService {
           end: Alignment.bottomRight,
           colors: [Color(0xFF10B981), Color(0xFF059669)],
         ),
-        azkar:prayerAzkarList,
+        azkar: List<Azkar>.from(prayerAzkarList),
       ),
       AzkarCategory(
         id: 'sleep',
@@ -112,7 +112,7 @@ class AzkarService {
           end: Alignment.bottomRight,
           colors: [Color(0xFF6B46C1), Color(0xFF9333EA)],
         ),
-        azkar: sleepAzkarList,
+        azkar: List<Azkar>.from(sleepAzkarList),
       ),
       AzkarCategory(
         id: 'wakeup',
@@ -125,7 +125,7 @@ class AzkarService {
           end: Alignment.bottomRight,
           colors: [Color(0xFFF59E0B), Color(0xFFFF9500)],
         ),
-        azkar: wakeupAzkarList,
+        azkar: List<Azkar>.from(wakeupAzkarList),
       ),
       AzkarCategory(
         id: 'food',
@@ -138,7 +138,7 @@ class AzkarService {
           end: Alignment.bottomRight,
           colors: [Color(0xFFDC2626), Color(0xFFEF4444)],
         ),
-        azkar: foodAzkarList,
+        azkar: List<Azkar>.from(foodAzkarList),
       ),
       AzkarCategory(
         id: 'home',
@@ -151,7 +151,7 @@ class AzkarService {
           end: Alignment.bottomRight,
           colors: [Color(0xFF059669), Color(0xFF10B981)],
         ),
-        azkar:entryAzkarList,
+        azkar: List<Azkar>.from(entryAzkarList),
       ),
       AzkarCategory(
         id: 'clothes',
@@ -164,8 +164,7 @@ class AzkarService {
           end: Alignment.bottomRight,
           colors: [Color(0xFF7C3AED), Color(0xFF8B5CF6)],
         ),
-        azkar: 
-        clothesAzkarList,
+        azkar: List<Azkar>.from(clothesAzkarList),
         )   ,
         // 1. تسابيح
 AzkarCategory(
@@ -179,7 +178,7 @@ AzkarCategory(
     end: Alignment.bottomRight,
     colors: [Color(0xFF009688), Color(0xFF4DB6AC)],
   ),
-  azkar: tasbihAzkarList,
+  azkar: List<Azkar>.from(tasbihAzkarList),
 ),
 
 // 2. جوامع الدعاء
@@ -194,7 +193,7 @@ AzkarCategory(
     end: Alignment.bottomRight,
     colors: [Color(0xFFE91E63), Color(0xFFF06292)],
   ),
-  azkar: totalDuasList,
+  azkar: List<Azkar>.from(totalDuasList),
 ),
 
 // 3. أذكار الحج والعمرة
@@ -209,7 +208,7 @@ AzkarCategory(
     end: Alignment.bottomRight,
     colors: [Color(0xFF455A64), Color(0xFF78909C)],
   ),
-  azkar: hajjAzkarList,
+  azkar: List<Azkar>.from(hajjAzkarList),
 ),
 
 // 4. أدعية نبوية
@@ -224,7 +223,7 @@ AzkarCategory(
     end: Alignment.bottomRight,
     colors: [Color(0xFF8B4513), Color(0xFFA0522D)],
   ),
-  azkar: propheticDuasList,
+  azkar: List<Azkar>.from(propheticDuasList),
 ), 
     ];
 

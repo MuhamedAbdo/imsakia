@@ -15,28 +15,17 @@ class AzkarDetailScreen extends StatefulWidget {
   State<AzkarDetailScreen> createState() => _AzkarDetailScreenState();
 }
 
-class _AzkarDetailScreenState extends State<AzkarDetailScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _progressController;
-  late Animation<double> _progressAnimation;
+class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
   double _fontSize = 18.0;
 
   @override
   void initState() {
     super.initState();
-    _progressController = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-    _progressAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _progressController, curve: Curves.easeInOut),
-    );
     _loadSettings();
   }
 
   @override
   void dispose() {
-    _progressController.dispose();
     super.dispose();
   }
 
@@ -60,7 +49,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
     }
   }
 
-  void _incrementZikr(Azkar azkar) {
+  void _onIncrementZikr(Azkar azkar) {
     if (azkar.isCompleted) return;
     HapticFeedback.lightImpact();
     setState(() {
@@ -72,7 +61,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
       }
     });
     AzkarService.instance.incrementAzkarCount(widget.category.id, azkar.id);
-    _progressController.forward().then((_) => _progressController.reverse());
+
     final updatedAzkar = widget.category.azkar.firstWhere(
       (a) => a.id == azkar.id,
     );
@@ -185,7 +174,6 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                       activeTrackColor: AppConstants.primaryColor,
                       inactiveTrackColor: isDark ? Colors.white12 : Colors.black12,
                       thumbColor: AppConstants.primaryColor,
-                      // استخدام .withValues بدلاً من .withOpacity
                       overlayColor: AppConstants.primaryColor.withValues(alpha: 0.2),
                     ),
                     child: Slider(
@@ -280,8 +268,13 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                 child: ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
                   itemCount: widget.category.azkar.length,
-                  itemBuilder: (context, index) =>
-                      _buildAzkarCard(widget.category.azkar[index]),
+                  itemBuilder: (context, index) => ZikrCardWidget(
+                    azkar: widget.category.azkar[index],
+                    fontSize: _fontSize,
+                    onIncrement: () =>
+                        _onIncrementZikr(widget.category.azkar[index]),
+                    onCopy: () => _copyZikr(widget.category.azkar[index].text),
+                  ),
                 ),
               ),
             ],
@@ -300,7 +293,6 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            // استخدام .withValues بدلاً من .withOpacity
             color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
             blurRadius: 10,
           ),
@@ -329,12 +321,13 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                     ),
                   ),
                   Text(
-                    '${currentCategory.totalCompleted} من أصل ${currentCategory.totalCount}',
+                    '${currentCategory.totalCompleted} / ${currentCategory.totalCount}',
                     style: GoogleFonts.tajawal(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: AppConstants.primaryColor,
                     ),
+                    textDirection: TextDirection.ltr,
                   ),
                 ],
               ),
@@ -344,7 +337,6 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                 child: LinearProgressIndicator(
                   value: currentCategory.overallProgress,
                   minHeight: 10,
-                  // استخدام .withValues بدلاً من .withOpacity
                   backgroundColor: isDark 
                       ? Colors.white.withValues(alpha: 0.05) 
                       : Colors.black.withValues(alpha: 0.05),
@@ -359,8 +351,59 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
       ),
     );
   }
+}
 
-  Widget _buildAzkarCard(Azkar azkar) {
+class ZikrCardWidget extends StatefulWidget {
+  final Azkar azkar;
+  final double fontSize;
+  final VoidCallback onIncrement;
+  final VoidCallback onCopy;
+
+  const ZikrCardWidget({
+    super.key,
+    required this.azkar,
+    required this.fontSize,
+    required this.onIncrement,
+    required this.onCopy,
+  });
+
+  @override
+  State<ZikrCardWidget> createState() => _ZikrCardWidgetState();
+}
+
+class _ZikrCardWidgetState extends State<ZikrCardWidget>
+    with TickerProviderStateMixin {
+  late AnimationController _progressController;
+  late Animation<double> _progressAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _progressController = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    _progressAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _progressController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _progressController.dispose();
+    super.dispose();
+  }
+
+  void _handleTap() {
+    _progressController.forward().then((_) => _progressController.reverse());
+    if (!widget.azkar.isCompleted) {
+      widget.onIncrement();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final azkar = widget.azkar;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return AnimatedContainer(
@@ -387,190 +430,196 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
           ),
         ],
       ),
-      child: InkWell(
-        onTap: () => _incrementZikr(azkar),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (azkar.header != null && azkar.header!.isNotEmpty) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 4,
-                    horizontal: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppConstants.primaryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    azkar.header!,
-                    style: GoogleFonts.tajawal(
-                      fontSize: _fontSize * 0.8,
-                      color: isDark
-                          ? Colors.amber.shade300
-                          : AppConstants.primaryColor,
-                      fontWeight: FontWeight.bold,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _handleTap,
+          borderRadius: BorderRadius.circular(16),
+          splashColor: AppConstants.primaryColor.withValues(alpha: 0.1),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (azkar.header != null && azkar.header!.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 4,
+                      horizontal: 12,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-              Text(
-                azkar.text,
-                style: GoogleFonts.amiri(
-                  fontSize: _fontSize,
-                  height: 1.8,
-                  fontWeight: FontWeight.w600,
-                  color: azkar.isCompleted
-                      ? (isDark ? Colors.greenAccent : Colors.green.shade900)
-                      : (isDark
-                          ? Colors.white.withValues(alpha: 0.9)
-                          : Colors.black87),
-                ),
-                textAlign: TextAlign.right,
-                textDirection: TextDirection.rtl,
-              ),
-              if (azkar.comment != null && azkar.comment!.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      right: BorderSide(
+                    decoration: BoxDecoration(
+                      color: AppConstants.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      azkar.header!,
+                      style: GoogleFonts.tajawal(
+                        fontSize: widget.fontSize * 0.8,
                         color: isDark
-                            ? Colors.amber.withValues(alpha: 0.5)
-                            : Colors.grey.shade400,
-                        width: 3,
+                            ? Colors.amber.shade300
+                            : AppConstants.primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                Text(
+                  azkar.text,
+                  style: GoogleFonts.amiri(
+                    fontSize: widget.fontSize,
+                    height: 1.8,
+                    fontWeight: FontWeight.w600,
+                    color: azkar.isCompleted
+                        ? (isDark ? Colors.greenAccent : Colors.green.shade900)
+                        : (isDark
+                            ? Colors.white.withValues(alpha: 0.9)
+                            : Colors.black87),
+                  ),
+                  textAlign: TextAlign.right,
+                  textDirection: TextDirection.rtl,
+                ),
+                if (azkar.comment != null && azkar.comment!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        right: BorderSide(
+                          color: isDark
+                              ? Colors.amber.withValues(alpha: 0.5)
+                              : Colors.grey.shade400,
+                          width: 3,
+                        ),
                       ),
                     ),
-                  ),
-                  child: Text(
-                    azkar.comment!,
-                    style: GoogleFonts.tajawal(
-                      fontSize: _fontSize * 0.7,
-                      height: 1.5,
-                      color: isDark
-                          ? Colors.grey.shade300
-                          : Colors.grey.shade700,
-                      fontStyle: FontStyle.italic,
+                    child: Text(
+                      azkar.comment!,
+                      style: GoogleFonts.tajawal(
+                        fontSize: widget.fontSize * 0.7,
+                        height: 1.5,
+                        color: isDark
+                            ? Colors.grey.shade300
+                            : Colors.grey.shade700,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      textAlign: TextAlign.right,
                     ),
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => _incrementZikr(azkar),
-                    child: AnimatedBuilder(
-                      animation: _progressAnimation,
-                      builder: (context, child) {
-                        return Transform.scale(
-                          scale: 1.0 + (_progressAnimation.value * 0.15),
-                          child: Container(
-                            width: 65,
-                            height: 65,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: azkar.isCompleted
-                                  ? LinearGradient(
-                                      colors: [
-                                        Colors.green.shade400,
-                                        Colors.green.shade700,
-                                      ],
-                                    )
-                                  : AppConstants.primaryGradient,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: azkar.isCompleted
-                                      ? Colors.green.withValues(alpha: 0.3)
-                                      : AppConstants.primaryColor.withValues(alpha: 0.3),
-                                  blurRadius: 8,
-                                ),
-                              ],
-                            ),
-                            child: Center(
-                              child: Text(
-                                '${azkar.currentCount}',
-                                style: GoogleFonts.tajawal(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              azkar.isCompleted ? 'تمت القراءة' : 'قيد التكرار',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 13,
-                                color: azkar.isCompleted
-                                    ? Colors.green
-                                    : (isDark ? Colors.white54 : Colors.grey),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              '${azkar.target} / ${azkar.currentCount}',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: LinearProgressIndicator(
-                            value: azkar.progress,
-                            minHeight: 7,
-                            backgroundColor: isDark
-                                ? Colors.white.withValues(alpha: 0.05)
-                                : Colors.black.withValues(alpha: 0.05),
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              azkar.isCompleted
-                                  ? Colors.green
-                                  : AppConstants.primaryColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    onPressed: () => _copyZikr(azkar.text),
-                    icon: Icon(
-                      Icons.copy_rounded,
-                      size: 22,
-                      color: isDark ? Colors.white60 : Colors.grey.shade500,
-                    ),
-                    tooltip: 'نسخ الذكر',
                   ),
                 ],
-              ),
-            ],
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: _handleTap,
+                      child: AnimatedBuilder(
+                        animation: _progressAnimation,
+                        builder: (context, child) {
+                          return Transform.scale(
+                            scale: 1.0 + (_progressAnimation.value * 0.15),
+                            child: Container(
+                              width: 65,
+                              height: 65,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: azkar.isCompleted
+                                    ? LinearGradient(
+                                        colors: [
+                                          Colors.green.shade400,
+                                          Colors.green.shade700,
+                                        ],
+                                      )
+                                    : AppConstants.primaryGradient,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: azkar.isCompleted
+                                        ? Colors.green.withValues(alpha: 0.3)
+                                        : AppConstants.primaryColor.withValues(
+                                            alpha: 0.3,
+                                          ),
+                                    blurRadius: 8,
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${azkar.currentCount}',
+                                  style: GoogleFonts.tajawal(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                azkar.isCompleted ? 'تمت القراءة' : 'قيد التكرار',
+                                style: GoogleFonts.tajawal(
+                                  fontSize: 13,
+                                  color: azkar.isCompleted
+                                      ? Colors.green
+                                      : (isDark ? Colors.white54 : Colors.grey),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                '${azkar.target} / ${azkar.currentCount}',
+                                style: GoogleFonts.tajawal(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: LinearProgressIndicator(
+                              value: azkar.progress,
+                              minHeight: 7,
+                              backgroundColor: isDark
+                                  ? Colors.white.withValues(alpha: 0.05)
+                                  : Colors.black.withValues(alpha: 0.05),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                azkar.isCompleted
+                                    ? Colors.green
+                                    : AppConstants.primaryColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      onPressed: widget.onCopy,
+                      icon: Icon(
+                        Icons.copy_rounded,
+                        size: 22,
+                        color: isDark ? Colors.white60 : Colors.grey.shade500,
+                      ),
+                      tooltip: 'نسخ الذكر',
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

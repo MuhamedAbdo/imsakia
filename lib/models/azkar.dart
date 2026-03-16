@@ -186,8 +186,15 @@ class AzkarCategory {
 
   int get totalCompleted => azkar.where((azkar) => azkar.isCompleted).length;
   int get totalCount => azkar.length;
-  double get overallProgress =>
-      totalCount > 0 ? totalCompleted / totalCount : 0.0;
+  
+  double get overallProgress {
+    if (azkar.isEmpty) return 0.0;
+    double totalP = 0.0;
+    for (final a in azkar) {
+      totalP += a.progress;
+    }
+    return totalP / azkar.length;
+  }
 
   AzkarCategory copyWith({
     String? id,

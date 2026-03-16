@@ -201,8 +201,10 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
             childAspectRatio: 0.95,
           ),
           itemCount: categories.length,
-          itemBuilder: (context, index) =>
-              _buildCategoryCard(categories[index]),
+          itemBuilder: (context, index) => CategoryCardWidget(
+            category: categories[index],
+            onTap: () => _navigateToDetail(categories[index]),
+          ),
         );
       },
     );
@@ -225,11 +227,52 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
       ),
     );
   }
+}
 
-  Widget _buildCategoryCard(AzkarCategory category) {
+class CategoryCardWidget extends StatefulWidget {
+  final AzkarCategory category;
+  final VoidCallback onTap;
+
+  const CategoryCardWidget({
+    super.key,
+    required this.category,
+    required this.onTap,
+  });
+
+  @override
+  State<CategoryCardWidget> createState() => _CategoryCardWidgetState();
+}
+
+class _CategoryCardWidgetState extends State<CategoryCardWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+      lowerBound: 0.0,
+      upperBound: 0.05,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final category = widget.category;
     final bool isHajjCategory =
         category.id == 'hajj_umrah' || category.title.contains('الحج');
-
     final bool isDuasCategory =
         category.id == 'daily_duas' || category.title.contains('الدعاء');
 
@@ -237,102 +280,116 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
     if (isHajjCategory) assetPath = 'assets/images/kaaba.png';
     if (isDuasCategory) assetPath = 'assets/images/duas.png';
 
-    return InkWell(
-      onTap: () => _navigateToDetail(category),
-      borderRadius: BorderRadius.circular(24),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: LinearGradient(
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
-            colors: [
-              category.color.withValues(alpha: 0.85), // تم التعديل هنا
-              category.color,
+    return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) => _controller.reverse(),
+      onTapCancel: () => _controller.reverse(),
+      onTap: widget.onTap,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [
+                category.color.withValues(alpha: 0.85),
+                category.color,
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: category.color.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
             ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: category.color.withValues(alpha: 0.3), // تم التعديل هنا
-              blurRadius: 12,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              left: -10,
-              bottom: -10,
-              child: assetPath != null
-                  ? Opacity(
-                      opacity: 0.15,
-                      child: Image.asset(
-                        assetPath,
-                        width: 90,
-                        height: 90,
-                        color: Colors.white,
-                        colorBlendMode: BlendMode.srcIn,
-                      ),
-                    )
-                  : Icon(
-                      category.icon,
-                      size: 80,
-                      color: Colors.white.withValues(alpha: 0.12), // تم التعديل هنا
-                    ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: widget.onTap,
+              borderRadius: BorderRadius.circular(24),
+              splashColor: Colors.white.withValues(alpha: 0.2),
+              highlightColor: Colors.white.withValues(alpha: 0.1),
+              child: Stack(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.25), // تم التعديل هنا
-                    ),
+                  Positioned(
+                    left: -10,
+                    bottom: -10,
                     child: assetPath != null
-                        ? Image.asset(assetPath, width: 30, height: 30)
-                        : Icon(category.icon, size: 30, color: Colors.white),
+                        ? Opacity(
+                            opacity: 0.15,
+                            child: Image.asset(
+                              assetPath,
+                              width: 90,
+                              height: 90,
+                              color: Colors.white,
+                              colorBlendMode: BlendMode.srcIn,
+                            ),
+                          )
+                        : Icon(
+                            category.icon,
+                            size: 80,
+                            color: Colors.white.withValues(alpha: 0.12),
+                          ),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    category.title,
-                    style: GoogleFonts.tajawal(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                  ),
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: LinearProgressIndicator(
-                      value: category.overallProgress,
-                      backgroundColor: Colors.white.withValues(alpha: 0.2), // تم التعديل هنا
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        Colors.white,
-                      ),
-                      minHeight: 4,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${category.totalCompleted} / ${category.totalCount}',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.95), // تم التعديل هنا
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.25),
+                          ),
+                          child: assetPath != null
+                              ? Image.asset(assetPath, width: 30, height: 30)
+                              : Icon(category.icon, size: 30, color: Colors.white),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          category.title,
+                          style: GoogleFonts.tajawal(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                        ),
+                        const SizedBox(height: 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: LinearProgressIndicator(
+                            value: category.overallProgress,
+                            backgroundColor: Colors.white.withValues(alpha: 0.2),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                            minHeight: 4,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${category.totalCompleted} / ${category.totalCount}',
+                          style: GoogleFonts.tajawal(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withValues(alpha: 0.95),
+                          ),
+                          textDirection: TextDirection.ltr,
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

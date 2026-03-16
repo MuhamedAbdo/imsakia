@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class BukhariDatabaseService {
   static Database? _db;
@@ -30,31 +31,70 @@ class BukhariDatabaseService {
   static Future<Map<String, dynamic>?> getDailyHadith() async {
     try {
       final db = await database;
+      final prefs = await SharedPreferences.getInstance();
       
-      // 1. معرفة عدد الأحاديث الكلي
+      const String keyLastDate = 'bukhari_last_date';
+      const String keyCurrentId = 'bukhari_current_id';
+      const String keySeenIds = 'bukhari_seen_ids';
+
+      final now = DateTime.now();
+      final todayStr = "${now.year}-${now.month}-${now.day}";
+      final lastDate = prefs.getString(keyLastDate);
+
+      // If it's the same day and we have a cached hadith, return it
+      if (lastDate == todayStr) {
+        final cachedId = prefs.getInt(keyCurrentId);
+        if (cachedId != null) {
+          final List<Map<String, dynamic>> cachedResult = await db.query(
+            'hadiths',
+            where: 'id = ?',
+            whereArgs: [cachedId],
+            limit: 1,
+          );
+          if (cachedResult.isNotEmpty) return cachedResult.first;
+        }
+      }
+
+      // 1. Get total count
       final countResult = await db.rawQuery('SELECT COUNT(*) as total FROM hadiths');
       int totalHadiths = countResult.first['total'] as int;
-
       if (totalHadiths == 0) return null;
 
-      // 2. حساب مؤشر (Index) ثابت لكل يوم
-      // نستخدم عدد الأيام منذ بداية التاريخ الميلادي لضمان التغير اليومي
-      final now = DateTime.now();
-      final int dayOfYear = DateTime(now.year, now.month, now.day).difference(DateTime(1970)).inDays;
-      
-      // العملية الحسابية لضمان عدم التكرار إلا بعد انتهاء القائمة
-      final int targetIndex = dayOfYear % totalHadiths;
+      // 2. Load seen IDs
+      List<int> seenIds = (prefs.getStringList(keySeenIds) ?? [])
+          .map((e) => int.parse(e))
+          .toList();
 
-      // 3. جلب الحديث باستخدام OFFSET (لتجنب الثغرات في أرقام الـ ID)
+      // Clear if exhausted
+      if (seenIds.length >= totalHadiths) {
+        seenIds = [];
+      }
+
+      // 3. Find a new random ID not in seenIds
+      String seenIdsStr = seenIds.join(',');
+      int remaining = totalHadiths - seenIds.length;
+      int randomOffset = DateTime.now().millisecondsSinceEpoch % remaining;
+      
       final List<Map<String, dynamic>> results = await db.rawQuery(
-          'SELECT text FROM hadiths LIMIT 1 OFFSET $targetIndex'
+        seenIds.isEmpty 
+          ? 'SELECT * FROM hadiths LIMIT 1 OFFSET $randomOffset'
+          : 'SELECT * FROM hadiths WHERE id NOT IN ($seenIdsStr) LIMIT 1 OFFSET $randomOffset'
       );
 
       if (results.isNotEmpty) {
-        return results.first;
+        final hadith = results.first;
+        final newId = hadith['id'] as int;
+        
+        // Save state
+        seenIds.add(newId);
+        await prefs.setString(keyLastDate, todayStr);
+        await prefs.setInt(keyCurrentId, newId);
+        await prefs.setStringList(keySeenIds, seenIds.map((e) => e.toString()).toList());
+        
+        return hadith;
       }
     } catch (e) {
-      debugPrint("خطأ في جلب حديث اليوم: $e");
+      debugPrint("Error fetching Bukhari hadith: $e");
     }
     return null;
   }

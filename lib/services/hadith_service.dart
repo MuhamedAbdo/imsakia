@@ -13,6 +13,7 @@ class HadithService extends ChangeNotifier {
   HadithService._();
 
   List<Hadith> _hadiths = [];
+  List<Hadith> _ramadanHadiths = [];
   Hadith? _todayHadith;
   int? _lastCalculatedIndex;
   bool _isInitialized = false;
@@ -23,6 +24,7 @@ class HadithService extends ChangeNotifier {
 
     try {
       await loadHadiths();
+      await loadRamadanHadiths(); // Load Ramadan specifically
       _isInitialized = true;
       Logger.success('HadithService initialized successfully');
     } catch (e) {
@@ -48,6 +50,18 @@ class HadithService extends ChangeNotifier {
       }
     } catch (e) {
       _loadFallbackHadiths();
+    }
+  }
+
+  Future<void> loadRamadanHadiths() async {
+    try {
+      final String data = await rootBundle
+          .loadString('assets/data/ramadan_hadiths.json')
+          .timeout(const Duration(seconds: 3));
+      final List<dynamic> jsonList = json.decode(data);
+      _ramadanHadiths = jsonList.map((e) => Hadith.fromJson(e)).toList();
+    } catch (e) {
+      Logger.error('Error loading ramadan hadiths: $e');
     }
   }
 
@@ -78,24 +92,32 @@ class HadithService extends ChangeNotifier {
     try {
       _currentAdjustment = adjustment;
       final now = DateTime.now();
-
-      // جلب التاريخ الهجري بناءً على التعديل
       final hijriDate = HijriCalendar.fromDate(now);
+      hijriDate.hDay += adjustment; // Apply adjustment to day
 
-      // التأكد من تحويل القيم لنوع int بأمان
       final int hijriDay = hijriDate.hDay;
+      final int hijriMonth = hijriDate.hMonth;
       final int currentHijriYear = hijriDate.hYear;
 
-      // معادلة اختيار الحديث بناءً على اليوم الهجري
-      final int newIndex =
-          ((hijriDay - 1) + ((currentHijriYear % 4) * 30)) % _hadiths.length;
+      int newIndex;
+      Hadith selectedHadith;
 
-      if (_lastCalculatedIndex != newIndex) {
+      // Special logic for Ramadan
+      if (hijriMonth == 9 && _ramadanHadiths.isNotEmpty) {
+        // Use Ramadan file, circular index matching the day (1-30)
+        newIndex = (hijriDay - 1) % _ramadanHadiths.length;
+        selectedHadith = _ramadanHadiths[newIndex];
+      } else {
+        // Default logic for other months
+        newIndex =
+            ((hijriDay - 1) + ((currentHijriYear % 4) * 30)) % _hadiths.length;
+        selectedHadith = _hadiths[newIndex];
+      }
+
+      if (_lastCalculatedIndex != newIndex || _todayHadith?.text != selectedHadith.text) {
         _lastCalculatedIndex = newIndex;
-        _todayHadith = _hadiths[newIndex];
+        _todayHadith = selectedHadith;
 
-        // الحل الجذري للخطأ: تأجيل الإشعار باستخدام microtask
-        // هذا يضمن أن notifyListeners تُستدعى بعد انتهاء بناء الواجهة الحالية
         Future.microtask(() {
           if (hasListeners) notifyListeners();
         });

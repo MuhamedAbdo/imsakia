@@ -1,14 +1,17 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:hijri/hijri_calendar.dart';
+import 'package:hijri/hijri_calendar.dart' as hj;
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import '../providers/location_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/prayer_times_provider.dart';
+import '../providers/hijri_calendar_provider.dart';
 import '../services/hadith_service.dart';
 import '../services/bukhari_database_service.dart';
 import '../core/models/prayer_times_model.dart';
@@ -24,6 +27,7 @@ import '../widgets/neumorphic_box.dart';
 import '../features/quran_madinah/ui/index_screen.dart';
 import 'qibla/qibla_screen.dart';
 import 'settings/settings_screen.dart';
+import 'tasbih_screen.dart';
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -103,6 +107,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   final List<Widget> _screens = [
     const HomeScreen(),
     const QiblaScreen(),
+    const TasbihScreen(),
     const SettingsScreen(),
   ];
 
@@ -156,12 +161,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               elevation: 0,
               selectedItemColor: Theme.of(context).colorScheme.primary,
               unselectedItemColor:
-                  isDark ? Colors.grey[500] : Colors.grey[400],
+                  isDark ? Colors.grey[500] : Colors.grey[700],
               selectedLabelStyle: GoogleFonts.tajawal(
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
               ),
-              unselectedLabelStyle: GoogleFonts.tajawal(fontSize: 11),
+              unselectedLabelStyle: GoogleFonts.tajawal(
+                fontSize: 11,
+                fontWeight: isDark ? FontWeight.normal : FontWeight.w500,
+              ),
               items: const [
                 BottomNavigationBarItem(
                   icon: Icon(Icons.mosque), // Prayers
@@ -170,6 +178,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 BottomNavigationBarItem(
                   icon: Icon(Icons.explore), // Compass
                   label: 'القبلة',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.fingerprint), // Tasbih
+                  label: 'المسبحة',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.settings), // Settings
@@ -276,6 +288,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     context, isDark, cityName, countryName, prayerProvider.prayerTimes),
               ),
 
+              // ── Date Card (Hijri & Gregorian) ───────────────────────────────
+              SliverToBoxAdapter(
+                child: _buildDateCard(context, isDark),
+              ),
+
+              // ── Ramadan Card (Counter / Hadith) ────────────────────────────
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: _buildSpecialEventCard(settings.hijriOffset),
+                ),
+              ),
+
               // ── Quran Card ─────────────────────────────────────────────────
               SliverToBoxAdapter(
                 child: _buildQuranCard(context, isDark),
@@ -296,16 +321,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 child: _buildServicesSection(context, isDark),
               ),
 
-              // ── Hadith / Special Event Card ────────────────────────────────
+              // ── Hadith / Special Event Card (Moved Up) ─────────────────────
+              // Removed from here
+
+              // ── Bukhari Daily Hadith (Bottom) ──────────────────────────────
               SliverToBoxAdapter(
-                child: Padding(
-                  padding:
-                      const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  child: _buildSpecialEventCard(settings.hijriOffset),
-                ),
+                child: _buildBukhariDailyCard(context, isDark),
               ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 80)),
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
             ],
           ),
         ),
@@ -576,6 +600,80 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  // ── 1.5 Date Card ────────────────────────────────────────────────────────
+  
+  Widget _buildDateCard(BuildContext context, bool isDark) {
+    return Consumer<HijriCalendarProvider>(
+      builder: (context, hijriProvider, _) {
+        final hijriDate = hijriProvider.hijriDate;
+        final now = DateTime.now();
+        final gregorianStr = DateFormat.yMMMMd('ar').format(now);
+        final hijriStr = hijriDate != null 
+            ? '${hijriDate.day} ${hijriDate.monthNameAr} ${hijriDate.year} هـ'
+            : '...';
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: isDark ? 0.08 : 0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2),
+                width: 1,
+              ),
+              boxShadow: isDark ? [] : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.gold.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.calendar_today_outlined, color: AppColors.gold, size: 20),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hijriStr,
+                        style: GoogleFonts.tajawal(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.gold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        gregorianStr,
+                        style: GoogleFonts.tajawal(
+                          fontSize: 14,
+                          color: isDark ? Colors.white70 : Colors.black87,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // ── 2. Quran Card ─────────────────────────────────────────────────────────
 
   Widget _buildQuranCard(BuildContext context, bool isDark) {
@@ -670,7 +768,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // Adjust Imsak logic conditionally if we are in Ramadan.
     // We compute the current hijri month locally for this check.
     final settings = Provider.of<SettingsProvider>(context, listen: false);
-    var today = HijriCalendar.now();
+    var today = hj.HijriCalendar.now();
     today.hDay += settings.hijriOffset; // adjust with user offset if applicable
     final int currentMonth = today.hMonth;
 
@@ -981,7 +1079,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // All existing logic below is UNCHANGED
 
   Widget _buildSpecialEventCard(int adjustment) {
-    final hijriDate = HijriCalendar.now();
+    final hijriDate = hj.HijriCalendar.now();
     final day = hijriDate.hDay;
     final month = hijriDate.hMonth;
 
@@ -997,14 +1095,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return _buildGreetingCard(
           'عيد أضحى مبارك', 'أيام تشريق مباركة', Colors.green);
     }
-    if (month != 9) {
-      return _buildRamadanCounter(adjustment);
+
+    // Ramadan Logic
+    if (month == 9) {
+      return _buildHadithOfTheDayCard();
     }
-    return _buildHadithOfTheDayCard();
+
+    // Default: Show Ramadan Counter if not in Ramadan/Eid
+    return _buildRamadanCounter(adjustment);
   }
 
   Widget _buildRamadanCounter(int adjustment) {
-    final hNow = HijriCalendar.now();
+    final hNow = hj.HijriCalendar.now();
     hNow.hDay += adjustment;
 
     int targetYear = hNow.hYear;
@@ -1013,7 +1115,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       targetYear++;
     }
 
-    final targetRamadan = HijriCalendar();
+    final targetRamadan = hj.HijriCalendar();
     targetRamadan.hYear = targetYear;
     targetRamadan.hMonth = 9;
     targetRamadan.hDay = 1;
@@ -1068,32 +1170,155 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return Consumer<HadithService>(
       builder: (context, service, _) {
         final hadith = service.getTodayHadith();
-        if (hadith == null) {
-          // Fallback: show daily Bukhari hadith
-          return FutureBuilder<Map<String, dynamic>?>(
-            future: BukhariDatabaseService.getDailyHadith(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState ==
-                  ConnectionState.waiting) {
-                return const Center(
-                    child: Padding(
-                        padding: EdgeInsets.all(20),
-                        child: CircularProgressIndicator()));
-              }
-              if (!snapshot.hasData || snapshot.data == null) {
-                return const SizedBox.shrink();
-              }
-              return _buildHadithCard(
-                  context, snapshot.data!['text'] ?? '');
-            },
-          );
-        }
-        return _buildHadithCard(context, hadith.text);
+        if (hadith == null) return const SizedBox.shrink();
+
+        return _buildHadithCard(
+          context,
+          title: 'نفحات رمضانية',
+          text: hadith.text,
+          source: hadith.source,
+          icon: Icons.auto_awesome,
+        );
       },
     );
   }
 
-  Widget _buildHadithCard(BuildContext context, String text) {
+  Widget _buildBukhariDailyCard(BuildContext context, bool isDark) {
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: BukhariDatabaseService.getDailyHadith(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data == null) {
+          return const SizedBox.shrink();
+        }
+        final hadith = snapshot.data!;
+        final text = hadith['text'] as String;
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: GestureDetector(
+            onTap: () => _showHadithBottomSheet(context, text),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.2),
+                ),
+                boxShadow: isDark ? [] : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.format_quote_rounded, color: AppColors.gold, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'حديث اليوم',
+                        style: GoogleFonts.tajawal(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : AppColors.darkNavy,
+                        ),
+                      ),
+                      const Spacer(),
+                      const Icon(Icons.open_in_full_rounded, color: Colors.grey, size: 14),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    text,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.amiri(
+                      fontSize: 16,
+                      height: 1.6,
+                      color: isDark ? Colors.white70 : Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showHadithBottomSheet(BuildContext context, String fullText) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        builder: (_, controller) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: ListView(
+                  controller: controller,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  children: [
+                    Text(
+                      'حديث اليوم',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.tajawal(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.gold,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      fullText,
+                      textAlign: TextAlign.justify,
+                      textDirection: ui.TextDirection.rtl,
+                      style: GoogleFonts.amiri(
+                        fontSize: 19,
+                        height: 1.8,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHadithCard(BuildContext context,
+      {required String title,
+      required String text,
+      required String source,
+      required IconData icon}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return NeumorphicBox(
       borderRadius: 20,
@@ -1108,7 +1333,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     color: Colors.amber, size: 20),
                 const SizedBox(width: 10),
                 Text(
-                  'حديث اليوم',
+                  title,
                   style: GoogleFonts.tajawal(
                     fontWeight: FontWeight.bold,
                     fontSize: 17,
