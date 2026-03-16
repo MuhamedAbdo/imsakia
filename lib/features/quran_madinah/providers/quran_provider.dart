@@ -48,9 +48,15 @@ class QuranProvider extends ChangeNotifier {
     // Load Surah Index
     _surahs = await DbHelper.getAllSurahs();
 
+    // Load Juz Index
+    _juzs = await DbHelper.getAllJuzs();
+
     _isLoading = false;
     notifyListeners();
   }
+
+  List<Map<String, dynamic>> _juzs = [];
+  List<Map<String, dynamic>> get juzs => _juzs;
 
   Future<void> setPage(int page) async {
     _currentPage = page;

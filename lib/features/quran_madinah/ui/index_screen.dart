@@ -11,65 +11,206 @@ class IndexScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'فهرس السور',
-          style: TextStyle(
-            fontFamily: 'HafsSmart',
-            fontWeight: FontWeight.bold,
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            'فهرس القرآن',
+            style: TextStyle(
+              fontFamily: 'HafsSmart',
+              fontWeight: FontWeight.bold,
+            ),
           ),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'فهرس السور'),
+              Tab(text: 'فهرس الأجزاء'),
+            ],
+            labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'HafsSmart'),
+            unselectedLabelStyle: TextStyle(fontSize: 13, fontFamily: 'HafsSmart'),
+          ),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.search),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const SearchScreen()),
+                );
+              },
+            ),
+          ],
         ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const SearchScreen()),
-              );
-            },
+        drawer: _buildDrawer(context),
+        body: Consumer<QuranProvider>(
+          builder: (context, quranProvider, child) {
+            if (quranProvider.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+    
+            return TabBarView(
+              children: [
+                _buildSurahList(quranProvider, isDark),
+                _buildJuzList(quranProvider, isDark),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSurahList(QuranProvider quranProvider, bool isDark) {
+    final surahs = quranProvider.surahs;
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      itemCount: surahs.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final surah = surahs[index];
+        final suraNo = surah['sura_no'] as int;
+        final arabicName = surah['sura_name_ar'] as String;
+        final englishName = surah['sura_name_en'] as String;
+        final ayahCount = surah['ayah_count'] as int;
+        final startPage = surah['start_page'] as int;
+        final isMadani = QuranProvider.isMadani(suraNo);
+        final imageAsset = isMadani
+            ? 'assets/images/Madinah.png'
+            : 'assets/images/Makkah.png';
+
+        return _buildSurahCard(
+          context: context,
+          suraNo: suraNo,
+          arabicName: arabicName,
+          englishName: englishName,
+          ayahCount: ayahCount,
+          startPage: startPage,
+          imageAsset: imageAsset,
+          isDark: isDark,
+        );
+      },
+    );
+  }
+
+  Widget _buildJuzList(QuranProvider quranProvider, bool isDark) {
+    final juzs = quranProvider.juzs;
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      itemCount: juzs.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final juz = juzs[index];
+        final juzNo = juz['juz_no'] as int;
+        final startPage = juz['start_page'] as int;
+        final startSura = juz['start_sura_name'] as String;
+
+        return _buildJuzCard(
+          context: context,
+          juzNo: juzNo,
+          startPage: startPage,
+          startSura: startSura,
+          isDark: isDark,
+        );
+      },
+    );
+  }
+
+  Widget _buildJuzCard({
+    required BuildContext context,
+    required int juzNo,
+    required int startPage,
+    required String startSura,
+    required bool isDark,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black54
+                : Colors.green.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.green.withValues(alpha: 0.1),
+          width: 1,
+        ),
       ),
-      drawer: _buildDrawer(context),
-      body: Consumer<QuranProvider>(
-        builder: (context, quranProvider, child) {
-          if (quranProvider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final surahs = quranProvider.surahs;
-
-          return ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            itemCount: surahs.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final surah = surahs[index];
-              final suraNo = surah['sura_no'] as int;
-              final arabicName = surah['sura_name_ar'] as String;
-              final englishName = surah['sura_name_en'] as String;
-              final ayahCount = surah['ayah_count'] as int;
-              final startPage = surah['start_page'] as int;
-              final isMadani = QuranProvider.isMadani(suraNo);
-              final imageAsset = isMadani
-                  ? 'assets/images/Madinah.png'
-                  : 'assets/images/Makkah.png';
-
-              return _buildSurahCard(
-                context: context,
-                suraNo: suraNo,
-                arabicName: arabicName,
-                englishName: englishName,
-                ayahCount: ayahCount,
-                startPage: startPage,
-                imageAsset: imageAsset,
-                isDark: isDark,
-              );
-            },
-          );
-        },
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => MushafScreen(initialPage: startPage),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    juzNo.toString(),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'الجزء $juzNo',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'HafsSmart',
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'بداية من سورة $startSura',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                          fontFamily: 'HafsSmart',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  'صفحة $startPage',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Theme.of(context).colorScheme.secondary,
+                    fontFamily: 'HafsSmart',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

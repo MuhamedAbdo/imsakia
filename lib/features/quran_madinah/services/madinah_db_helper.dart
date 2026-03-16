@@ -105,6 +105,48 @@ class DbHelper {
     return maps;
   }
 
+  /// Fetch all Juzs (for the Index page)
+  static Future<List<Map<String, dynamic>>> getAllJuzs() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT 
+        jozz as juz_no, 
+        MIN(page) as start_page,
+        sura_name_ar as start_sura_name
+      FROM $_tableName 
+      GROUP BY jozz 
+      ORDER BY jozz ASC
+    ''');
+    return maps;
+  }
+
+  /// Search ayahs and surah names
+  static Future<Map<String, dynamic>> searchAny(String query) async {
+    final db = await database;
+
+    // 1. Search Surah Names
+    final List<Map<String, dynamic>> surahMatches = await db.rawQuery('''
+      SELECT DISTINCT sura_no, sura_name_ar, sura_name_en, MIN(page) as page
+      FROM $_tableName
+      WHERE sura_name_ar LIKE ? OR sura_name_en LIKE ?
+      GROUP BY sura_no
+      ORDER BY sura_no ASC
+    ''', ['%$query%', '%$query%']);
+
+    // 2. Search Ayahs
+    final List<Map<String, dynamic>> ayahMatches = await db.query(
+      _tableName,
+      where: 'aya_text_emlaey LIKE ?',
+      whereArgs: ['%$query%'],
+      limit: 100,
+    );
+
+    return {
+      'surahs': surahMatches,
+      'ayahs': ayahMatches.map((m) => Aya.fromJson(m)).toList(),
+    };
+  }
+
   /// Search ayahs using the Emlaey string (without diacritics)
   static Future<List<Aya>> searchAyahs(String query) async {
     final db = await database;
