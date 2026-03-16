@@ -7,13 +7,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 
-// Zad legacy providers (Keep these)
+// Zad legacy providers
 import 'providers/theme_provider.dart';
 import 'providers/quran_provider.dart';
 import 'providers/bukhari_provider.dart';
 import 'services/hadith_service.dart';
 import 'services/azkar_service.dart';
-import 'package:imsakia/features/quran_madinah/providers/quran_provider.dart' as madinah;
+import 'package:imsakia/features/quran_madinah/providers/quran_provider.dart'
+    as madinah;
 
 // New Adhan Core Engine Services
 import 'core/services/storage_service.dart';
@@ -30,6 +31,9 @@ import 'providers/location_provider.dart';
 import 'providers/prayer_times_provider.dart';
 import 'providers/hijri_calendar_provider.dart';
 import 'providers/qibla_provider.dart';
+import 'features/audio/providers/audio_player_provider.dart';
+import 'features/audio/providers/download_provider.dart'; // إضافة ملف التحميل
+import 'features/audio/services/audio_handler.dart';
 
 // Screens
 import 'screens/splash/splash_screen.dart';
@@ -38,10 +42,14 @@ import 'screens/main_layout.dart';
 import 'screens/athan/athan_overlay_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Audio Service at the very beginning
+  await initAudioService();
 
   // Initialize Arabic locale for date formatting
   await initializeDateFormatting('ar', null);
@@ -50,10 +58,12 @@ void main() async {
   tz.initializeTimeZones();
 
   // Status bar style
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ),
+  );
 
   // Initialize Adhan Storage Service
   final storageService = await StorageService.create();
@@ -79,10 +89,11 @@ void main() async {
   HadithService.instance.initialize();
   AzkarService.instance.initialize();
 
-  // Handle notification taps (Athan overlay)
-  final initialNotification = await flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
+  // Handle notification taps
+  final initialNotification = await flutterLocalNotificationsPlugin
+      .getNotificationAppLaunchDetails();
   final launchFromAthan = initialNotification?.didNotificationLaunchApp == true;
-  
+
   String prayerNameAr = 'الصلاة';
   String prayerNameEn = 'Prayer';
 
@@ -111,10 +122,20 @@ void main() async {
 
         // New Adhan Providers
         ChangeNotifierProvider(create: (_) => SettingsProvider(storageService)),
-        ChangeNotifierProvider(create: (_) => LocationProvider(locationService, storageService)),
-        ChangeNotifierProvider(create: (_) => PrayerTimesProvider(prayerService)),
-        ChangeNotifierProvider(create: (_) => HijriCalendarProvider(hijriService)),
+        ChangeNotifierProvider(
+          create: (_) => LocationProvider(locationService, storageService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => PrayerTimesProvider(prayerService),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => HijriCalendarProvider(hijriService),
+        ),
         ChangeNotifierProvider(create: (_) => QiblaProvider()),
+        ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
+        ChangeNotifierProvider(
+          create: (_) => DownloadProvider(),
+        ), // تم الإضافة هنا
       ],
       child: MyApp(
         launchFromAthan: launchFromAthan,
@@ -144,8 +165,9 @@ class MyApp extends StatelessWidget {
         return Consumer<SettingsProvider>(
           builder: (context, settingsProvider, child) {
             themeProvider.syncWithSettingsProvider(
-              // Assuming settingsProvider.isDarkMode handles boolean now (from adhan logic)
-              settingsProvider.isDarkMode ? AppThemeMode.dark : AppThemeMode.light,
+              settingsProvider.isDarkMode
+                  ? AppThemeMode.dark
+                  : AppThemeMode.light,
             );
 
             return MaterialApp(
@@ -154,7 +176,9 @@ class MyApp extends StatelessWidget {
               debugShowCheckedModeBanner: false,
               theme: themeProvider.lightTheme,
               darkTheme: themeProvider.darkTheme,
-              themeMode: settingsProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+              themeMode: settingsProvider.isDarkMode
+                  ? ThemeMode.dark
+                  : ThemeMode.light,
               home: launchFromAthan
                   ? AthanOverlayScreen(
                       prayerNameAr: prayerNameAr,

@@ -28,6 +28,7 @@ import '../features/quran_madinah/ui/index_screen.dart';
 import 'qibla/qibla_screen.dart';
 import 'settings/settings_screen.dart';
 import 'tasbih_screen.dart';
+import '../features/audio/screens/audio_reciters_screen.dart';
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -959,7 +960,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'onTap': () => Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (_) => const UnderDevelopmentPage())),
+                builder: (_) => const QiblaScreen())),
       },
       {
         'title': 'الصوتيات',
@@ -967,7 +968,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'onTap': () => Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (_) => const UnderDevelopmentPage())),
+                builder: (_) => const AudioRecitersScreen())),
       },
     ];
 
@@ -985,24 +986,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(height: 12),
-          // Wrap in a fixed-height scrollable
-          SizedBox(
-            height: 205,
-            child: GridView.builder(
-              scrollDirection: Axis.horizontal,
-              gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 0.85,
-              ),
-              itemCount: services.length,
-              itemBuilder: (context, index) {
-                final item = services[index];
-                return _buildServiceCard(context, isDark, item);
-              },
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 0.82,
             ),
+            itemCount: services.length,
+            itemBuilder: (context, index) {
+              final item = services[index];
+              return _buildServiceCard(context, isDark, item);
+            },
           ),
         ],
       ),

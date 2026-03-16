@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
+import '../features/audio/services/audio_handler.dart';
 
 class RadioPage extends StatefulWidget {
   const RadioPage({super.key});
@@ -17,21 +17,16 @@ class _RadioPageState extends State<RadioPage> {
   int currentIndex = -1;
   bool isSearching = false;
   final TextEditingController _searchController = TextEditingController();
-  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
-    _initRadioPlayer();
+    _setupListeners();
     _fetchRadios();
   }
 
-  void _initRadioPlayer() {
-    debugPrint("Initializing AudioPlayer for radio...");
-    
-    // Listen to player state changes
-    _audioPlayer.playerStateStream.listen((state) {
-      debugPrint("Playback state changed: $state");
+  void _setupListeners() {
+    audioHandler?.player.playerStateStream.listen((state) {
       if (mounted) {
         setState(() => isPlaying = state.playing);
       }
@@ -40,27 +35,15 @@ class _RadioPageState extends State<RadioPage> {
 
   Future<void> _fetchRadios() async {
     try {
-      debugPrint("Fetching radios from API...");
       final response = await Dio().get('https://mp3quran.net/api/v3/radios?language=ar');
       if (response.data != null) {
-        debugPrint("API Response received");
-        debugPrint("Number of radios: ${response.data['radios']?.length ?? 0}");
-        
-        // Log first radio details for debugging
-        if (response.data['radios']?.isNotEmpty == true) {
-          final firstRadio = response.data['radios'][0];
-          debugPrint("First radio: ${firstRadio['name']} -> ${firstRadio['url']}");
-        }
-        
         setState(() {
           allRadios = response.data['radios'];
           filteredRadios = allRadios;
           isLoading = false;
         });
-        debugPrint("Radios loaded successfully");
       }
     } catch (e) {
-      debugPrint("Error fetching radios: $e");
       setState(() {
         isLoading = false;
       });
@@ -77,38 +60,27 @@ class _RadioPageState extends State<RadioPage> {
 
   void _playRadio(int index, dynamic radioData) async {
     try {
-      debugPrint("=== Radio Debug ===");
-      debugPrint("Name: ${radioData['name']}");
-      debugPrint("URL: ${radioData['url']}");
-      debugPrint("Current index: $currentIndex, Selected index: $index");
-      debugPrint("Is playing: $isPlaying");
-      
       final radioUrl = radioData['url'];
       
       if (currentIndex == index && isPlaying) {
-        debugPrint("Pausing radio...");
-        await _audioPlayer.pause();
+        await audioHandler?.pause();
       } else {
-        debugPrint("Setting new station...");
+        await audioHandler?.stop();
         
-        // Stop current playback
-        await _audioPlayer.stop();
-        
-        // Set volume to maximum
-        await _audioPlayer.setVolume(1.0);
-        
-        // Play the radio stream URL
-        await _audioPlayer.setUrl(radioUrl);
-        await _audioPlayer.play();
+        audioHandler?.setMediaItem(
+          id: 'radio_${radioData['id']}',
+          title: radioData['name'],
+          artist: 'إذاعة القرآن الكريم',
+          artUri: Uri.parse('https://raw.githubusercontent.com/ryanheise/audio_service/master/example/web/media/art.jpg'),
+          album: 'الراديو المباشر',
+        );
+
+        await audioHandler?.playRadio(radioUrl);
         
         setState(() => currentIndex = index);
-        debugPrint("Playback started for index: $index");
-        
-        // Show success message
         _showMessage('جاري تشغيل: ${radioData['name']}', Colors.green);
       }
     } catch (e) {
-      debugPrint("Radio Error: $e");
       _showError('خطأ في تشغيل الإذاعة: $e');
     }
   }
@@ -139,7 +111,7 @@ class _RadioPageState extends State<RadioPage> {
 
   @override
   void dispose() {
-    _audioPlayer.dispose();
+    // We don't dispose audioHandler?.player here as it's global
     super.dispose();
   }
 
@@ -293,7 +265,7 @@ class _RadioPageState extends State<RadioPage> {
                       // Stop button
                       GestureDetector(
                         onTap: () async {
-                          await _audioPlayer.stop();
+                          await audioHandler?.stop();
                           setState(() {
                             currentIndex = -1;
                             isPlaying = false;

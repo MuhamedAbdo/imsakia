@@ -12,6 +12,8 @@ import 'radio_page.dart'; // استيراد صفحة الراديو
 import '../features/quran_madinah/ui/index_screen.dart'; // استيراد صفحة الفهرس مباشرة بدلاً من صفحة الاختيار
 import 'package:hijri/hijri_calendar.dart';
 import '../widgets/neumorphic_box.dart';
+import 'qibla/qibla_screen.dart';
+import '../features/audio/screens/audio_reciters_screen.dart';
 
 /// صفحة بسيطة للأقسام التي تحت التطوير
 class UnderDevelopmentPage extends StatelessWidget {
@@ -282,7 +284,14 @@ class TibyanMenuPage extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const UnderDevelopmentPage(),
+                              builder: (context) => const AudioRecitersScreen(),
+                            ),
+                          );
+                        } else if (item['title'] == 'القبلة') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const QiblaScreen(),
                             ),
                           );
                         } else if (item['title'] == 'الراديو') {

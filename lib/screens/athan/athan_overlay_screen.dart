@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:animate_do/animate_do.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
 import '../../core/theme/app_colors.dart';
 
 class AthanOverlayScreen extends StatefulWidget {
@@ -42,12 +41,17 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
     )..repeat(reverse: true);
 
     _pulse = Tween<double>(begin: 0.92, end: 1.08).animate(_pulseController);
-    _gradient =
-        Tween<double>(begin: 0.0, end: 1.0).animate(_gradientController);
+    _gradient = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(_gradientController);
 
     // Audio is owned exclusively by the background service.
     // Do NOT play from the overlay to avoid duplicate streams.
-    developer.log('[AthanOverlay] Overlay displayed — audio managed by background service.', name: 'AthanOverlay');
+    developer.log(
+      '[AthanOverlay] Overlay displayed — audio managed by background service.',
+      name: 'AthanOverlay',
+    );
   }
 
   @override
@@ -58,9 +62,10 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
   }
 
   Future<void> _stopAthan() async {
-    developer.log('[AthanOverlay] Stop button tapped — sending stop_audio to background service.', name: 'AthanOverlay');
-    // The background service is the sole audio owner; send the unified command.
-    FlutterBackgroundService().invoke('stop_audio');
+    developer.log(
+      '[AthanOverlay] Stop button tapped — closing overlay.',
+      name: 'AthanOverlay',
+    );
     // Dismiss the overlay screen.
     SystemNavigator.pop();
   }
@@ -108,19 +113,17 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
                   // Icon + Title
                   Column(
                     children: [
-                      FadeInDown(
-                        child: _MosqueIllustration(),
-                      ),
+                      FadeInDown(child: _MosqueIllustration()),
                       const SizedBox(height: 32),
                       FadeInDown(
                         delay: const Duration(milliseconds: 200),
                         child: Text(
                           'حان وقت صلاة',
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    color: Colors.white70,
-                                    letterSpacing: 1,
-                                  ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: Colors.white70,
+                                letterSpacing: 1,
+                              ),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -128,9 +131,7 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
                         delay: const Duration(milliseconds: 300),
                         child: Text(
                           widget.prayerNameAr,
-                          style: Theme.of(context)
-                              .textTheme
-                              .displayMedium
+                          style: Theme.of(context).textTheme.displayMedium
                               ?.copyWith(
                                 color: AppColors.gold,
                                 fontSize: 56,
@@ -143,9 +144,7 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
                         delay: const Duration(milliseconds: 400),
                         child: Text(
                           widget.prayerNameEn,
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
+                          style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(
                                 color: Colors.white38,
                                 letterSpacing: 4,
@@ -178,7 +177,9 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
                                 color: AppColors.error,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppColors.error.withValues(alpha: 0.5),
+                                    color: AppColors.error.withValues(
+                                      alpha: 0.5,
+                                    ),
                                     blurRadius: 30,
                                     spreadRadius: 6,
                                   ),
@@ -187,8 +188,11 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
                               child: const Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.stop_rounded,
-                                      color: Colors.white, size: 36),
+                                  Icon(
+                                    Icons.stop_rounded,
+                                    color: Colors.white,
+                                    size: 36,
+                                  ),
                                 ],
                               ),
                             ),
@@ -197,10 +201,8 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
                         const SizedBox(height: 12),
                         Text(
                           'إيقاف الأذان',
-                          style:
-                              Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    color: Colors.white60,
-                                  ),
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(color: Colors.white60),
                         ),
                       ],
                     ),
@@ -261,10 +263,7 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
 class _MosqueIllustration extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      size: const Size(200, 140),
-      painter: _MosquePainter(),
-    );
+    return CustomPaint(size: const Size(200, 140), painter: _MosquePainter());
   }
 }
 
@@ -287,20 +286,17 @@ class _MosquePainter extends CustomPainter {
     canvas.drawArc(domeRect, pi, pi, true, paint);
 
     // Main body
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.3, h * 0.45, w * 0.4, h * 0.55),
-      paint,
-    );
+    canvas.drawRect(Rect.fromLTWH(w * 0.3, h * 0.45, w * 0.4, h * 0.55), paint);
 
     // Left minaret
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.12, h * 0.3, w * 0.1, h * 0.7),
-      paint,
-    );
+    canvas.drawRect(Rect.fromLTWH(w * 0.12, h * 0.3, w * 0.1, h * 0.7), paint);
     // Left minaret top dome
     canvas.drawArc(
       Rect.fromCenter(
-          center: Offset(w * 0.17, h * 0.3), width: w * 0.1, height: h * 0.2),
+        center: Offset(w * 0.17, h * 0.3),
+        width: w * 0.1,
+        height: h * 0.2,
+      ),
       pi,
       pi,
       true,
@@ -308,13 +304,13 @@ class _MosquePainter extends CustomPainter {
     );
 
     // Right minaret
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.78, h * 0.3, w * 0.1, h * 0.7),
-      paint,
-    );
+    canvas.drawRect(Rect.fromLTWH(w * 0.78, h * 0.3, w * 0.1, h * 0.7), paint);
     canvas.drawArc(
       Rect.fromCenter(
-          center: Offset(w * 0.83, h * 0.3), width: w * 0.1, height: h * 0.2),
+        center: Offset(w * 0.83, h * 0.3),
+        width: w * 0.1,
+        height: h * 0.2,
+      ),
       pi,
       pi,
       true,

@@ -46,8 +46,8 @@ dependencies:
   
   # Background Tasks & Audio
   workmanager: ^0.9.0+3
-  flutter_background_service: any
   just_audio: ^0.9.40
+  audio_service: ^0.18.18
   home_widget: ^0.9.0
   flutter_qiblah: ^3.1.0+1
   
@@ -72,7 +72,6 @@ dependencies:
   fluttericon: ^2.0.0
   adhan_dart: ^1.2.0
   table_calendar: ^3.2.0
-  radio_player: ^2.2.1
   lottie: ^3.3.2
   easy_container: ^1.0.5+1
   url_launcher: ^6.3.2
