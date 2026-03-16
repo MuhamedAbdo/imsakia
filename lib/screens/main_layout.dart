@@ -916,19 +916,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _buildServicesSection(BuildContext context, bool isDark) {
     final List<Map<String, dynamic>> services = [
       {
-        'title': 'الأذكار',
-        'icon': Icons.auto_stories,
-        'onTap': () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const AzkarScreenWidget())),
-      },
-      {
         'title': 'القرآن الكريم',
         'icon': Icons.menu_book_rounded,
         'onTap': () => Navigator.push(context,
             MaterialPageRoute(builder: (_) => const IndexScreen())),
       },
       {
-        'title': 'مكتبة الحديث',
+        'title': 'الأذكار',
+        'icon': Icons.auto_stories,
+        'onTap': () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const AzkarScreenWidget())),
+      },
+      {
+        'title': 'الأحاديث',
         'asset': 'assets/images/muhammed.png',
         'isAsset': true,
         'onTap': () => Navigator.push(context,
@@ -957,10 +957,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       {
         'title': 'القبلة',
         'icon': Icons.explore_rounded,
-        'onTap': () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (_) => const QiblaScreen())),
+        'onTap': () {
+            // Find parent state to change index
+            final mainState = context.findAncestorStateOfType<_MainLayoutState>();
+            if (mainState != null) {
+              mainState.setState(() => mainState._currentIndex = 1);
+            }
+        },
       },
       {
         'title': 'الصوتيات',
@@ -991,9 +994,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 0.82,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.85,
             ),
             itemCount: services.length,
             itemBuilder: (context, index) {
@@ -1060,10 +1063,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             Text(
               item['title'] as String,
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.visible,
               style: GoogleFonts.tajawal(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white70 : Colors.black87,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : Colors.black87,
               ),
             ),
           ],
