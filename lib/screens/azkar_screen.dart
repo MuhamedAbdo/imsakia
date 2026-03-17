@@ -43,13 +43,18 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
     }
   }
 
-  void _navigateToDetail(AzkarCategory category) {
+  void _navigateToDetail(AzkarCategory category) async {
     HapticFeedback.selectionClick();
-    Navigator.of(context).push(
+    // ننتظر العودة من الشاشة
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => AzkarDetailScreen(category: category),
       ),
     );
+    // بمجرد العودة نحدّث الواجهة لتعكس القيم الجديدة من الـ Service
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -127,19 +132,12 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
               ),
             ),
             ElevatedButton(
-              onPressed: () {
-                AzkarService.instance.resetAllCounters();
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'تم تصفير جميع العدادات',
-                      textAlign: TextAlign.center,
-                    ),
-                    duration: Duration(seconds: 1),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+              onPressed: () async {
+                await AzkarService.instance.resetAllCounters();
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                  setState(() {}); // تحديث الشبكة بعد التصفير
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.redAccent,
@@ -257,9 +255,10 @@ class _CategoryCardWidgetState extends State<CategoryCardWidget>
       lowerBound: 0.0,
       upperBound: 0.05,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.95,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -293,10 +292,7 @@ class _CategoryCardWidgetState extends State<CategoryCardWidget>
             gradient: LinearGradient(
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
-              colors: [
-                category.color.withValues(alpha: 0.85),
-                category.color,
-              ],
+              colors: [category.color.withValues(alpha: 0.85), category.color],
             ),
             boxShadow: [
               BoxShadow(
@@ -348,7 +344,11 @@ class _CategoryCardWidgetState extends State<CategoryCardWidget>
                           ),
                           child: assetPath != null
                               ? Image.asset(assetPath, width: 30, height: 30)
-                              : Icon(category.icon, size: 30, color: Colors.white),
+                              : Icon(
+                                  category.icon,
+                                  size: 30,
+                                  color: Colors.white,
+                                ),
                         ),
                         const SizedBox(height: 12),
                         Text(

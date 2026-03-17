@@ -24,11 +24,6 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
     _loadSettings();
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
   Future<void> _loadSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -49,9 +44,10 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
     }
   }
 
-  void _onIncrementZikr(Azkar azkar) {
+  void _onIncrementZikr(Azkar azkar) async {
     if (azkar.isCompleted) return;
     HapticFeedback.lightImpact();
+
     setState(() {
       final categoryIndex = widget.category.azkar.indexWhere(
         (a) => a.id == azkar.id,
@@ -60,7 +56,12 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
         widget.category.azkar[categoryIndex] = azkar.incrementCount();
       }
     });
-    AzkarService.instance.incrementAzkarCount(widget.category.id, azkar.id);
+
+    // التحديث في قاعدة البيانات وبث التغيير عبر الـ Stream
+    await AzkarService.instance.incrementAzkarCount(
+      widget.category.id,
+      azkar.id,
+    );
 
     final updatedAzkar = widget.category.azkar.firstWhere(
       (a) => a.id == azkar.id,
@@ -97,7 +98,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
             borderRadius: BorderRadius.circular(16),
           ),
           title: Text(
-            'إإعادة تعيين العدادات',
+            'إعادة تعيين العدادات',
             style: GoogleFonts.tajawal(fontWeight: FontWeight.w600),
           ),
           content: Text(
@@ -118,15 +119,17 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              onPressed: () {
-                AzkarService.instance.resetCategoryCounters(widget.category.id);
+              onPressed: () async {
+                await AzkarService.instance.resetCategoryCounters(
+                  widget.category.id,
+                );
                 setState(() {
                   for (int i = 0; i < widget.category.azkar.length; i++) {
                     widget.category.azkar[i] = widget.category.azkar[i]
                         .resetCount();
                   }
                 });
-                Navigator.of(context).pop();
+                if (context.mounted) Navigator.of(context).pop();
               },
               child: Text(
                 'تأكيد',
@@ -172,7 +175,9 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
                   SliderTheme(
                     data: SliderTheme.of(context).copyWith(
                       activeTrackColor: AppConstants.primaryColor,
-                      inactiveTrackColor: isDark ? Colors.white12 : Colors.black12,
+                      inactiveTrackColor: isDark
+                          ? Colors.white12
+                          : Colors.black12,
                       thumbColor: AppConstants.primaryColor,
                       overlayColor: AppConstants.primaryColor.withValues(alpha: 0.2),
                     ),
@@ -195,7 +200,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppConstants.primaryColor,
-                foregroundColor: Colors.white, 
+                foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -303,11 +308,11 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
         builder: (context, snapshot) {
           AzkarCategory currentCategory =
               (snapshot.hasData && snapshot.data!.isNotEmpty)
-                  ? snapshot.data!.firstWhere(
-                      (cat) => cat.id == widget.category.id,
-                      orElse: () => widget.category,
-                    )
-                  : widget.category;
+              ? snapshot.data!.firstWhere(
+                  (cat) => cat.id == widget.category.id,
+                  orElse: () => widget.category,
+                )
+              : widget.category;
           return Column(
             children: [
               Row(
@@ -337,8 +342,8 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
                 child: LinearProgressIndicator(
                   value: currentCategory.overallProgress,
                   minHeight: 10,
-                  backgroundColor: isDark 
-                      ? Colors.white.withValues(alpha: 0.05) 
+                  backgroundColor: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
                       : Colors.black.withValues(alpha: 0.05),
                   valueColor: const AlwaysStoppedAnimation<Color>(
                     AppConstants.primaryColor,
@@ -413,8 +418,8 @@ class _ZikrCardWidgetState extends State<ZikrCardWidget>
         borderRadius: BorderRadius.circular(16),
         color: azkar.isCompleted
             ? (isDark
-                ? Colors.green.withValues(alpha: 0.12)
-                : Colors.green.withValues(alpha: 0.05))
+                  ? Colors.green.withValues(alpha: 0.12)
+                  : Colors.green.withValues(alpha: 0.05))
             : Theme.of(context).cardColor,
         border: Border.all(
           color: azkar.isCompleted
@@ -474,8 +479,8 @@ class _ZikrCardWidgetState extends State<ZikrCardWidget>
                     color: azkar.isCompleted
                         ? (isDark ? Colors.greenAccent : Colors.green.shade900)
                         : (isDark
-                            ? Colors.white.withValues(alpha: 0.9)
-                            : Colors.black87),
+                              ? Colors.white.withValues(alpha: 0.9)
+                              : Colors.black87),
                   ),
                   textAlign: TextAlign.right,
                   textDirection: TextDirection.rtl,
@@ -569,7 +574,9 @@ class _ZikrCardWidgetState extends State<ZikrCardWidget>
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                azkar.isCompleted ? 'تمت القراءة' : 'قيد التكرار',
+                                azkar.isCompleted
+                                    ? 'تمت القراءة'
+                                    : 'قيد التكرار',
                                 style: GoogleFonts.tajawal(
                                   fontSize: 13,
                                   color: azkar.isCompleted
