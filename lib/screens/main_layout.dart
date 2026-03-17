@@ -20,8 +20,6 @@ import '../services/hadith_service.dart';
 import '../services/bukhari_database_service.dart';
 import '../core/models/prayer_times_model.dart';
 import '../core/theme/app_colors.dart';
-
-
 import 'azkar_screen.dart';
 import 'allah_names_page.dart';
 import 'radio_page.dart';
@@ -105,6 +103,7 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _currentIndex = 0;
   bool _batteryBannerDismissed = false;
+  bool _wasPaused = false;
 
   /// Index 0: Prayers (HomeScreen)
   /// Index 1: Qibla (QiblaScreen)
@@ -142,13 +141,29 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     }
   }
 
-  /// Called when the app resumes from background — re-check battery permission
-  /// so the banner auto-hides if the user granted it in system settings.
+  /// Called when the app lifecycle changes (foreground/background)
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && !_batteryBannerDismissed) {
-      _checkBatteryAndHideBanner();
+    if (state == AppLifecycleState.paused) {
+      _wasPaused = true;
+    } else if (state == AppLifecycleState.resumed) {
+      // 1. Re-check battery permission for auto-hide
+      if (!_batteryBannerDismissed) {
+        _checkBatteryAndHideBanner();
+      }
+
+      // 2. Only go to Splash if we were truly paused (backgrounded)
+      // and not just inactive (e.g. notification shade)
+      if (_wasPaused) {
+        _wasPaused = false; // Reset the flag
+        _navigateToSplash();
+      }
     }
+  }
+
+  void _navigateToSplash() {
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
   }
 
   /// Re-check battery optimisation status and hide the banner if now granted.
@@ -186,19 +201,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         actions: [
           TextButton(
             onPressed: () async {
-              // Open the system battery optimisation settings page.
-              // Do NOT dismiss the banner yet — it will auto-hide when the
-              // user returns and permission is confirmed granted.
-              await Permission.ignoreBatteryOptimizations.request();
-              // request() opens the settings dialog on Android; re-check
-              // immediately in case it resolved synchronously.
-              if (!mounted) return;
-              final granted =
-                  await Permission.ignoreBatteryOptimizations.isGranted;
-              if (granted && mounted) {
-                ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
-                setState(() => _batteryBannerDismissed = true);
+              // Open the system battery optimisation settings page using native MethodChannel
+              try {
+                const MethodChannel('imsakia/notifications')
+                    .invokeMethod('openBatteryOptimizationSettings');
+              } catch (e) {
+                // Fallback to permission_handler if channel fails
+                await Permission.ignoreBatteryOptimizations.request();
               }
+              // Banner will auto-hide in didChangeAppLifecycleState when user returns
             },
             child: Text(
               'إعدادات',
@@ -324,9 +335,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               Navigator.pop(context);
               // Ask the platform to finish the task cleanly
               await SystemNavigator.pop();
-              // Fallback: forcefully kill the Dart VM to prevent
-              // the app from remaining in a suspended background state.
-              exit(0);
+              // REMOVED exit(0) to ensure the background service isolate
+              // survives even if the UI part of the app is "closed".
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
@@ -1359,12 +1369,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   ///   emoji    - String: leading emoji character
   ///   gradient - List of Color: card gradient colours
   ///   isToday  - bool: true when the event is today (no countdown)
-  Map<String, dynamic> _computeIslamicEvent(int hijriOffset) {
+  Map<String, dynamic> _getIslamicEventInfo(int hijriOffset) {
     final hijri = hj.HijriCalendar.now();
     final int day   = hijri.hDay + hijriOffset;
     final int month = hijri.hMonth;
 
-    // ── 1 Shawwal (Eid al-Fitr) ───────────────────────────────────────────
+    // 1. Eid al-Fitr (1 Shawwal)
     if (month == 10 && day == 1) {
       return {
         'title': 'عيد الفطر المبارك',
@@ -1376,7 +1386,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       };
     }
 
-    // ── 9 Dhul Hijjah (Day of Arafat) ────────────────────────────────────
+    // 2. Day of Arafat (9 Dhul Hijjah)
     if (month == 12 && day == 9) {
       return {
         'title': 'يوم عرفة',
@@ -1384,10 +1394,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'emoji': '🕌',
         'gradient': [const Color(0xFF4E342E), const Color(0xFF795548)],
         'isToday': true,
+        'isEid': false,
       };
     }
 
-    // ── 10 Dhul Hijjah (Eid al-Adha) ─────────────────────────────────────
+    // 3. Eid al-Adha (10 Dhul Hijjah)
     if (month == 12 && day == 10) {
       return {
         'title': 'عيد الأضحى المبارك',
@@ -1399,10 +1410,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       };
     }
 
-    // ── 11-13 Dhul Hijjah (Tashreeq days) ────────────────────────────────
+    // 4. Tashreeq Days (11-13 Dhul Hijjah)
     if (month == 12 && day >= 11 && day <= 13) {
       const dayNames = ['الأول', 'الثاني', 'الثالث'];
-      final dayIndex = day - 11; // 0,1,2
+      final dayIndex = (day - 11).clamp(0, 2);
       return {
         'title': 'أيام التشريق',
         'subtitle': 'اليوم ${dayNames[dayIndex]}',
@@ -1413,20 +1424,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       };
     }
 
-    // ── 2 Shawwal → 9 Dhul Hijjah: countdown to Eid al-Adha ─────────────
-    final bool afterEidFitr = (month == 10 && day >= 2) || month == 11 ||
-        (month == 12 && day < 9);
+    // 5. In Ramadan (Month 9)
+    if (month == 9) {
+      return {
+        'title': 'رمضان كريم',
+        'subtitle': 'شهر الخير والبركات',
+        'emoji': '🌜',
+        'gradient': [const Color(0xFF4A148C), const Color(0xFF7B1FA2)],
+        'isToday': true,
+        'isEid': false,
+      };
+    }
+
+    // 6. Countdown to Eid al-Adha (2 Shawwal to 9 Dhul Hijjah)
+    final bool afterEidFitr = (month == 10 && day >= 2) || month == 11 || (month == 12 && day < 9);
     if (afterEidFitr) {
-      // Calculate days remaining to 10 Dhul Hijjah
       final target = hj.HijriCalendar()
-        ..hYear  = hijri.hYear + (month == 12 ? 0 : 0)
+        ..hYear = hijri.hYear
         ..hMonth = 12
-        ..hDay   = 10;
-      // Adjust year if needed (same Hijri year for both months)
-      final targetYear = (month <= 12) ? hijri.hYear : hijri.hYear + 1;
-      final targetDate = target.hijriToGregorian(targetYear, 12, 10);
-      // Ensure positive remaining days
-      final remaining  = targetDate.isAfter(DateTime.now()) ? targetDate.difference(DateTime.now()).inDays : 0;
+        ..hDay = 10;
+      final targetDate = target.hijriToGregorian(hijri.hYear, 12, 10);
+      final diff = targetDate.difference(DateTime.now());
+      final remaining = (diff.isNegative ? 0 : diff.inDays) + 1;
       return {
         'title': 'عيد الأضحى المبارك',
         'subtitle': remaining == 0 ? 'غداً إن شاء الله' : 'بعد $remaining يوم',
@@ -1434,45 +1453,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'gradient': [const Color(0xFF1B5E20), const Color(0xFF388E3C)],
         'isToday': false,
         'daysLeft': remaining,
+        'isEid': false,
       };
     }
 
-    // ── Default: countdown to next Ramadan ───────────────────────────────
+    // 7. Default: Countdown to next Ramadan
     int targetYear = hijri.hYear;
     if (month > 9 || (month == 9 && day >= 1)) targetYear++;
     final targetRamadan = hj.HijriCalendar();
-    targetRamadan.hYear  = targetYear;
-    targetRamadan.hMonth = 9;
-    targetRamadan.hDay   = 1;
     final targetDate = targetRamadan.hijriToGregorian(targetYear, 9, 1);
-    final diff       = targetDate.difference(DateTime.now());
-    final daysLeft   = diff.isNegative ? 0 : diff.inDays;
-    final hoursLeft  = diff.isNegative ? 0 : diff.inHours.remainder(24);
-    final minsLeft   = diff.isNegative ? 0 : diff.inMinutes.remainder(60);
-
-    // In Ramadan (month 9)
-    if (month == 9) {
-      return {
-        'title': 'رمضان كريم',
-        'subtitle': 'رمضان مبارك — شهر القرآن والرحمة',
-        'emoji': '🌛',
-        'gradient': [const Color(0xFF4A148C), const Color(0xFF7B1FA2)],
-        'isToday': true,
-      };
-    }
+    final diff = targetDate.difference(DateTime.now());
+    final daysLeft = diff.isNegative ? 0 : diff.inDays;
 
     return {
       'title': 'رمضان المبارك',
-      'subtitle': 'بعد $daysLeft يوم، $hoursLeft ساعة، $minsLeft دقيقة',
+      'subtitle': 'بعد $daysLeft يوم إن شاء الله',
       'emoji': '🌛',
-      'gradient': [const Color(0xFF4A148C), const Color(0xFF7B1FA2)],
+      'gradient': [const Color(0xFF1A237E), const Color(0xFF3949AB)],
       'isToday': false,
       'daysLeft': daysLeft,
+      'isEid': false,
     };
   }
 
   Widget _buildDynamicEventCard(BuildContext context, bool isDark, int hijriOffset) {
-    final event    = _computeIslamicEvent(hijriOffset);
+    final event    = _getIslamicEventInfo(hijriOffset);
+    final month = hj.HijriCalendar.now().hMonth;
     final title    = event['title']    as String;
     final subtitle = event['subtitle'] as String;
     final emoji    = event['emoji']    as String;
@@ -1555,8 +1561,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
             ),
 
-            // ── Daily Hadith section (hidden on Eid festive days) ─────────
-            if (!isEidDay)
+            // ── Daily Hadith section (hidden on Eid festive days and only in Ramadan) ─────────
+            if (!isEidDay && month == 9)
               Consumer<HadithService>(
                 builder: (context, service, _) {
                   final hadith = service.getTodayHadith();
@@ -1585,7 +1591,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 size: 18),
                             const SizedBox(width: 6),
                             Text(
-                              'حديث اليوم',
+                              'نفحات رمضانية',
                               style: GoogleFonts.tajawal(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,

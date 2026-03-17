@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lottie/lottie.dart';
 import '../../core/services/background_service.dart';
 import '../../core/theme/app_colors.dart';
 
@@ -99,7 +100,7 @@ class _EidCelebrationScreenState extends State<EidCelebrationScreen>
             ),
           ),
 
-          // ── Fireworks / Particles ──────────────────────────────────────────
+          // ── Custom Particle Fireworks (Background Layer) ───────────────────
           AnimatedBuilder(
             animation: _fireworkController,
             builder: (context, _) {
@@ -108,6 +109,17 @@ class _EidCelebrationScreenState extends State<EidCelebrationScreen>
                 painter: _FireworksPainter(_fireworkController.value),
               );
             },
+          ),
+
+          // ── Lottie Fireworks (Primary Animation) ───────────────────────────
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Lottie.network(
+                'https://lottie.host/80996c5c-7d72-4d10-a2d3-88c9f8021815/kS0Y8Y0Y8Y.json',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+              ),
+            ),
           ),
 
           // ── Star decorations ───────────────────────────────────────────────

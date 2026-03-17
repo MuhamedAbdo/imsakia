@@ -195,13 +195,13 @@ class MyApp extends StatelessWidget {
               themeMode: settingsProvider.isDarkMode
                   ? ThemeMode.dark
                   : ThemeMode.light,
-              home: launchFromAthan
-                  ? AthanOverlayScreen(
+              initialRoute: launchFromAthan ? '/athan' : '/',
+              routes: {
+                '/': (context) => const SplashScreen(),
+                '/athan': (context) => AthanOverlayScreen(
                       prayerNameAr: prayerNameAr,
                       prayerNameEn: prayerNameEn,
-                    )
-                  : const SplashScreen(),
-              routes: {
+                    ),
                 '/settings': (context) => const SettingsScreen(),
                 '/main': (context) => const MainLayout(),
               },
