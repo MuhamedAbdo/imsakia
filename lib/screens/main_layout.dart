@@ -298,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.only(top: 16),
-                  child: _buildSpecialEventCard(settings.hijriOffset),
+                  child: _buildSpecialEventCard(settings.hijriBaseOffset),
                 ),
               ),
 

@@ -3,9 +3,6 @@ import 'dart:developer' as developer;
 /// BackgroundService stub - flutter_background_service has been removed
 /// due to conflicts with the main isolate.
 class BackgroundService {
-  static const _foregroundNotificationId = 9001;
-  static const _channelId = 'adhan_background';
-  static const _channelName = 'زاد - خدمات الخلفية';
 
   /// Initialize background service (disabled)
   static Future<void> initialize() async {

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hijri/hijri_calendar.dart';
+import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../providers/settings_provider.dart';
 
 
 class CalendarPage extends StatefulWidget {
@@ -38,10 +40,10 @@ class _CalendarPageState extends State<CalendarPage>
     super.dispose();
   }
 
-  void _moveMonth({required bool isNext}) {
+  void _moveMonth({required bool isNext, int offset = 0}) {
     setState(() {
       if (_tabController!.index == 0) {
-        final hDateNow = HijriCalendar.fromDate(_focusedDay);
+        final hDateNow = HijriCalendar.fromDate(_focusedDay.add(Duration(days: offset)));
         int hYear = hDateNow.hYear;
         int hMonth = hDateNow.hMonth;
 
@@ -65,7 +67,7 @@ class _CalendarPageState extends State<CalendarPage>
         hDate.hYear = hYear;
         hDate.hMonth = hMonth;
         hDate.hDay = 1;
-        _focusedDay = hDate.hijriToGregorian(hYear, hMonth, 1);
+        _focusedDay = hDate.hijriToGregorian(hYear, hMonth, 1).subtract(Duration(days: offset));
       } else {
         _focusedDay = DateTime(
           _focusedDay.year,
@@ -80,6 +82,8 @@ class _CalendarPageState extends State<CalendarPage>
   Widget build(BuildContext context) {
     if (_tabController == null) return const SizedBox.shrink();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final settings = Provider.of<SettingsProvider>(context);
+    final offset = settings.hijriBaseOffset;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -111,29 +115,29 @@ class _CalendarPageState extends State<CalendarPage>
         ),
         body: Column(
           children: [
-            _buildCustomHeader(isDarkMode),
+            _buildCustomHeader(isDarkMode, offset),
             _buildDaysOfWeekHeader(isDarkMode),
             Expanded(
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildHijriCustomGridView(isDarkMode),
+                  _buildHijriCustomGridView(isDarkMode, offset),
                   _buildGregorianView(isDarkMode),
                 ],
               ),
             ),
             if (_selectedDay != null)
-              _buildSelectedDateCard(_selectedDay!, isDarkMode),
+              _buildSelectedDateCard(_selectedDay!, isDarkMode, offset),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCustomHeader(bool isDarkMode) {
+  Widget _buildCustomHeader(bool isDarkMode, int offset) {
     String title = "";
     if (_tabController!.index == 0) {
-      final hDateNow = HijriCalendar.fromDate(_focusedDay);
+      final hDateNow = HijriCalendar.fromDate(_focusedDay.add(Duration(days: offset)));
       title = "${hDateNow.longMonthName} ${hDateNow.hYear}";
     } else {
       const months = [
@@ -163,7 +167,7 @@ class _CalendarPageState extends State<CalendarPage>
               Icons.chevron_left,
               color: isDarkMode ? Colors.white : Colors.black,
             ),
-            onPressed: () => _moveMonth(isNext: false),
+            onPressed: () => _moveMonth(isNext: false, offset: offset),
           ),
           Text(
             title,
@@ -178,7 +182,7 @@ class _CalendarPageState extends State<CalendarPage>
               Icons.chevron_right,
               color: isDarkMode ? Colors.white : Colors.black,
             ),
-            onPressed: () => _moveMonth(isNext: true),
+            onPressed: () => _moveMonth(isNext: true, offset: offset),
           ),
         ],
       ),
@@ -218,31 +222,29 @@ class _CalendarPageState extends State<CalendarPage>
     );
   }
 
-  Widget _buildHijriCustomGridView(bool isDarkMode) {
-    // استخدام _focusedDay مع التعديل للحصول على الشهر والسنة الصحيحين المعروضين حالياً
-    final hDateNow = HijriCalendar.fromDate(_focusedDay);
+  Widget _buildHijriCustomGridView(bool isDarkMode, int offset) {
+    // Current Hijri date with offset
+    final hDateNow = HijriCalendar.fromDate(_focusedDay.add(Duration(days: offset)));
     int hYear = hDateNow.hYear;
     int hMonth = hDateNow.hMonth;
 
-    // الحصول على أول يوم في الشهر الهجري المعدل
+    // First day of the Hijri month (accounting for offset to find the Gregorian equivalent)
     var hDate = HijriCalendar();
     hDate.hYear = hYear;
     hDate.hMonth = hMonth;
     hDate.hDay = 1;
-    var firstDayOfMonth = hDate.hijriToGregorian(hYear, hMonth, 1);
+    var firstDayOfMonth = hDate.hijriToGregorian(hYear, hMonth, 1).subtract(Duration(days: offset));
 
-    // حساب الإزاحة بناءً على أن السبت هو 6 في DateTime.weekday والأسبوع يبدأ بالسبت في تصميمنا
-    // الأيام في Flutter: Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6, Sun=7
-    int offset;
+    // Calculate grid shift: designing for week starting Saturday (6)
+    int gridShift;
     if (firstDayOfMonth.weekday == DateTime.saturday) {
-      offset = 0;
+      gridShift = 0;
     } else if (firstDayOfMonth.weekday == DateTime.sunday) {
-      offset = 1;
+      gridShift = 1;
     } else {
-      offset = firstDayOfMonth.weekday + 1;
+      gridShift = firstDayOfMonth.weekday + 1;
     }
 
-    // استخدام getMonthLength() للشهر الهجري المعدل
     int daysInMonth = hDate.getDaysInMonth(hYear, hMonth);
 
     return GridView.builder(
@@ -251,22 +253,15 @@ class _CalendarPageState extends State<CalendarPage>
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 7,
       ),
-      itemCount: daysInMonth + offset,
+      itemCount: daysInMonth + gridShift,
       itemBuilder: (context, index) {
-        if (index < offset) return const SizedBox.shrink();
+        if (index < gridShift) return const SizedBox.shrink();
 
-        int dayNo = index - offset + 1;
+        int dayNo = index - gridShift + 1;
 
-        // إنشاء HijriCalendar جديد لكل يوم مع تطبيق التعديل
-        var dayHijri = HijriCalendar();
-        dayHijri.hYear = hYear;
-        dayHijri.hMonth = hMonth;
-        dayHijri.hDay = dayNo;
+        // Gregorian date for this specific Hijri day (with offset adjustment)
+        DateTime currentGregorian = hDate.hijriToGregorian(hYear, hMonth, dayNo).subtract(Duration(days: offset));
 
-        // تطبيق التعديل عكسياً للحصول على التاريخ الميلادي الصحيح
-        DateTime currentGregorian = dayHijri.hijriToGregorian(hYear, hMonth, dayNo);
-
-        // التحقق إذا كان هذا اليوم هو اليوم الحالي بعد تطبيق التعديل
         DateTime todayMidnight = DateTime(
           DateTime.now().year,
           DateTime.now().month,
@@ -274,7 +269,6 @@ class _CalendarPageState extends State<CalendarPage>
         );
         bool isToday = currentGregorian.isAtSameMomentAs(todayMidnight);
 
-        // تحديد ما إذا كان هذا اليوم هو اليوم المحدد حاليًا
         bool isSelected = false;
         if (_selectedDay != null) {
           isSelected = currentGregorian.isAtSameMomentAs(_selectedDay!);
@@ -282,7 +276,6 @@ class _CalendarPageState extends State<CalendarPage>
 
         return GestureDetector(
           onTap: () => setState(() {
-            // Normalize to prevent time-of-day mismatch
             _selectedDay = DateTime(
               currentGregorian.year,
               currentGregorian.month,
@@ -362,8 +355,8 @@ class _CalendarPageState extends State<CalendarPage>
     );
   }
 
-  Widget _buildSelectedDateCard(DateTime date, bool isDarkMode) {
-    final hDateNow = HijriCalendar.fromDate(date);
+  Widget _buildSelectedDateCard(DateTime date, bool isDarkMode, int offset) {
+    final hDateNow = HijriCalendar.fromDate(date.add(Duration(days: offset)));
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Container(
