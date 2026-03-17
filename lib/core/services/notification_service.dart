@@ -14,7 +14,7 @@ class NotificationService {
 
   Future<void> initialize() async {
     const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@drawable/ic_notification');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -77,7 +77,7 @@ class NotificationService {
       priority: isAthan ? Priority.max : Priority.high,
       fullScreenIntent: isAthan,
       category: isAthan ? AndroidNotificationCategory.alarm : null,
-      icon: '@mipmap/ic_launcher',
+      icon: '@drawable/ic_notification',
       actions: isAthan
           ? const [
               AndroidNotificationAction(
@@ -120,7 +120,7 @@ class NotificationService {
       fullScreenIntent: true,
       category: AndroidNotificationCategory.alarm,
       ongoing: true,
-      icon: '@mipmap/ic_launcher',
+      icon: '@drawable/ic_notification',
       actions: [
         AndroidNotificationAction(
           'stop_athan',

@@ -471,51 +471,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Row: App name + Settings
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // App name + location (settings moved to BottomNav)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Image.asset(
+                      'assets/images/zad_icon.png',
+                      height: 45,
+                      fit: BoxFit.contain,
+                    ),
+                    Row(
                       children: [
-                        Image.asset(
-                          'assets/images/zad_icon.png',
-                          height: 45,
-                          fit: BoxFit.contain,
-                        ),
-                        Row(
-                          children: [
-                            const Icon(Icons.location_on,
-                                color: Colors.white70, size: 13),
-                            const SizedBox(width: 3),
-                            Text(
-                              cityName.isEmpty
-                                  ? 'لم يتم تحديد موقع...'
-                                  : '$cityName${countryName.isNotEmpty ? ' - $countryName' : ''}',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 12,
-                                color: Colors.white70,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
+                        const Icon(Icons.location_on,
+                            color: Colors.white70, size: 13),
+                        const SizedBox(width: 3),
+                        Text(
+                          cityName.isEmpty
+                              ? 'لم يتم تحديد موقع...'
+                              : '$cityName${countryName.isNotEmpty ? ' - $countryName' : ''}',
+                          style: GoogleFonts.tajawal(
+                            fontSize: 12,
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
-                    ),
-                    // Settings icon
-                    GestureDetector(
-                      onTap: () =>
-                          Navigator.pushNamed(context, '/settings'),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color:
-                              Colors.white.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.settings_outlined,
-                            color: Colors.white, size: 22),
-                      ),
                     ),
                   ],
                 ),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:animate_do/animate_do.dart';
 import '../../core/theme/app_colors.dart';
@@ -418,7 +419,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               settings.setAthanSoundEnabled(v),
                           isDark: isDark,
                         ),
-                        if (settings.athanSoundEnabled) ...[
+                        if (settings.athanSoundEnabled) ...[ 
                           const SizedBox(height: 16),
                           _SwitchTile(
                             icon: Icons.sync,
@@ -482,6 +483,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                           ],
                         ],
+                        const Divider(height: 24),
+                        _EidTakbeerTile(isDark: isDark),
                       ],
                     ),
                   ),
@@ -773,6 +776,54 @@ class _SwitchTile extends StatelessWidget {
           activeThumbColor: AppColors.gold,
         ),
       ],
+    );
+  }
+}
+
+// ── Eid Takbeer Toggle ───────────────────────────────────────────────────────
+
+class _EidTakbeerTile extends StatefulWidget {
+  final bool isDark;
+  const _EidTakbeerTile({required this.isDark});
+
+  @override
+  State<_EidTakbeerTile> createState() => _EidTakbeerTileState();
+}
+
+class _EidTakbeerTileState extends State<_EidTakbeerTile> {
+  static const _key = 'enable_eid_takbeer';
+  bool _enabled = true; // default on
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _enabled = prefs.getBool(_key) ?? true;
+      });
+    }
+  }
+
+  Future<void> _toggle(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_key, v);
+    if (mounted) setState(() => _enabled = v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SwitchTile(
+      icon: Icons.celebration_outlined,
+      title: 'تكبيرات العيد',
+      subtitle: 'تشغيل تكبيرات العيد بعد أذان الفجر مباشرةً',
+      value: _enabled,
+      onChanged: _toggle,
+      isDark: widget.isDark,
     );
   }
 }
