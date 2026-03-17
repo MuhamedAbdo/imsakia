@@ -4,6 +4,7 @@ import 'package:hijri/hijri_calendar.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../providers/settings_provider.dart';
+import '../providers/hijri_calendar_provider.dart';
 
 
 class CalendarPage extends StatefulWidget {
@@ -90,7 +91,7 @@ class _CalendarPageState extends State<CalendarPage>
       child: Scaffold(
         backgroundColor: isDarkMode
             ? const Color(0xFF121212)
-            : const Color(0xFFF5F5F0),
+            : const Color(0xFFF7F8FA),
         appBar: AppBar(
           backgroundColor: isDarkMode ? Colors.black : Colors.blue,
           title: Text(
@@ -174,7 +175,7 @@ class _CalendarPageState extends State<CalendarPage>
             style: GoogleFonts.tajawal(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: isDarkMode ? Colors.white : Colors.black87,
+              color: isDarkMode ? Colors.white : const Color(0xFF4A4A4A),
             ),
           ),
           IconButton(
@@ -223,6 +224,7 @@ class _CalendarPageState extends State<CalendarPage>
   }
 
   Widget _buildHijriCustomGridView(bool isDarkMode, int offset) {
+    final hijriProvider = Provider.of<HijriCalendarProvider>(context);
     // Current Hijri date with offset
     final hDateNow = HijriCalendar.fromDate(_focusedDay.add(Duration(days: offset)));
     int hYear = hDateNow.hYear;
@@ -261,6 +263,9 @@ class _CalendarPageState extends State<CalendarPage>
 
         // Gregorian date for this specific Hijri day (with offset adjustment)
         DateTime currentGregorian = hDate.hijriToGregorian(hYear, hMonth, dayNo).subtract(Duration(days: offset));
+        
+        // Detect Islamic Event
+        bool hasEvent = hijriProvider.getEventForDate(currentGregorian, offset) != null;
 
         DateTime todayMidnight = DateTime(
           DateTime.now().year,
@@ -288,6 +293,7 @@ class _CalendarPageState extends State<CalendarPage>
             isDarkMode,
             isSelected: isSelected,
             isToday: isToday,
+            hasEvent: hasEvent,
           ),
         );
       },
@@ -328,6 +334,7 @@ class _CalendarPageState extends State<CalendarPage>
     bool isDarkMode, {
     required bool isSelected,
     required bool isToday,
+    required bool hasEvent,
   }) {
     return Container(
       margin: const EdgeInsets.all(4),
@@ -341,34 +348,63 @@ class _CalendarPageState extends State<CalendarPage>
                   : Colors.transparent),
         border: isToday ? Border.all(color: Colors.blue, width: 1) : null,
       ),
-      child: Text(
-        text,
-        style: GoogleFonts.tajawal(
-          color: isSelected
-              ? Colors.white
-              : (isDarkMode ? Colors.white : Colors.black),
-          fontWeight: isSelected || isToday
-              ? FontWeight.bold
-              : FontWeight.normal,
-        ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            text,
+            style: GoogleFonts.tajawal(
+              color: isSelected
+                  ? Colors.white
+                  : (isDarkMode ? Colors.white : Colors.black),
+              fontWeight: isSelected || isToday
+                  ? FontWeight.bold
+                  : FontWeight.normal,
+            ),
+          ),
+          if (hasEvent && !isSelected)
+            Container(
+              margin: const EdgeInsets.only(top: 2),
+              width: 4,
+              height: 4,
+              decoration: const BoxDecoration(
+                color: Colors.amber,
+                shape: BoxShape.circle,
+              ),
+            ),
+        ],
       ),
     );
   }
 
   Widget _buildSelectedDateCard(DateTime date, bool isDarkMode, int offset) {
+    final hijriProvider = Provider.of<HijriCalendarProvider>(context, listen: false);
     final hDateNow = HijriCalendar.fromDate(date.add(Duration(days: offset)));
+    final event = hijriProvider.getEventForDate(date, offset);
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Container(
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
           color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDarkMode ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+            width: isDarkMode ? 1 : 0.5,
+          ),
+          boxShadow: isDarkMode ? [] : [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 15,
+              spreadRadius: 1,
               offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 5,
+              spreadRadius: -1,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -380,9 +416,9 @@ class _CalendarPageState extends State<CalendarPage>
                 color: Colors.blue.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.event_available,
-                color: Colors.blue,
+              child: Icon(
+                event != null ? Icons.star : Icons.event_available,
+                color: event != null ? Colors.amber : Colors.blue,
                 size: 28,
               ),
             ),
@@ -391,6 +427,15 @@ class _CalendarPageState extends State<CalendarPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (event != null)
+                    Text(
+                      event.name,
+                      style: GoogleFonts.tajawal(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.amber,
+                      ),
+                    ),
                   Text(
                     "${hDateNow.hDay} ${hDateNow.longMonthName} ${hDateNow.hYear}",
                     style: GoogleFonts.tajawal(
