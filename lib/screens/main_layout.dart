@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hijri/hijri_calendar.dart' as hj;
@@ -103,6 +105,7 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _currentIndex = 0;
+  bool _batteryBannerDismissed = false;
 
   /// Index 0: Prayers (HomeScreen)
   /// Index 1: Qibla (QiblaScreen)
@@ -118,6 +121,79 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Check battery optimization status after first frame renders
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkBatteryOptimization();
+    });
+  }
+
+  /// Shows a persistent MaterialBanner if battery optimization is active.
+  Future<void> _checkBatteryOptimization() async {
+    if (!mounted || _batteryBannerDismissed) return;
+    // Only relevant on Android
+    if (!Platform.isAndroid) return;
+    try {
+      final isIgnoring =
+          await Permission.ignoreBatteryOptimizations.isGranted;
+      if (!isIgnoring && mounted) {
+        _showBatteryBanner();
+      }
+    } catch (_) {
+      // Silently ignore — battery check is non-critical
+    }
+  }
+
+  void _showBatteryBanner() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showMaterialBanner(
+      MaterialBanner(
+        padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+        leading: const Icon(
+          Icons.battery_alert_rounded,
+          color: Color(0xFFE65100),
+          size: 28,
+        ),
+        content: Text(
+          'لضمان دقة الأذان والتنبيهات، يرجى إيقاف تحسين البطارية للتطبيق.',
+          style: GoogleFonts.tajawal(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+          textDirection: TextDirection.rtl,
+        ),
+        backgroundColor: const Color(0xFFFFF3E0),
+        surfaceTintColor: Colors.transparent,
+        actions: [
+          TextButton(
+            onPressed: () async {
+              ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              setState(() => _batteryBannerDismissed = true);
+              // Open the battery optimization OS page for this app
+              await Permission.ignoreBatteryOptimizations.request();
+            },
+            child: Text(
+              'إعدادات',
+              style: GoogleFonts.tajawal(
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFFE65100),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              setState(() => _batteryBannerDismissed = true);
+            },
+            child: Text(
+              'إغلاق',
+              style: GoogleFonts.tajawal(
+                color: Colors.grey[700],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -214,7 +290,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             child: Text('إلغاء', style: GoogleFonts.tajawal()),
           ),
           ElevatedButton(
-            onPressed: () => SystemNavigator.pop(),
+            onPressed: () async {
+              // First dismiss the dialog
+              Navigator.pop(context);
+              // Ask the platform to finish the task cleanly
+              await SystemNavigator.pop();
+              // Fallback: forcefully kill the Dart VM to prevent
+              // the app from remaining in a suspended background state.
+              exit(0);
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
             ),
