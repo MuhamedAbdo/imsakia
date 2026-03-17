@@ -583,6 +583,9 @@ Future<void> _checkEidTakbeer(
     // Play Eid Takbeer audio
     athanAudio.play('assets/audio/eid_takbeer.mp3');
 
+    // Notify the UI isolate to show the Eid Celebration Screen
+    service.invoke('show_eid_screen', {'eid_name': eidName});
+
     // Show a notification
     const androidDetails = AndroidNotificationDetails(
       'islamic_events',

@@ -24,6 +24,7 @@ import 'core/services/hijri_calendar_service.dart';
 import 'core/services/aladhan_api_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/background_service.dart' as bg;
+import 'package:flutter_background_service/flutter_background_service.dart' as fbs;
 
 // New Adhan Core Engine Providers
 import 'providers/settings_provider.dart';
@@ -40,6 +41,7 @@ import 'screens/splash/splash_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/main_layout.dart';
 import 'screens/athan/athan_overlay_screen.dart';
+import 'screens/eid/eid_celebration_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -144,6 +146,20 @@ void main() async {
       ),
     ),
   );
+
+  // ── Listen for Eid screen event from background isolate ────────────────────
+  // The background service runs in a separate Dart isolate. It cannot push
+  // Navigator routes directly. Instead, it invokes 'show_eid_screen' and
+  // we listen here to push EidCelebrationScreen via the global navigatorKey.
+  fbs.FlutterBackgroundService().on('show_eid_screen').listen((data) {
+    final eidName = data?['eid_name'] as String? ?? 'عيدكم مبارك';
+    navigatorKey.currentState?.push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => EidCelebrationScreen(eidName: eidName),
+      ),
+    );
+  });
 }
 
 class MyApp extends StatelessWidget {

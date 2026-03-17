@@ -27,7 +27,6 @@ import 'allah_names_page.dart';
 import 'radio_page.dart';
 import 'calendar_page.dart';
 import 'bukhari_library_page.dart';
-import '../widgets/neumorphic_box.dart';
 import '../features/quran_madinah/ui/index_screen.dart';
 import 'qibla/qibla_screen.dart';
 import 'settings/settings_screen.dart';
@@ -143,6 +142,27 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     }
   }
 
+  /// Called when the app resumes from background — re-check battery permission
+  /// so the banner auto-hides if the user granted it in system settings.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_batteryBannerDismissed) {
+      _checkBatteryAndHideBanner();
+    }
+  }
+
+  /// Re-check battery optimisation status and hide the banner if now granted.
+  Future<void> _checkBatteryAndHideBanner() async {
+    if (!mounted) return;
+    try {
+      final isIgnoring = await Permission.ignoreBatteryOptimizations.isGranted;
+      if (isIgnoring && mounted) {
+        ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+        setState(() => _batteryBannerDismissed = true);
+      }
+    } catch (_) {}
+  }
+
   void _showBatteryBanner() {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showMaterialBanner(
@@ -166,10 +186,19 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         actions: [
           TextButton(
             onPressed: () async {
-              ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
-              setState(() => _batteryBannerDismissed = true);
-              // Open the battery optimization OS page for this app
+              // Open the system battery optimisation settings page.
+              // Do NOT dismiss the banner yet — it will auto-hide when the
+              // user returns and permission is confirmed granted.
               await Permission.ignoreBatteryOptimizations.request();
+              // request() opens the settings dialog on Android; re-check
+              // immediately in case it resolved synchronously.
+              if (!mounted) return;
+              final granted =
+                  await Permission.ignoreBatteryOptimizations.isGranted;
+              if (granted && mounted) {
+                ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+                setState(() => _batteryBannerDismissed = true);
+              }
             },
             child: Text(
               'إعدادات',
@@ -380,11 +409,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 child: _buildDateCard(context, isDark),
               ),
 
-              // ── Ramadan Card (Counter / Hadith) ────────────────────────────
+              // ── Dynamic Islamic Event Card ───────────────────────────────
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.only(top: 16),
-                  child: _buildSpecialEventCard(settings.hijriBaseOffset),
+                  child: _buildDynamicEventCard(context, isDark, settings.hijriBaseOffset),
                 ),
               ),
 
@@ -1320,135 +1349,285 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ── 5. Special Event / Hadith / Ramadan ───────────────────────────────────
-  // All existing logic below is UNCHANGED
+  // ── 5-A. Dynamic Islamic Event Card ──────────────────────────────────────
 
-  Widget _buildSpecialEventCard(int adjustment) {
-    final hijriDate = hj.HijriCalendar.now();
-    final day = hijriDate.hDay;
-    final month = hijriDate.hMonth;
+  /// Returns event metadata based on today's Hijri date.
+  ///
+  /// Map keys:
+  ///   title    - String: main Arabic title
+  ///   subtitle - String: secondary line
+  ///   emoji    - String: leading emoji character
+  ///   gradient - List of Color: card gradient colours
+  ///   isToday  - bool: true when the event is today (no countdown)
+  Map<String, dynamic> _computeIslamicEvent(int hijriOffset) {
+    final hijri = hj.HijriCalendar.now();
+    final int day   = hijri.hDay + hijriOffset;
+    final int month = hijri.hMonth;
 
+    // ── 1 Shawwal (Eid al-Fitr) ───────────────────────────────────────────
     if (month == 10 && day == 1) {
-      return _buildGreetingCard(
-          'عيد فطر مبارك', 'تقبل الله صيامكم وقيامكم', Colors.orange);
+      return {
+        'title': 'عيد الفطر المبارك',
+        'subtitle': 'تقبل الله صيامكم وقيامكم',
+        'emoji': '🌙',
+        'gradient': [const Color(0xFFE65100), const Color(0xFFFF8F00)],
+        'isToday': true,
+        'isEid': true,
+      };
     }
+
+    // ── 9 Dhul Hijjah (Day of Arafat) ────────────────────────────────────
     if (month == 12 && day == 9) {
-      return _buildGreetingCard(
-          'وقفة عرفات', 'لبيك اللهم لبيك', Colors.brown);
-    }
-    if (month == 12 && day >= 10 && day <= 13) {
-      return _buildGreetingCard(
-          'عيد أضحى مبارك', 'أيام تشريق مباركة', Colors.green);
+      return {
+        'title': 'يوم عرفة',
+        'subtitle': 'لبيك اللهم لبيك',
+        'emoji': '🕌',
+        'gradient': [const Color(0xFF4E342E), const Color(0xFF795548)],
+        'isToday': true,
+      };
     }
 
-    // Ramadan Logic
+    // ── 10 Dhul Hijjah (Eid al-Adha) ─────────────────────────────────────
+    if (month == 12 && day == 10) {
+      return {
+        'title': 'عيد الأضحى المبارك',
+        'subtitle': 'أعاده الله عليكم بالخير واليُمن',
+        'emoji': '🐑',
+        'gradient': [const Color(0xFF1B5E20), const Color(0xFF388E3C)],
+        'isToday': true,
+        'isEid': true,
+      };
+    }
+
+    // ── 11-13 Dhul Hijjah (Tashreeq days) ────────────────────────────────
+    if (month == 12 && day >= 11 && day <= 13) {
+      const dayNames = ['الأول', 'الثاني', 'الثالث'];
+      final dayIndex = day - 11; // 0,1,2
+      return {
+        'title': 'أيام التشريق',
+        'subtitle': 'اليوم ${dayNames[dayIndex]}',
+        'emoji': '✨',
+        'gradient': [const Color(0xFF006064), const Color(0xFF00838F)],
+        'isToday': true,
+        'isEid': true,
+      };
+    }
+
+    // ── 2 Shawwal → 9 Dhul Hijjah: countdown to Eid al-Adha ─────────────
+    final bool afterEidFitr = (month == 10 && day >= 2) || month == 11 ||
+        (month == 12 && day < 9);
+    if (afterEidFitr) {
+      // Calculate days remaining to 10 Dhul Hijjah
+      final target = hj.HijriCalendar()
+        ..hYear  = hijri.hYear + (month == 12 ? 0 : 0)
+        ..hMonth = 12
+        ..hDay   = 10;
+      // Adjust year if needed (same Hijri year for both months)
+      final targetYear = (month <= 12) ? hijri.hYear : hijri.hYear + 1;
+      final targetDate = target.hijriToGregorian(targetYear, 12, 10);
+      // Ensure positive remaining days
+      final remaining  = targetDate.isAfter(DateTime.now()) ? targetDate.difference(DateTime.now()).inDays : 0;
+      return {
+        'title': 'عيد الأضحى المبارك',
+        'subtitle': remaining == 0 ? 'غداً إن شاء الله' : 'بعد $remaining يوم',
+        'emoji': '🐑',
+        'gradient': [const Color(0xFF1B5E20), const Color(0xFF388E3C)],
+        'isToday': false,
+        'daysLeft': remaining,
+      };
+    }
+
+    // ── Default: countdown to next Ramadan ───────────────────────────────
+    int targetYear = hijri.hYear;
+    if (month > 9 || (month == 9 && day >= 1)) targetYear++;
+    final targetRamadan = hj.HijriCalendar();
+    targetRamadan.hYear  = targetYear;
+    targetRamadan.hMonth = 9;
+    targetRamadan.hDay   = 1;
+    final targetDate = targetRamadan.hijriToGregorian(targetYear, 9, 1);
+    final diff       = targetDate.difference(DateTime.now());
+    final daysLeft   = diff.isNegative ? 0 : diff.inDays;
+    final hoursLeft  = diff.isNegative ? 0 : diff.inHours.remainder(24);
+    final minsLeft   = diff.isNegative ? 0 : diff.inMinutes.remainder(60);
+
+    // In Ramadan (month 9)
     if (month == 9) {
-      return _buildHadithOfTheDayCard();
+      return {
+        'title': 'رمضان كريم',
+        'subtitle': 'رمضان مبارك — شهر القرآن والرحمة',
+        'emoji': '🌛',
+        'gradient': [const Color(0xFF4A148C), const Color(0xFF7B1FA2)],
+        'isToday': true,
+      };
     }
 
-    // Default: Show Ramadan Counter if not in Ramadan/Eid
-    return _buildRamadanCounter(adjustment);
+    return {
+      'title': 'رمضان المبارك',
+      'subtitle': 'بعد $daysLeft يوم، $hoursLeft ساعة، $minsLeft دقيقة',
+      'emoji': '🌛',
+      'gradient': [const Color(0xFF4A148C), const Color(0xFF7B1FA2)],
+      'isToday': false,
+      'daysLeft': daysLeft,
+    };
   }
 
-  Widget _buildRamadanCounter(int adjustment) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final hNow = hj.HijriCalendar.now();
-    hNow.hDay += adjustment;
+  Widget _buildDynamicEventCard(BuildContext context, bool isDark, int hijriOffset) {
+    final event    = _computeIslamicEvent(hijriOffset);
+    final title    = event['title']    as String;
+    final subtitle = event['subtitle'] as String;
+    final emoji    = event['emoji']    as String;
+    final isToday  = event['isToday']  as bool;
+    final gradient = event['gradient'] as List<Color>;
+    // Eid days: pure festive card, no Hadith
+    final bool isEidDay = event.containsKey('isEid') && (event['isEid'] as bool);
 
-    int targetYear = hNow.hYear;
-    if (hNow.hMonth > 9 ||
-        (hNow.hMonth == 9 && hNow.hDay >= 1)) {
-      targetYear++;
-    }
-
-    final targetRamadan = hj.HijriCalendar();
-    targetRamadan.hYear = targetYear;
-    targetRamadan.hMonth = 9;
-    targetRamadan.hDay = 1;
-
-    DateTime targetDateTime = targetRamadan.hijriToGregorian(
-        targetRamadan.hYear, 9, 1);
-    DateTime nowAdjusted =
-        DateTime.now().add(Duration(days: adjustment));
-
-    Duration diff = targetDateTime.difference(nowAdjusted);
-    int days = diff.inDays;
-    int hours = diff.inHours.remainder(24);
-    int minutes = diff.inMinutes.remainder(60);
-
-    if (days < 0) return _buildHadithOfTheDayCard();
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
-          width: 0.8,
-        ),
-        boxShadow: isDark ? [] : [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 15,
-            spreadRadius: 1,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 5,
-            spreadRadius: -1,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
         child: Column(
           children: [
-            Text(
-              'باقي على شهر رمضان المبارك',
-              style: GoogleFonts.tajawal(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF8B4513),
+            // ── Event Header ──────────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? [gradient[0].withValues(alpha: 0.80), gradient[1].withValues(alpha: 0.65)]
+                      : gradient,
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: gradient[0].withValues(alpha: isDark ? 0.20 : 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Text(emoji, style: const TextStyle(fontSize: 38)),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: GoogleFonts.tajawal(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle,
+                          style: GoogleFonts.tajawal(
+                            fontSize: 13,
+                            color: Colors.white.withValues(alpha: 0.85),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // "اليوم" badge — only when there is an actual event today
+                  if (isToday)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'اليوم',
+                        style: GoogleFonts.tajawal(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-            const SizedBox(height: 15),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildTimeUnit(
-                    days.toString().padLeft(2, '0'), 'يوم'),
-                const SizedBox(width: 15),
-                _buildTimeUnit(
-                    hours.toString().padLeft(2, '0'), 'ساعة'),
-                const SizedBox(width: 15),
-                _buildTimeUnit(
-                    minutes.toString().padLeft(2, '0'), 'دقيقة'),
-              ],
-            ),
+
+            // ── Daily Hadith section (hidden on Eid festive days) ─────────
+            if (!isEidDay)
+              Consumer<HadithService>(
+                builder: (context, service, _) {
+                  final hadith = service.getTodayHadith();
+                  if (hadith == null) return const SizedBox.shrink();
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF1A1F24)
+                          : Colors.white,
+                      border: Border(
+                        top: BorderSide(
+                          color: gradient[0].withValues(alpha: 0.25),
+                          width: 0.8,
+                        ),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.format_quote_rounded,
+                                color: gradient[0].withValues(alpha: isDark ? 0.75 : 0.85),
+                                size: 18),
+                            const SizedBox(width: 6),
+                            Text(
+                              'حديث اليوم',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white70 : const Color(0xFF546E7A),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          hadith.text,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                          style: GoogleFonts.amiri(
+                            fontSize: 15,
+                            height: 1.7,
+                            color: isDark ? Colors.white70 : const Color(0xFF37474F),
+                          ),
+                        ),
+                        if (hadith.source.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              hadith.source,
+                              style: GoogleFonts.tajawal(
+                                fontSize: 11,
+                                color: isDark ? Colors.white38 : Colors.grey[500],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHadithOfTheDayCard() {
-    return Consumer<HadithService>(
-      builder: (context, service, _) {
-        final hadith = service.getTodayHadith();
-        if (hadith == null) return const SizedBox.shrink();
-
-        return _buildHadithCard(
-          context,
-          title: 'نفحات رمضانية',
-          text: hadith.text,
-          source: hadith.source,
-          icon: Icons.auto_awesome,
-        );
-      },
-    );
-  }
 
   Widget _buildBukhariDailyCard(BuildContext context, bool isDark) {
     return FutureBuilder<Map<String, dynamic>?>(
@@ -1592,121 +1771,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildHadithCard(BuildContext context,
-      {required String title,
-      required String text,
-      required String source,
-      required IconData icon}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
-          width: 0.8,
-        ),
-        boxShadow: isDark ? [] : [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 15,
-            spreadRadius: 1,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 5,
-            spreadRadius: -1,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.auto_awesome,
-                    color: Colors.amber, size: 20),
-                const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: GoogleFonts.tajawal(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 17,
-                    color: Colors.amber[800],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              text,
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.amiri(
-                fontSize: 17,
-                height: 1.7,
-                color: isDark ? Colors.white70 : const Color(0xFF546E7A),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGreetingCard(String title, String sub, Color color) {
-    return NeumorphicBox(
-      borderRadius: 15,
-      baseColor: color,
-      lightShadowColor: color.withValues(alpha: 0.5),
-      darkShadowColor: color.withValues(alpha: 0.8),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Text(title,
-                style: GoogleFonts.tajawal(
-                    fontSize: 22,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold)),
-            Text(sub,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.tajawal(color: Colors.white70)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTimeUnit(String value, String label) {
-    return Column(
-      children: [
-        Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            value,
-            style: GoogleFonts.tajawal(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF8B4513),
-            ),
-          ),
-        ),
-        Text(label,
-            style: GoogleFonts.tajawal(
-                fontSize: 12, color: const Color(0xFF8B4513))),
-      ],
-    );
-  }
 
   // ── Helpers (unchanged) ───────────────────────────────────────────────────
 

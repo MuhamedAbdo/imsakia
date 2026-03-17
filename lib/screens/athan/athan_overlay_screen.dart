@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:animate_do/animate_do.dart';
+import '../../core/services/background_service.dart' as bg;
 import '../../core/theme/app_colors.dart';
 
 class AthanOverlayScreen extends StatefulWidget {
@@ -63,11 +64,19 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
 
   Future<void> _stopAthan() async {
     developer.log(
-      '[AthanOverlay] Stop button tapped — closing overlay.',
+      '[AthanOverlay] Stop button tapped — stopping audio and dismissing overlay.',
       name: 'AthanOverlay',
     );
-    // Dismiss the overlay screen.
-    SystemNavigator.pop();
+    // Tell the background isolate to stop audio and cancel all notifications.
+    bg.BackgroundService.sendStopAudio();
+    // Dismiss: pop if we have a route stack, else exit the task.
+    if (mounted) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else {
+        SystemNavigator.pop();
+      }
+    }
   }
 
   @override
