@@ -72,7 +72,7 @@ class UnderDevelopmentPage extends StatelessWidget {
                 style: GoogleFonts.tajawal(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : const Color(0xFF4A4A4A),
+                  color: isDark ? Colors.white : const Color(0xFF546E7A),
                 ),
               ),
               const SizedBox(height: 8),
@@ -628,8 +628,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.05),
-                width: isDark ? 1 : 0.5,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : Colors.black.withValues(alpha: 0.1),
+                width: 0.8,
               ),
               boxShadow: isDark ? [] : [
                 BoxShadow(
@@ -674,7 +676,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         gregorianStr,
                         style: GoogleFonts.tajawal(
                           fontSize: 14,
-                          color: isDark ? Colors.white70 : const Color(0xFF4A4A4A),
+                          color: isDark ? Colors.white70 : const Color(0xFF546E7A),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -707,7 +709,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             style: GoogleFonts.tajawal(
               fontWeight: FontWeight.bold,
               fontSize: 16,
-              color: isDark ? Colors.white : const Color(0xFF4A4A4A),
+              color: isDark ? Colors.white : const Color(0xFF546E7A),
             ),
           ),
         ),
@@ -741,10 +743,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       : (isDark ? const Color(0xFF1E2428) : Colors.white),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: daysLeft == 0 
-                        ? (isDark ? Colors.white24 : Colors.orange.withValues(alpha: 0.3))
-                        : (isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1)),
-                    width: daysLeft == 0 ? 1.5 : 1,
+                    color: daysLeft == 0
+                        ? (isDark
+                            ? Colors.white24
+                            : Colors.orange.withValues(alpha: 0.3))
+                        : (isDark
+                            ? Colors.white10
+                            : Colors.black.withValues(alpha: 0.1)),
+                    width: 0.8,
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -776,8 +782,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
                         color: daysLeft == 0 
-                            ? (isDark ? Colors.white : const Color(0xFF4A4A4A))
-                            : (isDark ? Colors.white : const Color(0xFF4A4A4A)),
+                            ? (isDark ? Colors.white : const Color(0xFF546E7A))
+                            : (isDark ? Colors.white : const Color(0xFF546E7A)),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -806,7 +812,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: daysLeft == 0 
-                              ? (isDark ? Colors.white : const Color(0xFF4A4A4A))
+                              ? (isDark ? Colors.white : const Color(0xFF546E7A))
                               : (isDark ? Colors.white70 : Colors.grey[700]),
                         ),
                       ),
@@ -941,7 +947,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             style: GoogleFonts.tajawal(
               fontWeight: FontWeight.bold,
               fontSize: 16,
-              color: isDark ? Colors.white : const Color(0xFF4A4A4A),
+              color: isDark ? Colors.white : const Color(0xFF546E7A),
             ),
           ),
           const SizedBox(height: 12),
@@ -1001,7 +1007,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final Color cardBg = isNext
         ? activeColor.withValues(alpha: isDark ? 0.2 : 0.9)
         : (isDark ? const Color(0xFF1E2428) : Colors.white);
-    final Color textColor = isNext ? (isDark ? Colors.white : Colors.white) : (isDark ? Colors.white : const Color(0xFF4A4A4A));
+    final Color textColor = isNext ? (isDark ? Colors.white : Colors.white) : (isDark ? Colors.white : const Color(0xFF546E7A));
     final Color subColor = isNext ? (isDark ? AppColors.gold : Colors.white) : (isDark ? Colors.grey[400]! : Colors.grey[600]!);
 
     return Container(
@@ -1016,8 +1022,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ? AppColors.gold
               : (isDark
                   ? Colors.white.withValues(alpha: 0.1)
-                  : Colors.grey.withValues(alpha: 0.1)),
-          width: isNext ? 2 : 1,
+                  : Colors.black.withValues(alpha: 0.1)),
+          width: isNext ? 2 : 0.8,
         ),
         boxShadow: [
           BoxShadow(
@@ -1141,7 +1147,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             style: GoogleFonts.tajawal(
               fontWeight: FontWeight.bold,
               fontSize: 16,
-              color: isDark ? Colors.white : const Color(0xFF4A4A4A),
+              color: isDark ? Colors.white : const Color(0xFF546E7A),
             ),
           ),
           const SizedBox(height: 12),
@@ -1168,7 +1174,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _buildServiceCard(
       BuildContext context, bool isDark, Map<String, dynamic> item) {
     final Color iconColor =
-        isDark ? Colors.grey[400]! : const Color(0xFF4A4A4A);
+        isDark ? Colors.grey[400]! : const Color(0xFF546E7A);
 
     return GestureDetector(
       onTap: item['onTap'] as VoidCallback?,
@@ -1179,8 +1185,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           border: Border.all(
             color: isDark
                 ? Colors.white.withValues(alpha: 0.07)
-                : Colors.grey.withValues(alpha: 0.12),
-            width: 1,
+                : Colors.black.withValues(alpha: 0.1),
+            width: 0.8,
           ),
           boxShadow: [
             BoxShadow(
@@ -1241,7 +1247,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               style: GoogleFonts.tajawal(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : const Color(0xFF4A4A4A),
+                color: isDark ? Colors.white : const Color(0xFF546E7A),
               ),
             ),
           ],
@@ -1313,8 +1319,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
-          width: isDark ? 1 : 0.5,
+          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
+          width: 0.8,
         ),
         boxShadow: isDark ? [] : [
           BoxShadow(
@@ -1400,8 +1406,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.08),
-                  width: isDark ? 1 : 0.6,
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.black.withValues(alpha: 0.1),
+                  width: 0.8,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -1431,7 +1439,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         style: GoogleFonts.tajawal(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF4A4A4A),
+                          color: isDark ? Colors.white : const Color(0xFF546E7A),
                         ),
                       ),
                       const Spacer(),
@@ -1446,7 +1454,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     style: GoogleFonts.amiri(
                       fontSize: 16,
                       height: 1.6,
-                      color: isDark ? Colors.white70 : const Color(0xFF4A4A4A),
+                      color: isDark ? Colors.white70 : const Color(0xFF546E7A),
                     ),
                   ),
                 ],
@@ -1531,8 +1539,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
-          width: isDark ? 1 : 0.5,
+          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
+          width: 0.8,
         ),
         boxShadow: isDark ? [] : [
           BoxShadow(
@@ -1577,7 +1585,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               style: GoogleFonts.amiri(
                 fontSize: 17,
                 height: 1.7,
-                color: isDark ? Colors.white70 : const Color(0xFF4A4A4A),
+                color: isDark ? Colors.white70 : const Color(0xFF546E7A),
               ),
             ),
           ],

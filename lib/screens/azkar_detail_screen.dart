@@ -302,6 +302,10 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
             blurRadius: 10,
           ),
         ],
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1),
+          width: 0.8,
+        ),
       ),
       child: StreamBuilder<List<AzkarCategory>>(
         stream: AzkarService.instance.categoriesStream,
@@ -424,8 +428,8 @@ class _ZikrCardWidgetState extends State<ZikrCardWidget>
         border: Border.all(
           color: azkar.isCompleted
               ? Colors.green.withValues(alpha: 0.4)
-              : (isDark ? Colors.white10 : Colors.transparent),
-          width: 1.5,
+              : (isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.1)),
+          width: isDark ? 1.5 : 0.8,
         ),
         boxShadow: [
           BoxShadow(

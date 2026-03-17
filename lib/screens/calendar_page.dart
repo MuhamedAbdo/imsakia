@@ -175,7 +175,7 @@ class _CalendarPageState extends State<CalendarPage>
             style: GoogleFonts.tajawal(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: isDarkMode ? Colors.white : const Color(0xFF4A4A4A),
+              color: isDarkMode ? Colors.white : const Color(0xFF546E7A),
             ),
           ),
           IconButton(
@@ -390,8 +390,10 @@ class _CalendarPageState extends State<CalendarPage>
           color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isDarkMode ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
-            width: isDarkMode ? 1 : 0.5,
+            color: isDarkMode
+                ? Colors.white.withValues(alpha: 0.1)
+                : Colors.black.withValues(alpha: 0.1),
+            width: 0.8,
           ),
           boxShadow: isDarkMode ? [] : [
             BoxShadow(

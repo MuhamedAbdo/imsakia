@@ -78,7 +78,7 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
           centerTitle: true,
           backgroundColor: Colors.transparent,
           elevation: 0,
-          iconTheme: IconThemeData(color: elementsColor),
+          iconTheme: IconThemeData(color: const Color(0xFF546E7A)),
           leading: IconButton(
             onPressed: _showResetAllDialog,
             icon: const Icon(Icons.refresh_rounded),
@@ -301,6 +301,10 @@ class _CategoryCardWidgetState extends State<CategoryCardWidget>
                 offset: const Offset(0, 6),
               ),
             ],
+            border: Border.all(
+              color: Colors.black.withValues(alpha: 0.1),
+              width: 0.8,
+            ),
           ),
           child: Material(
             color: Colors.transparent,
