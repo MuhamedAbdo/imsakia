@@ -9,6 +9,13 @@ class SettingsProvider extends ChangeNotifier {
 
   SettingsProvider(this._storage) {
     _settings = _storage.getSettings();
+    
+    // Safety Fallback: Reset Fajr if it points to the deleted Abdul Baset file
+    if (_settings.selectedFajrSound == 'assets/audio/fajr_abdulbaset.mp3') {
+      _settings = _settings.copyWith(selectedFajrSound: 'assets/audio/fajr_makkah.mp3');
+      _storage.saveSettings(_settings);
+    }
+
     if (_settings.languageCode != 'ar') {
       _settings = _settings.copyWith(languageCode: 'ar');
       _storage.saveSettings(_settings);
@@ -99,10 +106,11 @@ class SettingsProvider extends ChangeNotifier {
   /// When disabling: per-prayer sounds keep their last values.
   Future<void> setIsUnifiedAthan(bool unified) async {
     if (unified) {
-      // Sync all prayers to the current general sound; Fajr keeps own
+      // Dhuhr, Asr, Maghrib, and Isha must use the user-selected athan_ sound.
+      // CRITICAL: The Fajr prayer MUST ignore the unified setting and default to assets/audio/fajr_makkah.mp3
       _settings = _settings.copyWith(
         isUnifiedAthan: true,
-        selectedFajrSound: _settings.selectedFajrSound,
+        selectedFajrSound: 'assets/audio/fajr_makkah.mp3',
         selectedDhuhrSound: _settings.selectedAthanSound,
         selectedAsrSound: _settings.selectedAthanSound,
         selectedMaghribSound: _settings.selectedAthanSound,

@@ -110,7 +110,7 @@ class SettingsModel {
     this.isUnifiedAthan = true,
     this.qiblaVibrationEnabled = true,
     this.selectedAthanSound = 'assets/audio/athan_egypt_ab.mp3',
-    this.selectedFajrSound = 'assets/audio/athan_fajr.mp3',
+    this.selectedFajrSound = 'assets/audio/fajr_makkah.mp3',
     this.selectedDhuhrSound = 'assets/audio/athan_egypt_ab.mp3',
     this.selectedAsrSound = 'assets/audio/athan_egypt_ab.mp3',
     this.selectedMaghribSound = 'assets/audio/athan_egypt_ab.mp3',
@@ -194,7 +194,7 @@ class SettingsModel {
         selectedAthanSound: json['selectedAthanSound'] as String? ??
             'assets/audio/athan_egypt_ab.mp3',
         selectedFajrSound: json['selectedFajrSound'] as String? ??
-            'assets/audio/athan_fajr.mp3',
+            'assets/audio/fajr_makkah.mp3',
         selectedDhuhrSound: json['selectedDhuhrSound'] as String? ??
             'assets/audio/athan_egypt_ab.mp3',
         selectedAsrSound: json['selectedAsrSound'] as String? ??

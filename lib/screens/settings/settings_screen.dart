@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:animate_do/animate_do.dart';
+import 'dart:developer' as developer;
 import '../../core/theme/app_colors.dart';
 import '../../core/models/settings_model.dart';
 import '../../core/models/city_model.dart';
@@ -34,14 +35,9 @@ const List<Map<String, String>> _availableAthanSounds = [
     'path': 'assets/audio/athan_makkah.mp3',
   },
   {
-    'name': 'الحرم المدني',
-    'nameEn': 'Madinah Haram',
-    'path': 'assets/audio/athan_madinah.mp3',
-  },
-  {
     'name': 'مشاري راشد العفاسي',
     'nameEn': 'Mishary Rashid Al-Afasy',
-    'path': 'assets/audio/athan_mishary.mp3',
+    'path': 'assets/audio/athan_mishari.mp3',
   },
   {
     'name': 'محمد رفعت',
@@ -49,8 +45,8 @@ const List<Map<String, String>> _availableAthanSounds = [
     'path': 'assets/audio/athan_rifaat.mp3',
   },
   {
-    'name': 'عبد الباسط (النسخة الثانية)',
-    'nameEn': 'Abdul Baset (Version 2)',
+    'name': 'سعد الغامدي',
+    'nameEn': 'Saad Al-Ghamdi',
     'path': 'assets/audio/athan_ghamdi.mp3',
   },
 ];
@@ -60,32 +56,17 @@ const List<Map<String, String>> _availableFajrSounds = [
   {
     'name': 'أذان الفجر (المدينة المنورة)',
     'nameEn': 'Fajr Athan (Madinah)',
-    'path': 'assets/audio/athan_fajr.mp3',
-  },
-  {
-    'name': 'أذان الفجر (عبد الباسط)',
-    'nameEn': 'Fajr Athan (Abdul Baset)',
-    'path': 'assets/audio/athan_egypt_ab.mp3',
+    'path': 'assets/audio/fajr_madinah.mp3',
   },
   {
     'name': 'أذان الفجر (الحرم المكي)',
     'nameEn': 'Fajr Athan (Makkah Haram)',
-    'path': 'assets/audio/athan_makkah.mp3',
-  },
-  {
-    'name': 'أذان الفجر (الحرم المدني)',
-    'nameEn': 'Fajr Athan (Madinah Haram)',
-    'path': 'assets/audio/athan_madinah.mp3',
+    'path': 'assets/audio/fajr_makkah.mp3',
   },
   {
     'name': 'أذان الفجر (مشاري العفاسي)',
     'nameEn': 'Fajr Athan (Mishary Al-Afasy)',
-    'path': 'assets/audio/athan_mishary.mp3',
-  },
-  {
-    'name': 'أذان الفجر (محمد رفعت)',
-    'nameEn': 'Fajr Athan (Muhammad Rifaat)',
-    'path': 'assets/audio/athan_rifaat.mp3',
+    'path': 'assets/audio/fajr_mishari.mp3',
   },
 ];
 
@@ -98,6 +79,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// Name of the currently selected city shown in the search field.
   /// When null the field is in search mode; when set it shows the city name.
   String? _selectedCityDisplay;
+
+  /// Path of the currently playing audio preview.
+  String? _playingPath;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -140,6 +124,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _searchController.clear();
       _filteredCities = _cities;
     });
+  }
+
+  // ── Audio Preview Helpers ──────────────────────────────────────────────────
+
+  Future<void> _handlePlayToggle(String path) async {
+    try {
+      if (_playingPath == path) {
+        // Same file is playing -> stop it
+        await AthanAudioService().stop();
+        if (mounted) {
+          setState(() {
+            _playingPath = null;
+          });
+        }
+      } else {
+        // Different file or nothing playing -> stop old and play new
+        await AthanAudioService().stop();
+        if (mounted) {
+          setState(() {
+            _playingPath = path;
+          });
+        }
+        
+        developer.log('[SettingsScreen] Explicitly triggering: $path', name: 'SettingsScreen');
+        await AthanAudioService().play(path);
+
+        // Listen for natural completion to reset UI
+        // Note: AthanAudioService handles natural completion via _disposePlayer.
+        // We could poll isPlaying or use a stream if available.
+        // For now, simple state tracking is enough.
+      }
+    } catch (e) {
+      developer.log('[SettingsScreen] ERROR playing $path: $e', name: 'SettingsScreen', error: e);
+      if (mounted) {
+        setState(() {
+          _playingPath = null;
+        });
+      }
+    }
+  }
+
+  void _resetPlayingState() {
+     if (_playingPath != null) {
+       AthanAudioService().stop();
+       setState(() {
+         _playingPath = null;
+       });
+     }
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -433,53 +465,96 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const SizedBox(height: 16),
                           if (settings.isUnifiedAthan) ...[
                             // ── Unified: one selector for all prayers ──
+                            // Logic: Filter out any file containing "fajr" in its name.
                             _AthanSoundSelector(
                               label: 'صوت الأذان (جميع الصلوات)',
                               value: settings.selectedAthanSound,
-                              options: _availableAthanSounds,
-                              onChanged: (v) =>
-                                  settings.setSelectedAthanSound(v),
+                              options: _availableAthanSounds
+                                  .where((opt) => !opt['path']!.contains('fajr'))
+                                  .toList(),
+                              playingPath: _playingPath,
+                              onPlayToggle: _handlePlayToggle,
+                              onChanged: (v) {
+                                  _resetPlayingState();
+                                  settings.setSelectedAthanSound(v);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            // Info for Fajr in Unified Mode
+                            _InfoBox(
+                              text: 'ملاحظة: الفجر يستخدم أذان الحرم المكي دائماً في الوضع الموحد.',
+                              isDark: isDark,
                             ),
                           ] else ...[
                             // ── Non-unified: one selector per prayer ──
+                            // Fajr slot: allow any fajr_ prefix sound.
                             _AthanSoundSelector(
                               label: '🌙  الفجر',
                               value: settings.selectedFajrSound,
                               options: _availableFajrSounds,
-                              onChanged: (v) =>
-                                  settings.setSelectedFajrSound(v),
+                              playingPath: _playingPath,
+                              onPlayToggle: _handlePlayToggle,
+                              onChanged: (v) {
+                                  _resetPlayingState();
+                                  settings.setSelectedFajrSound(v);
+                              },
                             ),
                             const SizedBox(height: 12),
+                            // Other slots: allow any athan_ prefix sound.
                             _AthanSoundSelector(
                               label: '☀️  الظهر',
                               value: settings.selectedDhuhrSound,
-                              options: _availableAthanSounds,
-                              onChanged: (v) =>
-                                  settings.setSelectedDhuhrSound(v),
+                              options: _availableAthanSounds
+                                  .where((opt) => opt['path']!.contains('athan_'))
+                                  .toList(),
+                              playingPath: _playingPath,
+                              onPlayToggle: _handlePlayToggle,
+                              onChanged: (v) {
+                                  _resetPlayingState();
+                                  settings.setSelectedDhuhrSound(v);
+                              },
                             ),
                             const SizedBox(height: 12),
                             _AthanSoundSelector(
                               label: '🌤️  العصر',
                               value: settings.selectedAsrSound,
-                              options: _availableAthanSounds,
-                              onChanged: (v) =>
-                                  settings.setSelectedAsrSound(v),
+                              options: _availableAthanSounds
+                                  .where((opt) => opt['path']!.contains('athan_'))
+                                  .toList(),
+                              playingPath: _playingPath,
+                              onPlayToggle: _handlePlayToggle,
+                              onChanged: (v) {
+                                  _resetPlayingState();
+                                  settings.setSelectedAsrSound(v);
+                              },
                             ),
                             const SizedBox(height: 12),
                             _AthanSoundSelector(
                               label: '🌅  المغرب',
                               value: settings.selectedMaghribSound,
-                              options: _availableAthanSounds,
-                              onChanged: (v) =>
-                                  settings.setSelectedMaghribSound(v),
+                              options: _availableAthanSounds
+                                  .where((opt) => opt['path']!.contains('athan_'))
+                                  .toList(),
+                              playingPath: _playingPath,
+                              onPlayToggle: _handlePlayToggle,
+                              onChanged: (v) {
+                                  _resetPlayingState();
+                                  settings.setSelectedMaghribSound(v);
+                              },
                             ),
                             const SizedBox(height: 12),
                             _AthanSoundSelector(
                               label: '🌙  العشاء',
                               value: settings.selectedIshaSound,
-                              options: _availableAthanSounds,
-                              onChanged: (v) =>
-                                  settings.setSelectedIshaSound(v),
+                              options: _availableAthanSounds
+                                  .where((opt) => opt['path']!.contains('athan_'))
+                                  .toList(),
+                              playingPath: _playingPath,
+                              onPlayToggle: _handlePlayToggle,
+                              onChanged: (v) {
+                                  _resetPlayingState();
+                                  settings.setSelectedIshaSound(v);
+                              },
                             ),
                           ],
                         ],
@@ -957,12 +1032,16 @@ class _AthanSoundSelector extends StatelessWidget {
   final String label;
   final String value;
   final List<Map<String, String>> options;
+  final String? playingPath;
+  final Future<void> Function(String) onPlayToggle;
   final ValueChanged<String> onChanged;
 
   const _AthanSoundSelector({
     required this.label,
     required this.value,
     required this.options,
+    required this.playingPath,
+    required this.onPlayToggle,
     required this.onChanged,
   });
 
@@ -1019,16 +1098,23 @@ class _AthanSoundSelector extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             IconButton.filledTonal(
-              onPressed: () => AthanAudioService().play(safeValue),
-              icon: const Icon(Icons.play_arrow),
+              onPressed: () => onPlayToggle(safeValue),
+              icon: Icon(
+                playingPath == safeValue
+                    ? Icons.pause_rounded
+                    : Icons.play_arrow_rounded,
+              ),
               style: IconButton.styleFrom(
                 backgroundColor: AppColors.gold.withValues(alpha: 0.2),
                 foregroundColor: AppColors.gold,
               ),
             ),
             IconButton.filledTonal(
-              onPressed: () => AthanAudioService().stop(),
-              icon: const Icon(Icons.stop),
+              onPressed: () {
+                AthanAudioService().stop();
+                onPlayToggle(''); // Trigger a reset via callback if needed, but here we just stop
+              },
+              icon: const Icon(Icons.stop_rounded),
               style: IconButton.styleFrom(
                 backgroundColor: Colors.red.withValues(alpha: 0.2),
                 foregroundColor: Colors.red,
@@ -1037,6 +1123,41 @@ class _AthanSoundSelector extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _InfoBox extends StatelessWidget {
+  final String text;
+  final bool isDark;
+
+  const _InfoBox({required this.text, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        color: AppColors.gold.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: AppColors.gold, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: isDark ? Colors.white70 : AppColors.darkNavy.withValues(alpha: 0.8),
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
