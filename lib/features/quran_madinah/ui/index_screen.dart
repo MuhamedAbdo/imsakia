@@ -19,12 +19,6 @@ class IndexScreen extends StatelessWidget {
         appBar: AppBar(
           centerTitle: true,
           automaticallyImplyLeading: true,
-          leading: Navigator.canPop(context)
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_forward_ios),
-                  onPressed: () => Navigator.of(context).pop(),
-                )
-              : null,
           title: const Text(
             'فهرس القرآن',
             style: TextStyle(
@@ -365,58 +359,166 @@ class IndexScreen extends StatelessWidget {
   }
 
   Widget _buildDrawer(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return Drawer(
+      backgroundColor: isDark ? const Color(0xFF1A1C1E) : Colors.white,
       child: Consumer<QuranProvider>(
         builder: (context, quranProvider, child) {
           final bookmarks = quranProvider.bookmarks;
 
           return Column(
             children: [
+              // Enhanced Drawer Header
               DrawerHeader(
+                margin: EdgeInsets.zero,
+                padding: EdgeInsets.zero,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                child: const Center(
-                  child: Text(
-                    'العلامات المرجعية (Bookmarks)',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  color: primaryColor,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      primaryColor,
+                      primaryColor.withValues(alpha: 0.8),
+                    ],
                   ),
                 ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: -20,
+                      top: -20,
+                      child: Icon(
+                        Icons.bookmark_added_rounded,
+                        size: 150,
+                        color: Colors.white.withValues(alpha: 0.1),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.bookmarks_rounded,
+                            color: Colors.white,
+                            size: 32,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'العلامات المرجعية',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'HafsSmart',
+                            ),
+                          ),
+                          Text(
+                            'المحفوظة في المصحف الشريف',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 14,
+                              fontFamily: 'HafsSmart',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
+
+              // Bookmarks List
               Expanded(
                 child: bookmarks.isEmpty
-                    ? const Center(child: Text('لا توجد علامات مرجعية'))
-                    : ListView.builder(
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.bookmark_border_rounded,
+                              size: 64,
+                              color: isDark ? Colors.white24 : Colors.black12,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'لا توجد علامات مرجعية حالياً',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: isDark ? Colors.white54 : Colors.black45,
+                                fontFamily: 'HafsSmart',
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                         itemCount: bookmarks.length,
+                        separatorBuilder: (context, index) => Divider(
+                          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+                          indent: 16,
+                          endIndent: 16,
+                        ),
                         itemBuilder: (context, index) {
                           final page = bookmarks[index];
                           return ListTile(
-                            leading: const Icon(Icons.bookmark),
-                            title: Text('الصفحة $page'),
-                            onTap: () {
-                              Navigator.pop(context); // Close Drawer
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      MushafScreen(initialPage: page),
-                                ),
-                              );
-                            },
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: primaryColor.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.chrome_reader_mode_rounded,
+                                color: primaryColor,
+                                size: 20,
+                              ),
+                            ),
+                            title: Text(
+                              'الصفحة $page',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'HafsSmart',
+                              ),
+                            ),
                             trailing: IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
+                              icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 22),
                               onPressed: () {
                                 quranProvider.toggleBookmark(page);
                               },
                             ),
+                            onTap: () {
+                              Navigator.pop(context); // Close Drawer
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => MushafScreen(initialPage: page),
+                                ),
+                              );
+                            },
                           );
                         },
                       ),
               ),
-              const SizedBox(height: 16),
+              
+              // Footer info
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'زاد المسلم - المصحف الشريف',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.white38 : Colors.black38,
+                    fontFamily: 'HafsSmart',
+                  ),
+                ),
+              ),
             ],
           );
         },

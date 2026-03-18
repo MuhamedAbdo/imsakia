@@ -81,10 +81,28 @@ class BukhariDatabaseService {
           : 'SELECT * FROM hadiths WHERE id NOT IN ($seenIdsStr) LIMIT 1 OFFSET $randomOffset'
       );
 
-      if (results.isEmpty) {
-        developer.log('[BukhariDB] No hadiths found in database.', name: 'BukhariDatabaseService');
+      if (results.isNotEmpty) {
+        final selectedHadith = results.first;
+        final selectedId = selectedHadith['id'] as int;
+
+        // 4. Persist choice for today
+        await prefs.setString(keyLastDate, todayStr);
+        await prefs.setInt(keyCurrentId, selectedId);
+
+        // 5. Update seen IDs
+        if (!seenIds.contains(selectedId)) {
+          seenIds.add(selectedId);
+          await prefs.setStringList(
+            keySeenIds,
+            seenIds.map((e) => e.toString()).toList(),
+          );
+        }
+
+        return selectedHadith;
       }
-      return results.isNotEmpty ? results.first : null;
+      
+      developer.log('[BukhariDB] No hadiths found in database.', name: 'BukhariDatabaseService');
+      return null;
     } catch (e) {
       developer.log("[BukhariDB] Error fetching Bukhari hadith: $e", name: 'BukhariDatabaseService');
     }
