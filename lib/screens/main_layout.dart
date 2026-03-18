@@ -30,6 +30,7 @@ import 'qibla/qibla_screen.dart';
 import 'settings/settings_screen.dart';
 import 'tasbih_screen.dart';
 import '../features/audio/screens/audio_reciters_screen.dart';
+import 'eid/eid_celebration_screen.dart';
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -598,10 +599,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Image.asset(
-                      'assets/images/zad_icon.png',
-                      height: 45,
-                      fit: BoxFit.contain,
+                    GestureDetector(
+                      onDoubleTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            fullscreenDialog: true,
+                            builder: (_) => const EidCelebrationScreen(eidName: 'عيد الفطر المبارك'),
+                          ),
+                        );
+                      },
+                      onLongPress: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            fullscreenDialog: true,
+                            builder: (_) => const EidCelebrationScreen(eidName: 'عيد الفطر المبارك'),
+                          ),
+                        );
+                      },
+                      child: Image.asset(
+                        'assets/images/zad_icon.png',
+                        height: 45,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                     Row(
                       children: [

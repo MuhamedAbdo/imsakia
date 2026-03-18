@@ -171,7 +171,7 @@ void main() async {
       final nameEn = data['prayerEn'] as String? ?? 'Prayer';
       final image = data['image'] as String?;
 
-      navigatorKey.currentState?.push(
+      navigatorKey.currentState?.pushReplacement(
         MaterialPageRoute(
           fullscreenDialog: true,
           builder: (_) => AthanOverlayScreen(

@@ -8,7 +8,7 @@ import '../models/prayer_times_model.dart';
 class NotificationService {
   static const _channelId = 'adhan_prayer_times';
   static const _channelName = 'زاد - مواقيت الصلاة';
-  static const _athanChannelId = 'adhan_athan';
+  static const _athanChannelId = 'athan_channel_v2';
   static const _athanChannelName = 'زاد - الأذان';
 
   final FlutterLocalNotificationsPlugin _plugin =

@@ -21,6 +21,7 @@ class BackgroundService {
   static const _channelName = 'Adhan Running';
   static const _eventsChannelId = 'islamic_events';
   static const _eventsChannelName = 'المناسبات الإسلامية';
+  static const _athanChannelId = 'athan_channel_v2';
 
   static Future<void> initialize() async {
     final service = FlutterBackgroundService();
@@ -37,6 +38,17 @@ class BackgroundService {
         _channelId,
         _channelName,
         importance: Importance.low,
+      ),
+    );
+
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _athanChannelId,
+        'Athan Alarm',
+        importance: Importance.max,
+        description: 'Athan alarm at prayer times',
+        enableVibration: true,
+        playSound: false,
       ),
     );
 
@@ -185,13 +197,52 @@ void _onStart(ServiceInstance service) async {
   await _scheduleNextAthan(
       service, athanAudio, flutterLocalNotificationsPlugin);
 
-  // ── Periodic 1-minute tick ───────────────────────────────────────────────
-  Timer.periodic(const Duration(minutes: 1), (timer) async {
-    await _checkAndTriggerAthan(
-        service, athanAudio, flutterLocalNotificationsPlugin);
-    await _checkIslamicEvents(flutterLocalNotificationsPlugin);
-    await _checkEidTakbeer(service, athanAudio, flutterLocalNotificationsPlugin);
-  });
+  // ── Dynamic polling with precision ───────────────────────────────────────
+  // Default 1 minute, but drops to 1 second when near prayer time.
+  Duration tickInterval = const Duration(minutes: 1);
+  
+  void setupTick() {
+    Timer(tickInterval, () async {
+      final now = DateTime.now();
+      
+      // Perform checks
+      await _checkAndTriggerAthan(
+          service, athanAudio, flutterLocalNotificationsPlugin);
+      await _checkIslamicEvents(flutterLocalNotificationsPlugin);
+      await _checkEidTakbeer(service, athanAudio, flutterLocalNotificationsPlugin);
+
+      // Recalculate next interval
+      // If any prayer is within the next 65 seconds, switch to 1-second polling
+      final prefs = await SharedPreferences.getInstance();
+      final settingsRaw = prefs.getString('settings');
+      final locationRaw = prefs.getString('last_location');
+      
+      bool highPrecisionNeeded = false;
+      if (settingsRaw != null && locationRaw != null) {
+        final settings = SettingsModel.fromJson(jsonDecode(settingsRaw) as Map<String, dynamic>);
+        final location = LocationModel.fromJson(jsonDecode(locationRaw) as Map<String, dynamic>);
+        final times = PrayerTimesService().calculate(location, settings.calculationMethod);
+        
+        for (final entry in times.toList()) {
+          final diff = entry.time.difference(now);
+          // If a prayer starts in [0, 65] seconds, we need 1-second polling
+          if (diff.inSeconds > 0 && diff.inSeconds <= 65) {
+            highPrecisionNeeded = true;
+            break;
+          }
+        }
+      }
+
+      tickInterval = highPrecisionNeeded 
+          ? const Duration(seconds: 1) 
+          : const Duration(minutes: 1);
+      
+      // Re-setup the next tick
+      setupTick();
+    });
+  }
+
+  setupTick();
 }
 
 // ---------------------------------------------------------------------------
@@ -314,26 +365,29 @@ Future<void> _checkAndTriggerAthan(
     }
 
     for (final entry in times.toList()) {
-      final diff = entry.time.difference(now);
+      final prayerTime = entry.time;
+      final diff = now.difference(prayerTime);
 
-      // Window: 0 – 60 seconds before/after prayer time
+      // Window: 0 – 60 seconds AFTER prayer time (Zero-Second Precision Rule)
       if (diff.inSeconds >= 0 && diff.inSeconds <= 60) {
         // Unique key includes date + prayer name to prevent cross-day collisions
         final currentKey =
             '${now.year}-${now.month}-${now.day}_${entry.name.nameAr}';
 
         if (_lastTriggeredAthanKey == currentKey) {
-          developer.log(
-            '[BackgroundService] Debounce key match — skipping duplicate trigger for $currentKey.',
-            name: 'BackgroundService',
-          );
           continue;
         }
 
+        // Logic: If DateTime.now() is even 1 millisecond before the scheduled prayer time, WAIT.
+        if (now.isBefore(prayerTime)) {
+             continue; // The 1-second polling will catch it in the next tick
+        }
+
         developer.log(
-          '[BackgroundService] ✅ Triggering alert for $currentKey at $now.',
+          '[AthanPrecision] Triggered at ${DateTime.now()} for scheduled time $prayerTime. Sync Error: ${DateTime.now().difference(prayerTime).inMilliseconds}ms.',
           name: 'BackgroundService',
         );
+        
         _lastTriggeredAthanKey = currentKey;
 
         final notifId = 100 + entry.name.index;
@@ -400,7 +454,7 @@ Future<void> _checkAndTriggerAthan(
         );
 
         const androidDetails = AndroidNotificationDetails(
-          'adhan_athan',
+          BackgroundService._athanChannelId,
           'Athan Alarm',
           importance: Importance.max,
           priority: Priority.max,
@@ -655,16 +709,16 @@ String _resolveAthanAsset(Prayer prayer, SettingsModel settings) {
 String _resolvePrayerHeaderAsset(Prayer prayer) {
   switch (prayer) {
     case Prayer.fajr:
-      return 'assets/images/header_fajr.png';
+      return 'assets/images/header_fajr.jpg';
     case Prayer.dhuhr:
     case Prayer.asr:
-      return 'assets/images/header_dhuhr.png';
+      return 'assets/images/header_dhuhr.jpg';
     case Prayer.maghrib:
-      return 'assets/images/header_maghrib.png';
+      return 'assets/images/header_maghrib.jpg';
     case Prayer.isha:
-      return 'assets/images/header_isha.png';
+      return 'assets/images/header_isha.jpg';
     default:
-      return 'assets/images/header_isha.png';
+      return 'assets/images/header_isha.jpg';
   }
 }
 

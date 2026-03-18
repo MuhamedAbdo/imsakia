@@ -82,6 +82,12 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
                 widget.backgroundImage!,
                 fit: BoxFit.cover,
               ),
+            )
+          else
+            const Center(
+              child: CircularProgressIndicator(
+                color: Colors.white,
+              ),
             ),
 
           // 2. Subtle Black Gradient (at the bottom)
