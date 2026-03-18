@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
 import '../../core/services/background_service.dart';
+import '../../core/services/athan_audio_service.dart';
 import '../../core/theme/app_colors.dart';
+import 'dart:developer' as developer;
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  EidCelebrationScreen
@@ -61,10 +63,23 @@ class _EidCelebrationScreenState extends State<EidCelebrationScreen>
     _pulse = Tween<double>(begin: 1.0, end: 1.06).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+
+    // Auto-play Takbeer
+    _playTakbeer();
+  }
+
+  Future<void> _playTakbeer() async {
+    try {
+      await AthanAudioService().play('assets/audio/eid_takbeer.mp3');
+      developer.log('[EidScreen] Takbeer audio started successfully.', name: 'EidCelebrationScreen');
+    } catch (e) {
+      developer.log('[EidScreen] Error playing takbeer audio: $e', name: 'EidCelebrationScreen');
+    }
   }
 
   @override
   void dispose() {
+    AthanAudioService().stop();
     _fireworkController.dispose();
     _textFadeController.dispose();
     _pulseController.dispose();
@@ -72,6 +87,7 @@ class _EidCelebrationScreenState extends State<EidCelebrationScreen>
   }
 
   Future<void> _stopTakbeer() async {
+    await AthanAudioService().stop();
     BackgroundService.sendStopAudio();
     if (mounted) {
       Navigator.of(context).pop();

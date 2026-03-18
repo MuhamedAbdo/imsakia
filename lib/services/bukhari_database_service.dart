@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'dart:developer' as developer;
 import 'package:flutter/services.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -81,20 +81,12 @@ class BukhariDatabaseService {
           : 'SELECT * FROM hadiths WHERE id NOT IN ($seenIdsStr) LIMIT 1 OFFSET $randomOffset'
       );
 
-      if (results.isNotEmpty) {
-        final hadith = results.first;
-        final newId = hadith['id'] as int;
-        
-        // Save state
-        seenIds.add(newId);
-        await prefs.setString(keyLastDate, todayStr);
-        await prefs.setInt(keyCurrentId, newId);
-        await prefs.setStringList(keySeenIds, seenIds.map((e) => e.toString()).toList());
-        
-        return hadith;
+      if (results.isEmpty) {
+        developer.log('[BukhariDB] No hadiths found in database.', name: 'BukhariDatabaseService');
       }
+      return results.isNotEmpty ? results.first : null;
     } catch (e) {
-      debugPrint("Error fetching Bukhari hadith: $e");
+      developer.log("[BukhariDB] Error fetching Bukhari hadith: $e", name: 'BukhariDatabaseService');
     }
     return null;
   }
