@@ -374,6 +374,11 @@ Future<void> _checkAndTriggerAthan(
         await notifications.cancelAll();
 
         final prayerImage = _resolvePrayerHeaderAsset(entry.name);
+        
+        developer.log(
+          '[AthanUI] تم تفعيل شاشة الأذان بصورة: $prayerImage والجملة: حان الآن موعد أذان ${entry.name.nameAr}.',
+          name: 'BackgroundService',
+        );
 
         // ── Audio ───────────────────────────────────────────────────────────
         if (settings.athanSoundEnabled) {
@@ -656,6 +661,8 @@ String _resolvePrayerHeaderAsset(Prayer prayer) {
       return 'assets/images/header_dhuhr.png';
     case Prayer.maghrib:
       return 'assets/images/header_maghrib.png';
+    case Prayer.isha:
+      return 'assets/images/header_isha.png';
     default:
       return 'assets/images/header_isha.png';
   }

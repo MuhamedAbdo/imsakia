@@ -24,19 +24,12 @@ class AthanOverlayScreen extends StatefulWidget {
 
 class _AthanOverlayScreenState extends State<AthanOverlayScreen>
     with TickerProviderStateMixin {
-  late AnimationController _gradientController;
   late AnimationController _pulseController;
   late Animation<double> _pulse;
-  late Animation<double> _gradient;
 
   @override
   void initState() {
     super.initState();
-
-    _gradientController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat(reverse: true);
 
     _pulseController = AnimationController(
       vsync: this,
@@ -44,10 +37,6 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
     )..repeat(reverse: true);
 
     _pulse = Tween<double>(begin: 0.92, end: 1.08).animate(_pulseController);
-    _gradient = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(_gradientController);
 
     // Audio is owned exclusively by the background service.
     // Do NOT play from the overlay to avoid duplicate streams.
@@ -59,7 +48,6 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
 
   @override
   void dispose() {
-    _gradientController.dispose();
     _pulseController.dispose();
     super.dispose();
   }
@@ -84,160 +72,140 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 1. Background Image with Opacity
+          // 1. Background Image - Full Screen and Sharp
           if (widget.backgroundImage != null)
             Positioned.fill(
-              child: Opacity(
-                opacity: 0.4,
-                child: Image.asset(
-                  widget.backgroundImage!,
-                  fit: BoxFit.cover,
-                ),
+              child: Image.asset(
+                widget.backgroundImage!,
+                fit: BoxFit.cover,
               ),
             ),
 
-          // 2. Gradient Overlay (Conditional Transparency)
-          AnimatedBuilder(
-            animation: _gradient,
-            builder: (context, child) {
-              return Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color.lerp(
-                        const Color(0xFF0D0221),
-                        const Color(0xFF1F0B3E),
-                        _gradient.value,
-                      )!.withValues(alpha: widget.backgroundImage != null ? 0.85 : 1.0),
-                      Color.lerp(
-                        const Color(0xFF0D3B66),
-                        const Color(0xFF071226),
-                        _gradient.value,
-                      )!.withValues(alpha: widget.backgroundImage != null ? 0.85 : 1.0),
-                    ],
-                  ),
+          // 2. Subtle Black Gradient (at the bottom)
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.2),
+                    Colors.transparent,
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.7),
+                  ],
+                  stops: const [0.0, 0.3, 0.7, 1.0],
                 ),
-                child: child,
-              );
-            },
-            child: Stack(
+              ),
+            ),
+          ),
+
+          // 3. Main Content
+          SafeArea(
+            child: Column(
               children: [
-                // Decorative circles (Subtle overlays)
-                ..._buildDecorations(),
+                const Spacer(flex: 2),
 
-                // Main Content
-                SafeArea(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      const SizedBox(height: 40),
-
-                      // Mosque Icon + Prayer Name
-                      Column(
-                        children: [
-                          FadeInDown(child: _MosqueIllustration()),
-                          const SizedBox(height: 32),
-                          FadeInDown(
-                            delay: const Duration(milliseconds: 200),
-                            child: Text(
-                              'حان وقت صلاة',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(
-                                    color: Colors.white70,
-                                    letterSpacing: 1,
-                                  ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          FadeInDown(
-                            delay: const Duration(milliseconds: 300),
-                            child: Text(
-                              widget.prayerNameAr,
-                              style: Theme.of(context).textTheme.displayMedium
-                                  ?.copyWith(
-                                    color: AppColors.gold,
-                                    fontSize: 56,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          FadeInDown(
-                            delay: const Duration(milliseconds: 400),
-                            child: Text(
-                              widget.prayerNameEn,
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(
-                                    color: Colors.white38,
-                                    letterSpacing: 4,
-                                  ),
-                            ),
+                // Dynamic Prayer Text (Top 1/3 area)
+                FadeInDown(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    child: Text(
+                      'حان الآن موعد أذان ${widget.prayerNameAr}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'Tajawal',
+                        fontWeight: FontWeight.bold,
+                        fontSize: 32,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black54,
+                            offset: Offset(0, 4),
+                            blurRadius: 10,
                           ),
                         ],
                       ),
+                    ),
+                  ),
+                ),
 
-                      // Animated audio wave
-                      FadeIn(
-                        delay: const Duration(milliseconds: 500),
-                        child: _AudioWave(),
-                      ),
+                const Spacer(flex: 1),
 
-                      // Stop button
-                      FadeInUp(
-                        delay: const Duration(milliseconds: 600),
-                        child: Column(
-                          children: [
-                            ScaleTransition(
-                              scale: _pulse,
-                              child: GestureDetector(
-                                onTap: _stopAthan,
-                                child: Container(
-                                  width: 90,
-                                  height: 90,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: AppColors.error,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppColors.error.withValues(
-                                          alpha: 0.5,
-                                        ),
-                                        blurRadius: 30,
-                                        spreadRadius: 6,
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.stop_rounded,
-                                        color: Colors.white,
-                                        size: 36,
-                                      ),
-                                    ],
-                                  ),
+                // English Prayer Name (Subtle)
+                FadeInUp(
+                  delay: const Duration(milliseconds: 200),
+                  child: Text(
+                    widget.prayerNameEn.toUpperCase(),
+                    style: const TextStyle(
+                      fontFamily: 'Tajawal',
+                      letterSpacing: 4,
+                      fontSize: 18,
+                      color: Colors.white54,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                ),
+
+                const Spacer(flex: 3),
+
+                // Animated audio wave
+                FadeIn(
+                  delay: const Duration(milliseconds: 400),
+                  child: _AudioWave(),
+                ),
+
+                const SizedBox(height: 48),
+
+                // Stop button (Bottom area)
+                FadeInUp(
+                  delay: const Duration(milliseconds: 600),
+                  child: Column(
+                    children: [
+                      ScaleTransition(
+                        scale: _pulse,
+                        child: GestureDetector(
+                          onTap: _stopAthan,
+                          child: Container(
+                            width: 84,
+                            height: 84,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.error,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.error.withValues(alpha: 0.5),
+                                  blurRadius: 30,
+                                  spreadRadius: 6,
                                 ),
-                              ),
+                              ],
                             ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'إيقاف الأذان',
-                              style: Theme.of(context).textTheme.bodyLarge
-                                  ?.copyWith(color: Colors.white60),
+                            child: const Icon(
+                              Icons.stop_rounded,
+                              color: Colors.white,
+                              size: 40,
                             ),
-                          ],
+                          ),
                         ),
                       ),
-
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'إيقاف الأذان',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontFamily: 'Tajawal',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 48),
               ],
             ),
           ),
@@ -245,122 +213,6 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
       ),
     );
   }
-
-  List<Widget> _buildDecorations() {
-    return [
-      Positioned(
-        top: -60,
-        right: -60,
-        child: Container(
-          width: 200,
-          height: 200,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.gold.withValues(alpha: 0.05),
-          ),
-        ),
-      ),
-      Positioned(
-        bottom: -80,
-        left: -80,
-        child: Container(
-          width: 250,
-          height: 250,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.teal.withValues(alpha: 0.07),
-          ),
-        ),
-      ),
-      Positioned(
-        top: 100,
-        left: -40,
-        child: Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.03),
-          ),
-        ),
-      ),
-    ];
-  }
-}
-
-class _MosqueIllustration extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(size: const Size(200, 140), painter: _MosquePainter());
-  }
-}
-
-class _MosquePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.gold.withValues(alpha: 0.8)
-      ..style = PaintingStyle.fill;
-
-    final w = size.width;
-    final h = size.height;
-
-    // Main dome
-    final domeRect = Rect.fromCenter(
-      center: Offset(w / 2, h * 0.45),
-      width: w * 0.4,
-      height: h * 0.6,
-    );
-    canvas.drawArc(domeRect, pi, pi, true, paint);
-
-    // Main body
-    canvas.drawRect(Rect.fromLTWH(w * 0.3, h * 0.45, w * 0.4, h * 0.55), paint);
-
-    // Left minaret
-    canvas.drawRect(Rect.fromLTWH(w * 0.12, h * 0.3, w * 0.1, h * 0.7), paint);
-    // Left minaret top dome
-    canvas.drawArc(
-      Rect.fromCenter(
-        center: Offset(w * 0.17, h * 0.3),
-        width: w * 0.1,
-        height: h * 0.2,
-      ),
-      pi,
-      pi,
-      true,
-      paint,
-    );
-
-    // Right minaret
-    canvas.drawRect(Rect.fromLTWH(w * 0.78, h * 0.3, w * 0.1, h * 0.7), paint);
-    canvas.drawArc(
-      Rect.fromCenter(
-        center: Offset(w * 0.83, h * 0.3),
-        width: w * 0.1,
-        height: h * 0.2,
-      ),
-      pi,
-      pi,
-      true,
-      paint,
-    );
-
-    // Crescent on main dome
-    final crescentPaint = Paint()
-      ..color = AppColors.gold
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawArc(
-      Rect.fromCenter(center: Offset(w / 2, h * 0.08), width: 20, height: 20),
-      pi * 0.2,
-      pi * 1.2,
-      false,
-      crescentPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _AudioWave extends StatefulWidget {
