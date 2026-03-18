@@ -625,32 +625,20 @@ Future<void> _checkEidTakbeer(
 // Helper: resolve the asset path based on settings & prayer
 // ---------------------------------------------------------------------------
 String _resolveAthanAsset(Prayer prayer, SettingsModel settings) {
-  if (settings.isUnifiedAthan) {
-    developer.log(
-      '[BackgroundService] Unified Athan mode — using ${settings.selectedAthanSound} for ${prayer.nameAr}.',
-      name: 'BackgroundService',
-    );
-    return settings.selectedAthanSound;
-  }
-
-  final String path;
-  switch (prayer) {
-    case Prayer.fajr:
-      path = settings.selectedFajrSound;
-    case Prayer.dhuhr:
-      path = settings.selectedDhuhrSound;
-    case Prayer.asr:
-      path = settings.selectedAsrSound;
-    case Prayer.maghrib:
-      path = settings.selectedMaghribSound;
-    case Prayer.isha:
-      path = settings.selectedIshaSound;
-    default:
-      path = settings.selectedAthanSound;
-  }
+  // ── Logic: Fajr ALWAYS uses its dedicated sound (special wording) ──────────
+  // ── Other prayers follow isUnifiedAthan setting ────────────────────────────
+  final String path = switch (prayer) {
+    Prayer.fajr => settings.selectedFajrSound,
+    _ when settings.isUnifiedAthan => settings.selectedAthanSound,
+    Prayer.dhuhr => settings.selectedDhuhrSound,
+    Prayer.asr => settings.selectedAsrSound,
+    Prayer.maghrib => settings.selectedMaghribSound,
+    Prayer.isha => settings.selectedIshaSound,
+    _ => settings.selectedAthanSound,
+  };
 
   developer.log(
-    '[BackgroundService] Per-prayer mode — using $path for ${prayer.nameAr}.',
+    '[BackgroundService] Selected sound: $path for ${prayer.nameAr} (Unified: ${settings.isUnifiedAthan}).',
     name: 'BackgroundService',
   );
   return path;
