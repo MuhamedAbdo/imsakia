@@ -9,11 +9,13 @@ import '../../core/theme/app_colors.dart';
 class AthanOverlayScreen extends StatefulWidget {
   final String prayerNameAr;
   final String prayerNameEn;
+  final String? backgroundImage;
 
   const AthanOverlayScreen({
     super.key,
     required this.prayerNameAr,
     required this.prayerNameEn,
+    this.backgroundImage,
   });
 
   @override
@@ -82,147 +84,164 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AnimatedBuilder(
-        animation: _gradient,
-        builder: (context, child) {
-          return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color.lerp(
-                    const Color(0xFF0D0221),
-                    const Color(0xFF1F0B3E),
-                    _gradient.value,
-                  )!,
-                  Color.lerp(
-                    const Color(0xFF0D3B66),
-                    const Color(0xFF071226),
-                    _gradient.value,
-                  )!,
-                ],
+      body: Stack(
+        children: [
+          // 1. Background Image with Opacity
+          if (widget.backgroundImage != null)
+            Positioned.fill(
+              child: Opacity(
+                opacity: 0.4,
+                child: Image.asset(
+                  widget.backgroundImage!,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
-            child: child,
-          );
-        },
-        child: Stack(
-          children: [
-            // Decorative circles
-            ..._buildDecorations(),
 
-            // Content
-            SafeArea(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  const SizedBox(height: 40),
-
-                  // Icon + Title
-                  Column(
-                    children: [
-                      FadeInDown(child: _MosqueIllustration()),
-                      const SizedBox(height: 32),
-                      FadeInDown(
-                        delay: const Duration(milliseconds: 200),
-                        child: Text(
-                          'حان وقت صلاة',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                color: Colors.white70,
-                                letterSpacing: 1,
-                              ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      FadeInDown(
-                        delay: const Duration(milliseconds: 300),
-                        child: Text(
-                          widget.prayerNameAr,
-                          style: Theme.of(context).textTheme.displayMedium
-                              ?.copyWith(
-                                color: AppColors.gold,
-                                fontSize: 56,
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      FadeInDown(
-                        delay: const Duration(milliseconds: 400),
-                        child: Text(
-                          widget.prayerNameEn,
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                color: Colors.white38,
-                                letterSpacing: 4,
-                              ),
-                        ),
-                      ),
+          // 2. Gradient Overlay (Conditional Transparency)
+          AnimatedBuilder(
+            animation: _gradient,
+            builder: (context, child) {
+              return Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color.lerp(
+                        const Color(0xFF0D0221),
+                        const Color(0xFF1F0B3E),
+                        _gradient.value,
+                      )!.withValues(alpha: widget.backgroundImage != null ? 0.85 : 1.0),
+                      Color.lerp(
+                        const Color(0xFF0D3B66),
+                        const Color(0xFF071226),
+                        _gradient.value,
+                      )!.withValues(alpha: widget.backgroundImage != null ? 0.85 : 1.0),
                     ],
                   ),
+                ),
+                child: child,
+              );
+            },
+            child: Stack(
+              children: [
+                // Decorative circles (Subtle overlays)
+                ..._buildDecorations(),
 
-                  // Animated audio wave
-                  FadeIn(
-                    delay: const Duration(milliseconds: 500),
-                    child: _AudioWave(),
-                  ),
+                // Main Content
+                SafeArea(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      const SizedBox(height: 40),
 
-                  // Stop button
-                  FadeInUp(
-                    delay: const Duration(milliseconds: 600),
-                    child: Column(
-                      children: [
-                        ScaleTransition(
-                          scale: _pulse,
-                          child: GestureDetector(
-                            onTap: _stopAthan,
-                            child: Container(
-                              width: 90,
-                              height: 90,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: AppColors.error,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.error.withValues(
-                                      alpha: 0.5,
-                                    ),
-                                    blurRadius: 30,
-                                    spreadRadius: 6,
+                      // Mosque Icon + Prayer Name
+                      Column(
+                        children: [
+                          FadeInDown(child: _MosqueIllustration()),
+                          const SizedBox(height: 32),
+                          FadeInDown(
+                            delay: const Duration(milliseconds: 200),
+                            child: Text(
+                              'حان وقت صلاة',
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    color: Colors.white70,
+                                    letterSpacing: 1,
                                   ),
-                                ],
-                              ),
-                              child: const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.stop_rounded,
-                                    color: Colors.white,
-                                    size: 36,
-                                  ),
-                                ],
-                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'إيقاف الأذان',
-                          style: Theme.of(context).textTheme.bodyLarge
-                              ?.copyWith(color: Colors.white60),
-                        ),
-                      ],
-                    ),
-                  ),
+                          const SizedBox(height: 8),
+                          FadeInDown(
+                            delay: const Duration(milliseconds: 300),
+                            child: Text(
+                              widget.prayerNameAr,
+                              style: Theme.of(context).textTheme.displayMedium
+                                  ?.copyWith(
+                                    color: AppColors.gold,
+                                    fontSize: 56,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          FadeInDown(
+                            delay: const Duration(milliseconds: 400),
+                            child: Text(
+                              widget.prayerNameEn,
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    color: Colors.white38,
+                                    letterSpacing: 4,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
 
-                  const SizedBox(height: 40),
-                ],
-              ),
+                      // Animated audio wave
+                      FadeIn(
+                        delay: const Duration(milliseconds: 500),
+                        child: _AudioWave(),
+                      ),
+
+                      // Stop button
+                      FadeInUp(
+                        delay: const Duration(milliseconds: 600),
+                        child: Column(
+                          children: [
+                            ScaleTransition(
+                              scale: _pulse,
+                              child: GestureDetector(
+                                onTap: _stopAthan,
+                                child: Container(
+                                  width: 90,
+                                  height: 90,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: AppColors.error,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.error.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                        blurRadius: 30,
+                                        spreadRadius: 6,
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.stop_rounded,
+                                        color: Colors.white,
+                                        size: 36,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'إيقاف الأذان',
+                              style: Theme.of(context).textTheme.bodyLarge
+                                  ?.copyWith(color: Colors.white60),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 40),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

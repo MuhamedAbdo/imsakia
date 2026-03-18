@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../models/prayer_times_model.dart';
@@ -138,6 +140,20 @@ class NotificationService {
       body: 'اضغط لإيقاف الأذان',
       notificationDetails: details,
     );
+
+    // Auto-dismiss after 2 minutes (120 seconds)
+    // ID 888/999 are usually persistent, ensure we don't accidentally kill them if this is called for them.
+    // However, this method is specifically for Adhan notifications.
+    if (id != 888 && id != 999) {
+      Timer(const Duration(minutes: 2), () async {
+        try {
+          await _plugin.cancel(id: id);
+          developer.log('[NotificationService] Auto-dismissed Adhan notification $id after 2 minutes.');
+        } catch (e) {
+          // ignore if already cancelled
+        }
+      });
+    }
   }
 
   Future<void> cancelAll() async => _plugin.cancelAll();

@@ -98,6 +98,7 @@ void main() async {
 
   String prayerNameAr = 'الصلاة';
   String prayerNameEn = 'Prayer';
+  String? backgroundImage;
 
   if (launchFromAthan) {
     try {
@@ -106,6 +107,7 @@ void main() async {
         final payload = jsonDecode(payloadStr);
         prayerNameAr = payload['ar'] ?? 'الصلاة';
         prayerNameEn = payload['en'] ?? 'Prayer';
+        backgroundImage = payload['image']; // Extract image from payload (if provided)
       }
     } catch (_) {}
   }
@@ -143,6 +145,7 @@ void main() async {
         launchFromAthan: launchFromAthan,
         prayerNameAr: prayerNameAr,
         prayerNameEn: prayerNameEn,
+        backgroundImage: backgroundImage,
       ),
     ),
   );
@@ -160,18 +163,40 @@ void main() async {
       ),
     );
   });
+
+  // ── Listen for Athan event from background isolate ─────────────────────────
+  fbs.FlutterBackgroundService().on('athan_started').listen((data) {
+    if (data != null) {
+      final nameAr = data['prayer'] as String? ?? 'الصلاة';
+      final nameEn = data['prayerEn'] as String? ?? 'Prayer';
+      final image = data['image'] as String?;
+
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => AthanOverlayScreen(
+            prayerNameAr: nameAr,
+            prayerNameEn: nameEn,
+            backgroundImage: image,
+          ),
+        ),
+      );
+    }
+  });
 }
 
 class MyApp extends StatelessWidget {
   final bool launchFromAthan;
   final String prayerNameAr;
   final String prayerNameEn;
+  final String? backgroundImage;
 
   const MyApp({
     super.key,
     this.launchFromAthan = false,
     this.prayerNameAr = 'الصلاة',
     this.prayerNameEn = 'Prayer',
+    this.backgroundImage,
   });
 
   @override
@@ -201,6 +226,7 @@ class MyApp extends StatelessWidget {
                 '/athan': (context) => AthanOverlayScreen(
                       prayerNameAr: prayerNameAr,
                       prayerNameEn: prayerNameEn,
+                      backgroundImage: backgroundImage,
                     ),
                 '/settings': (context) => const SettingsScreen(),
                 '/main': (context) => const MainLayout(),

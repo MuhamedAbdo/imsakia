@@ -373,6 +373,8 @@ Future<void> _checkAndTriggerAthan(
         );
         await notifications.cancelAll();
 
+        final prayerImage = _resolvePrayerHeaderAsset(entry.name);
+
         // ── Audio ───────────────────────────────────────────────────────────
         if (settings.athanSoundEnabled) {
           final assetPath = _resolveAthanAsset(entry.name, settings);
@@ -416,10 +418,18 @@ Future<void> _checkAndTriggerAthan(
           notificationDetails:
               const NotificationDetails(android: androidDetails),
           payload:
-              jsonEncode({'ar': entry.name.nameAr, 'en': entry.name.nameEn}),
+              jsonEncode({
+            'ar': entry.name.nameAr,
+            'en': entry.name.nameEn,
+            'image': prayerImage,
+          }),
         );
 
-        service.invoke('athan_started', {'prayer': entry.name.nameAr});
+        service.invoke('athan_started', {
+          'prayer': entry.name.nameAr,
+          'prayerEn': entry.name.nameEn,
+          'image': prayerImage,
+        });
 
         developer.log(
           '[BackgroundService] 🔔 Athan sequence complete for ${entry.name.nameAr}.',
@@ -644,6 +654,23 @@ String _resolveAthanAsset(Prayer prayer, SettingsModel settings) {
     name: 'BackgroundService',
   );
   return path;
+}
+
+// ---------------------------------------------------------------------------
+// Helper: resolve the header background image asset path based on prayer
+// ---------------------------------------------------------------------------
+String _resolvePrayerHeaderAsset(Prayer prayer) {
+  switch (prayer) {
+    case Prayer.fajr:
+      return 'assets/images/header_fajr.png';
+    case Prayer.dhuhr:
+    case Prayer.asr:
+      return 'assets/images/header_dhuhr.png';
+    case Prayer.maghrib:
+      return 'assets/images/header_maghrib.png';
+    default:
+      return 'assets/images/header_isha.png';
+  }
 }
 
 // ---------------------------------------------------------------------------
