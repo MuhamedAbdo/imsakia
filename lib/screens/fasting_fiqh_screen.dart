@@ -112,15 +112,21 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
             ? const Color(0xFF121212)
             : const Color(0xFFF8F9FA),
         appBar: AppBar(
+          centerTitle: true,
+          automaticallyImplyLeading: true,
+          leading: Navigator.canPop(context)
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_forward_ios),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+              : null,
           title: Text(
             'فقه الصائم',
             style: GoogleFonts.tajawal(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
-          centerTitle: true,
-          backgroundColor: primaryColor,
           elevation: 0,
           actions: [
             IconButton(
@@ -221,16 +227,22 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: isDark 
-                ? Colors.black38 
-                : Colors.grey.withValues(alpha: 0.1), // تم التعديل هنا
+            color: isDark
+                ? Colors.black54
+                : Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
+        border: Border.all(
+          color: isDark
+              ? Colors.white10
+              : Colors.grey.withValues(alpha: 0.1),
+          width: 1,
+        ),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),

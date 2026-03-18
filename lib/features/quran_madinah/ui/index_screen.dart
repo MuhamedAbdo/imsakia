@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:imsakia/features/quran_madinah/providers/quran_provider.dart';
 import 'package:imsakia/features/quran_madinah/ui/mushaf_screen.dart';
 import 'package:imsakia/features/quran_madinah/ui/search_screen.dart';
+import 'package:imsakia/core/theme/app_colors.dart';
 
 class IndexScreen extends StatelessWidget {
   const IndexScreen({super.key});
@@ -14,12 +15,23 @@ class IndexScreen extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
+        backgroundColor: isDark ? AppColors.darkBg : AppColors.lightBg,
         appBar: AppBar(
+          centerTitle: true,
+          automaticallyImplyLeading: true,
+          leading: Navigator.canPop(context)
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_forward_ios),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+              : null,
           title: const Text(
             'فهرس القرآن',
             style: TextStyle(
               fontFamily: 'HafsSmart',
               fontWeight: FontWeight.bold,
+              fontSize: 22,
+              color: Colors.white,
             ),
           ),
           bottom: const TabBar(
@@ -27,10 +39,20 @@ class IndexScreen extends StatelessWidget {
               Tab(text: 'فهرس السور'),
               Tab(text: 'فهرس الأجزاء'),
             ],
-            labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'HafsSmart'),
-            unselectedLabelStyle: TextStyle(fontSize: 13, fontFamily: 'HafsSmart'),
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white60,
+            indicatorColor: Colors.white,
+            indicatorWeight: 3,
+            labelStyle: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'HafsSmart',
+            ),
+            unselectedLabelStyle: TextStyle(
+              fontSize: 14,
+              fontFamily: 'HafsSmart',
+            ),
           ),
-          centerTitle: true,
           actions: [
             IconButton(
               icon: const Icon(Icons.search),
@@ -131,14 +153,15 @@ class IndexScreen extends StatelessWidget {
           BoxShadow(
             color: isDark
                 ? Colors.black54
-                : Colors.green.withValues(alpha: 0.1),
-            blurRadius: 10,
+                : Colors.black.withValues(alpha: 0.08),
+            blurRadius: 15,
+            spreadRadius: 1,
             offset: const Offset(0, 4),
           ),
         ],
         border: Border.all(
-          color: isDark ? Colors.white10 : Colors.green.withValues(alpha: 0.1),
-          width: 1,
+          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+          width: 0.8,
         ),
       ),
       child: Material(
@@ -233,14 +256,15 @@ class IndexScreen extends StatelessWidget {
           BoxShadow(
             color: isDark
                 ? Colors.black54
-                : Colors.green.withValues(alpha: 0.1),
-            blurRadius: 10,
+                : Colors.black.withValues(alpha: 0.08),
+            blurRadius: 15,
+            spreadRadius: 1,
             offset: const Offset(0, 4),
           ),
         ],
         border: Border.all(
-          color: isDark ? Colors.white10 : Colors.green.withValues(alpha: 0.1),
-          width: 1,
+          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+          width: 0.8,
         ),
       ),
       child: Material(

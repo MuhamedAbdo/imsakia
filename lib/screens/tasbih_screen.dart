@@ -14,12 +14,18 @@ class TasbihScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
+        centerTitle: true,
+        automaticallyImplyLeading: true,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_forward_ios),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
+        title: const Text(
           'المسبحة',
           style: TextStyle(
-            color: isDark ? Colors.white : Colors.black87,
+            color: Colors.white,
             fontWeight: FontWeight.bold,
           ),
         ),

@@ -28,130 +28,140 @@ class _QiblaScreenState extends State<QiblaScreen> {
   Widget build(BuildContext context) {
     final locale = context.watch<SettingsProvider>().languageCode;
 
-    return Stack(
-      children: [
-        // Background
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [AppColors.darkNavy, AppColors.darkBg],
-            ),
+    return Scaffold(
+      appBar: AppBar(
+        centerTitle: true,
+        automaticallyImplyLeading: true,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_forward_ios),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
+        title: Text(
+          locale == 'ar' ? 'اتجاه القبلة' : 'Qibla Direction',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
           ),
         ),
+      ),
+      body: Column(
+        children: [
+          const SizedBox(height: 24),
 
-        SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 24),
-
-              // Title
-              FadeInDown(
-                child: Text(
-                  locale == 'ar' ? 'اتجاه القبلة' : 'Qibla Direction',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: AppColors.gold,
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              FadeInDown(
-                delay: const Duration(milliseconds: 100),
-                child: Text(
-                  locale == 'ar'
-                      ? 'اتجه نحو الكعبة المشرفة'
-                      : 'Face towards the Holy Kaaba',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white54,
-                      ),
-                ),
-              ),
-
-              const Spacer(),
-
-              // Compass area with Sensor Check
-              Expanded(
-                flex: 4,
-                child: FutureBuilder(
-                  future: _deviceSupportFuture,
-                  builder: (_, AsyncSnapshot<bool?> snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                        child: CircularProgressIndicator(color: AppColors.gold),
-                      );
-                    }
-                    if (snapshot.hasError) {
-                      return Center(
-                        child: Text(
-                          locale == 'ar'
-                              ? 'حدث خطأ: ${snapshot.error.toString()}'
-                              : 'Error: ${snapshot.error.toString()}',
-                          style: const TextStyle(color: AppColors.error),
-                        ),
-                      );
-                    }
-                    if (snapshot.data == true) {
-                      return QiblaCompass(locale: locale);
-                    } else {
-                      return _UnsupportedWidget(locale: locale);
-                    }
-                  },
-                ),
-              ),
-
-              const Spacer(),
-
-              // Distance to Mecca
-              FadeInUp(
-                child: Container(
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                        color: AppColors.gold.withValues(alpha: 0.3)),
+          // Subtitle
+          FadeInDown(
+            delay: const Duration(milliseconds: 100),
+            child: Text(
+              locale == 'ar'
+                  ? 'اتجه نحو الكعبة المشرفة'
+                  : 'Face towards the Holy Kaaba',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).brightness == Brightness.dark 
+                        ? Colors.white54 
+                        : Colors.black54,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+            ),
+          ),
+
+          const Spacer(),
+
+          // Compass area with Sensor Check
+          Expanded(
+            flex: 8,
+            child: FutureBuilder(
+              future: _deviceSupportFuture,
+              builder: (_, AsyncSnapshot<bool?> snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: AppColors.gold),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text(
+                      locale == 'ar'
+                          ? 'حدث خطأ: ${snapshot.error.toString()}'
+                          : 'Error: ${snapshot.error.toString()}',
+                      style: const TextStyle(color: AppColors.error),
+                    ),
+                  );
+                }
+                if (snapshot.data == true) {
+                  return QiblaCompass(locale: locale);
+                } else {
+                  return _UnsupportedWidget(locale: locale);
+                }
+              },
+            ),
+          ),
+
+          const Spacer(),
+
+          // Distance to Mecca
+          FadeInUp(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(
+                  color: AppColors.gold.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.mosque, color: AppColors.gold, size: 24),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.mosque, color: AppColors.gold, size: 24),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            locale == 'ar'
-                                ? 'مكة المكرمة'
-                                : 'Makkah al-Mukarramah',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(color: AppColors.gold),
-                          ),
-                          Text(
-                            locale == 'ar'
-                                ? '21.4225° شمالاً، 39.8262° شرقاً'
-                                : '21.4225°N, 39.8262°E',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(color: Colors.white54),
-                          ),
-                        ],
+                      Text(
+                        locale == 'ar'
+                            ? 'مكة المكرمة'
+                            : 'Makkah al-Mukarramah',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(
+                              color: AppColors.gold,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      Text(
+                        locale == 'ar'
+                            ? '21.4225° شمالاً، 39.8262° شرقاً'
+                            : '21.4225°N, 39.8262°E',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(
+                              color: Theme.of(context).brightness == Brightness.dark 
+                                  ? Colors.white54 
+                                  : Colors.black54,
+                            ),
                       ),
                     ],
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+        ],
+      ),
     );
   }
 }

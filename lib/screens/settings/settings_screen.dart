@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
-import 'package:animate_do/animate_do.dart';
 import 'dart:developer' as developer;
 import '../../core/theme/app_colors.dart';
 import '../../core/models/settings_model.dart';
@@ -182,38 +181,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final isDark = settings.isDarkMode;
     final textColor = isDark ? Colors.white : AppColors.darkNavy;
 
-    return Stack(
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isDark
-                  ? [AppColors.darkNavy, AppColors.darkBg]
-                  : [AppColors.lightBg, AppColors.lightBeige],
-            ),
+    return Scaffold(
+      appBar: AppBar(
+        centerTitle: true,
+        automaticallyImplyLeading: true,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_forward_ios),
+                onPressed: () {
+                  _resetPlayingState();
+                  Navigator.of(context).pop();
+                },
+              )
+            : null,
+        title: Text(
+          'الإعدادات',
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.white, // Standardized light text for blue AppBar
+            fontWeight: FontWeight.bold,
           ),
         ),
-        SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                  child: FadeInDown(
-                    child: Text(
-                      'الإعدادات',
-                      style:
-                          Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                color: AppColors.gold,
-                              ),
-                    ),
-                  ),
-                ),
-              ),
-              SliverList(
-                delegate: SliverChildListDelegate([
+      ),
+      body: CustomScrollView(
+        slivers: [
+          SliverList(
+            delegate: SliverChildListDelegate([
                   // ── Location Section ─────────────────────────────
                   _SectionHeader(
                       title: 'الموقع',
@@ -605,14 +597,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 32),
-                ]),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+          const SizedBox(height: 32),
+        ]),
+      ),
+    ],
+  ),
+);
   }
 
   Future<void> _refreshPrayerTimes(
@@ -638,11 +628,12 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
       child: Text(
         title,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
               color: AppColors.gold,
+              fontWeight: FontWeight.bold,
               letterSpacing: 0.5,
             ),
       ),
@@ -656,9 +647,27 @@ class _SettingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Card(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black54
+                  : Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(
+            color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1),
+            width: 1,
+          ),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: child,

@@ -120,41 +120,55 @@ class _RadioPageState extends State<RadioPage> {
     final accentColor = const Color(0xffd4a574);
 
     return Scaffold(
+      appBar: AppBar(
+        centerTitle: true,
+        automaticallyImplyLeading: true,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_forward_ios),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
+        title: isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText: "بحث عن إذاعة...",
+                  hintStyle: TextStyle(color: Colors.white70),
+                  border: InputBorder.none,
+                ),
+                onChanged: _filterRadios,
+              )
+            : const Text(
+                "إذاعات القرآن الكريم",
+                style: TextStyle(
+                  fontFamily: 'Tajawal',
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+        actions: [
+          IconButton(
+            icon: Icon(isSearching ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() {
+                isSearching = !isSearching;
+                if (!isSearching) {
+                  filteredRadios = allRadios;
+                  _searchController.clear();
+                }
+              });
+            },
+          )
+        ],
+      ),
       body: Stack(
         children: [
           // Main content
           Column(
             children: [
-              AppBar(
-                backgroundColor: const Color(0xff2196F3),
-                title: isSearching
-                    ? TextField(
-                        controller: _searchController,
-                        autofocus: true,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
-                          hintText: "بحث عن إذاعة...",
-                          hintStyle: TextStyle(color: Colors.white70),
-                          border: InputBorder.none,
-                        ),
-                        onChanged: _filterRadios,
-                      )
-                    : const Text("إذاعات القرآن الكريم", style: TextStyle(fontFamily: 'Tajawal')),
-                actions: [
-                  IconButton(
-                    icon: Icon(isSearching ? Icons.close : Icons.search),
-                    onPressed: () {
-                      setState(() {
-                        isSearching = !isSearching;
-                        if (!isSearching) {
-                          filteredRadios = allRadios;
-                          _searchController.clear();
-                        }
-                      });
-                    },
-                  )
-                ],
-              ),
               Expanded(
                 child: isLoading
                     ? const Center(child: CircularProgressIndicator())

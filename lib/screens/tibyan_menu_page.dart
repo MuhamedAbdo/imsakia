@@ -30,10 +30,20 @@ class UnderDevelopmentPage extends StatelessWidget {
             ? const Color(0xFF121212)
             : const Color(0xFFF5F5F0),
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          iconTheme: IconThemeData(
-            color: isDarkMode ? Colors.white : Colors.black,
+          centerTitle: true,
+          automaticallyImplyLeading: true,
+          leading: Navigator.canPop(context)
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_forward_ios),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+              : null,
+          title: Text(
+            'سيتم تطويره قريباً',
+            style: GoogleFonts.tajawal(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
         ),
         body: Center(
@@ -156,19 +166,21 @@ class TibyanMenuPage extends StatelessWidget {
             ? const Color(0xFF121212)
             : const Color(0xFFF5F5F0),
         appBar: AppBar(
-          backgroundColor: isDarkMode ? Colors.transparent : Colors.blue,
-          elevation: 0,
-          iconTheme: IconThemeData(
-            color: isDarkMode ? Colors.white : Colors.white,
-          ),
+          centerTitle: true,
+          automaticallyImplyLeading: true,
+          leading: Navigator.canPop(context)
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_forward_ios),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+              : null,
           title: Text(
             'تبيان',
             style: GoogleFonts.tajawal(
               fontWeight: FontWeight.bold,
-              color: isDarkMode ? primaryTextColor : Colors.white,
+              color: Colors.white,
             ),
           ),
-          centerTitle: true,
         ),
         body: CustomScrollView(
           slivers: [
@@ -208,10 +220,28 @@ class TibyanMenuPage extends StatelessWidget {
                   horizontal: 16.0,
                   vertical: 8.0,
                 ),
-                child: NeumorphicBox(
-                  borderRadius: 20,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isDarkMode
+                            ? Colors.black54
+                            : Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: isDarkMode
+                          ? Colors.white10
+                          : Colors.grey.withValues(alpha: 0.1),
+                      width: 1,
+                    ),
+                  ),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(16),
                     onTap: () {
                       Navigator.push(
                         context,
@@ -391,11 +421,29 @@ class TibyanMenuPage extends StatelessWidget {
 
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
-                    child: NeumorphicBox(
-                      borderRadius: 25,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: isDarkMode
+                                ? Colors.black54
+                                : Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                        border: Border.all(
+                          color: isDarkMode
+                              ? Colors.white10
+                              : Colors.grey.withValues(alpha: 0.1),
+                          width: 1,
+                        ),
+                      ),
                       child: InkWell(
                         onTap: () => _showHadithDetails(context, hadithText),
-                        borderRadius: BorderRadius.circular(25),
+                        borderRadius: BorderRadius.circular(16),
                         child: Padding(
                           padding: const EdgeInsets.all(20),
                           child: Column(

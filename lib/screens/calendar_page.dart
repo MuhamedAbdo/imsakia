@@ -93,7 +93,14 @@ class _CalendarPageState extends State<CalendarPage>
             ? const Color(0xFF121212)
             : const Color(0xFFF7F8FA),
         appBar: AppBar(
-          backgroundColor: isDarkMode ? Colors.black : Colors.blue,
+          centerTitle: true,
+          automaticallyImplyLeading: true,
+          leading: Navigator.canPop(context)
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_forward_ios),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+              : null,
           title: Text(
             'التقويم',
             style: GoogleFonts.tajawal(
@@ -101,11 +108,10 @@ class _CalendarPageState extends State<CalendarPage>
               color: Colors.white,
             ),
           ),
-          centerTitle: true,
-          elevation: 0,
           bottom: TabBar(
             controller: _tabController,
             indicatorColor: Colors.white,
+            indicatorWeight: 3,
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white.withValues(alpha: 0.6),
             tabs: const [
@@ -389,26 +395,19 @@ class _CalendarPageState extends State<CalendarPage>
         decoration: BoxDecoration(
           color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isDarkMode
-                ? Colors.white.withValues(alpha: 0.1)
-                : Colors.black.withValues(alpha: 0.1),
-            width: 0.8,
-          ),
-          boxShadow: isDarkMode ? [] : [
+          boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 15,
-              spreadRadius: 1,
+              color: isDarkMode
+                  ? Colors.black54
+                  : Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
               offset: const Offset(0, 4),
             ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 5,
-              spreadRadius: -1,
-              offset: const Offset(0, 2),
-            ),
           ],
+          border: Border.all(
+            color: isDarkMode ? Colors.white10 : Colors.grey.withValues(alpha: 0.1),
+            width: 1,
+          ),
         ),
         child: Row(
           children: [

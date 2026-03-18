@@ -163,7 +163,14 @@ class _AudioRecitersScreenState extends State<AudioRecitersScreen> {
             ? const Color(0xFF121212)
             : const Color(0xFFF5F5F0),
         appBar: AppBar(
-          backgroundColor: isDarkMode ? Colors.black : Colors.blue,
+          centerTitle: true,
+          automaticallyImplyLeading: true,
+          leading: Navigator.canPop(context)
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_forward_ios),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+              : null,
           title: _isSearching
               ? TextField(
                   controller: _searchController,
@@ -183,23 +190,6 @@ class _AudioRecitersScreenState extends State<AudioRecitersScreen> {
                     color: Colors.white,
                   ),
                 ),
-          centerTitle: true,
-          elevation: 0,
-          leading: IconButton(
-            icon: Icon(Icons.favorite, color: Colors.blue[100]),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const FavoritesRecitersScreen(),
-                ),
-              ).then((_) {
-                // Return refresh logic to catch any unwatched removals
-                _loadFavorites();
-                setState(() => _filteredReciters = _allReciters);
-              });
-            },
-          ),
           actions: [
             IconButton(
               icon: Icon(
@@ -216,6 +206,21 @@ class _AudioRecitersScreenState extends State<AudioRecitersScreen> {
                 });
               },
             ),
+            if (!_isSearching)
+              IconButton(
+                icon: const Icon(Icons.favorite),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const FavoritesRecitersScreen(),
+                    ),
+                  ).then((_) {
+                    _loadFavorites();
+                    setState(() => _filteredReciters = _allReciters);
+                  });
+                },
+              ),
           ],
         ),
         body: Stack(
@@ -281,14 +286,22 @@ class _AudioRecitersScreenState extends State<AudioRecitersScreen> {
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
               color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 8,
+                  color: isDarkMode
+                      ? Colors.black54
+                      : Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
               ],
+              border: Border.all(
+                color: isDarkMode
+                    ? Colors.white10
+                    : Colors.grey.withValues(alpha: 0.1),
+                width: 1,
+              ),
             ),
             child: Material(
               color: Colors.transparent,

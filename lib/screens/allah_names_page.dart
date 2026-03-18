@@ -23,21 +23,25 @@ class _AllahNamesPageState extends State<AllahNamesPage> {
     return Scaffold(
       backgroundColor: primaryColor,
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: isDark ? primaryColor : Colors.blue,
-        iconTheme: IconThemeData(color: isDark ? textColor : Colors.white),
-        titleTextStyle: TextStyle(color: isDark ? textColor : Colors.white, fontSize: 20, fontFamily: 'cairo'),
-        automaticallyImplyLeading: false,
-        leading: IconButton(
-          onPressed: () => setState(() => isGrid = !isGrid),
-          icon: Icon(isGrid ? Icons.list : Icons.grid_view),
-        ),
-        title: const Text("أسماء الله الحسنى", style: TextStyle(fontFamily: 'cairo')),
         centerTitle: true,
+        automaticallyImplyLeading: true,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_forward_ios),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
+        title: const Text(
+          "أسماء الله الحسنى",
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         actions: [
           IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.arrow_forward),
+            onPressed: () => setState(() => isGrid = !isGrid),
+            icon: Icon(isGrid ? Icons.list : Icons.grid_view),
           ),
         ],
       ),

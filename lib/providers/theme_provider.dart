@@ -53,7 +53,7 @@ class ThemeProvider extends ChangeNotifier {
       surface: const Color(0xFFFAFAFA), 
       surfaceContainer: const Color(0xFFF5F5F5), // بديل إضافي للأسطح الثانوية
     ),
-    scaffoldBackgroundColor: const Color(0xFFFAFAFA),
+    scaffoldBackgroundColor: const Color(0xFFF7F8FA),
     appBarTheme: const AppBarTheme(
       backgroundColor: Color(0xFF1E88E5),
       foregroundColor: Colors.white,

@@ -60,30 +60,34 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color elementsColor = isDark ? Colors.white : Colors.black87;
-
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
+          centerTitle: true,
+          automaticallyImplyLeading: true,
+          leading: Navigator.canPop(context)
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_forward_ios),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+              : null,
           title: Text(
             'الأذكار',
             style: GoogleFonts.tajawal(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: elementsColor,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
           ),
-          centerTitle: true,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          iconTheme: IconThemeData(color: const Color(0xFF546E7A)),
-          leading: IconButton(
-            onPressed: _showResetAllDialog,
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'تصفير جميع الأذكار',
-          ),
+          actions: [
+            IconButton(
+              onPressed: _showResetAllDialog,
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: 'تصفير جميع الأذكار',
+            ),
+          ],
         ),
         body: Container(
           decoration: BoxDecoration(

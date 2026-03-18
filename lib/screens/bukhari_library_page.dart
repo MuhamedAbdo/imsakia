@@ -147,8 +147,6 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final appBarColor = isDarkMode ? Colors.black87 : Colors.blue;
-    const appBarContentColor = Colors.white; 
     final cardBg = isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
     final fontSize = Provider.of<QuranProvider>(context).fontSize;
 
@@ -163,15 +161,20 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
         child: Scaffold(
           backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF5F5F0),
           appBar: AppBar(
-            backgroundColor: appBarColor,
-            elevation: 2,
-            title: Text('صحيح البخاري', 
-              style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, color: appBarContentColor)),
             centerTitle: true,
-            iconTheme: const IconThemeData(color: appBarContentColor),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios, color: appBarContentColor),
-              onPressed: _onBack,
+            automaticallyImplyLeading: true,
+            leading: Navigator.canPop(context)
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_forward_ios),
+                    onPressed: _onBack,
+                  )
+                : null,
+            title: Text(
+              'صحيح البخاري',
+              style: GoogleFonts.tajawal(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
             actions: [
               IconButton(
@@ -222,14 +225,21 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
       padding: const EdgeInsets.all(16.0),
       child: Container(
         decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(15),
+          color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05), // تحديث هنا أيضاً
-              blurRadius: 10
-            )
+              color: isDarkMode
+                  ? Colors.black54
+                  : Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
           ],
+          border: Border.all(
+            color: isDarkMode ? Colors.white10 : Colors.grey.withValues(alpha: 0.1),
+            width: 1,
+          ),
         ),
         child: TextField(
           controller: _searchController,
@@ -246,10 +256,25 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
   }
 
   Widget _buildSectionTile(Map<String, dynamic> section, String title, BukhariProvider provider, bool isDarkMode, Color cardBg, double fontSize) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      color: cardBg,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: isDarkMode
+                ? Colors.black54
+                : Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(
+          color: isDarkMode ? Colors.white10 : Colors.grey.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
       child: ExpansionTile(
         shape: const RoundedRectangleBorder(side: BorderSide.none),
         iconColor: Colors.blue,
@@ -275,11 +300,13 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: isDarkMode ? Colors.white.withValues(alpha: 0.03) : Colors.grey[50], // تحديث هنا أيضاً
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDarkMode ? Colors.white10 : Colors.black12),
+        color: isDarkMode ? Colors.white.withValues(alpha: 0.03) : Colors.grey[50], // Keep subtle background for depth in list
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDarkMode ? Colors.white10 : Colors.grey.withValues(alpha: 0.1),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
