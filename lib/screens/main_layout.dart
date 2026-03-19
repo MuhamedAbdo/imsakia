@@ -1202,13 +1202,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }) {
     final Color activeColor = AppColors.gold;
     final Color cardBg = isNext
-        ? activeColor.withValues(alpha: isDark ? 0.2 : 0.9)
+        ? (isDark ? activeColor.withValues(alpha: 0.2) : activeColor)
         : (isDark ? const Color(0xFF1E2428) : Colors.white);
     final Color textColor = isNext
-        ? (isDark ? Colors.white : Colors.white)
-        : (isDark ? Colors.white : const Color(0xFF546E7A));
+        ? (isDark ? Colors.white : const Color(0xFF2D2D2D))
+        : (isDark ? Colors.white : Colors.black54);
     final Color subColor = isNext
-        ? (isDark ? AppColors.gold : Colors.white)
+        ? (isDark ? activeColor : const Color(0xFF2D2D2D))
         : (isDark ? Colors.grey[400]! : Colors.grey[600]!);
 
     return Container(
@@ -1223,8 +1223,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ? AppColors.gold
               : (isDark
                     ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.black.withValues(alpha: 0.1)),
-          width: isNext ? 2 : 0.8,
+                    : Colors.black.withValues(alpha: 0.2)),
+          width: isNext ? 2 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
@@ -1255,7 +1255,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             style: GoogleFonts.tajawal(
               fontSize: 12,
               fontWeight: isNext ? FontWeight.bold : FontWeight.w600,
-              color: isNext ? AppColors.gold : textColor,
+              color: textColor,
             ),
           ),
           const SizedBox(height: 8),
