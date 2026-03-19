@@ -57,15 +57,21 @@ class AthanAudioService {
   }
 
   /// Stops the Athan and fully resets the player.
+  /// Stops the Athan and fully resets the player.
   Future<void> stop() async {
-    developer.log('[AthanAudio] stop() called — stopping and disposing player.', name: 'AthanAudioService');
+    developer.log('[AthanAudio] stop() called — stopping and clearing cache.', name: 'AthanAudioService');
     if (_player != null) {
       try {
+        // Rule: ALWAYS await stop() before dispose() to ensure audio focus/cache is released.
         await _player!.stop();
-      } catch (_) {}
+        await _player!.dispose();
+        developer.log('[AthanAudio] Player stopped and disposed.', name: 'AthanAudioService');
+      } catch (e) {
+        developer.log('[AthanAudio] Error during stop/dispose: $e', name: 'AthanAudioService');
+      }
     }
     _isPlaying = false;
-    await _disposePlayer();
+    _player = null;
   }
 
   /// Static method to stop audio from the Background Service isolate.

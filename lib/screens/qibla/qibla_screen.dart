@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -9,9 +10,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:adhan/adhan.dart' as adhan;
 
 import '../../core/theme/app_colors.dart';
 import '../../providers/settings_provider.dart';
+import '../../core/services/storage_service.dart';
 import 'location_error_widget.dart';
 
 class QiblaScreen extends StatefulWidget {
@@ -179,6 +182,11 @@ class _QiblaCompassState extends State<QiblaCompass> {
   final _locationStreamController =
       StreamController<LocationStatus>.broadcast();
 
+  // Track if we are using cached location for UI feedback
+  bool _isOffline = false;
+  double? _cachedLat;
+  double? _cachedLon;
+
   Stream<LocationStatus> get stream => _locationStreamController.stream;
 
   @override
@@ -188,14 +196,48 @@ class _QiblaCompassState extends State<QiblaCompass> {
   }
 
   Future<void> _checkLocationStatus() async {
+    // Rule: Always check permission first even if offline
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        await Geolocator.requestPermission();
+      }
+    } catch (_) {}
+
     final locationStatus = await FlutterQiblah.checkLocationStatus();
+    _locationStreamController.sink.add(locationStatus);
+
     if (locationStatus.enabled &&
-        locationStatus.status == LocationPermission.denied) {
-      await FlutterQiblah.requestPermissions();
-      final s = await FlutterQiblah.checkLocationStatus();
-      _locationStreamController.sink.add(s);
-    } else {
-      _locationStreamController.sink.add(locationStatus);
+        (locationStatus.status == LocationPermission.always ||
+         locationStatus.status == LocationPermission.whileInUse)) {
+      
+      // Try to get a fresh fix, but with a short timeout to handle offline/no-signal
+      try {
+        final position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+        ).timeout(const Duration(seconds: 3));
+        
+        setState(() {
+          _isOffline = false;
+          _cachedLat = position.latitude;
+          _cachedLon = position.longitude;
+        });
+      } catch (e) {
+        // Fallback: Fetch last saved location from StorageService
+        try {
+          final storage = await StorageService.create();
+          final lastLoc = storage.getLastLocation();
+          
+          if (lastLoc != null) {
+            setState(() {
+              _isOffline = true;
+              _cachedLat = lastLoc.latitude;
+              _cachedLon = lastLoc.longitude;
+            });
+            developer.log('[Qibla] Using cached location: ${lastLoc.latitude}, ${lastLoc.longitude}', name: 'QiblaScreen');
+          }
+        } catch (_) {}
+      }
     }
   }
 
@@ -217,11 +259,43 @@ class _QiblaCompassState extends State<QiblaCompass> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const CupertinoActivityIndicator(color: AppColors.gold);
           }
-          if (snapshot.data!.enabled == true) {
-            switch (snapshot.data!.status) {
+          final status = snapshot.data;
+          if (status != null && status.enabled == true) {
+            switch (status.status) {
               case LocationPermission.always:
               case LocationPermission.whileInUse:
-                return QiblahCompassWidget(locale: widget.locale);
+                return Column(
+                  children: [
+                    Expanded(
+                      child: QiblahCompassWidget(
+                        locale: widget.locale,
+                        isOffline: _isOffline,
+                        lat: _cachedLat,
+                        lon: _cachedLon,
+                      ),
+                    ),
+                    if (_isOffline)
+                      FadeInUp(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Text(
+                            widget.locale == 'ar'
+                                ? 'يتم الحساب بناءً على آخر موقع مسجل (بدون إنترنت)'
+                                : 'Calculating based on last recorded location (Offline)',
+                            style: TextStyle(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white54
+                                  : Colors.black54,
+                              fontSize: 12,
+                              fontFamily: 'Tajawal',
+                              fontStyle: FontStyle.italic,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
 
               case LocationPermission.denied:
                 return LocationErrorWidget(
@@ -259,8 +333,17 @@ class _QiblaCompassState extends State<QiblaCompass> {
 
 class QiblahCompassWidget extends StatefulWidget {
   final String locale;
+  final bool isOffline;
+  final double? lat;
+  final double? lon;
 
-  const QiblahCompassWidget({super.key, required this.locale});
+  const QiblahCompassWidget({
+    super.key,
+    required this.locale,
+    this.isOffline = false,
+    this.lat,
+    this.lon,
+  });
 
   @override
   State<QiblahCompassWidget> createState() => _QiblahCompassWidgetState();
@@ -280,83 +363,37 @@ class _QiblahCompassWidgetState extends State<QiblahCompassWidget> {
       stream: FlutterQiblah.qiblahStream,
       builder: (_, AsyncSnapshot<QiblahDirection> snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          // Shimmer effect while preparing sensor
-          return Shimmer.fromColors(
-            baseColor: Colors.grey.shade400.withValues(alpha: 0.3),
-            highlightColor: Colors.grey.shade100.withValues(alpha: 0.6),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: compassSize,
-                    height: compassSize,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: <Widget>[
-                        // Dial (Fixed)
-                        SvgPicture.asset(
-                          'assets/images/qibla_compass.svg',
-                          colorFilter: const ColorFilter.mode(
-                            Colors.white,
-                            BlendMode.srcIn,
-                          ),
-                          fit: BoxFit.contain,
-                        ),
-                        // Kaaba (Fixed at top)
-                        SvgPicture.asset(
-                          'assets/images/qibla_kaaba.svg',
-                          colorFilter: const ColorFilter.mode(
-                            Colors.white,
-                            BlendMode.srcIn,
-                          ),
-                          fit: BoxFit.contain,
-                        ),
-                        // Needle (Static in placeholder)
-                        SvgPicture.asset(
-                          'assets/images/qibla_needle.svg',
-                          colorFilter: const ColorFilter.mode(
-                            Colors.white,
-                            BlendMode.srcIn,
-                          ),
-                          fit: BoxFit.contain,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  Text(
-                    widget.locale == 'ar'
-                        ? "جار تهيئة البوصلة...\nيرجى الانتظار..."
-                        : "Preparing compass...\nPlease wait...",
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
-          );
+          return _buildLoadingCompass(compassSize);
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return _buildErrorCompass(locale: widget.locale);
         }
 
         final qiblahDirection = snapshot.data!;
         
-        // Exact angle rotation math handling shortest path
-        final double turns = (qiblahDirection.qiblah * -1) / 360.0;
+        // Rule: If offline, calculate the Qibla offset manually using provided coords.
+        // Qibla direction in the package is (AngleToMecca - DeviceHeading).
+        // If we are offline, we use the adhan package for AngleToMecca.
+        double finalQiblah;
+        if (widget.isOffline && widget.lat != null && widget.lon != null) {
+          final qiblaAngle = adhan.Qibla(adhan.Coordinates(widget.lat!, widget.lon!)).direction;
+          finalQiblah = qiblaAngle - qiblahDirection.direction; // direction here is the device heading relative to north
+        } else {
+          finalQiblah = qiblahDirection.qiblah;
+        }
 
-        // NEW: Shortest angular distance logic to avoid 180° false positives.
-        // Normalize the qiblah angle to the [-180, 180] range.
-        double diff = qiblahDirection.qiblah % 360;
+        final double turns = (finalQiblah * -1) / 360.0;
+
+        // Shortest angular distance logic
+        double diff = finalQiblah % 360;
         if (diff > 180) diff -= 360;
         if (diff < -180) diff += 360;
 
-        // Alignment logic: Strictly near 0 degrees (needle tip points to Kaaba)
-        // 2 degrees tolerance for haptic/color feedback
         bool isAligned = diff.abs() <= 2.0;
 
-        // Trigger haptic feedback when entering aligned state
         if (isAligned && !_wasAligned) {
           _wasAligned = true;
-          debugPrint("[Qibla] Aligned with Kaaba! Angle diff: ${diff.toStringAsFixed(1)}°");
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             final settings = context.read<SettingsProvider>();
@@ -379,73 +416,134 @@ class _QiblahCompassWidgetState extends State<QiblahCompassWidget> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(
-                    width: compassSize,
-                    height: compassSize,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: <Widget>[
-                        // 1. Dial (Static)
-                        SvgPicture.asset(
-                          'assets/images/qibla_compass.svg',
-                          colorFilter: ColorFilter.mode(
-                            currentColor,
-                            BlendMode.srcIn,
-                          ),
-                          fit: BoxFit.contain,
-                        ),
-                        
-                        // 2. Kaaba (Static at the 0° position)
-                        SvgPicture.asset(
-                          'assets/images/qibla_kaaba.svg',
-                          fit: BoxFit.contain,
-                        ),
-
-                        // 3. Needle (Rotating)
-                        AnimatedRotation(
-                          turns: turns,
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeOut,
-                          child: SvgPicture.asset(
-                            'assets/images/qibla_needle.svg',
-                            colorFilter: ColorFilter.mode(
-                              currentColor,
-                              BlendMode.srcIn,
-                            ),
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _buildCompassStack(compassSize, turns, currentColor),
                   const SizedBox(height: 48),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: currentColor.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Text(
-                      widget.locale == 'ar'
-                          ? "قم بمحاذاة السهمين معاً\nأبعد جهازك عن أي معادن لضمان الدقة.\nقم بمعايرة البوصلة عند كل استخدام."
-                          : "Align both arrow heads\nDo not put device close to metal object.\nCalibrate the compass everytime you use it.",
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                        height: 1.6,
-                      ),
-                    ),
-                  ),
+                  _buildGuidanceContainer(currentColor),
                 ],
               ),
             );
           },
         );
       },
+    );
+  }
+
+  Widget _buildLoadingCompass(double size) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade400.withValues(alpha: 0.3),
+      highlightColor: Colors.grey.shade100.withValues(alpha: 0.6),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildStaticStack(size),
+            const SizedBox(height: 32),
+            Text(
+              widget.locale == 'ar'
+                  ? "جار تهيئة البوصلة...\nيرجى الانتظار..."
+                  : "Preparing compass...\nPlease wait...",
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorCompass({required String locale}) {
+    return Center(
+      child: Text(
+        locale == 'ar' ? 'فشل تحميل بيانات البوصلة' : 'Failed to load compass data',
+        style: const TextStyle(color: AppColors.error),
+      ),
+    );
+  }
+
+  Widget _buildStaticStack(double size) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: <Widget>[
+          SvgPicture.asset(
+            'assets/images/qibla_compass.svg',
+            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+            fit: BoxFit.contain,
+          ),
+          SvgPicture.asset(
+            'assets/images/qibla_kaaba.svg',
+            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+            fit: BoxFit.contain,
+          ),
+          SvgPicture.asset(
+            'assets/images/qibla_needle.svg',
+            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+            fit: BoxFit.contain,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompassStack(double size, double turns, Color currentColor) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: <Widget>[
+          // 1. Dial (Static)
+          SvgPicture.asset(
+            'assets/images/qibla_compass.svg',
+            colorFilter: ColorFilter.mode(currentColor, BlendMode.srcIn),
+            fit: BoxFit.contain,
+          ),
+          
+          // 2. Kaaba (Static at the 0° position)
+          SvgPicture.asset(
+            'assets/images/qibla_kaaba.svg',
+            fit: BoxFit.contain,
+          ),
+
+          // 3. Needle (Rotating)
+          AnimatedRotation(
+            turns: turns,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOut,
+            child: SvgPicture.asset(
+              'assets/images/qibla_needle.svg',
+              colorFilter: ColorFilter.mode(currentColor, BlendMode.srcIn),
+              fit: BoxFit.contain,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuidanceContainer(Color currentColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: currentColor.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Text(
+        widget.locale == 'ar'
+            ? "قم بمحاذاة السهمين معاً\nأبعد جهازك عن أي معادن لضمان الدقة.\nقم بمعايرة البوصلة عند كل استخدام."
+            : "Align both arrow heads\nDo not put device close to metal object.\nCalibrate the compass everytime you use it.",
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 14,
+          height: 1.6,
+        ),
+      ),
     );
   }
 }

@@ -171,12 +171,11 @@ void main() async {
       final nameEn = data['prayerEn'] as String? ?? 'Prayer';
       final image = data['image'] as String?;
 
-      // Rule: Clear any existing overlay/dialog before showing the Athan screen.
-      // This prevents "ghost" screens when multiple events fire near each other.
-      navigatorKey.currentState?.popUntil((route) => route.isFirst);
-
-      navigatorKey.currentState?.pushReplacement(
+      // Rule: Cautiously clear intermediate routes but keep the home screen (isFirst).
+      // This prevents stacking multiple Athan overlays while preserving the user's base navigation state.
+      navigatorKey.currentState?.pushAndRemoveUntil(
         MaterialPageRoute(
+          settings: const RouteSettings(name: '/athan_overlay'),
           fullscreenDialog: true,
           builder: (_) => AthanOverlayScreen(
             prayerNameAr: nameAr,
@@ -184,6 +183,7 @@ void main() async {
             backgroundImage: image,
           ),
         ),
+        (route) => route.isFirst,
       );
     }
   });
