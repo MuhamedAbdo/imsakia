@@ -21,12 +21,12 @@ class BackgroundService {
   static const _channelName = 'Adhan Running';
   static const _eventsChannelId = 'islamic_events';
   static const _eventsChannelName = 'المناسبات الإسلامية';
-  static const _athanChannelId = 'athan_channel_v2';
+  static const _athanChannelId = 'adhan_athan';
 
   static Future<void> initialize() async {
     final service = FlutterBackgroundService();
 
-    // ── Notification channels ─────────────────────────────────────────────────
+    // ── Notification channels (Created in Main Isolate for reliability)
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
         FlutterLocalNotificationsPlugin();
     final androidPlugin = flutterLocalNotificationsPlugin
@@ -61,7 +61,6 @@ class BackgroundService {
       ),
     );
 
-    // ── Configure the background service ─────────────────────────────────────
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: _onStart,
@@ -126,10 +125,10 @@ void _onStart(ServiceInstance service) async {
   // Singleton audio player owned exclusively by this isolate
   final athanAudio = AthanAudioService();
 
-  developer.log('[BackgroundService] Isolate started.',
+  developer.log('[BackgroundService] Isolate started (adhan precision loop).',
       name: 'BackgroundService');
 
-  // ── Notification plugin ───────────────────────────────────────────────────
+  // ── Notification plugin – handles action buttons
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
@@ -158,7 +157,7 @@ void _onStart(ServiceInstance service) async {
     },
   );
 
-  // ── Foreground / background mode control ────────────────────────────────
+  // ── Foreground / background mode control
   if (service is AndroidServiceInstance) {
     service.on('setAsForeground').listen((event) {
       service.setAsForegroundService();
@@ -168,14 +167,14 @@ void _onStart(ServiceInstance service) async {
     });
   }
 
-  // ── Stop service command ─────────────────────────────────────────────────
+  // ── Stop service command
   service.on('stop').listen((event) {
     developer.log('[BackgroundService] Received stop — shutting down service.',
         name: 'BackgroundService');
     service.stopSelf();
   });
 
-  // ── Unified stop_audio command ───────────────────────────────────────────
+  // ── Unified stop_audio command (from overlay Stop button OR notification action)
   service.on('stop_audio').listen((event) async {
     developer.log(
         '[BackgroundService] Received stop_audio command — stopping audio and clearing all notifications.',
@@ -184,7 +183,7 @@ void _onStart(ServiceInstance service) async {
     await flutterLocalNotificationsPlugin.cancelAll();
   });
 
-  // ── Manual reschedule trigger ────────────────────────────────────────────
+  // ── Manual reschedule trigger
   service.on('schedule').listen((event) async {
     developer.log(
         '[BackgroundService] Received schedule command — refreshing prayer times.',
@@ -193,67 +192,26 @@ void _onStart(ServiceInstance service) async {
         service, athanAudio, flutterLocalNotificationsPlugin);
   });
 
-  // ── Initial prayer-time check ────────────────────────────────────────────
+  // ── Initial prayer-time check
   await _scheduleNextAthan(
       service, athanAudio, flutterLocalNotificationsPlugin);
 
-  // ── Dynamic polling with precision ───────────────────────────────────────
-  // Default 1 minute, but drops to 1 second when near prayer time.
-  Duration tickInterval = const Duration(minutes: 1);
-  
-  void setupTick() {
-    Timer(tickInterval, () async {
-      final now = DateTime.now();
-      
-      // Perform checks
-      await _checkAndTriggerAthan(
-          service, athanAudio, flutterLocalNotificationsPlugin);
-      await _checkIslamicEvents(flutterLocalNotificationsPlugin);
-      await _checkEidTakbeer(service, athanAudio, flutterLocalNotificationsPlugin);
-
-      // Recalculate next interval
-      // If any prayer is within the next 65 seconds, switch to 1-second polling
-      final prefs = await SharedPreferences.getInstance();
-      final settingsRaw = prefs.getString('settings');
-      final locationRaw = prefs.getString('last_location');
-      
-      bool highPrecisionNeeded = false;
-      if (settingsRaw != null && locationRaw != null) {
-        final settings = SettingsModel.fromJson(jsonDecode(settingsRaw) as Map<String, dynamic>);
-        final location = LocationModel.fromJson(jsonDecode(locationRaw) as Map<String, dynamic>);
-        final times = PrayerTimesService().calculate(location, settings.calculationMethod);
-        
-        for (final entry in times.toList()) {
-          final diff = entry.time.difference(now);
-          // If a prayer starts in [0, 65] seconds, we need 1-second polling
-          if (diff.inSeconds > 0 && diff.inSeconds <= 65) {
-            highPrecisionNeeded = true;
-            break;
-          }
-        }
-      }
-
-      tickInterval = highPrecisionNeeded 
-          ? const Duration(seconds: 1) 
-          : const Duration(minutes: 1);
-      
-      // Re-setup the next tick
-      setupTick();
-    });
-  }
-
-  setupTick();
+  // ── Periodic 1-minute tick (Original adhan project timing)
+  Timer.periodic(const Duration(minutes: 1), (timer) async {
+    await _checkAndTriggerAthan(
+        service, athanAudio, flutterLocalNotificationsPlugin);
+    
+    // Integrated imsakia extra features
+    await _checkIslamicEvents(flutterLocalNotificationsPlugin);
+    await _checkEidTakbeer(service, athanAudio, flutterLocalNotificationsPlugin);
+  });
 }
 
 // ---------------------------------------------------------------------------
-// Per-day debounce key (reset each new day automatically via date component)
+// Per-day debounce keys
 // ---------------------------------------------------------------------------
 String _lastTriggeredAthanKey = '';
-
-// Last date an Islamic event notification was sent (yyyy-MM-dd)
 String _lastEventNotifiedDate = '';
-
-// Last date Eid Takbeer was played (yyyy-MM-dd)
 String _lastEidTakbeerDate = '';
 
 // ---------------------------------------------------------------------------
@@ -270,7 +228,7 @@ Future<void> _scheduleNextAthan(
 }
 
 // ---------------------------------------------------------------------------
-// _checkAndTriggerAthan – runs every minute
+// _checkAndTriggerAthan – runs every minute (Ported from adhan project)
 // ---------------------------------------------------------------------------
 Future<void> _checkAndTriggerAthan(
     ServiceInstance service,
@@ -280,26 +238,14 @@ Future<void> _checkAndTriggerAthan(
     final prefs = await SharedPreferences.getInstance();
 
     final settingsRaw = prefs.getString('settings');
-    if (settingsRaw == null) {
-      developer.log('[BackgroundService] No settings found — skipping check.',
-          name: 'BackgroundService');
-      return;
-    }
+    if (settingsRaw == null) return;
     final settings =
         SettingsModel.fromJson(jsonDecode(settingsRaw) as Map<String, dynamic>);
 
-    if (!settings.athanEnabled) {
-      developer.log('[BackgroundService] Athan disabled — skipping check.',
-          name: 'BackgroundService');
-      return;
-    }
+    if (!settings.athanEnabled) return;
 
     final locationRaw = prefs.getString('last_location');
-    if (locationRaw == null) {
-      developer.log('[BackgroundService] No location found — skipping check.',
-          name: 'BackgroundService');
-      return;
-    }
+    if (locationRaw == null) return;
     final location =
         LocationModel.fromJson(jsonDecode(locationRaw) as Map<String, dynamic>);
 
@@ -308,7 +254,7 @@ Future<void> _checkAndTriggerAthan(
 
     final times = prayerService.calculate(location, settings.calculationMethod);
 
-    // ── UPDATE FOREGROUND NOTIFICATION DYNAMICALLY ─────────────────────────
+    // ── UPDATE FOREGROUND NOTIFICATION DYNAMICALLY
     final nextPrayer = times.nextPrayer;
     if (nextPrayer != null && service is AndroidServiceInstance) {
       String formatTime(DateTime time) {
@@ -328,78 +274,42 @@ Future<void> _checkAndTriggerAthan(
       );
     }
 
-    developer.log(
-      '[BackgroundService] Tick at $now — checking ${times.toList().length} prayers.',
-      name: 'BackgroundService',
-    );
-
-    // ── WIDGET LIVE UPDATE ─────────────────────────────────────────────────
+    // ── WIDGET LIVE UPDATE
     if (nextPrayer != null) {
       final remaining = nextPrayer.time.difference(now);
       final countdown = remaining.isNegative ? Duration.zero : remaining;
       final wHours = countdown.inHours.toString().padLeft(2, '0');
       final wMins = (countdown.inMinutes % 60).toString().padLeft(2, '0');
-      final wNextName =
-          '${nextPrayer.name.nameAr} ${_formatTime12(nextPrayer.time)}';
+      final wNextName = '${nextPrayer.name.nameAr} ${_formatTime12(nextPrayer.time)}';
       try {
         await HomeWidget.saveWidgetData<String>('widget_hours', wHours);
         await HomeWidget.saveWidgetData<String>('widget_minutes', wMins);
         await HomeWidget.saveWidgetData<String>('next_prayer', wNextName);
-
         await Future.delayed(const Duration(milliseconds: 50));
-
         await HomeWidget.updateWidget(
           name: 'PrayerWidgetProvider',
           androidName: 'PrayerWidgetProvider',
         );
-        developer.log(
-          '[BackgroundService] Widget updated: ${wHours}h ${wMins}m → $wNextName.',
-          name: 'BackgroundService',
-        );
       } catch (e) {
-        developer.log(
-          '[BackgroundService] Widget update failed: $e',
-          name: 'BackgroundService',
-        );
+        developer.log('[BackgroundService] Widget update failed: $e');
       }
     }
 
     for (final entry in times.toList()) {
-      final prayerTime = entry.time;
-      final diff = now.difference(prayerTime);
+      final diff = entry.time.difference(now);
 
-      // Window: 0 – 60 seconds AFTER prayer time (Zero-Second Precision Rule)
+      // Window: 0 – 60 seconds (Using adhan's exact window approach)
       if (diff.inSeconds >= 0 && diff.inSeconds <= 60) {
-        // Unique key includes date + prayer name to prevent cross-day collisions
-        final currentKey =
-            '${now.year}-${now.month}-${now.day}_${entry.name.nameAr}';
+        final currentKey = '${now.year}-${now.month}-${now.day}_${entry.name.nameAr}';
+        if (_lastTriggeredAthanKey == currentKey) continue;
 
-        if (_lastTriggeredAthanKey == currentKey) {
-          continue;
-        }
-
-        // Logic: Trigger ONLY when now is exactly at or after the scheduled prayer time.
-        // This eliminates the "early trigger" or "random delay" issues.
-        if (now.isBefore(prayerTime)) {
-             continue; // The 1-second polling will catch it in the next tick
-        }
-
-        final syncOffset = now.difference(prayerTime).inMilliseconds;
-        developer.log(
-          '[AthanSync] Fired at ${now.millisecondsSinceEpoch} | Expected: ${prayerTime.millisecondsSinceEpoch} | Offset: ${syncOffset}ms.',
-          name: 'BackgroundService',
-        );
-        
+        developer.log('[AthanSync] Triggering ${entry.name.nameAr} at $now. Expected: ${entry.time}', name: 'BackgroundService');
         _lastTriggeredAthanKey = currentKey;
 
         final notifId = 100 + entry.name.index;
 
-        // ── Imsak & Sunrise: silent notification only ───────────────────────
+        // ── Imsak & Sunrise: silent notification only
         if (entry.name == Prayer.imsak || entry.name == Prayer.sunrise) {
-          developer.log(
-            '[BackgroundService] ${entry.name.nameAr} — showing silent reminder only.',
-            name: 'BackgroundService',
-          );
           const silentDetails = AndroidNotificationDetails(
             'adhan_background',
             'Adhan Running',
@@ -415,48 +325,25 @@ Future<void> _checkAndTriggerAthan(
             body: entry.name == Prayer.imsak
                 ? 'حان وقت الإمساك — امتنع عن الطعام والشراب'
                 : 'حان وقت الشروق',
-            notificationDetails:
-                const NotificationDetails(android: silentDetails),
+            notificationDetails: const NotificationDetails(android: silentDetails),
           );
           break;
         }
 
-        // ── Main prayers (Fajr, Dhuhr, Asr, Maghrib, Isha): full Athan flow ─
-
-        developer.log(
-          '[BackgroundService] Cancelling all previous notifications before ${entry.name.nameAr} Athan.',
-          name: 'BackgroundService',
-        );
+        // ── Main prayers Athan flow
         await notifications.cancelAll();
 
         final prayerImage = _resolvePrayerHeaderAsset(entry.name);
-        
-        developer.log(
-          '[AthanUI] تم تفعيل شاشة الأذان بصورة: $prayerImage والجملة: حان الآن موعد أذان ${entry.name.nameAr}.',
-          name: 'BackgroundService',
-        );
 
-        // ── Audio ───────────────────────────────────────────────────────────
+        // Audio
         if (settings.athanSoundEnabled) {
           final assetPath = _resolveAthanAsset(entry.name, settings);
-          developer.log(
-            '[BackgroundService] Audio command: playing $assetPath for ${entry.name.nameAr}.',
-            name: 'BackgroundService',
-          );
           athanAudio.play(assetPath);
-        } else {
-          developer.log('[BackgroundService] Sound disabled — skipping audio.',
-              name: 'BackgroundService');
         }
 
-        // ── Athan notification ──────────────────────────────────────────────
-        developer.log(
-          '[BackgroundService] Showing Athan notification id=$notifId for ${entry.name.nameAr}.',
-          name: 'BackgroundService',
-        );
-
+        // Athan notification (ongoing with stop action)
         const androidDetails = AndroidNotificationDetails(
-          BackgroundService._athanChannelId,
+          'adhan_athan',
           'Athan Alarm',
           importance: Importance.max,
           priority: Priority.max,
@@ -476,10 +363,8 @@ Future<void> _checkAndTriggerAthan(
           id: notifId,
           title: 'حان وقت ${entry.name.nameAr}',
           body: 'اضغط لإيقاف الأذان',
-          notificationDetails:
-              const NotificationDetails(android: androidDetails),
-          payload:
-              jsonEncode({
+          notificationDetails: const NotificationDetails(android: androidDetails),
+          payload: jsonEncode({
             'ar': entry.name.nameAr,
             'en': entry.name.nameEn,
             'image': prayerImage,
@@ -491,73 +376,39 @@ Future<void> _checkAndTriggerAthan(
           'prayerEn': entry.name.nameEn,
           'image': prayerImage,
         });
-
-        developer.log(
-          '[BackgroundService] 🔔 Athan sequence complete for ${entry.name.nameAr}.',
-          name: 'BackgroundService',
-        );
         break;
       }
     }
   } catch (e, st) {
-    developer.log('[BackgroundService] Error in _checkAndTriggerAthan: $e\n$st',
-        name: 'BackgroundService');
+    developer.log('[BackgroundService] Error in _checkAndTriggerAthan: $e\n$st');
   }
 }
 
 // ---------------------------------------------------------------------------
-// _checkIslamicEvents – fires at 08:00 AM daily if there's a current event
+// _checkIslamicEvents – fires at 08:00 AM daily
 // ---------------------------------------------------------------------------
 Future<void> _checkIslamicEvents(
     FlutterLocalNotificationsPlugin notifications) async {
   try {
     final now = DateTime.now();
-
-    // Only run during the 08:00 AM minute window
     if (now.hour != 8 || now.minute != 0) return;
 
-    // Prevent duplicate notifications within the same day
     final todayKey = '${now.year}-${now.month}-${now.day}';
-    if (_lastEventNotifiedDate == todayKey) {
-      developer.log(
-        '[BackgroundService] Islamic events already notified today ($todayKey) — skipping.',
-        name: 'BackgroundService',
-      );
-      return;
-    }
+    if (_lastEventNotifiedDate == todayKey) return;
 
-    // Get today's Hijri date
     final hijri = HijriCalendar.now();
     final hMonth = hijri.hMonth;
     final hDay = hijri.hDay;
 
-    developer.log(
-      '[BackgroundService] Checking Islamic events for Hijri $hDay/$hMonth.',
-      name: 'BackgroundService',
-    );
-
-    // Find all events matching today's Hijri date
     final todaysEvents = IslamicEvent.allEvents
         .where((e) => e.month == hMonth && e.day == hDay)
         .toList();
 
-    if (todaysEvents.isEmpty) {
-      developer.log(
-        '[BackgroundService] No Islamic events today.',
-        name: 'BackgroundService',
-      );
-      return;
-    }
-
+    if (todaysEvents.isEmpty) return;
     _lastEventNotifiedDate = todayKey;
 
     for (int i = 0; i < todaysEvents.length; i++) {
       final event = todaysEvents[i];
-      developer.log(
-        '[BackgroundService] 🌙 Islamic event detected: ${event.name}. Showing notification.',
-        name: 'BackgroundService',
-      );
-
       const androidDetails = AndroidNotificationDetails(
         'islamic_events',
         'المناسبات الإسلامية',
@@ -575,16 +426,13 @@ Future<void> _checkIslamicEvents(
         notificationDetails: const NotificationDetails(android: androidDetails),
       );
     }
-  } catch (e, st) {
-    developer.log(
-      '[BackgroundService] Error in _checkIslamicEvents: $e\n$st',
-      name: 'BackgroundService',
-    );
+  } catch (e) {
+    developer.log('[BackgroundService] Error in _checkIslamicEvents: $e');
   }
 }
 
 // ---------------------------------------------------------------------------
-// _checkEidTakbeer – plays Eid Takbeer 30 min after Fajr on Eid days
+// _checkEidTakbeer – plays Eid Takbeer 30 min after Fajr
 // ---------------------------------------------------------------------------
 Future<void> _checkEidTakbeer(
     ServiceInstance service,
@@ -592,12 +440,9 @@ Future<void> _checkEidTakbeer(
     FlutterLocalNotificationsPlugin notifications) async {
   try {
     final prefs = await SharedPreferences.getInstance();
-
-    // Check if Eid Takbeer feature is enabled (default: true)
     final eidTakbeerEnabled = prefs.getBool('enable_eid_takbeer') ?? true;
     if (!eidTakbeerEnabled) return;
 
-    // Check today's Hijri date — only run on Eid days
     final hijri = HijriCalendar.now();
     final isEidAlFitr = hijri.hMonth == 10 && hijri.hDay == 1;
     final isEidAlAdha = hijri.hMonth == 12 && hijri.hDay == 10;
@@ -605,67 +450,41 @@ Future<void> _checkEidTakbeer(
 
     final now = DateTime.now();
     final todayKey = '${now.year}-${now.month}-${now.day}';
-
-    // Debounce: play only once per day
     if (_lastEidTakbeerDate == todayKey) return;
 
-    // Get Fajr time to compute the 30-minute trigger window
     final settingsRaw = prefs.getString('settings');
     if (settingsRaw == null) return;
-    final settings =
-        SettingsModel.fromJson(jsonDecode(settingsRaw) as Map<String, dynamic>);
+    final settings = SettingsModel.fromJson(jsonDecode(settingsRaw) as Map<String, dynamic>);
 
     final locationRaw = prefs.getString('last_location');
     if (locationRaw == null) return;
-    final location =
-        LocationModel.fromJson(jsonDecode(locationRaw) as Map<String, dynamic>);
+    final location = LocationModel.fromJson(jsonDecode(locationRaw) as Map<String, dynamic>);
 
     final prayerService = PrayerTimesService();
     final times = prayerService.calculate(location, settings.calculationMethod);
 
-    final fajrEntry = times.toList().firstWhere(
-      (e) => e.name == Prayer.fajr,
-      orElse: () => times.toList().first,
-    );
-
+    final fajrEntry = times.toList().firstWhere((e) => e.name == Prayer.fajr, orElse: () => times.toList().first);
     final triggerTime = fajrEntry.time.add(const Duration(minutes: 30));
     final diff = now.difference(triggerTime);
 
-    // Trigger window: within 60 seconds of Fajr + 30 min
     if (diff.inSeconds < 0 || diff.inSeconds > 60) return;
-
     _lastEidTakbeerDate = todayKey;
 
     final eidName = isEidAlFitr ? 'عيد الفطر المبارك' : 'عيد الأضحى المبارك';
-
-    developer.log(
-      '[BackgroundService] 🎉 $eidName — playing Eid Takbeer.',
-      name: 'BackgroundService',
-    );
-
-    // Update foreground notification
     if (service is AndroidServiceInstance) {
-      service.setForegroundNotificationInfo(
-        title: 'أوقات الصلاة',
-        content: 'تكبيرات العيد جارية الآن 🎉',
-      );
+      service.setForegroundNotificationInfo(title: 'أوقات الصلاة', content: 'تكبيرات العيد جارية الآن 🎉');
     }
 
-    // Play Eid Takbeer audio
-    // Ensure mutual exclusion: stop any current audio before playing Takbeer
     await athanAudio.stop();
     athanAudio.play('assets/audio/eid_takbeer.mp3');
-
-    // Notify the UI isolate to show the Eid Celebration Screen
     service.invoke('show_eid_screen', {'eid_name': eidName});
 
-    // Show a notification
     const androidDetails = AndroidNotificationDetails(
       'islamic_events',
       'المناسبات الإسلامية',
       importance: Importance.high,
       priority: Priority.high,
-      playSound: false, // audio handled by athanAudio
+      playSound: false,
       enableVibration: true,
       ongoing: false,
     );
@@ -676,20 +495,15 @@ Future<void> _checkEidTakbeer(
       body: 'تكبيرات العيد جارية الآن',
       notificationDetails: const NotificationDetails(android: androidDetails),
     );
-  } catch (e, st) {
-    developer.log(
-      '[BackgroundService] Error in _checkEidTakbeer: $e\n$st',
-      name: 'BackgroundService',
-    );
+  } catch (e) {
+    developer.log('[BackgroundService] Error in _checkEidTakbeer: $e');
   }
 }
 
 // ---------------------------------------------------------------------------
-// Helper: resolve the asset path based on settings & prayer
+// Helper: resolve the asset path
 // ---------------------------------------------------------------------------
 String _resolveAthanAsset(Prayer prayer, SettingsModel settings) {
-  // ── Logic: Fajr ALWAYS uses its dedicated sound (special wording) ──────────
-  // ── Other prayers follow isUnifiedAthan setting ────────────────────────────
   final String path = switch (prayer) {
     Prayer.fajr => settings.selectedFajrSound,
     _ when settings.isUnifiedAthan => settings.selectedAthanSound,
@@ -699,40 +513,32 @@ String _resolveAthanAsset(Prayer prayer, SettingsModel settings) {
     Prayer.isha => settings.selectedIshaSound,
     _ => settings.selectedAthanSound,
   };
-
-  developer.log(
-    '[BackgroundService] Selected sound: $path for ${prayer.nameAr} (Unified: ${settings.isUnifiedAthan}).',
-    name: 'BackgroundService',
-  );
   return path;
 }
 
 // ---------------------------------------------------------------------------
-// Helper: resolve the header background image asset path based on prayer
+// Helper: resolve the header background image asset path (.png mapping)
 // ---------------------------------------------------------------------------
 String _resolvePrayerHeaderAsset(Prayer prayer) {
   final Map<Prayer, String> assetMap = {
-    Prayer.fajr: 'assets/images/header_fajr.jpg',
-    Prayer.dhuhr: 'assets/images/header_dhuhr.jpg',
-    Prayer.asr: 'assets/images/header_dhuhr.jpg',
-    Prayer.maghrib: 'assets/images/header_maghrib.jpg',
-    Prayer.isha: 'assets/images/header_isha.jpg',
+    Prayer.fajr: 'assets/images/header_fajr.png',
+    Prayer.dhuhr: 'assets/images/header_dhuhr.png',
+    Prayer.asr: 'assets/images/header_dhuhr.png',
+    Prayer.maghrib: 'assets/images/header_maghrib.png',
+    Prayer.isha: 'assets/images/header_isha.png',
   };
 
   final asset = assetMap[prayer];
-  if (asset == null) {
-     developer.log('[AthanAsset] Warning: No mapping for prayer $prayer. Using fallback.', name: 'BackgroundService');
-     return 'assets/images/header_isha.jpg'; // Solid fallback
-  }
+  if (asset == null) return 'assets/images/header_isha.png';
   return asset;
 }
 
 // ---------------------------------------------------------------------------
-// Helper: format a DateTime as 12-hour h:mm (no AM/PM suffix)
+// Helper: format a DateTime as 12-hour h:mm
 // ---------------------------------------------------------------------------
 String _formatTime12(DateTime time) {
-  final hr =
-      time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+  final hr = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
   final mn = time.minute.toString().padLeft(2, '0');
   return '$hr:$mn';
 }
+

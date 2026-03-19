@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:async';
-import 'dart:developer' as developer;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../models/prayer_times_model.dart';
@@ -8,7 +7,7 @@ import '../models/prayer_times_model.dart';
 class NotificationService {
   static const _channelId = 'adhan_prayer_times';
   static const _channelName = 'زاد - مواقيت الصلاة';
-  static const _athanChannelId = 'athan_channel_v2';
+  static const _athanChannelId = 'adhan_athan';
   static const _athanChannelName = 'زاد - الأذان';
 
   final FlutterLocalNotificationsPlugin _plugin =
@@ -27,7 +26,6 @@ class NotificationService {
       iOS: iosSettings,
     );
 
-    // v21 API: initialize uses named 'settings' parameter
     await _plugin.initialize(
       settings: initSettings,
       onDidReceiveNotificationResponse: _onNotificationResponse,
@@ -99,7 +97,6 @@ class NotificationService {
     final details =
         NotificationDetails(android: androidDetails, iOS: iosDetails);
 
-    // v21 API: zonedSchedule uses all named parameters
     await _plugin.zonedSchedule(
       id: id,
       title: title,
@@ -134,32 +131,16 @@ class NotificationService {
     );
     const details = NotificationDetails(android: androidDetails);
 
-    // v21 API: show uses all named parameters
     await _plugin.show(
       id: id,
       title: 'حان وقت $prayerNameAr',
       body: 'اضغط لإيقاف الأذان',
       notificationDetails: details,
     );
-
-    // Auto-dismiss after 2 minutes (120 seconds)
-    // ID 888/999 are usually persistent, ensure we don't accidentally kill them if this is called for them.
-    // However, this method is specifically for Adhan notifications.
-    if (id != 888 && id != 999) {
-      Timer(const Duration(minutes: 2), () async {
-        try {
-          await _plugin.cancel(id: id);
-          developer.log('[NotificationService] Auto-dismissed Adhan notification $id after 2 minutes.');
-        } catch (e) {
-          // ignore if already cancelled
-        }
-      });
-    }
   }
 
   Future<void> cancelAll() async => _plugin.cancelAll();
 
-  // v21 API: cancel uses named 'id' parameter
   Future<void> cancel(int id) async => _plugin.cancel(id: id);
 
   Future<bool> requestPermission() async {
@@ -178,7 +159,7 @@ class NotificationService {
   }
 
   void _onNotificationResponse(NotificationResponse response) {
-    // Handled by background service via 'stop_athan' action
+    // Handled by background service via 'stop_audio' action
   }
 }
 
@@ -186,3 +167,4 @@ class NotificationService {
 void _notificationTapBackground(NotificationResponse response) {
   // Signal background service to stop Athan
 }
+
