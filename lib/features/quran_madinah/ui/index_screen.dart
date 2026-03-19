@@ -147,14 +147,14 @@ class IndexScreen extends StatelessWidget {
           BoxShadow(
             color: isDark
                 ? Colors.black54
-                : Colors.black.withValues(alpha: 0.08),
-            blurRadius: 15,
+                : Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
             spreadRadius: 1,
             offset: const Offset(0, 4),
           ),
         ],
         border: Border.all(
-          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
           width: 0.8,
         ),
       ),
@@ -250,14 +250,14 @@ class IndexScreen extends StatelessWidget {
           BoxShadow(
             color: isDark
                 ? Colors.black54
-                : Colors.black.withValues(alpha: 0.08),
-            blurRadius: 15,
+                : Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
             spreadRadius: 1,
             offset: const Offset(0, 4),
           ),
         ],
         border: Border.all(
-          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
           width: 0.8,
         ),
       ),
@@ -314,7 +314,7 @@ class IndexScreen extends StatelessWidget {
                       Row(
                         children: [
                           Text(
-                            '\$ayahCount Ayahs',
+                            '$ayahCount آية',
                             style: TextStyle(
                               fontSize: 12,
                               color: Theme.of(
