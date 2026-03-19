@@ -182,6 +182,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final textColor = isDark ? Colors.white : AppColors.darkNavy;
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF7F8FA),
       appBar: AppBar(
         centerTitle: true,
         automaticallyImplyLeading: true,
@@ -347,25 +348,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         // FIX 2: Cumulative toggle – tapping -1 or +1 applies
                         // the delta to hijriBaseOffset then resets selector to 0.
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [-1, 0, 1].map((offset) {
-                            final isSelected = settings.hijriOffset == offset;
-                            return GestureDetector(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Minus Button
+                            _buildHijriAdjustmentButton(
+                              context: context,
+                              icon: Icons.remove,
+                              label: 'إنقاص يوم',
                               onTap: () async {
-                                if (offset == 0) {
-                                  // Tapping 0 resets any pending selection only
-                                  // (hijriBaseOffset stays intact – that is the
-                                  // permanent cumulative correction).
-                                  return;
-                                }
-                                // Apply the delta cumulatively and reset the UI
                                 final hijriProvider = context.read<HijriCalendarProvider>();
                                 final locationProvider = context.read<LocationProvider>();
                                 final settingsProvider = context.read<SettingsProvider>();
-                                final targetBaseOffset = settingsProvider.hijriBaseOffset + offset;
+                                final targetBaseOffset = settingsProvider.hijriBaseOffset - 1;
                                 final countryCode = locationProvider.location?.countryCode;
 
-                                await settingsProvider.applyHijriOffset(offset);
+                                await settingsProvider.applyHijriOffset(-1);
                                 if (!context.mounted) return;
 
                                 await hijriProvider.fetch(
@@ -373,36 +370,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   countryCode: countryCode,
                                 );
                               },
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 300),
-                                width: 72,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? AppColors.gold
-                                      : Colors.white.withValues(alpha: 0.06),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? AppColors.gold
-                                        : Colors.white24,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    offset > 0 ? '+$offset' : '$offset',
+                            ),
+                            
+                            // Current Offset Display
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${settings.hijriBaseOffset > 0 ? '+' : ''}${settings.hijriBaseOffset}',
                                     style: TextStyle(
-                                      color: isSelected
-                                          ? AppColors.darkNavy
-                                          : Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 20,
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.w900,
+                                      color: textColor,
                                     ),
                                   ),
-                                ),
+                                  Text(
+                                    'الإزاحة الحالية',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: textColor.withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            );
-                          }).toList(),
+                            ),
+
+                            // Plus Button
+                            _buildHijriAdjustmentButton(
+                              context: context,
+                              icon: Icons.add,
+                              label: 'زيادة يوم',
+                              onTap: () async {
+                                final hijriProvider = context.read<HijriCalendarProvider>();
+                                final locationProvider = context.read<LocationProvider>();
+                                final settingsProvider = context.read<SettingsProvider>();
+                                final targetBaseOffset = settingsProvider.hijriBaseOffset + 1;
+                                final countryCode = locationProvider.location?.countryCode;
+
+                                await settingsProvider.applyHijriOffset(1);
+                                if (!context.mounted) return;
+
+                                await hijriProvider.fetch(
+                                  offset: targetBaseOffset,
+                                  countryCode: countryCode,
+                                );
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -605,6 +622,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
 );
   }
 
+  Widget _buildHijriAdjustmentButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          color: const Color(0xFFD4AF37),
+          borderRadius: BorderRadius.circular(16),
+          elevation: 6,
+          shadowColor: const Color(0xFFD4AF37).withValues(alpha: 0.4),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Icon(icon, color: Colors.white, size: 28),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFFD4AF37),
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _refreshPrayerTimes(
     LocationProvider locationProvider,
     SettingsProvider settingsProvider,
@@ -657,15 +710,15 @@ class _SettingCard extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: isDark
-                  ? Colors.black54
-                  : Colors.black.withValues(alpha: 0.05),
+                  ? Colors.black.withValues(alpha: 0.2)
+                  : Colors.black.withValues(alpha: 0.06),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
           ],
           border: Border.all(
-            color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1),
-            width: 1,
+            color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.15),
+            width: 1.2,
           ),
         ),
         child: Padding(
