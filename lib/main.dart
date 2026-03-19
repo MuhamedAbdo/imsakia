@@ -171,6 +171,10 @@ void main() async {
       final nameEn = data['prayerEn'] as String? ?? 'Prayer';
       final image = data['image'] as String?;
 
+      // Rule: Clear any existing overlay/dialog before showing the Athan screen.
+      // This prevents "ghost" screens when multiple events fire near each other.
+      navigatorKey.currentState?.popUntil((route) => route.isFirst);
+
       navigatorKey.currentState?.pushReplacement(
         MaterialPageRoute(
           fullscreenDialog: true,

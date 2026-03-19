@@ -79,11 +79,12 @@ class NotificationService {
       priority: isAthan ? Priority.max : Priority.high,
       fullScreenIntent: isAthan,
       category: isAthan ? AndroidNotificationCategory.alarm : null,
+      ongoing: isAthan,
       icon: '@drawable/ic_notification',
       actions: isAthan
           ? const [
               AndroidNotificationAction(
-                'stop_athan',
+                'stop_audio',
                 'إيقاف الأذان',
                 cancelNotification: true,
               ),
@@ -125,7 +126,7 @@ class NotificationService {
       icon: '@drawable/ic_notification',
       actions: [
         AndroidNotificationAction(
-          'stop_athan',
+          'stop_audio',
           'إيقاف الأذان',
           cancelNotification: true,
         ),

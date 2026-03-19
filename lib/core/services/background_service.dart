@@ -378,13 +378,15 @@ Future<void> _checkAndTriggerAthan(
           continue;
         }
 
-        // Logic: If DateTime.now() is even 1 millisecond before the scheduled prayer time, WAIT.
+        // Logic: Trigger ONLY when now is exactly at or after the scheduled prayer time.
+        // This eliminates the "early trigger" or "random delay" issues.
         if (now.isBefore(prayerTime)) {
              continue; // The 1-second polling will catch it in the next tick
         }
 
+        final syncOffset = now.difference(prayerTime).inMilliseconds;
         developer.log(
-          '[AthanPrecision] Triggered at ${DateTime.now()} for scheduled time $prayerTime. Sync Error: ${DateTime.now().difference(prayerTime).inMilliseconds}ms.',
+          '[AthanSync] Fired at ${now.millisecondsSinceEpoch} | Expected: ${prayerTime.millisecondsSinceEpoch} | Offset: ${syncOffset}ms.',
           name: 'BackgroundService',
         );
         
@@ -650,6 +652,8 @@ Future<void> _checkEidTakbeer(
     }
 
     // Play Eid Takbeer audio
+    // Ensure mutual exclusion: stop any current audio before playing Takbeer
+    await athanAudio.stop();
     athanAudio.play('assets/audio/eid_takbeer.mp3');
 
     // Notify the UI isolate to show the Eid Celebration Screen
@@ -707,19 +711,20 @@ String _resolveAthanAsset(Prayer prayer, SettingsModel settings) {
 // Helper: resolve the header background image asset path based on prayer
 // ---------------------------------------------------------------------------
 String _resolvePrayerHeaderAsset(Prayer prayer) {
-  switch (prayer) {
-    case Prayer.fajr:
-      return 'assets/images/header_fajr.jpg';
-    case Prayer.dhuhr:
-    case Prayer.asr:
-      return 'assets/images/header_dhuhr.jpg';
-    case Prayer.maghrib:
-      return 'assets/images/header_maghrib.jpg';
-    case Prayer.isha:
-      return 'assets/images/header_isha.jpg';
-    default:
-      return 'assets/images/header_isha.jpg';
+  final Map<Prayer, String> assetMap = {
+    Prayer.fajr: 'assets/images/header_fajr.jpg',
+    Prayer.dhuhr: 'assets/images/header_dhuhr.jpg',
+    Prayer.asr: 'assets/images/header_dhuhr.jpg',
+    Prayer.maghrib: 'assets/images/header_maghrib.jpg',
+    Prayer.isha: 'assets/images/header_isha.jpg',
+  };
+
+  final asset = assetMap[prayer];
+  if (asset == null) {
+     developer.log('[AthanAsset] Warning: No mapping for prayer $prayer. Using fallback.', name: 'BackgroundService');
+     return 'assets/images/header_isha.jpg'; // Solid fallback
   }
+  return asset;
 }
 
 // ---------------------------------------------------------------------------

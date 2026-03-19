@@ -28,14 +28,11 @@ class AthanAudioService {
       return;
     }
 
-    // --- Already playing guard ---
-    if (_isPlaying) {
-      developer.log(
-        '[AthanAudio] Already playing — ignoring play() call.',
-        name: 'AthanAudioService',
-      );
-      return;
-    }
+    // --- Audio Driver Mutual Exclusion ---
+    // Rule: Before starting any new audio, ALWAYS call and await stop()
+    // to avoid overlapping and ensure proper Audio Focus.
+    developer.log('[AthanAudio] Stopping current playback before starting new: $assetPath', name: 'AthanAudioService');
+    await stop();
 
     try {
       developer.log('[AthanAudio] Starting audio: $assetPath', name: 'AthanAudioService');
@@ -69,6 +66,12 @@ class AthanAudioService {
     }
     _isPlaying = false;
     await _disposePlayer();
+  }
+
+  /// Static method to stop audio from the Background Service isolate.
+  /// CAUTION: Does NOT work across isolates. UI must use background service invoke.
+  static Future<void> stopAudio() async {
+    await AthanAudioService().stop();
   }
 
   Future<void> _disposePlayer() async {
