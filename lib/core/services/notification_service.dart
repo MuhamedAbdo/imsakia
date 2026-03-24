@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../models/prayer_times_model.dart';
@@ -159,12 +160,19 @@ class NotificationService {
   }
 
   void _onNotificationResponse(NotificationResponse response) {
-    // Handled by background service via 'stop_audio' action
+    // When actionId is 'stop_audio' OR the user taps the notification body → kill audio.
+    if (response.actionId == 'stop_audio' || response.actionId == null) {
+      FlutterBackgroundService().invoke('stop_audio');
+    }
   }
 }
 
 @pragma('vm:entry-point')
 void _notificationTapBackground(NotificationResponse response) {
-  // Signal background service to stop Athan
+  // Runs in the background isolate when the notification action is tapped
+  // while the app is terminated. Signal the background service to stop Athan.
+  if (response.actionId == 'stop_audio' || response.actionId == null) {
+    FlutterBackgroundService().invoke('stop_audio');
+  }
 }
 

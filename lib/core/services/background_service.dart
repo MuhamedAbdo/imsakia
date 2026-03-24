@@ -181,6 +181,11 @@ void _onStart(ServiceInstance service) async {
         name: 'BackgroundService');
     await athanAudio.stop();
     await flutterLocalNotificationsPlugin.cancelAll();
+    // Clear the playing flag so the UI knows audio has ended.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('athan_is_playing', false);
+    } catch (_) {}
   });
 
   // ── Manual reschedule trigger
@@ -341,7 +346,6 @@ Future<void> _checkAndTriggerAthan(
           athanAudio.play(assetPath);
         }
 
-        // Athan notification (ongoing with stop action)
         const androidDetails = AndroidNotificationDetails(
           'adhan_athan',
           'Athan Alarm',
@@ -354,7 +358,7 @@ Future<void> _checkAndTriggerAthan(
             AndroidNotificationAction(
               'stop_audio',
               'إيقاف الأذان',
-              cancelNotification: true,
+              cancelNotification: false, // Keep alive so Dart receives the tap event
             ),
           ],
         );
@@ -376,6 +380,14 @@ Future<void> _checkAndTriggerAthan(
           'prayerEn': entry.name.nameEn,
           'image': prayerImage,
         });
+        // Persist the playing flag so the UI can detect it on resume/cold-start.
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('athan_is_playing', true);
+          await prefs.setString('athan_prayer_ar', entry.name.nameAr);
+          await prefs.setString('athan_prayer_en', entry.name.nameEn);
+          await prefs.setString('athan_prayer_image', prayerImage);
+        } catch (_) {}
         break;
       }
     }

@@ -150,10 +150,25 @@ void main() async {
     ),
   );
 
+  // ── Helper: push AthanOverlayScreen safely from anywhere ───────────────────
+  void pushAthanOverlay(String nameAr, String nameEn, String? image) {
+    final nav = navigatorKey.currentState;
+    if (nav == null) return;
+    nav.pushAndRemoveUntil(
+      MaterialPageRoute(
+        settings: const RouteSettings(name: '/athan_overlay'),
+        fullscreenDialog: true,
+        builder: (_) => AthanOverlayScreen(
+          prayerNameAr: nameAr,
+          prayerNameEn: nameEn,
+          backgroundImage: image,
+        ),
+      ),
+      (route) => route.isFirst,
+    );
+  }
+
   // ── Listen for Eid screen event from background isolate ────────────────────
-  // The background service runs in a separate Dart isolate. It cannot push
-  // Navigator routes directly. Instead, it invokes 'show_eid_screen' and
-  // we listen here to push EidCelebrationScreen via the global navigatorKey.
   fbs.FlutterBackgroundService().on('show_eid_screen').listen((data) {
     final eidName = data?['eid_name'] as String? ?? 'عيدكم مبارك';
     navigatorKey.currentState?.push(
@@ -164,30 +179,60 @@ void main() async {
     );
   });
 
+  // ── Buffer for athan events that arrive before the Navigator is mounted ────
+  Map<String, dynamic>? pendingAthanData;
+
   // ── Listen for Athan event from background isolate ─────────────────────────
   fbs.FlutterBackgroundService().on('athan_started').listen((data) {
-    if (data != null) {
-      final nameAr = data['prayer'] as String? ?? 'الصلاة';
-      final nameEn = data['prayerEn'] as String? ?? 'Prayer';
-      final image = data['image'] as String?;
+    if (data == null) return;
+    final nameAr = data['prayer'] as String? ?? 'الصلاة';
+    final nameEn = data['prayerEn'] as String? ?? 'Prayer';
+    final image = data['image'] as String?;
 
-      // Rule: Cautiously clear intermediate routes but keep the home screen (isFirst).
-      // This prevents stacking multiple Athan overlays while preserving the user's base navigation state.
-      navigatorKey.currentState?.pushAndRemoveUntil(
-        MaterialPageRoute(
-          settings: const RouteSettings(name: '/athan_overlay'),
-          fullscreenDialog: true,
-          builder: (_) => AthanOverlayScreen(
-            prayerNameAr: nameAr,
-            prayerNameEn: nameEn,
-            backgroundImage: image,
-          ),
-        ),
-        (route) => route.isFirst,
-      );
+    if (navigatorKey.currentState != null) {
+      // Navigator ready — navigate immediately.
+      pushAthanOverlay(nameAr, nameEn, image);
+    } else {
+      // Navigator not yet mounted (cold-start race). Buffer and flush on first frame.
+      pendingAthanData = {'nameAr': nameAr, 'nameEn': nameEn, 'image': image};
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (pendingAthanData != null) {
+          pushAthanOverlay(
+            pendingAthanData!['nameAr'] as String,
+            pendingAthanData!['nameEn'] as String,
+            pendingAthanData!['image'] as String?,
+          );
+          pendingAthanData = null;
+        }
+      });
     }
   });
+
+  // ── AppLifecycle: push AthanOverlayScreen on resume if still playing ───────
+  // Fixes the case where user backgrounds the app during Athan and reopens it;
+  // the athan_started event was already consumed so we read SharedPreferences.
+  AppLifecycleListener(
+    onResume: () async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final isPlaying = prefs.getBool('athan_is_playing') ?? false;
+        if (!isPlaying) return;
+        final nameAr = prefs.getString('athan_prayer_ar') ?? 'الصلاة';
+        final nameEn = prefs.getString('athan_prayer_en') ?? 'Prayer';
+        final image = prefs.getString('athan_prayer_image');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          // Skip if the overlay is already on screen.
+          final currentName = ModalRoute.of(
+            navigatorKey.currentContext!,
+          )?.settings.name;
+          if (currentName == '/athan_overlay') return;
+          pushAthanOverlay(nameAr, nameEn, image);
+        });
+      } catch (_) {}
+    },
+  );
 }
+
 
 class MyApp extends StatelessWidget {
   final bool launchFromAthan;
