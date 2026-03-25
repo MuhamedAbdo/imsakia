@@ -230,12 +230,28 @@ void _onStart(ServiceInstance service) async {
 
   // ── Initial prayer-time check
   await _scheduleNextAthan(
-      service, athanAudio, flutterLocalNotificationsPlugin);
+      service, athanAudio, flutterLocalNotificationsPlugin)
+      .timeout(
+    const Duration(seconds: 10),
+    onTimeout: () {
+      developer.log(
+          '[BackgroundService] Initial _scheduleNextAthan timed out — will retry on next tick.',
+          name: 'BackgroundService');
+    },
+  );
 
   // ── Periodic 1-minute tick (Original adhan project timing)
   Timer.periodic(const Duration(minutes: 1), (timer) async {
     await _checkAndTriggerAthan(
-        service, athanAudio, flutterLocalNotificationsPlugin);
+            service, athanAudio, flutterLocalNotificationsPlugin)
+        .timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        developer.log(
+            '[BackgroundService] _checkAndTriggerAthan timed out on minute tick.',
+            name: 'BackgroundService');
+      },
+    );
     
     // Integrated imsakia extra features
     await _checkIslamicEvents(flutterLocalNotificationsPlugin);

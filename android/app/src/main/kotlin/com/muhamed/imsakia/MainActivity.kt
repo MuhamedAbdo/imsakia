@@ -23,6 +23,10 @@ class MainActivity : AudioServiceActivity() {
     private val NOTIFICATION_PERMISSION_CODE = 1001
     private val TAG = "MainActivity"
 
+    // Stores athan intent args from onCreate so Flutter can query them via
+    // 'getPendingAthanIntent' after the engine is booted (cold-start path).
+    private var pendingAthanArgs: Map<String, String?>? = null
+
     // ── onCreate: apply window flags so screen wakes for Athan ──────────────
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,26 +64,33 @@ class MainActivity : AudioServiceActivity() {
      * the background service fires an explicit Intent to wake the app.
      */
     private fun handleAthanIntent(intent: Intent?) {
-        if (intent?.getBooleanExtra("show_athan", false) == true) {
-            Log.d(TAG, "handleAthanIntent: show_athan=true detected — signalling Dart.")
-            // We post on the main thread after a short delay so the Flutter
-            // engine is guaranteed to be running before we invoke the channel.
-            window.decorView.postDelayed({
-                try {
-                    val engine = FlutterEngineCache.getInstance().get("main_engine")
-                    if (engine != null) {
-                        MethodChannel(engine.dartExecutor.binaryMessenger, ATHAN_CONTROL_CHANNEL)
-                            .invokeMethod("showAthanOverlay", mapOf(
-                                "prayer" to (intent.getStringExtra("prayer_ar") ?: "الصلاة"),
-                                "prayerEn" to (intent.getStringExtra("prayer_en") ?: "Prayer"),
-                                "image" to (intent.getStringExtra("prayer_image") ?: "")
-                            ))
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "handleAthanIntent channel invocation error: ${e.message}")
+        if (intent?.getBooleanExtra("show_athan", false) != true) return
+
+        val args = mapOf(
+            "prayer" to (intent.getStringExtra("prayer_ar") ?: "الصلاة"),
+            "prayerEn" to (intent.getStringExtra("prayer_en") ?: "Prayer"),
+            "image" to (intent.getStringExtra("prayer_image") ?: "")
+        )
+
+        // Store for the cold-start path (Flutter will call getPendingAthanIntent).
+        pendingAthanArgs = args
+
+        Log.d(TAG, "handleAthanIntent: show_athan=true detected — signalling Dart via open_athan.")
+        // Post with a delay so the Flutter engine is guaranteed to be running.
+        window.decorView.postDelayed({
+            try {
+                val engine = FlutterEngineCache.getInstance().get("main_engine")
+                if (engine != null) {
+                    MethodChannel(engine.dartExecutor.binaryMessenger, ATHAN_CONTROL_CHANNEL)
+                        .invokeMethod("open_athan", args)
+                    Log.d(TAG, "handleAthanIntent: open_athan invoked successfully.")
+                } else {
+                    Log.w(TAG, "handleAthanIntent: engine not cached yet — Flutter will poll via getPendingAthanIntent.")
                 }
-            }, 500)
-        }
+            } catch (e: Exception) {
+                Log.e(TAG, "handleAthanIntent channel invocation error: ${e.message}")
+            }
+        }, 500)
     }
 
     // ── configureFlutterEngine: register MethodChannels + cache engine ───────
@@ -138,6 +149,23 @@ class MainActivity : AudioServiceActivity() {
                  */
                 "getStopAthanAction" -> {
                     result.success(AthanReceiver.ACTION_STOP_ATHAN)
+                }
+
+                /**
+                 * Called by Flutter's initState to check whether MainActivity
+                 * was launched with a show_athan intent (handles cold-start
+                 * when the MethodChannel call from postDelayed arrives before
+                 * the Dart handler is registered).
+                 */
+                "getPendingAthanIntent" -> {
+                    val args = pendingAthanArgs
+                    pendingAthanArgs = null   // consume once
+                    if (args != null) {
+                        Log.d(TAG, "getPendingAthanIntent: returning pending args for ${args["prayer"]}")
+                        result.success(args)
+                    } else {
+                        result.success(null)
+                    }
                 }
 
                 else -> result.notImplemented()
