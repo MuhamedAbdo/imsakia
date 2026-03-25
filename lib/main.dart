@@ -33,7 +33,7 @@ import 'providers/prayer_times_provider.dart';
 import 'providers/hijri_calendar_provider.dart';
 import 'providers/qibla_provider.dart';
 import 'features/audio/providers/audio_player_provider.dart';
-import 'features/audio/providers/download_provider.dart'; // إضافة ملف التحميل
+import 'features/audio/providers/download_provider.dart';
 import 'features/audio/services/audio_handler.dart';
 
 // Screens
@@ -46,6 +46,9 @@ import 'screens/eid/eid_celebration_screen.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
+
+/// Native MethodChannel — same name as registered in MainActivity.kt.
+const _athanControlChannel = MethodChannel('imsakia/athan_control');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -91,28 +94,42 @@ void main() async {
   HadithService.instance.initialize();
   AzkarService.instance.initialize();
 
-  // Handle notification taps
+  // ── Determine the initial route BEFORE runApp ──────────────────────────
+  // Priority 1: notification tap (cold-start from tapping the athan notification)
   final initialNotification = await flutterLocalNotificationsPlugin
       .getNotificationAppLaunchDetails();
-  final launchFromAthan = initialNotification?.didNotificationLaunchApp == true;
+  final launchFromNotification =
+      initialNotification?.didNotificationLaunchApp == true;
 
   String prayerNameAr = 'الصلاة';
   String prayerNameEn = 'Prayer';
   String? backgroundImage;
 
-  if (launchFromAthan) {
+  if (launchFromNotification) {
     try {
       final payloadStr = initialNotification?.notificationResponse?.payload;
       if (payloadStr != null && payloadStr.isNotEmpty) {
-        final payload = jsonDecode(payloadStr);
-        prayerNameAr = payload['ar'] ?? 'الصلاة';
-        prayerNameEn = payload['en'] ?? 'Prayer';
-        backgroundImage = payload['image']; // Extract image from payload (if provided)
+        final payload = jsonDecode(payloadStr) as Map<String, dynamic>;
+        prayerNameAr = payload['ar'] as String? ?? 'الصلاة';
+        prayerNameEn = payload['en'] as String? ?? 'Prayer';
+        backgroundImage = payload['image'] as String?;
       }
     } catch (_) {}
   }
 
+  // Priority 2: SharedPreferences flag (app woke up while Athan is playing,
+  // e.g. from native launchAthanOverlay Intent or after a forced restart).
   final prefs = await SharedPreferences.getInstance();
+  final athanIsPlaying = prefs.getBool('athan_is_playing') ?? false;
+
+  if (!launchFromNotification && athanIsPlaying) {
+    prayerNameAr = prefs.getString('athan_prayer_ar') ?? 'الصلاة';
+    prayerNameEn = prefs.getString('athan_prayer_en') ?? 'Prayer';
+    backgroundImage = prefs.getString('athan_prayer_image');
+  }
+
+  // Determine first route: go to Athan overlay if either signal fires.
+  final bool showAthanFirst = launchFromNotification || athanIsPlaying;
 
   runApp(
     MultiProvider(
@@ -139,10 +156,10 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
         ChangeNotifierProvider(
           create: (_) => DownloadProvider(),
-        ), // تم الإضافة هنا
+        ),
       ],
       child: MyApp(
-        launchFromAthan: launchFromAthan,
+        showAthanFirst: showAthanFirst,
         prayerNameAr: prayerNameAr,
         prayerNameEn: prayerNameEn,
         backgroundImage: backgroundImage,
@@ -168,6 +185,21 @@ void main() async {
     );
   }
 
+  // ── MethodChannel: native launchAthanOverlay → push overlay in Dart ────────
+  // This fires when MainActivity.handleAthanIntent calls 'showAthanOverlay',
+  // i.e. when the background service (or AthanReceiver) started the Activity
+  // with the show_athan extra.
+  _athanControlChannel.setMethodCallHandler((call) async {
+    if (call.method == 'showAthanOverlay') {
+      final nameAr = (call.arguments as Map?)?['prayer'] as String? ?? 'الصلاة';
+      final nameEn = (call.arguments as Map?)?['prayerEn'] as String? ?? 'Prayer';
+      final image = (call.arguments as Map?)?['image'] as String?;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        pushAthanOverlay(nameAr, nameEn, image);
+      });
+    }
+  });
+
   // ── Listen for Eid screen event from background isolate ────────────────────
   fbs.FlutterBackgroundService().on('show_eid_screen').listen((data) {
     final eidName = data?['eid_name'] as String? ?? 'عيدكم مبارك';
@@ -190,7 +222,6 @@ void main() async {
     final image = data['image'] as String?;
 
     if (navigatorKey.currentState != null) {
-      // Navigator ready — navigate immediately.
       pushAthanOverlay(nameAr, nameEn, image);
     } else {
       // Navigator not yet mounted (cold-start race). Buffer and flush on first frame.
@@ -209,8 +240,7 @@ void main() async {
   });
 
   // ── AppLifecycle: push AthanOverlayScreen on resume if still playing ───────
-  // Fixes the case where user backgrounds the app during Athan and reopens it;
-  // the athan_started event was already consumed so we read SharedPreferences.
+  // Fixes the case where user backgrounds the app during Athan and reopens it.
   AppLifecycleListener(
     onResume: () async {
       try {
@@ -221,10 +251,10 @@ void main() async {
         final nameEn = prefs.getString('athan_prayer_en') ?? 'Prayer';
         final image = prefs.getString('athan_prayer_image');
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          // Skip if the overlay is already on screen.
-          final currentName = ModalRoute.of(
-            navigatorKey.currentContext!,
-          )?.settings.name;
+          // Null-safe: skip if context is gone or overlay is already on screen.
+          final ctx = navigatorKey.currentContext;
+          if (ctx == null) return;
+          final currentName = ModalRoute.of(ctx)?.settings.name;
           if (currentName == '/athan_overlay') return;
           pushAthanOverlay(nameAr, nameEn, image);
         });
@@ -235,14 +265,14 @@ void main() async {
 
 
 class MyApp extends StatelessWidget {
-  final bool launchFromAthan;
+  final bool showAthanFirst;
   final String prayerNameAr;
   final String prayerNameEn;
   final String? backgroundImage;
 
   const MyApp({
     super.key,
-    this.launchFromAthan = false,
+    this.showAthanFirst = false,
     this.prayerNameAr = 'الصلاة',
     this.prayerNameEn = 'Prayer',
     this.backgroundImage,
@@ -269,7 +299,9 @@ class MyApp extends StatelessWidget {
               themeMode: settingsProvider.isDarkMode
                   ? ThemeMode.dark
                   : ThemeMode.light,
-              initialRoute: launchFromAthan ? '/athan' : '/',
+              // showAthanFirst covers BOTH the notification-tap and the
+              // SharedPreferences athan_is_playing flag checked before runApp.
+              initialRoute: showAthanFirst ? '/athan' : '/',
               routes: {
                 '/': (context) => const SplashScreen(),
                 '/athan': (context) => AthanOverlayScreen(

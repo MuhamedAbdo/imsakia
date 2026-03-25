@@ -59,6 +59,15 @@
             xmlns:tools="http://schemas.android.com/tools">
         </provider>
 
+        <!-- Native BroadcastReceiver for Athan Stop notification action -->
+        <receiver
+            android:name=".AthanReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.muhamed.imsakia.STOP_ATHAN" />
+            </intent-filter>
+        </receiver>
+
         <receiver android:name=".PrayerWidgetProvider"
                   android:exported="true">
             <intent-filter>

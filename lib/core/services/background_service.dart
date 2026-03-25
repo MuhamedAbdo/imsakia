@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +15,9 @@ import 'prayer_times_service.dart';
 import 'athan_audio_service.dart';
 import 'package:hijri/hijri_calendar.dart';
 import 'package:home_widget/home_widget.dart';
+
+/// MethodChannel to communicate with native MainActivity / AthanReceiver.
+const _athanControlChannel = MethodChannel('imsakia/athan_control');
 
 class BackgroundService {
   static const _foregroundNotificationId = 9001;
@@ -93,10 +97,16 @@ class BackgroundService {
   }
 
   /// Sends the unified stop_audio command to the background isolate.
+  /// Also invokes the native MethodChannel so AthanReceiver's engine-cache
+  /// path can kill audio if the Dart stream handler is not yet listening.
   static void sendStopAudio() {
     developer.log('[BackgroundService] Sending stop_audio command.',
         name: 'BackgroundService');
     FlutterBackgroundService().invoke('stop_audio');
+    // Belt-and-suspenders: also signal via native channel from main isolate.
+    try {
+      _athanControlChannel.invokeMethod('stopAudio');
+    } catch (_) {}
   }
 
   /// Kept for backward-compat — delegates to sendStopAudio.
@@ -185,7 +195,28 @@ void _onStart(ServiceInstance service) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('athan_is_playing', false);
+      await prefs.setString('athan_prayer_ar', '');
+      await prefs.setString('athan_prayer_en', '');
     } catch (_) {}
+  });
+
+  // ── MethodChannel: native AthanReceiver → stop audio in this isolate ─────
+  // This fires when AthanReceiver.kt successfully invokes 'stopAudio' on the
+  // cached FlutterEngine, bridging the native BroadcastReceiver to Dart.
+  _athanControlChannel.setMethodCallHandler((call) async {
+    if (call.method == 'stopAudio') {
+      developer.log(
+          '[BackgroundService] Native stopAudio received via MethodChannel — stopping audio.',
+          name: 'BackgroundService');
+      await athanAudio.stop();
+      await flutterLocalNotificationsPlugin.cancelAll();
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('athan_is_playing', false);
+        await prefs.setString('athan_prayer_ar', '');
+        await prefs.setString('athan_prayer_en', '');
+      } catch (_) {}
+    }
   });
 
   // ── Manual reschedule trigger
@@ -346,7 +377,10 @@ Future<void> _checkAndTriggerAthan(
           athanAudio.play(assetPath);
         }
 
-        const androidDetails = AndroidNotificationDetails(
+        // ── Build a native BroadcastReceiver PendingIntent for the Stop action.
+        // When the user taps "إيقاف الأذان" on the notification, Android delivers
+        // the broadcast to AthanReceiver.kt FIRST — zero Dart-isolate latency.
+        final androidDetails = AndroidNotificationDetails(
           'adhan_athan',
           'Athan Alarm',
           importance: Importance.max,
@@ -354,11 +388,15 @@ Future<void> _checkAndTriggerAthan(
           fullScreenIntent: true,
           category: AndroidNotificationCategory.alarm,
           ongoing: true,
-          actions: [
+          autoCancel: false,
+          actions: const [
             AndroidNotificationAction(
               'stop_audio',
               'إيقاف الأذان',
-              cancelNotification: false, // Keep alive so Dart receives the tap event
+              // cancelNotification=false: let AthanReceiver.kt cancel it natively
+              // so the notification dismisses even if Dart isn't running.
+              cancelNotification: false,
+              showsUserInterface: false,
             ),
           ],
         );
@@ -367,7 +405,7 @@ Future<void> _checkAndTriggerAthan(
           id: notifId,
           title: 'حان وقت ${entry.name.nameAr}',
           body: 'اضغط لإيقاف الأذان',
-          notificationDetails: const NotificationDetails(android: androidDetails),
+          notificationDetails: NotificationDetails(android: androidDetails),
           payload: jsonEncode({
             'ar': entry.name.nameAr,
             'en': entry.name.nameEn,
@@ -375,12 +413,8 @@ Future<void> _checkAndTriggerAthan(
           }),
         );
 
-        service.invoke('athan_started', {
-          'prayer': entry.name.nameAr,
-          'prayerEn': entry.name.nameEn,
-          'image': prayerImage,
-        });
-        // Persist the playing flag so the UI can detect it on resume/cold-start.
+        // Persist the playing flag BEFORE signalling the UI, so that if the app
+        // cold-starts it reads the correct state from SharedPreferences.
         try {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('athan_is_playing', true);
@@ -388,6 +422,30 @@ Future<void> _checkAndTriggerAthan(
           await prefs.setString('athan_prayer_en', entry.name.nameEn);
           await prefs.setString('athan_prayer_image', prayerImage);
         } catch (_) {}
+
+        service.invoke('athan_started', {
+          'prayer': entry.name.nameAr,
+          'prayerEn': entry.name.nameEn,
+          'image': prayerImage,
+        });
+
+        // ── Native Intent: force MainActivity to the foreground on the lock screen.
+        // This is the definitive fix for the "shows Home instead of overlay" bug:
+        // FlutterBackgroundService.invoke only works if the main isolate IS running.
+        // The native launchAthanOverlay call uses FLAG_ACTIVITY_NEW_TASK so it
+        // always works, even when the app is completely killed.
+        try {
+          await _athanControlChannel.invokeMethod('launchAthanOverlay', {
+            'prayer': entry.name.nameAr,
+            'prayerEn': entry.name.nameEn,
+            'image': prayerImage,
+          });
+          developer.log('[BackgroundService] launchAthanOverlay native call succeeded.',
+              name: 'BackgroundService');
+        } catch (e) {
+          developer.log('[BackgroundService] launchAthanOverlay native call failed: $e — relying on Dart athan_started event.',
+              name: 'BackgroundService');
+        }
         break;
       }
     }

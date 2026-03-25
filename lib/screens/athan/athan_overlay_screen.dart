@@ -1,8 +1,8 @@
 import 'dart:developer' as developer;
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/background_service.dart' as bg;
 import '../../core/theme/app_colors.dart';
 
@@ -49,10 +49,28 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
 
   Future<void> _stopAthan() async {
     developer.log('[AthanOverlay] Stop button tapped — sending stop_audio to background service.', name: 'AthanOverlay');
-    // Calling the background isolate to stop audio and clear notifications
+
+    // 1. Signal the background isolate AND native layer to stop audio + cancel notifications.
     bg.BackgroundService.sendStopAudio();
-    // Dismiss the overlay screen
-    SystemNavigator.pop();
+
+    // 2. Clear the playing flag in the MAIN isolate immediately.
+    //    This ensures the onResume listener doesn't re-launch the overlay
+    //    the moment the user closes the overlay and reopens the app.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('athan_is_playing', false);
+      await prefs.setString('athan_prayer_ar', '');
+      await prefs.setString('athan_prayer_en', '');
+    } catch (_) {}
+
+    // 3. Navigate back to the main screen (do NOT use SystemNavigator.pop()
+    //    as it exits the whole app when the overlay is the root route).
+    if (mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/main',
+        (route) => false,
+      );
+    }
   }
 
   @override
