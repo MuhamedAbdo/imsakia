@@ -31,7 +31,7 @@ class LocationProvider extends ChangeNotifier {
     try {
       _location = await _locationService.getCurrentLocation(
         locale: locale,
-        timeout: const Duration(seconds: 10),
+        timeout: const Duration(seconds: 8),
       );
       await _storage.saveLocation(_location!);
       _status = LocationStatus.loaded;

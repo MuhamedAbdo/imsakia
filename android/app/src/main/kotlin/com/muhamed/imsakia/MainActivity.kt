@@ -122,7 +122,49 @@ class MainActivity : AudioServiceActivity() {
                     intent?.removeExtra("show_athan")
                 }
 
+                "openXiaomiPermissions" -> {
+                    openXiaomiPermissions()
+                    result.success(true)
+                }
+
                 else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun isXiaomi(): Boolean {
+        return Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)
+    }
+
+    private fun openXiaomiPermissions() {
+        if (!isXiaomi()) return
+        try {
+            // 1. Open Autostart Management
+            val intent = Intent()
+            intent.component = android.content.ComponentName(
+                "com.miui.securitycenter",
+                "com.miui.permcenter.autostart.AutoStartManagementActivity"
+            )
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+        } catch (e: Exception) {
+            try {
+                // Fallback for different MIUI versions or Permissions page
+                val intent = Intent("miui.intent.action.OP_PERMISSIONS_EDITOR")
+                intent.setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity")
+                intent.putExtra("extra_pkgname", packageName)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+            } catch (e2: Exception) {
+                // Final fallback to App Settings / Battery Optimization
+                try {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    intent.data = Uri.parse("package:$packageName")
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                } catch (e3: Exception) {
+                    Log.e(TAG, "Failed to open Xiaomi settings: ${e3.message}")
+                }
             }
         }
     }

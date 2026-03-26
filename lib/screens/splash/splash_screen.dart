@@ -9,6 +9,8 @@ import '../../providers/location_provider.dart';
 import '../../providers/prayer_times_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/hijri_calendar_provider.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../main_layout.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -43,6 +45,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _checkLaunchSource();
+      await _checkXiaomiGuidance();
       _initialize();
     });
   }
@@ -55,6 +58,78 @@ class _SplashScreenState extends State<SplashScreen>
     } catch (e) {
       debugPrint("Error checking launch source: $e");
       _launchedFromAthan = false;
+    }
+  }
+
+  Future<void> _checkXiaomiGuidance() async {
+    if (!mounted) return;
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      final androidInfo = await deviceInfo.androidInfo;
+      final manufacturer = androidInfo.manufacturer.toLowerCase();
+
+      if (manufacturer.contains('xiaomi')) {
+        final prefs = await SharedPreferences.getInstance();
+        final dialogShown = prefs.getBool('xiaomi_guidance_shown') ?? false;
+
+        if (!dialogShown) {
+          if (!mounted) return;
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              backgroundColor: const Color(0xFF1E3A8A),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              title: Text(
+                'تنبيه لمستخدمي شاومي',
+                style: GoogleFonts.tajawal(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.right,
+              ),
+              content: Text(
+                'لضمان عمل الأذان بشكل صحيح، يرجى تفعيل "البدء التلقائي" (Autostart) والسماح بالظهور على "شاشة القفل".',
+                style: GoogleFonts.tajawal(color: Colors.white70),
+                textAlign: TextAlign.right,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'لاحقاً',
+                    style: GoogleFonts.tajawal(color: Colors.white60),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      await _channel.invokeMethod('openXiaomiPermissions');
+                    } catch (e) {
+                      debugPrint("Error opening Xiaomi permissions: $e");
+                    }
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.gold,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: Text(
+                    'فتح الإعدادات',
+                    style: GoogleFonts.tajawal(
+                      color: const Color(0xFF0F172A),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+          await prefs.setBool('xiaomi_guidance_shown', true);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error checking Xiaomi guidance: $e");
     }
   }
 

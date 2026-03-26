@@ -13,6 +13,7 @@ import '../models/settings_model.dart';
 import '../models/islamic_event_model.dart';
 import 'prayer_times_service.dart';
 import 'athan_audio_service.dart';
+import 'location_service.dart';
 import 'package:hijri/hijri_calendar.dart';
 import 'package:home_widget/home_widget.dart';
 
@@ -143,6 +144,12 @@ void _onStart(ServiceInstance service) async {
     name: 'BackgroundService',
   );
 
+  // Task 4: Handle SharedPreferences as an async dependency properly
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+  // Task 1: Immediate Priority - calculate using cached location on service start
+  await _immediateCalculationWithFallback(service, prefs);
+
   // ── Notification plugin – handles action buttons
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -243,27 +250,28 @@ void _onStart(ServiceInstance service) async {
     );
   });
 
-  // ── Initial prayer-time check
-  await _scheduleNextAthan(
+  // ── Initial prayer-time check (Redundant now due to _immediateCalculationWithFallback, but keeping for compatibility)
+  await _checkAndTriggerAthan(
     service,
     athanAudio,
     flutterLocalNotificationsPlugin,
+    prefs: prefs,
   ).timeout(
     const Duration(seconds: 10),
     onTimeout: () {
       developer.log(
-        '[BackgroundService] Initial _scheduleNextAthan timed out — will retry on next tick.',
+        '[BackgroundService] Initial _checkAndTriggerAthan timed out — will retry on next tick.',
         name: 'BackgroundService',
       );
     },
   );
 
-  // ── Periodic 1-minute tick (Original adhan project timing)
   Timer.periodic(const Duration(minutes: 1), (timer) async {
     await _checkAndTriggerAthan(
       service,
       athanAudio,
       flutterLocalNotificationsPlugin,
+      prefs: prefs,
     ).timeout(
       const Duration(seconds: 10),
       onTimeout: () {
@@ -280,6 +288,7 @@ void _onStart(ServiceInstance service) async {
       service,
       athanAudio,
       flutterLocalNotificationsPlugin,
+      prefs: prefs,
     );
   });
 }
@@ -297,48 +306,86 @@ String _lastEidTakbeerDate = '';
 Future<void> _scheduleNextAthan(
   ServiceInstance service,
   AthanAudioService athanAudio,
-  FlutterLocalNotificationsPlugin notifications,
-) async {
+  FlutterLocalNotificationsPlugin notifications, {
+  SharedPreferences? prefs,
+}) async {
   developer.log(
     '[BackgroundService] _scheduleNextAthan: performing initial check.',
     name: 'BackgroundService',
   );
-  await _checkAndTriggerAthan(service, athanAudio, notifications);
+  await _checkAndTriggerAthan(
+    service,
+    athanAudio,
+    notifications,
+    prefs: prefs,
+  );
 }
 
 // ---------------------------------------------------------------------------
-// _checkAndTriggerAthan – runs every minute (Ported from adhan project)
+// Task 1: Robust Fallback Implementation
 // ---------------------------------------------------------------------------
-Future<void> _checkAndTriggerAthan(
+Future<void> _immediateCalculationWithFallback(
   ServiceInstance service,
-  AthanAudioService athanAudio,
-  FlutterLocalNotificationsPlugin notifications,
+  SharedPreferences prefs,
 ) async {
+  developer.log('[BackgroundService] Starting immediate fallback check.', name: 'BackgroundService');
+  
+  // 1. Immediate Prayer Times from Cached Location
+  final locationRaw = prefs.getString('last_location');
+  if (locationRaw != null) {
+    try {
+      final location = LocationModel.fromJson(
+        jsonDecode(locationRaw) as Map<String, dynamic>,
+      );
+      final settingsRaw = prefs.getString('settings');
+      if (settingsRaw != null) {
+        final settings = SettingsModel.fromJson(
+          jsonDecode(settingsRaw) as Map<String, dynamic>,
+        );
+        
+        final prayerService = PrayerTimesService();
+        final times = prayerService.calculate(location, settings.calculationMethod);
+        
+        // Update notification immediately (UI Title: Next Prayer)
+        _updateForegroundNotification(service, times);
+        developer.log('PRAYER_CALC_SUCCESS (CACHED)', name: 'BackgroundService');
+      }
+    } catch (e) {
+      developer.log('[BackgroundService] Cached calculation failed: $e', name: 'BackgroundService');
+    }
+  }
+
+  // 2. Attempt Fresh GPS Fetch with Timeout
   try {
-    final prefs = await SharedPreferences.getInstance();
-
+    developer.log('LOCATION_FETCH_STARTED', name: 'BackgroundService');
+    final locationService = LocationService();
+    final freshLocation = await locationService.getCurrentLocation(
+      timeout: const Duration(seconds: 8),
+    );
+    
+    // Success: Update cache and recalculate
+    await prefs.setString('last_location', jsonEncode(freshLocation.toJson()));
+    
     final settingsRaw = prefs.getString('settings');
-    if (settingsRaw == null) return;
-    final settings = SettingsModel.fromJson(
-      jsonDecode(settingsRaw) as Map<String, dynamic>,
-    );
+    if (settingsRaw != null) {
+      final settings = SettingsModel.fromJson(
+        jsonDecode(settingsRaw) as Map<String, dynamic>,
+      );
+      final prayerService = PrayerTimesService();
+      final times = prayerService.calculate(freshLocation, settings.calculationMethod);
+      _updateForegroundNotification(service, times);
+      developer.log('PRAYER_CALC_SUCCESS', name: 'BackgroundService');
+    }
+  } catch (e) {
+    // 3. Fallback used on timeout/failure
+    developer.log('LOCATION_FALLBACK_USED: $e', name: 'BackgroundService');
+  }
+}
 
-    if (!settings.athanEnabled) return;
-
-    final locationRaw = prefs.getString('last_location');
-    if (locationRaw == null) return;
-    final location = LocationModel.fromJson(
-      jsonDecode(locationRaw) as Map<String, dynamic>,
-    );
-
-    final prayerService = PrayerTimesService();
-    final now = DateTime.now();
-
-    final times = prayerService.calculate(location, settings.calculationMethod);
-
-    // ── UPDATE FOREGROUND NOTIFICATION DYNAMICALLY
+void _updateForegroundNotification(ServiceInstance service, PrayerTimesModel times) {
+  if (service is AndroidServiceInstance) {
     final nextPrayer = times.nextPrayer;
-    if (nextPrayer != null && service is AndroidServiceInstance) {
+    if (nextPrayer != null) {
       String formatTime(DateTime time) {
         final hr = time.hour > 12
             ? time.hour - 12
@@ -358,6 +405,44 @@ Future<void> _checkAndTriggerAthan(
         content: contentStr,
       );
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _checkAndTriggerAthan – runs every minute (Ported from adhan project)
+// ---------------------------------------------------------------------------
+Future<void> _checkAndTriggerAthan(
+  ServiceInstance service,
+  AthanAudioService athanAudio,
+  FlutterLocalNotificationsPlugin notifications, {
+  SharedPreferences? prefs,
+}) async {
+  try {
+    final activePrefs = prefs ?? await SharedPreferences.getInstance();
+
+    final settingsRaw = activePrefs.getString('settings');
+    if (settingsRaw == null) return;
+    final settings = SettingsModel.fromJson(
+      jsonDecode(settingsRaw) as Map<String, dynamic>,
+    );
+
+    if (!settings.athanEnabled) return;
+
+    final locationRaw = activePrefs.getString('last_location');
+    if (locationRaw == null) return;
+    final location = LocationModel.fromJson(
+      jsonDecode(locationRaw) as Map<String, dynamic>,
+    );
+
+    final prayerService = PrayerTimesService();
+    final now = DateTime.now();
+
+    final times = prayerService.calculate(location, settings.calculationMethod);
+
+    // ── UPDATE FOREGROUND NOTIFICATION DYNAMICALLY
+    _updateForegroundNotification(service, times);
+
+    final nextPrayer = times.nextPrayer;
 
     // ── WIDGET LIVE UPDATE
     if (nextPrayer != null) {
@@ -489,11 +574,10 @@ Future<void> _checkAndTriggerAthan(
 
           // Persist the playing flag
           try {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool('athan_is_playing', true);
-            await prefs.setString('athan_prayer_ar', entry.name.nameAr);
-            await prefs.setString('athan_prayer_en', entry.name.nameEn);
-            await prefs.setString('athan_prayer_image', prayerImage);
+            await activePrefs.setBool('athan_is_playing', true);
+            await activePrefs.setString('athan_prayer_ar', entry.name.nameAr);
+            await activePrefs.setString('athan_prayer_en', entry.name.nameEn);
+            await activePrefs.setString('athan_prayer_image', prayerImage);
           } catch (_) {}
 
           service.invoke('athan_started', {
@@ -586,11 +670,12 @@ Future<void> _checkIslamicEvents(
 Future<void> _checkEidTakbeer(
   ServiceInstance service,
   AthanAudioService athanAudio,
-  FlutterLocalNotificationsPlugin notifications,
-) async {
+  FlutterLocalNotificationsPlugin notifications, {
+  SharedPreferences? prefs,
+}) async {
   try {
-    final prefs = await SharedPreferences.getInstance();
-    final eidTakbeerEnabled = prefs.getBool('enable_eid_takbeer') ?? true;
+    final activePrefs = prefs ?? await SharedPreferences.getInstance();
+    final eidTakbeerEnabled = activePrefs.getBool('enable_eid_takbeer') ?? true;
     if (!eidTakbeerEnabled) return;
 
     final hijri = HijriCalendar.now();
@@ -602,13 +687,13 @@ Future<void> _checkEidTakbeer(
     final todayKey = '${now.year}-${now.month}-${now.day}';
     if (_lastEidTakbeerDate == todayKey) return;
 
-    final settingsRaw = prefs.getString('settings');
+    final settingsRaw = activePrefs.getString('settings');
     if (settingsRaw == null) return;
     final settings = SettingsModel.fromJson(
       jsonDecode(settingsRaw) as Map<String, dynamic>,
     );
 
-    final locationRaw = prefs.getString('last_location');
+    final locationRaw = activePrefs.getString('last_location');
     if (locationRaw == null) return;
     final location = LocationModel.fromJson(
       jsonDecode(locationRaw) as Map<String, dynamic>,
