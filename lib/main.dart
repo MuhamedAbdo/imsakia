@@ -25,7 +25,8 @@ import 'core/services/hijri_calendar_service.dart';
 import 'core/services/aladhan_api_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/background_service.dart' as bg;
-import 'package:flutter_background_service/flutter_background_service.dart' as fbs;
+import 'package:flutter_background_service/flutter_background_service.dart'
+    as fbs;
 
 // New Adhan Core Engine Providers
 import 'providers/settings_provider.dart';
@@ -155,9 +156,7 @@ void main() async {
         ),
         ChangeNotifierProvider(create: (_) => QiblaProvider()),
         ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
-        ChangeNotifierProvider(
-          create: (_) => DownloadProvider(),
-        ),
+        ChangeNotifierProvider(create: (_) => DownloadProvider()),
       ],
       child: MyApp(
         showAthanFirst: showAthanFirst,
@@ -167,8 +166,7 @@ void main() async {
       ),
     ),
   );
-
-  }
+}
 
 class MyApp extends StatefulWidget {
   final bool showAthanFirst;
@@ -201,7 +199,9 @@ class _MyAppState extends State<MyApp> {
     _registerBackgroundServiceListeners();
     _registerLifecycleListener();
     // Poll for a pending cold-start intent that native sent before we were ready.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _pollPendingAthanIntent());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _pollPendingAthanIntent(),
+    );
   }
 
   @override
@@ -257,7 +257,9 @@ class _MyAppState extends State<MyApp> {
   // ── Cold-start poll: ask native for any buffered intent data ──────────────
   Future<void> _pollPendingAthanIntent() async {
     try {
-      final result = await _athanControlChannel.invokeMethod<Map>('getPendingAthanIntent');
+      final result = await _athanControlChannel.invokeMethod<Map>(
+        'getPendingAthanIntent',
+      );
       if (result != null) {
         final nameAr = result['prayer'] as String? ?? 'الصلاة';
         final nameEn = result['prayerEn'] as String? ?? 'Prayer';
@@ -273,30 +275,38 @@ class _MyAppState extends State<MyApp> {
   void _registerBackgroundServiceListeners() {
     Map<String, dynamic>? pendingAthanData;
 
-    _athanStartedSub = fbs.FlutterBackgroundService().on('athan_started').listen((data) {
-      if (data == null) return;
-      final nameAr = data['prayer'] as String? ?? 'الصلاة';
-      final nameEn = data['prayerEn'] as String? ?? 'Prayer';
-      final image = data['image'] as String?;
+    _athanStartedSub = fbs.FlutterBackgroundService()
+        .on('athan_started')
+        .listen((data) {
+          if (data == null) return;
+          final nameAr = data['prayer'] as String? ?? 'الصلاة';
+          final nameEn = data['prayerEn'] as String? ?? 'Prayer';
+          final image = data['image'] as String?;
 
-      if (navigatorKey.currentState != null) {
-        _pushAthanOverlay(nameAr, nameEn, image);
-      } else {
-        pendingAthanData = {'nameAr': nameAr, 'nameEn': nameEn, 'image': image};
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (pendingAthanData != null) {
-            _pushAthanOverlay(
-              pendingAthanData!['nameAr'] as String,
-              pendingAthanData!['nameEn'] as String,
-              pendingAthanData!['image'] as String?,
-            );
-            pendingAthanData = null;
+          if (navigatorKey.currentState != null) {
+            _pushAthanOverlay(nameAr, nameEn, image);
+          } else {
+            pendingAthanData = {
+              'nameAr': nameAr,
+              'nameEn': nameEn,
+              'image': image,
+            };
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (pendingAthanData != null) {
+                _pushAthanOverlay(
+                  pendingAthanData!['nameAr'] as String,
+                  pendingAthanData!['nameEn'] as String,
+                  pendingAthanData!['image'] as String?,
+                );
+                pendingAthanData = null;
+              }
+            });
           }
         });
-      }
-    });
 
-    _showEidSub = fbs.FlutterBackgroundService().on('show_eid_screen').listen((data) {
+    _showEidSub = fbs.FlutterBackgroundService().on('show_eid_screen').listen((
+      data,
+    ) {
       final eidName = data?['eid_name'] as String? ?? 'عيدكم مبارك';
       navigatorKey.currentState?.push(
         MaterialPageRoute(
@@ -358,10 +368,10 @@ class _MyAppState extends State<MyApp> {
               routes: {
                 '/': (context) => const SplashScreen(),
                 '/athan': (context) => AthanOverlayScreen(
-                      prayerNameAr: widget.prayerNameAr,
-                      prayerNameEn: widget.prayerNameEn,
-                      backgroundImage: widget.backgroundImage,
-                    ),
+                  prayerNameAr: widget.prayerNameAr,
+                  prayerNameEn: widget.prayerNameEn,
+                  backgroundImage: widget.backgroundImage,
+                ),
                 '/settings': (context) => const SettingsScreen(),
                 '/main': (context) => const MainLayout(),
               },
