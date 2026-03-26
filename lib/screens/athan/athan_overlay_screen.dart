@@ -1,5 +1,6 @@
 import 'dart:developer' as developer;
 import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,10 +27,12 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
     with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulse;
+  String _currentCityAr = '';
 
   @override
   void initState() {
     super.initState();
+    _loadCityName();
 
     _pulseController = AnimationController(
       vsync: this,
@@ -39,6 +42,19 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
     _pulse = Tween<double>(begin: 0.92, end: 1.08).animate(_pulseController);
 
     developer.log('[AthanOverlay] Overlay displayed — audio managed by background service.', name: 'AthanOverlay');
+  }
+
+  Future<void> _loadCityName() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('last_location');
+      if (raw != null) {
+        final loc = jsonDecode(raw) as Map<String, dynamic>;
+        setState(() {
+          _currentCityAr = loc['cityName'] ?? 'مدينتك';
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -108,69 +124,92 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
           // 3. Content Area
           SafeArea(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                const SizedBox(height: 40),
+                const Spacer(flex: 2),
 
-                // Icon + Title
-                Column(
-                  children: [
-                    FadeInDown(
-                      duration: const Duration(milliseconds: 800),
-                      child: Text(
-                        'حان الآن موعد أذان',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 22,
-                          fontFamily: 'Tajawal',
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    FadeInDown(
-                      delay: const Duration(milliseconds: 200),
-                      duration: const Duration(milliseconds: 800),
-                      child: Text(
-                        widget.prayerNameAr,
-                        style: const TextStyle(
-                          color: AppColors.gold,
-                          fontSize: 56,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Tajawal',
-                          shadows: [
-                            Shadow(
-                              color: Colors.black54,
-                              offset: Offset(0, 4),
-                              blurRadius: 10,
+                // Icon + Title Wrapper
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Column(
+                      children: [
+                        FadeInDown(
+                          duration: const Duration(milliseconds: 800),
+                          child: Text(
+                            widget.prayerNameAr,
+                            style: const TextStyle(
+                              color: AppColors.gold,
+                              fontSize: 72,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Amiri', // Or Cairo if preferred
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black87,
+                                  offset: Offset(0, 4),
+                                  blurRadius: 12,
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    FadeInDown(
-                      delay: const Duration(milliseconds: 400),
-                      duration: const Duration(milliseconds: 800),
-                      child: Text(
-                        widget.prayerNameEn.toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 18,
-                          fontFamily: 'Tajawal',
-                          letterSpacing: 4,
-                          fontWeight: FontWeight.w300,
+                        const SizedBox(height: 16),
+                        FadeInDown(
+                          delay: const Duration(milliseconds: 200),
+                          duration: const Duration(milliseconds: 800),
+                          child: Text(
+                            'حان الآن موعد أذان ${widget.prayerNameAr}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 26,
+                              fontFamily: 'Tajawal',
+                              fontWeight: FontWeight.w600,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black87,
+                                  offset: Offset(0, 2),
+                                  blurRadius: 8,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                        if (_currentCityAr.isNotEmpty)
+                          FadeInDown(
+                            delay: const Duration(milliseconds: 400),
+                            duration: const Duration(milliseconds: 800),
+                            child: Text(
+                              'حسب التوقيت المحلي لمدينة $_currentCityAr',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 18,
+                                fontFamily: 'Tajawal',
+                                fontWeight: FontWeight.w300,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black87,
+                                    offset: Offset(0, 2),
+                                    blurRadius: 6,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
+
+                const Spacer(flex: 2),
 
                 // Animated audio wave
                 FadeIn(
                   delay: const Duration(milliseconds: 600),
                   child: _AudioWave(),
                 ),
+
+                const SizedBox(height: 32),
 
                 // Stop button
                 FadeInUp(
@@ -217,7 +256,7 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
                   ),
                 ),
 
-                const SizedBox(height: 40),
+                const SizedBox(height: 48),
               ],
             ),
           ),
