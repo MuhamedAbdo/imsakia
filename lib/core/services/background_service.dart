@@ -35,7 +35,8 @@ class BackgroundService {
         FlutterLocalNotificationsPlugin();
     final androidPlugin = flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+          AndroidFlutterLocalNotificationsPlugin
+        >();
 
     await androidPlugin?.createNotificationChannel(
       const AndroidNotificationChannel(
@@ -100,8 +101,10 @@ class BackgroundService {
   /// Also invokes the native MethodChannel so AthanReceiver's engine-cache
   /// path can kill audio if the Dart stream handler is not yet listening.
   static void sendStopAudio() {
-    developer.log('[BackgroundService] Sending stop_audio command.',
-        name: 'BackgroundService');
+    developer.log(
+      '[BackgroundService] Sending stop_audio command.',
+      name: 'BackgroundService',
+    );
     FlutterBackgroundService().invoke('stop_audio');
     // Belt-and-suspenders: also signal via native channel from main isolate.
     try {
@@ -135,8 +138,10 @@ void _onStart(ServiceInstance service) async {
   // Singleton audio player owned exclusively by this isolate
   final athanAudio = AthanAudioService();
 
-  developer.log('[BackgroundService] Isolate started (adhan precision loop).',
-      name: 'BackgroundService');
+  developer.log(
+    '[BackgroundService] Isolate started (adhan precision loop).',
+    name: 'BackgroundService',
+  );
 
   // ── Notification plugin – handles action buttons
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -154,13 +159,15 @@ void _onStart(ServiceInstance service) async {
       );
       if (details.actionId == 'stop_audio') {
         developer.log(
-            '[BackgroundService] Notification stop_audio action → stopping audio.',
-            name: 'BackgroundService');
+          '[BackgroundService] Notification stop_audio action → stopping audio.',
+          name: 'BackgroundService',
+        );
         await athanAudio.stop();
         if (details.id != null) {
           developer.log(
-              '[BackgroundService] Auto-dismissing notification ${details.id}.',
-              name: 'BackgroundService');
+            '[BackgroundService] Auto-dismissing notification ${details.id}.',
+            name: 'BackgroundService',
+          );
           await flutterLocalNotificationsPlugin.cancel(id: details.id!);
         }
       }
@@ -179,16 +186,19 @@ void _onStart(ServiceInstance service) async {
 
   // ── Stop service command
   service.on('stop').listen((event) {
-    developer.log('[BackgroundService] Received stop — shutting down service.',
-        name: 'BackgroundService');
+    developer.log(
+      '[BackgroundService] Received stop — shutting down service.',
+      name: 'BackgroundService',
+    );
     service.stopSelf();
   });
 
   // ── Unified stop_audio command (from overlay Stop button OR notification action)
   service.on('stop_audio').listen((event) async {
     developer.log(
-        '[BackgroundService] Received stop_audio command — stopping audio and clearing all notifications.',
-        name: 'BackgroundService');
+      '[BackgroundService] Received stop_audio command — stopping audio and clearing all notifications.',
+      name: 'BackgroundService',
+    );
     await athanAudio.stop();
     await flutterLocalNotificationsPlugin.cancelAll();
     // Clear the playing flag so the UI knows audio has ended.
@@ -206,8 +216,9 @@ void _onStart(ServiceInstance service) async {
   _athanControlChannel.setMethodCallHandler((call) async {
     if (call.method == 'stopAudio') {
       developer.log(
-          '[BackgroundService] Native stopAudio received via MethodChannel — stopping audio.',
-          name: 'BackgroundService');
+        '[BackgroundService] Native stopAudio received via MethodChannel — stopping audio.',
+        name: 'BackgroundService',
+      );
       await athanAudio.stop();
       await flutterLocalNotificationsPlugin.cancelAll();
       try {
@@ -222,40 +233,54 @@ void _onStart(ServiceInstance service) async {
   // ── Manual reschedule trigger
   service.on('schedule').listen((event) async {
     developer.log(
-        '[BackgroundService] Received schedule command — refreshing prayer times.',
-        name: 'BackgroundService');
+      '[BackgroundService] Received schedule command — refreshing prayer times.',
+      name: 'BackgroundService',
+    );
     await _scheduleNextAthan(
-        service, athanAudio, flutterLocalNotificationsPlugin);
+      service,
+      athanAudio,
+      flutterLocalNotificationsPlugin,
+    );
   });
 
   // ── Initial prayer-time check
   await _scheduleNextAthan(
-      service, athanAudio, flutterLocalNotificationsPlugin)
-      .timeout(
+    service,
+    athanAudio,
+    flutterLocalNotificationsPlugin,
+  ).timeout(
     const Duration(seconds: 10),
     onTimeout: () {
       developer.log(
-          '[BackgroundService] Initial _scheduleNextAthan timed out — will retry on next tick.',
-          name: 'BackgroundService');
+        '[BackgroundService] Initial _scheduleNextAthan timed out — will retry on next tick.',
+        name: 'BackgroundService',
+      );
     },
   );
 
   // ── Periodic 1-minute tick (Original adhan project timing)
   Timer.periodic(const Duration(minutes: 1), (timer) async {
     await _checkAndTriggerAthan(
-            service, athanAudio, flutterLocalNotificationsPlugin)
-        .timeout(
+      service,
+      athanAudio,
+      flutterLocalNotificationsPlugin,
+    ).timeout(
       const Duration(seconds: 10),
       onTimeout: () {
         developer.log(
-            '[BackgroundService] _checkAndTriggerAthan timed out on minute tick.',
-            name: 'BackgroundService');
+          '[BackgroundService] _checkAndTriggerAthan timed out on minute tick.',
+          name: 'BackgroundService',
+        );
       },
     );
-    
+
     // Integrated imsakia extra features
     await _checkIslamicEvents(flutterLocalNotificationsPlugin);
-    await _checkEidTakbeer(service, athanAudio, flutterLocalNotificationsPlugin);
+    await _checkEidTakbeer(
+      service,
+      athanAudio,
+      flutterLocalNotificationsPlugin,
+    );
   });
 }
 
@@ -270,12 +295,14 @@ String _lastEidTakbeerDate = '';
 // _scheduleNextAthan – called once on startup and via 'schedule' command
 // ---------------------------------------------------------------------------
 Future<void> _scheduleNextAthan(
-    ServiceInstance service,
-    AthanAudioService athanAudio,
-    FlutterLocalNotificationsPlugin notifications) async {
+  ServiceInstance service,
+  AthanAudioService athanAudio,
+  FlutterLocalNotificationsPlugin notifications,
+) async {
   developer.log(
-      '[BackgroundService] _scheduleNextAthan: performing initial check.',
-      name: 'BackgroundService');
+    '[BackgroundService] _scheduleNextAthan: performing initial check.',
+    name: 'BackgroundService',
+  );
   await _checkAndTriggerAthan(service, athanAudio, notifications);
 }
 
@@ -283,23 +310,26 @@ Future<void> _scheduleNextAthan(
 // _checkAndTriggerAthan – runs every minute (Ported from adhan project)
 // ---------------------------------------------------------------------------
 Future<void> _checkAndTriggerAthan(
-    ServiceInstance service,
-    AthanAudioService athanAudio,
-    FlutterLocalNotificationsPlugin notifications) async {
+  ServiceInstance service,
+  AthanAudioService athanAudio,
+  FlutterLocalNotificationsPlugin notifications,
+) async {
   try {
     final prefs = await SharedPreferences.getInstance();
 
     final settingsRaw = prefs.getString('settings');
     if (settingsRaw == null) return;
-    final settings =
-        SettingsModel.fromJson(jsonDecode(settingsRaw) as Map<String, dynamic>);
+    final settings = SettingsModel.fromJson(
+      jsonDecode(settingsRaw) as Map<String, dynamic>,
+    );
 
     if (!settings.athanEnabled) return;
 
     final locationRaw = prefs.getString('last_location');
     if (locationRaw == null) return;
-    final location =
-        LocationModel.fromJson(jsonDecode(locationRaw) as Map<String, dynamic>);
+    final location = LocationModel.fromJson(
+      jsonDecode(locationRaw) as Map<String, dynamic>,
+    );
 
     final prayerService = PrayerTimesService();
     final now = DateTime.now();
@@ -310,13 +340,16 @@ Future<void> _checkAndTriggerAthan(
     final nextPrayer = times.nextPrayer;
     if (nextPrayer != null && service is AndroidServiceInstance) {
       String formatTime(DateTime time) {
-        final hr = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+        final hr = time.hour > 12
+            ? time.hour - 12
+            : (time.hour == 0 ? 12 : time.hour);
         final mn = time.minute.toString().padLeft(2, '0');
         final ampm = time.hour >= 12 ? 'م' : 'ص';
         return "$hr:$mn $ampm";
       }
 
-      final contentStr = (nextPrayer.name == Prayer.sunrise || nextPrayer.name == Prayer.imsak)
+      final contentStr =
+          (nextPrayer.name == Prayer.sunrise || nextPrayer.name == Prayer.imsak)
           ? '${nextPrayer.name.nameAr} - ${formatTime(nextPrayer.time)}'
           : 'الصلاة القادمة: ${nextPrayer.name.nameAr} - ${formatTime(nextPrayer.time)}';
 
@@ -332,7 +365,8 @@ Future<void> _checkAndTriggerAthan(
       final countdown = remaining.isNegative ? Duration.zero : remaining;
       final wHours = countdown.inHours.toString().padLeft(2, '0');
       final wMins = (countdown.inMinutes % 60).toString().padLeft(2, '0');
-      final wNextName = '${nextPrayer.name.nameAr} ${_formatTime12(nextPrayer.time)}';
+      final wNextName =
+          '${nextPrayer.name.nameAr} ${_formatTime12(nextPrayer.time)}';
       try {
         await HomeWidget.saveWidgetData<String>('widget_hours', wHours);
         await HomeWidget.saveWidgetData<String>('widget_minutes', wMins);
@@ -350,123 +384,151 @@ Future<void> _checkAndTriggerAthan(
     for (final entry in times.toList()) {
       final diff = entry.time.difference(now);
 
-      // Window: 0 – 60 seconds (Using adhan's exact window approach)
-      if (diff.inSeconds >= 0 && diff.inSeconds <= 60) {
-        final currentKey = '${now.year}-${now.month}-${now.day}_${entry.name.nameAr}';
+      developer.log("CHECK: ${entry.name} diff=${diff.inSeconds}");
+
+      if (diff.inSeconds >= -120 && diff.inSeconds <= 65) {
+        final currentKey =
+            '${now.year}-${now.month}-${now.day}_${entry.name.nameAr}';
         if (_lastTriggeredAthanKey == currentKey) continue;
 
-        developer.log('[AthanSync] Triggering ${entry.name.nameAr} at $now. Expected: ${entry.time}', name: 'BackgroundService');
         _lastTriggeredAthanKey = currentKey;
 
-        final notifId = 100 + entry.name.index;
+        developer.log("TRIGGER: ${entry.name}");
 
-        // ── Imsak & Sunrise: silent notification only
-        if (entry.name == Prayer.imsak || entry.name == Prayer.sunrise) {
-          const silentDetails = AndroidNotificationDetails(
-            'adhan_background',
-            'Adhan Running',
-            importance: Importance.defaultImportance,
-            priority: Priority.defaultPriority,
-            playSound: false,
-            enableVibration: false,
-            ongoing: false,
+        int delaySeconds = diff.inSeconds;
+
+        if (delaySeconds > 1) {
+          delaySeconds -= 1;
+        } else {
+          delaySeconds = 0;
+        }
+
+        Future.delayed(Duration(seconds: delaySeconds), () async {
+          final now2 = DateTime.now();
+          final actualDiff = entry.time.difference(now2).inSeconds;
+
+          if (actualDiff < -180) {
+            developer.log("Skipped late Athan: ${entry.name}");
+            return;
+          }
+
+          final notifId = 100 + entry.name.index;
+
+          // ── Imsak & Sunrise: silent notification only
+          if (entry.name == Prayer.imsak || entry.name == Prayer.sunrise) {
+            const silentDetails = AndroidNotificationDetails(
+              'adhan_background',
+              'Adhan Running',
+              importance: Importance.defaultImportance,
+              priority: Priority.defaultPriority,
+              playSound: false,
+              enableVibration: false,
+              ongoing: false,
+            );
+            await notifications.show(
+              id: notifId,
+              title: 'تنبيه: ${entry.name.nameAr}',
+              body: entry.name == Prayer.imsak
+                  ? 'حان وقت الإمساك — امتنع عن الطعام والشراب'
+                  : 'حان وقت الشروق',
+              notificationDetails: const NotificationDetails(
+                android: silentDetails,
+              ),
+            );
+            return;
+          }
+
+          // ── Main prayers Athan flow
+          // Cancel other notifications before showing the new one
+          await notifications.cancelAll();
+
+          final prayerImage = _resolvePrayerHeaderAsset(entry.name);
+
+          // Audio - Trigger ALARM stream natively (AthanAudioService should handle audio focus)
+          if (settings.athanSoundEnabled) {
+            try {
+              final assetPath = _resolveAthanAsset(entry.name, settings);
+              await athanAudio.stop(); // Safe guard
+              athanAudio.play(assetPath);
+            } catch (e) {
+              developer.log('[BackgroundService] Audio trigger failed: $e', name: 'BackgroundService');
+            }
+          }
+
+          // ── Build a native BroadcastReceiver PendingIntent for the Stop action.
+          final androidDetails = AndroidNotificationDetails(
+            'adhan_athan',
+            'Athan Alarm',
+            importance: Importance.max,
+            priority: Priority.max,
+            fullScreenIntent: true,
+            category: AndroidNotificationCategory.alarm,
+            ongoing: true,
+            autoCancel: false,
+            actions: const [
+              AndroidNotificationAction(
+                'stop_audio',
+                'إيقاف الأذان',
+                cancelNotification: false,
+                showsUserInterface: false,
+              ),
+            ],
           );
+
           await notifications.show(
             id: notifId,
-            title: 'تنبيه: ${entry.name.nameAr}',
-            body: entry.name == Prayer.imsak
-                ? 'حان وقت الإمساك — امتنع عن الطعام والشراب'
-                : 'حان وقت الشروق',
-            notificationDetails: const NotificationDetails(android: silentDetails),
+            title: 'حان وقت ${entry.name.nameAr}',
+            body: 'اضغط لإيقاف الأذان',
+            notificationDetails: NotificationDetails(android: androidDetails),
+            payload: jsonEncode({
+              'ar': entry.name.nameAr,
+              'en': entry.name.nameEn,
+              'image': prayerImage,
+            }),
           );
-          break;
-        }
 
-        // ── Main prayers Athan flow
-        await notifications.cancelAll();
+          // Persist the playing flag
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('athan_is_playing', true);
+            await prefs.setString('athan_prayer_ar', entry.name.nameAr);
+            await prefs.setString('athan_prayer_en', entry.name.nameEn);
+            await prefs.setString('athan_prayer_image', prayerImage);
+          } catch (_) {}
 
-        final prayerImage = _resolvePrayerHeaderAsset(entry.name);
-
-        // Audio
-        if (settings.athanSoundEnabled) {
-          final assetPath = _resolveAthanAsset(entry.name, settings);
-          athanAudio.play(assetPath);
-        }
-
-        // ── Build a native BroadcastReceiver PendingIntent for the Stop action.
-        // When the user taps "إيقاف الأذان" on the notification, Android delivers
-        // the broadcast to AthanReceiver.kt FIRST — zero Dart-isolate latency.
-        final androidDetails = AndroidNotificationDetails(
-          'adhan_athan',
-          'Athan Alarm',
-          importance: Importance.max,
-          priority: Priority.max,
-          fullScreenIntent: true,
-          category: AndroidNotificationCategory.alarm,
-          ongoing: true,
-          autoCancel: false,
-          actions: const [
-            AndroidNotificationAction(
-              'stop_audio',
-              'إيقاف الأذان',
-              // cancelNotification=false: let AthanReceiver.kt cancel it natively
-              // so the notification dismisses even if Dart isn't running.
-              cancelNotification: false,
-              showsUserInterface: false,
-            ),
-          ],
-        );
-
-        await notifications.show(
-          id: notifId,
-          title: 'حان وقت ${entry.name.nameAr}',
-          body: 'اضغط لإيقاف الأذان',
-          notificationDetails: NotificationDetails(android: androidDetails),
-          payload: jsonEncode({
-            'ar': entry.name.nameAr,
-            'en': entry.name.nameEn,
-            'image': prayerImage,
-          }),
-        );
-
-        // Persist the playing flag BEFORE signalling the UI, so that if the app
-        // cold-starts it reads the correct state from SharedPreferences.
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('athan_is_playing', true);
-          await prefs.setString('athan_prayer_ar', entry.name.nameAr);
-          await prefs.setString('athan_prayer_en', entry.name.nameEn);
-          await prefs.setString('athan_prayer_image', prayerImage);
-        } catch (_) {}
-
-        service.invoke('athan_started', {
-          'prayer': entry.name.nameAr,
-          'prayerEn': entry.name.nameEn,
-          'image': prayerImage,
-        });
-
-        // ── Native Intent: force MainActivity to the foreground on the lock screen.
-        // This is the definitive fix for the "shows Home instead of overlay" bug:
-        // FlutterBackgroundService.invoke only works if the main isolate IS running.
-        // The native launchAthanOverlay call uses FLAG_ACTIVITY_NEW_TASK so it
-        // always works, even when the app is completely killed.
-        try {
-          await _athanControlChannel.invokeMethod('launchAthanOverlay', {
+          service.invoke('athan_started', {
             'prayer': entry.name.nameAr,
             'prayerEn': entry.name.nameEn,
             'image': prayerImage,
           });
-          developer.log('[BackgroundService] launchAthanOverlay native call succeeded.',
-              name: 'BackgroundService');
-        } catch (e) {
-          developer.log('[BackgroundService] launchAthanOverlay native call failed: $e — relying on Dart athan_started event.',
-              name: 'BackgroundService');
-        }
+
+          // ── Native Intent: force MainActivity to the foreground on the lock screen.
+          try {
+            await _athanControlChannel.invokeMethod('launchAthanOverlay', {
+              'prayer': entry.name.nameAr,
+              'prayerEn': entry.name.nameEn,
+              'image': prayerImage,
+            });
+
+            developer.log(
+              '[BackgroundService] launchAthanOverlay native call succeeded.',
+              name: 'BackgroundService',
+            );
+          } catch (e) {
+            developer.log(
+              '[BackgroundService] launchAthanOverlay native call failed: $e',
+              name: 'BackgroundService',
+            );
+          }
+        });
+
         break;
       }
     }
   } catch (e, st) {
-    developer.log('[BackgroundService] Error in _checkAndTriggerAthan: $e\n$st');
+    developer.log(
+      '[BackgroundService] Error in _checkAndTriggerAthan: $e\n$st',
+    );
   }
 }
 
@@ -474,7 +536,8 @@ Future<void> _checkAndTriggerAthan(
 // _checkIslamicEvents – fires at 08:00 AM daily
 // ---------------------------------------------------------------------------
 Future<void> _checkIslamicEvents(
-    FlutterLocalNotificationsPlugin notifications) async {
+  FlutterLocalNotificationsPlugin notifications,
+) async {
   try {
     final now = DateTime.now();
     if (now.hour != 8 || now.minute != 0) return;
@@ -521,9 +584,10 @@ Future<void> _checkIslamicEvents(
 // _checkEidTakbeer – plays Eid Takbeer 30 min after Fajr
 // ---------------------------------------------------------------------------
 Future<void> _checkEidTakbeer(
-    ServiceInstance service,
-    AthanAudioService athanAudio,
-    FlutterLocalNotificationsPlugin notifications) async {
+  ServiceInstance service,
+  AthanAudioService athanAudio,
+  FlutterLocalNotificationsPlugin notifications,
+) async {
   try {
     final prefs = await SharedPreferences.getInstance();
     final eidTakbeerEnabled = prefs.getBool('enable_eid_takbeer') ?? true;
@@ -540,16 +604,23 @@ Future<void> _checkEidTakbeer(
 
     final settingsRaw = prefs.getString('settings');
     if (settingsRaw == null) return;
-    final settings = SettingsModel.fromJson(jsonDecode(settingsRaw) as Map<String, dynamic>);
+    final settings = SettingsModel.fromJson(
+      jsonDecode(settingsRaw) as Map<String, dynamic>,
+    );
 
     final locationRaw = prefs.getString('last_location');
     if (locationRaw == null) return;
-    final location = LocationModel.fromJson(jsonDecode(locationRaw) as Map<String, dynamic>);
+    final location = LocationModel.fromJson(
+      jsonDecode(locationRaw) as Map<String, dynamic>,
+    );
 
     final prayerService = PrayerTimesService();
     final times = prayerService.calculate(location, settings.calculationMethod);
 
-    final fajrEntry = times.toList().firstWhere((e) => e.name == Prayer.fajr, orElse: () => times.toList().first);
+    final fajrEntry = times.toList().firstWhere(
+      (e) => e.name == Prayer.fajr,
+      orElse: () => times.toList().first,
+    );
     final triggerTime = fajrEntry.time.add(const Duration(minutes: 30));
     final diff = now.difference(triggerTime);
 
@@ -558,7 +629,10 @@ Future<void> _checkEidTakbeer(
 
     final eidName = isEidAlFitr ? 'عيد الفطر المبارك' : 'عيد الأضحى المبارك';
     if (service is AndroidServiceInstance) {
-      service.setForegroundNotificationInfo(title: 'أوقات الصلاة', content: 'تكبيرات العيد جارية الآن 🎉');
+      service.setForegroundNotificationInfo(
+        title: 'أوقات الصلاة',
+        content: 'تكبيرات العيد جارية الآن 🎉',
+      );
     }
 
     await athanAudio.stop();
@@ -623,8 +697,9 @@ String _resolvePrayerHeaderAsset(Prayer prayer) {
 // Helper: format a DateTime as 12-hour h:mm
 // ---------------------------------------------------------------------------
 String _formatTime12(DateTime time) {
-  final hr = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+  final hr = time.hour > 12
+      ? time.hour - 12
+      : (time.hour == 0 ? 12 : time.hour);
   final mn = time.minute.toString().padLeft(2, '0');
   return '$hr:$mn';
 }
-

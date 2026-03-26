@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../utils/app_constants.dart';
@@ -17,53 +18,67 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late AnimationController _scaleController;
   late AnimationController _pulseController;
+
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
   late Animation<double> _pulseAnimation;
-  
+
   String _statusText = 'جاري التحميل...';
+
+  /// ⭐ الجديد
+  bool _launchedFromAthan = false;
+
+  static const MethodChannel _channel = MethodChannel('athan_channel');
 
   @override
   void initState() {
     super.initState();
     _initializeAnimations();
     _startAnimations();
-    
-    // Start engine initialization
-    WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _checkLaunchSource();
+      _initialize();
+    });
+  }
+
+  /// ⭐ تحديد هل التطبيق فتح بسبب الأذان
+  Future<void> _checkLaunchSource() async {
+    try {
+      final result =
+          await _channel.invokeMethod<bool>("is_open_from_athan");
+      _launchedFromAthan = result ?? false;
+      debugPrint("Launched from Athan: $_launchedFromAthan");
+    } catch (e) {
+      debugPrint("Error checking launch source: $e");
+      _launchedFromAthan = false;
+    }
   }
 
   void _initializeAnimations() {
-    _fadeController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    );
+    _fadeController =
+        AnimationController(duration: const Duration(seconds: 2), vsync: this);
 
     _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
+        duration: const Duration(milliseconds: 1500), vsync: this);
 
     _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    )..repeat(reverse: true);
+        duration: const Duration(milliseconds: 1500), vsync: this)
+      ..repeat(reverse: true);
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
-    );
+        CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut));
 
     _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut),
-    );
+        CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut));
 
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
+        CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
   }
 
   void _startAnimations() {
@@ -80,47 +95,68 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     final locale = settings.languageCode;
 
     try {
-      // Step 1: Load location (with last known as fallback if stalling)
-      _updateStatus(locale == 'ar' ? 'جاري تحديد موقعك...' : 'Getting location...');
+      /// ⭐ لو جاي من الأذان → متضيعش وقت
+      if (_launchedFromAthan) {
+        _navigateToMain();
+        return;
+      }
+
+      _updateStatus(locale == 'ar'
+          ? 'جاري تحديد موقعك...'
+          : 'Getting location...');
+
       if (!location.hasLocation) {
-        // LocationProvider will handle timeout/fallback logic
-        await location.fetchGpsLocation(
-          locale: locale,
-          onLocationChanged: (loc) => prayerTimes.calculate(loc, settings.calculationMethod),
-        ).timeout(
-          const Duration(seconds: 12),
-          onTimeout: () => debugPrint('Location fetch timed out in splash'),
-        );
+        await location
+            .fetchGpsLocation(
+              locale: locale,
+              onLocationChanged: (loc) =>
+                  prayerTimes.calculate(loc, settings.calculationMethod),
+            )
+            .timeout(
+              const Duration(seconds: 12),
+              onTimeout: () =>
+                  debugPrint('Location fetch timed out in splash'),
+            );
       }
 
-      // Step 2: Calculate prayer times
       if (location.hasLocation) {
-        _updateStatus(locale == 'ar' ? 'جاري حساب المواقيت...' : 'Calculating times...');
-        await prayerTimes.calculate(location.location!, settings.calculationMethod);
+        _updateStatus(locale == 'ar'
+            ? 'جاري حساب المواقيت...'
+            : 'Calculating times...');
+        await prayerTimes.calculate(
+            location.location!, settings.calculationMethod);
       }
 
-      // Step 3: Fetch Hijri date
-      _updateStatus(locale == 'ar' ? 'جاري تحميل التاريخ...' : 'Loading Hijri...');
+      _updateStatus(
+          locale == 'ar' ? 'جاري تحميل التاريخ...' : 'Loading Hijri...');
       await hijri.fetch(
         offset: settings.hijriBaseOffset,
         countryCode: location.location?.countryCode,
       );
 
-      // Final wait for aesthetic transition
       await Future.delayed(const Duration(seconds: 1));
       _navigateToMain();
     } catch (e) {
       debugPrint('Initialization error: $e');
-      _navigateToMain(); // Navigate anyway to avoid bricking
+      _navigateToMain();
     }
   }
 
+  /// ⭐ أهم تعديل هنا
   void _navigateToMain() {
     if (!mounted) return;
+
+    /// ✅ لو جاي من الأذان → روح لشاشة الأذان
+    if (_launchedFromAthan) {
+      Navigator.of(context).pushReplacementNamed('/athan');
+      return;
+    }
+
+    /// ✅ الفتح الطبيعي → روح للهوم
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (context, anim1, anim2) => const MainLayout(),
-        transitionsBuilder: (context, anim, secondaryAnim, child) => 
+        transitionsBuilder: (context, anim, secondaryAnim, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 800),
       ),
@@ -142,7 +178,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -159,7 +195,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         ),
         child: Stack(
           children: [
-            // Background Mosque Icon (Silmulated Overlay)
             Positioned(
               top: size.height * 0.15,
               left: 0,
@@ -173,7 +208,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                 ),
               ),
             ),
-            
             Center(
               child: FadeTransition(
                 opacity: _fadeAnimation,
@@ -182,26 +216,27 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Memorial Seal
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.gold.withValues(alpha: 0.5), width: 2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.gold.withValues(alpha: 0.2),
-                              blurRadius: 20,
-                              spreadRadius: 5,
-                            )
-                          ]
-                        ),
-                        child: Icon(Icons.star_rounded, color: AppColors.gold, size: size.width * 0.15),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color:
+                                    AppColors.gold.withValues(alpha: 0.5),
+                                width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.gold
+                                    .withValues(alpha: 0.2),
+                                blurRadius: 20,
+                                spreadRadius: 5,
+                              )
+                            ]),
+                        child: Icon(Icons.star_rounded,
+                            color: AppColors.gold,
+                            size: size.width * 0.15),
                       ),
-                      
                       SizedBox(height: size.height * 0.05),
-                      
-                      // Memorial Text
                       Text(
                         AppConstants.splashTitle,
                         style: GoogleFonts.tajawal(
@@ -211,9 +246,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      
                       const SizedBox(height: 8),
-                      
                       Text(
                         AppConstants.splashSubtitle,
                         style: GoogleFonts.reemKufi(
@@ -222,18 +255,19 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      
                       SizedBox(height: size.height * 0.03),
-                      
-                      // Dedication Name
                       ScaleTransition(
                         scale: _pulseAnimation,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 12),
                           decoration: BoxDecoration(
-                            color: AppColors.gold.withValues(alpha: 0.1),
+                            color:
+                                AppColors.gold.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(30),
-                            border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
+                            border: Border.all(
+                                color: AppColors.gold
+                                    .withValues(alpha: 0.3)),
                           ),
                           child: Text(
                             AppConstants.splashDedication,
@@ -245,10 +279,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                           ),
                         ),
                       ),
-                      
                       SizedBox(height: size.height * 0.08),
-                      
-                      // Loading Status
                       Column(
                         children: [
                           const SizedBox(
@@ -256,7 +287,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                             height: 30,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.gold),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(
+                                      AppColors.gold),
                             ),
                           ),
                           const SizedBox(height: 16),
