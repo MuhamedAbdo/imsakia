@@ -24,6 +24,7 @@ import 'core/services/hijri_calendar_service.dart';
 import 'core/services/aladhan_api_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/background_service.dart' as bg;
+import 'core/services/athan_scheduling_service.dart';
 import 'package:flutter_background_service/flutter_background_service.dart' as fbs;
 
 // New Adhan Core Engine Providers
@@ -81,11 +82,14 @@ void main() async {
   final locationService = LocationService();
   final prayerService = PrayerTimesService();
 
-  // Start background service manually if athan is enabled
+  // Start background service manually if athan is enabled (For Widget/Events)
   await bg.BackgroundService.initialize();
   if (settings.athanEnabled) {
     await bg.BackgroundService.start();
   }
+  
+  // Schedule exact precise OS-level alarms
+  await AthanSchedulingService.scheduleFutureAthans();
 
   // Start Zad non-critical services
   HadithService.instance.initialize();
@@ -182,29 +186,42 @@ void main() async {
   // ── Buffer for athan events that arrive before the Navigator is mounted ────
   Map<String, dynamic>? pendingAthanData;
 
-  // ── Listen for Athan event from background isolate ─────────────────────────
-  fbs.FlutterBackgroundService().on('athan_started').listen((data) {
-    if (data == null) return;
-    final nameAr = data['prayer'] as String? ?? 'الصلاة';
-    final nameEn = data['prayerEn'] as String? ?? 'Prayer';
-    final image = data['image'] as String?;
+  // ── Listen for Athan event from Native Full-Screen Intent ─────────────────
+  const athanChannel = MethodChannel('imsakia/athan_control');
+  athanChannel.setMethodCallHandler((call) async {
+    if (call.method == 'open_athan') {
+      final data = call.arguments as Map<dynamic, dynamic>?;
+      if (data == null) return;
+      
+      final nameAr = data['prayer'] as String? ?? 'الصلاة';
+      final nameEn = data['prayerEn'] as String? ?? 'Prayer';
+      final image = data['image'] as String?;
 
-    if (navigatorKey.currentState != null) {
-      // Navigator ready — navigate immediately.
-      pushAthanOverlay(nameAr, nameEn, image);
-    } else {
-      // Navigator not yet mounted (cold-start race). Buffer and flush on first frame.
-      pendingAthanData = {'nameAr': nameAr, 'nameEn': nameEn, 'image': image};
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (pendingAthanData != null) {
-          pushAthanOverlay(
-            pendingAthanData!['nameAr'] as String,
-            pendingAthanData!['nameEn'] as String,
-            pendingAthanData!['image'] as String?,
-          );
-          pendingAthanData = null;
-        }
-      });
+      if (navigatorKey.currentState != null) {
+        // Navigator ready — navigate immediately.
+        pushAthanOverlay(nameAr, nameEn, image);
+      } else {
+        // Navigator not yet mounted (cold-start race). Buffer and flush on first frame.
+        pendingAthanData = {'nameAr': nameAr, 'nameEn': nameEn, 'image': image};
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (pendingAthanData != null) {
+            pushAthanOverlay(
+              pendingAthanData!['nameAr'] as String,
+              pendingAthanData!['nameEn'] as String,
+              pendingAthanData!['image'] as String?,
+            );
+            pendingAthanData = null;
+          }
+        });
+      }
+    } else if (call.method == 'stopAudio') {
+      final nav = navigatorKey.currentState;
+      if (nav != null && nav.canPop()) {
+        try {
+          // Verify if overlay is frontmost, we can pop it safely to get back to splash or main
+          nav.pop();
+        } catch (_) {}
+      }
     }
   });
 

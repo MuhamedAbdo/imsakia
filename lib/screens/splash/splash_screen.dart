@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -80,6 +81,15 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     final locale = settings.languageCode;
 
     try {
+      // Step 0: Check if Athan is actively playing natively!
+      final prefs = await SharedPreferences.getInstance();
+      final isPlaying = prefs.getBool('athan_is_playing') ?? false;
+      if (isPlaying) {
+        debugPrint('Splash: Athan is playing! Bypassing heavy startup tasks...');
+        _navigateToMain();
+        return; // Fast-track to main layout so Overlay can pop
+      }
+
       // Step 1: Load location (with last known as fallback if stalling)
       _updateStatus(locale == 'ar' ? 'جاري تحديد موقعك...' : 'Getting location...');
       if (!location.hasLocation) {

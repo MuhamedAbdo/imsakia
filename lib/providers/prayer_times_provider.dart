@@ -4,6 +4,7 @@ import '../core/models/prayer_times_model.dart';
 import '../core/models/location_model.dart';
 import '../core/models/settings_model.dart';
 import '../core/services/prayer_times_service.dart';
+import '../core/services/athan_scheduling_service.dart';
 import 'package:home_widget/home_widget.dart';
 
 enum PrayerTimesStatus { idle, loading, loaded, error }
@@ -33,6 +34,9 @@ class PrayerTimesProvider extends ChangeNotifier {
     notifyListeners();
     try {
       _prayerTimes = _service.calculate(location, method);
+      
+      // Update OS Alarms Natively when recalculating
+      AthanSchedulingService.scheduleFutureAthans();
       
       final next = _prayerTimes?.nextPrayer;
       final current = _prayerTimes?.currentPrayer;

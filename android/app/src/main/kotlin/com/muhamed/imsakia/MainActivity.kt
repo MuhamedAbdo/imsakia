@@ -3,6 +3,9 @@ package com.muhamed.imsakia
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -11,20 +14,39 @@ import android.net.Uri
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import android.os.Bundle
+import android.util.Log
+import io.flutter.embedding.engine.FlutterEngineCache
 
 class MainActivity : AudioServiceActivity() {
     private val CHANNEL = "imsakia/notifications"
+    private val ATHAN_CHANNEL = "imsakia/athan_control"
     private val NOTIFICATION_PERMISSION_CODE = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Android 8.1+ Show when locked
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
+
         // Request notification permissions immediately when app starts
         requestNotificationPermission()
     }
 
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        
+        FlutterEngineCache.getInstance().put("main_engine", flutterEngine)
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "requestNotificationPermission" -> {
@@ -44,6 +66,105 @@ class MainActivity : AudioServiceActivity() {
                 }
             }
         }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ATHAN_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "scheduleAthanAlarm" -> {
+                    val id = call.argument<Int>("id") ?: 0
+                    val timeMs = call.argument<Long>("timeMs") ?: 0L
+                    val prayerAr = call.argument<String>("prayerAr") ?: ""
+                    val prayerEn = call.argument<String>("prayerEn") ?: ""
+                    val assetPath = call.argument<String>("assetPath") ?: ""
+                    val prayerImage = call.argument<String>("prayerImage") ?: ""
+                    scheduleAthanAlarm(id, timeMs, prayerAr, prayerEn, assetPath, prayerImage)
+                    result.success(true)
+                }
+                "cancelAthanAlarm" -> {
+                    val id = call.argument<Int>("id") ?: 0
+                    cancelAthanAlarm(id)
+                    result.success(true)
+                }
+                "stopNativeAudio" -> {
+                    NativeAudioController.stop()
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleAthanIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        handleAthanIntent(intent)
+    }
+
+    private fun handleAthanIntent(currentIntent: Intent?) {
+        if (currentIntent?.getBooleanExtra("show_athan", false) == true) {
+            val prayerAr = currentIntent.getStringExtra("prayer_ar") ?: ""
+            val prayerEn = currentIntent.getStringExtra("prayer_en") ?: ""
+            val prayerImage = currentIntent.getStringExtra("prayer_image") ?: ""
+
+            try {
+                FlutterEngineCache.getInstance().get("main_engine")?.let { engine ->
+                    MethodChannel(engine.dartExecutor.binaryMessenger, ATHAN_CHANNEL)
+                        .invokeMethod("open_athan", mapOf(
+                            "prayer" to prayerAr,
+                            "prayerEn" to prayerEn,
+                            "image" to prayerImage
+                        ))
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            
+            // Remove so it doesn't trigger again on subsequent resumes
+            currentIntent.removeExtra("show_athan")
+        }
+    }
+
+    private fun scheduleAthanAlarm(id: Int, timeMs: Long, prayerAr: String, prayerEn: String, assetPath: String, prayerImage: String) {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(this, AthanTriggerReceiver::class.java).apply {
+            putExtra("prayer_ar", prayerAr)
+            putExtra("prayer_en", prayerEn)
+            putExtra("asset_path", assetPath)
+            putExtra("prayer_image", prayerImage)
+            putExtra("notification_id", id)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            this,
+            id,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMs, pendingIntent)
+            } else {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMs, pendingIntent)
+            }
+        } catch (e: SecurityException) {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMs, pendingIntent)
+        }
+    }
+
+    private fun cancelAthanAlarm(id: Int) {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(this, AthanTriggerReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            this,
+            id,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager.cancel(pendingIntent)
     }
 
     private fun requestNotificationPermission() {

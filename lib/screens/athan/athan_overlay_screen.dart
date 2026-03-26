@@ -2,8 +2,9 @@ import 'dart:developer' as developer;
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:animate_do/animate_do.dart';
-import '../../core/services/background_service.dart' as bg;
 import '../../core/theme/app_colors.dart';
 
 class AthanOverlayScreen extends StatefulWidget {
@@ -48,11 +49,32 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
   }
 
   Future<void> _stopAthan() async {
-    developer.log('[AthanOverlay] Stop button tapped — sending stop_audio to background service.', name: 'AthanOverlay');
-    // Calling the background isolate to stop audio and clear notifications
-    bg.BackgroundService.sendStopAudio();
+    developer.log('[AthanOverlay] Stop button tapped — stopping naturally.', name: 'AthanOverlay');
+    
+    // 1. Stop Native Audio Instantly
+    try {
+      const channel = MethodChannel('imsakia/athan_control');
+      await channel.invokeMethod('stopNativeAudio');
+    } catch (e) {
+      developer.log('Failed to stop native audio: $e');
+    }
+
+    // 2. Clear flutter local notifications if any
+    try {
+      final plugin = FlutterLocalNotificationsPlugin();
+      await plugin.cancelAll();
+    } catch (_) {}
+    
+    // 3. Update SharedPreferences
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('athan_is_playing', false);
+    } catch (_) {}
+
     // Dismiss the overlay screen
-    SystemNavigator.pop();
+    if (mounted) {
+      SystemNavigator.pop();
+    }
   }
 
   @override

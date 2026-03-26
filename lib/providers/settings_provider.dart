@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../core/models/settings_model.dart';
 import '../core/services/storage_service.dart';
 import '../core/services/background_service.dart';
+import '../core/services/athan_scheduling_service.dart';
 
 class SettingsProvider extends ChangeNotifier {
   final StorageService _storage;
@@ -166,6 +167,10 @@ class SettingsProvider extends ChangeNotifier {
 
   Future<void> _save() async {
     await _storage.saveSettings(_settings);
+    
+    // Natively schedule athans on settings change (e.g., sound change or toggle)
+    AthanSchedulingService.scheduleFutureAthans();
+    
     notifyListeners();
   }
 }

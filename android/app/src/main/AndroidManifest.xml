@@ -68,6 +68,9 @@
                        android:resource="@xml/widget_info" />
         </receiver>
 
+        <receiver android:name=".AthanTriggerReceiver" />
+        <receiver android:name=".AthanReceiver" />
+
         <service android:name="com.ryanheise.audioservice.AudioService"
                  android:foregroundServiceType="mediaPlayback"
                  android:exported="true"

@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import '../models/prayer_times_model.dart';
 import '../models/location_model.dart';
 import '../models/settings_model.dart';
@@ -181,6 +182,10 @@ void _onStart(ServiceInstance service) async {
         name: 'BackgroundService');
     await athanAudio.stop();
     await flutterLocalNotificationsPlugin.cancelAll();
+    try {
+      final athanChannel = MethodChannel('imsakia/athan_control');
+      await athanChannel.invokeMethod('stopNativeAudio');
+    } catch (_) {}
     // Clear the playing flag so the UI knows audio has ended.
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -188,25 +193,12 @@ void _onStart(ServiceInstance service) async {
     } catch (_) {}
   });
 
-  // ── Manual reschedule trigger
-  service.on('schedule').listen((event) async {
-    developer.log(
-        '[BackgroundService] Received schedule command — refreshing prayer times.',
-        name: 'BackgroundService');
-    await _scheduleNextAthan(
-        service, athanAudio, flutterLocalNotificationsPlugin);
-  });
+  // ── No repetitive scheduling logic needed here anymore.
+  // The Main Isolate registers precise OS-level alarms with Native SDK.
 
-  // ── Initial prayer-time check
-  await _scheduleNextAthan(
-      service, athanAudio, flutterLocalNotificationsPlugin);
-
-  // ── Periodic 1-minute tick (Original adhan project timing)
+  // ── Periodic 1-minute tick (For UI/Widget & Daily Islamic Events only)
   Timer.periodic(const Duration(minutes: 1), (timer) async {
-    await _checkAndTriggerAthan(
-        service, athanAudio, flutterLocalNotificationsPlugin);
-    
-    // Integrated imsakia extra features
+    await _updateWidgetCountdown(service);
     await _checkIslamicEvents(flutterLocalNotificationsPlugin);
     await _checkEidTakbeer(service, athanAudio, flutterLocalNotificationsPlugin);
   });
@@ -215,72 +207,50 @@ void _onStart(ServiceInstance service) async {
 // ---------------------------------------------------------------------------
 // Per-day debounce keys
 // ---------------------------------------------------------------------------
-String _lastTriggeredAthanKey = '';
 String _lastEventNotifiedDate = '';
 String _lastEidTakbeerDate = '';
 
 // ---------------------------------------------------------------------------
-// _scheduleNextAthan – called once on startup and via 'schedule' command
+// _updateWidgetCountdown – runs every minute to refresh the widget
 // ---------------------------------------------------------------------------
-Future<void> _scheduleNextAthan(
-    ServiceInstance service,
-    AthanAudioService athanAudio,
-    FlutterLocalNotificationsPlugin notifications) async {
-  developer.log(
-      '[BackgroundService] _scheduleNextAthan: performing initial check.',
-      name: 'BackgroundService');
-  await _checkAndTriggerAthan(service, athanAudio, notifications);
-}
-
-// ---------------------------------------------------------------------------
-// _checkAndTriggerAthan – runs every minute (Ported from adhan project)
-// ---------------------------------------------------------------------------
-Future<void> _checkAndTriggerAthan(
-    ServiceInstance service,
-    AthanAudioService athanAudio,
-    FlutterLocalNotificationsPlugin notifications) async {
+Future<void> _updateWidgetCountdown(ServiceInstance service) async {
   try {
     final prefs = await SharedPreferences.getInstance();
 
     final settingsRaw = prefs.getString('settings');
     if (settingsRaw == null) return;
-    final settings =
-        SettingsModel.fromJson(jsonDecode(settingsRaw) as Map<String, dynamic>);
+    final settings = SettingsModel.fromJson(jsonDecode(settingsRaw) as Map<String, dynamic>);
 
     if (!settings.athanEnabled) return;
 
     final locationRaw = prefs.getString('last_location');
     if (locationRaw == null) return;
-    final location =
-        LocationModel.fromJson(jsonDecode(locationRaw) as Map<String, dynamic>);
+    final location = LocationModel.fromJson(jsonDecode(locationRaw) as Map<String, dynamic>);
 
     final prayerService = PrayerTimesService();
     final now = DateTime.now();
-
     final times = prayerService.calculate(location, settings.calculationMethod);
 
-    // ── UPDATE FOREGROUND NOTIFICATION DYNAMICALLY
     final nextPrayer = times.nextPrayer;
-    if (nextPrayer != null && service is AndroidServiceInstance) {
-      String formatTime(DateTime time) {
-        final hr = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
-        final mn = time.minute.toString().padLeft(2, '0');
-        final ampm = time.hour >= 12 ? 'م' : 'ص';
-        return "$hr:$mn $ampm";
+    if (nextPrayer != null) {
+      if (service is AndroidServiceInstance) {
+        String formatTime(DateTime time) {
+          final hr = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+          final mn = time.minute.toString().padLeft(2, '0');
+          final ampm = time.hour >= 12 ? 'م' : 'ص';
+          return "$hr:$mn $ampm";
+        }
+
+        final contentStr = (nextPrayer.name == Prayer.sunrise || nextPrayer.name == Prayer.imsak)
+            ? '${nextPrayer.name.nameAr} - ${formatTime(nextPrayer.time)}'
+            : 'الصلاة القادمة: ${nextPrayer.name.nameAr} - ${formatTime(nextPrayer.time)}';
+
+        service.setForegroundNotificationInfo(
+          title: 'أوقات الصلاة',
+          content: contentStr,
+        );
       }
 
-      final contentStr = (nextPrayer.name == Prayer.sunrise || nextPrayer.name == Prayer.imsak)
-          ? '${nextPrayer.name.nameAr} - ${formatTime(nextPrayer.time)}'
-          : 'الصلاة القادمة: ${nextPrayer.name.nameAr} - ${formatTime(nextPrayer.time)}';
-
-      service.setForegroundNotificationInfo(
-        title: 'أوقات الصلاة',
-        content: contentStr,
-      );
-    }
-
-    // ── WIDGET LIVE UPDATE
-    if (nextPrayer != null) {
       final remaining = nextPrayer.time.difference(now);
       final countdown = remaining.isNegative ? Duration.zero : remaining;
       final wHours = countdown.inHours.toString().padLeft(2, '0');
@@ -299,102 +269,11 @@ Future<void> _checkAndTriggerAthan(
         developer.log('[BackgroundService] Widget update failed: $e');
       }
     }
-
-    for (final entry in times.toList()) {
-      final diff = entry.time.difference(now);
-
-      // Window: 0 – 60 seconds (Using adhan's exact window approach)
-      if (diff.inSeconds >= 0 && diff.inSeconds <= 60) {
-        final currentKey = '${now.year}-${now.month}-${now.day}_${entry.name.nameAr}';
-        if (_lastTriggeredAthanKey == currentKey) continue;
-
-        developer.log('[AthanSync] Triggering ${entry.name.nameAr} at $now. Expected: ${entry.time}', name: 'BackgroundService');
-        _lastTriggeredAthanKey = currentKey;
-
-        final notifId = 100 + entry.name.index;
-
-        // ── Imsak & Sunrise: silent notification only
-        if (entry.name == Prayer.imsak || entry.name == Prayer.sunrise) {
-          const silentDetails = AndroidNotificationDetails(
-            'adhan_background',
-            'Adhan Running',
-            importance: Importance.defaultImportance,
-            priority: Priority.defaultPriority,
-            playSound: false,
-            enableVibration: false,
-            ongoing: false,
-          );
-          await notifications.show(
-            id: notifId,
-            title: 'تنبيه: ${entry.name.nameAr}',
-            body: entry.name == Prayer.imsak
-                ? 'حان وقت الإمساك — امتنع عن الطعام والشراب'
-                : 'حان وقت الشروق',
-            notificationDetails: const NotificationDetails(android: silentDetails),
-          );
-          break;
-        }
-
-        // ── Main prayers Athan flow
-        await notifications.cancelAll();
-
-        final prayerImage = _resolvePrayerHeaderAsset(entry.name);
-
-        // Audio
-        if (settings.athanSoundEnabled) {
-          final assetPath = _resolveAthanAsset(entry.name, settings);
-          athanAudio.play(assetPath);
-        }
-
-        const androidDetails = AndroidNotificationDetails(
-          'adhan_athan',
-          'Athan Alarm',
-          importance: Importance.max,
-          priority: Priority.max,
-          fullScreenIntent: true,
-          category: AndroidNotificationCategory.alarm,
-          ongoing: true,
-          actions: [
-            AndroidNotificationAction(
-              'stop_audio',
-              'إيقاف الأذان',
-              cancelNotification: false, // Keep alive so Dart receives the tap event
-            ),
-          ],
-        );
-
-        await notifications.show(
-          id: notifId,
-          title: 'حان وقت ${entry.name.nameAr}',
-          body: 'اضغط لإيقاف الأذان',
-          notificationDetails: const NotificationDetails(android: androidDetails),
-          payload: jsonEncode({
-            'ar': entry.name.nameAr,
-            'en': entry.name.nameEn,
-            'image': prayerImage,
-          }),
-        );
-
-        service.invoke('athan_started', {
-          'prayer': entry.name.nameAr,
-          'prayerEn': entry.name.nameEn,
-          'image': prayerImage,
-        });
-        // Persist the playing flag so the UI can detect it on resume/cold-start.
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('athan_is_playing', true);
-          await prefs.setString('athan_prayer_ar', entry.name.nameAr);
-          await prefs.setString('athan_prayer_en', entry.name.nameEn);
-          await prefs.setString('athan_prayer_image', prayerImage);
-        } catch (_) {}
-        break;
-      }
-    }
-  } catch (e, st) {
-    developer.log('[BackgroundService] Error in _checkAndTriggerAthan: $e\n$st');
+  } catch (e) {
+    developer.log('[BackgroundService] Error in _updateWidgetCountdown: $e');
   }
 }
+
 
 // ---------------------------------------------------------------------------
 // _checkIslamicEvents – fires at 08:00 AM daily
@@ -512,38 +391,7 @@ Future<void> _checkEidTakbeer(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Helper: resolve the asset path
-// ---------------------------------------------------------------------------
-String _resolveAthanAsset(Prayer prayer, SettingsModel settings) {
-  final String path = switch (prayer) {
-    Prayer.fajr => settings.selectedFajrSound,
-    _ when settings.isUnifiedAthan => settings.selectedAthanSound,
-    Prayer.dhuhr => settings.selectedDhuhrSound,
-    Prayer.asr => settings.selectedAsrSound,
-    Prayer.maghrib => settings.selectedMaghribSound,
-    Prayer.isha => settings.selectedIshaSound,
-    _ => settings.selectedAthanSound,
-  };
-  return path;
-}
 
-// ---------------------------------------------------------------------------
-// Helper: resolve the header background image asset path (.png mapping)
-// ---------------------------------------------------------------------------
-String _resolvePrayerHeaderAsset(Prayer prayer) {
-  final Map<Prayer, String> assetMap = {
-    Prayer.fajr: 'assets/images/header_fajr.png',
-    Prayer.dhuhr: 'assets/images/header_dhuhr.png',
-    Prayer.asr: 'assets/images/header_dhuhr.png',
-    Prayer.maghrib: 'assets/images/header_maghrib.png',
-    Prayer.isha: 'assets/images/header_isha.png',
-  };
-
-  final asset = assetMap[prayer];
-  if (asset == null) return 'assets/images/header_isha.png';
-  return asset;
-}
 
 // ---------------------------------------------------------------------------
 // Helper: format a DateTime as 12-hour h:mm
