@@ -31,6 +31,7 @@ import 'settings/settings_screen.dart';
 import 'tasbih_screen.dart';
 import '../features/audio/screens/audio_reciters_screen.dart';
 import 'eid/eid_celebration_screen.dart';
+import '../core/services/miui_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Helper: UnderDevelopmentPage (kept here, same as before in tibyan_menu_page)
@@ -106,6 +107,7 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _currentIndex = 0;
   bool _batteryBannerDismissed = false;
+  bool _miuiBannerDismissed = false;
   bool _wasPaused = false;
 
   /// Index 0: Prayers (HomeScreen)
@@ -125,6 +127,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     // Check battery optimization status after first frame renders
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkBatteryOptimization();
+      _checkMiuiGuidance();
     });
   }
 
@@ -153,6 +156,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       if (!_batteryBannerDismissed) {
         _checkBatteryAndHideBanner();
       }
+      if (!_miuiBannerDismissed) {
+        _checkMiuiGuidance();
+      }
 
       // 2. Only go to Splash if we were truly paused (backgrounded)
       // and not just inactive (e.g. notification shade)
@@ -178,6 +184,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         setState(() => _batteryBannerDismissed = true);
       }
     } catch (_) {}
+  }
+
+  Future<void> _checkMiuiGuidance() async {
+    if (!mounted || _miuiBannerDismissed) return;
+    if (!Platform.isAndroid) return;
+    
+    final isMiui = await MiuiService.isMiui();
+    final setupCompleted = await MiuiService.isSetupCompleted();
+    
+    if (isMiui && !setupCompleted && mounted) {
+      _showMiuiWarningBanner();
+    }
   }
 
   void _showBatteryBanner() {
@@ -226,6 +244,52 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             },
             child: Text(
               'إغلاق',
+              style: GoogleFonts.tajawal(color: Colors.grey[700]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMiuiWarningBanner() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showMaterialBanner(
+      MaterialBanner(
+        padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+        leading: const Icon(
+          Icons.notification_important_rounded,
+          color: Colors.amber,
+          size: 28,
+        ),
+        content: Text(
+          'تنبيه: أجهزة شاومي تتطلب إعدادات إاضافية لضمان عمل الأذان بصوت مرتفع وفوري.',
+          style: GoogleFonts.tajawal(fontSize: 13, fontWeight: FontWeight.w500),
+          textDirection: TextDirection.rtl,
+        ),
+        backgroundColor: Colors.amber.shade50,
+        surfaceTintColor: Colors.transparent,
+        actions: [
+          TextButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              Navigator.pushNamed(context, '/miui_guidance');
+            },
+            child: Text(
+              'تفعيل الآن',
+              style: GoogleFonts.tajawal(
+                fontWeight: FontWeight.bold,
+                color: Colors.amber.shade900,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              setState(() => _miuiBannerDismissed = true);
+            },
+            child: Text(
+              'تجاهل',
               style: GoogleFonts.tajawal(color: Colors.grey[700]),
             ),
           ),

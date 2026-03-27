@@ -43,6 +43,7 @@ import 'screens/settings/settings_screen.dart';
 import 'screens/main_layout.dart';
 import 'screens/athan/athan_overlay_screen.dart';
 import 'screens/eid/eid_celebration_screen.dart';
+import 'screens/settings/miui_guidance_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -296,6 +297,7 @@ class MyApp extends StatelessWidget {
                     ),
                 '/settings': (context) => const SettingsScreen(),
                 '/main': (context) => const MainLayout(),
+                '/miui_guidance': (context) => const MiuiGuidanceScreen(),
               },
               builder: (context, child) {
                 SystemChrome.setPreferredOrientations([

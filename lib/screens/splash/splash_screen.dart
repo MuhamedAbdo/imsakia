@@ -12,6 +12,7 @@ import '../../providers/settings_provider.dart';
 import '../../providers/hijri_calendar_provider.dart';
 import '../main_layout.dart';
 import '../athan/athan_overlay_screen.dart';
+import '../../core/services/miui_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -181,6 +182,15 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         offset: settings.hijriBaseOffset,
         countryCode: location.location?.countryCode,
       );
+
+      // Step 4: Xiaomi (MIUI) Guidance (Task: Xiaomi Fix)
+      final isMiui = await MiuiService.isMiui();
+      final setupCompleted = await MiuiService.isSetupCompleted();
+      
+      if (isMiui && !setupCompleted) {
+         if (!mounted) return;
+         await Navigator.of(context).pushNamed('/miui_guidance');
+      }
 
       // Final wait for aesthetic transition
       await Future.delayed(const Duration(seconds: 1));

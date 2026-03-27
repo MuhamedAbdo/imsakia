@@ -16,6 +16,8 @@ import androidx.core.content.ContextCompat
 import android.os.Bundle
 import android.util.Log
 import io.flutter.embedding.engine.FlutterEngineCache
+import org.json.JSONArray
+import org.json.JSONObject
 
 class MainActivity : AudioServiceActivity() {
     private val CHANNEL = "imsakia/notifications"
@@ -60,6 +62,17 @@ class MainActivity : AudioServiceActivity() {
                 "openBatteryOptimizationSettings" -> {
                     openBatteryOptimizationSettings()
                     result.success(true)
+                }
+                "openAutostartSettings" -> {
+                    openAutostartSettings()
+                    result.success(true)
+                }
+                "openOverlaySettings" -> {
+                    openOverlaySettings()
+                    result.success(true)
+                }
+                "isMiui" -> {
+                    result.success(isMiui())
                 }
                 else -> {
                     result.notImplemented()
@@ -173,8 +186,42 @@ class MainActivity : AudioServiceActivity() {
             } else {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMs, pendingIntent)
             }
+            // Persist for boot recovery
+            saveAlarmMetadata(id, timeMs, prayerAr, prayerEn, assetPath, prayerImage)
         } catch (e: SecurityException) {
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMs, pendingIntent)
+            saveAlarmMetadata(id, timeMs, prayerAr, prayerEn, assetPath, prayerImage)
+        }
+    }
+
+    private fun saveAlarmMetadata(id: Int, timeMs: Long, prayerAr: String, prayerEn: String, assetPath: String, image: String) {
+        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val alarmsJson = prefs.getString("flutter.native_scheduled_alarms", "[]")
+        
+        try {
+            val array = JSONArray(alarmsJson)
+            // Remove if exists
+            val newArray = JSONArray()
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                if (obj.getInt("id") != id) {
+                    newArray.put(obj)
+                }
+            }
+            
+            val newAlarm = JSONObject().apply {
+                put("id", id)
+                put("timeMs", timeMs)
+                put("prayerAr", prayerAr)
+                put("prayerEn", prayerEn)
+                put("assetPath", assetPath)
+                put("image", image)
+            }
+            newArray.put(newAlarm)
+            
+            prefs.edit().putString("flutter.native_scheduled_alarms", newArray.toString()).apply()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to save alarm metadata: ${e.message}")
         }
     }
 
@@ -188,6 +235,25 @@ class MainActivity : AudioServiceActivity() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         alarmManager.cancel(pendingIntent)
+        removeAlarmMetadata(id)
+    }
+
+    private fun removeAlarmMetadata(id: Int) {
+        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val alarmsJson = prefs.getString("flutter.native_scheduled_alarms", "[]")
+        try {
+            val array = JSONArray(alarmsJson)
+            val newArray = JSONArray()
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                if (obj.getInt("id") != id) {
+                    newArray.put(obj)
+                }
+            }
+            prefs.edit().putString("flutter.native_scheduled_alarms", newArray.toString()).apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun requestNotificationPermission() {
@@ -223,11 +289,53 @@ class MainActivity : AudioServiceActivity() {
     private fun openBatteryOptimizationSettings() {
         try {
             val intent = Intent()
-            intent.action = "android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+            intent.action = android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
             intent.data = Uri.parse("package:$packageName")
             startActivity(intent)
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    private fun openAutostartSettings() {
+        try {
+            val intent = Intent()
+            intent.component = android.content.ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")
+            startActivity(intent)
+        } catch (e: Exception) {
+            try {
+                val intent = Intent("miui.intent.action.OP_AUTO_START").addCategory(Intent.CATEGORY_DEFAULT)
+                startActivity(intent)
+            } catch (ex: Exception) {
+                openAppInfoSettings()
+            }
+        }
+    }
+
+    private fun openOverlaySettings() {
+        try {
+            val intent = Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+            startActivity(intent)
+        } catch (e: Exception) {
+            openAppInfoSettings()
+        }
+    }
+
+    private fun isMiui(): Boolean {
+        return try {
+            val c = Class.forName("android.os.SystemProperties")
+            val get = c.getMethod("get", String::class.java)
+            val miuiVersion = get.invoke(c, "ro.miui.ui.version.name") as String
+            Build.MANUFACTURER.contains("Xiaomi", ignoreCase = true) || miuiVersion.isNotBlank()
+        } catch (e: Exception) {
+            try {
+                val p = Runtime.getRuntime().exec("getprop ro.miui.ui.version.name")
+                val reader = java.io.BufferedReader(java.io.InputStreamReader(p.inputStream))
+                val line = reader.readLine()
+                Build.MANUFACTURER.contains("Xiaomi", ignoreCase = true) || !line.isNullOrBlank()
+            } catch (ex: Exception) {
+                Build.MANUFACTURER.contains("Xiaomi", ignoreCase = true)
+            }
         }
     }
 

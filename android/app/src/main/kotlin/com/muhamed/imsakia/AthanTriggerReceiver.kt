@@ -8,8 +8,11 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
+import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import org.json.JSONArray
+import android.app.AlarmManager
 
 class AthanTriggerReceiver : BroadcastReceiver() {
     companion object {
@@ -20,6 +23,16 @@ class AthanTriggerReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        val action = intent.action
+        Log.d(TAG, "onReceive: Action = $action")
+
+        if (action == Intent.ACTION_BOOT_COMPLETED || 
+            action == Intent.ACTION_MY_PACKAGE_REPLACED ||
+            action == "android.intent.action.QUICKBOOT_POWERON") {
+            handleBootReschedule(context)
+            return
+        }
+
         Log.d(TAG, "⏰ Exact Athan OS-Level Alarm Triggered!")
 
         // 1. Acquire WakeLock (Keep device awake for max 4 minutes while Athan plays)
@@ -72,6 +85,56 @@ class AthanTriggerReceiver : BroadcastReceiver() {
             context.startActivity(fullScreenIntent)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to startActivity from receiver fallback: ${e.message}")
+        }
+    }
+
+    private fun handleBootReschedule(context: Context) {
+        Log.d(TAG, "🔄 Handling Boot/Update: Rescheduling Alarms Natively...")
+        val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val alarmsJson = prefs.getString("flutter.native_scheduled_alarms", "[]")
+        
+        try {
+            val array = JSONArray(alarmsJson)
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val now = System.currentTimeMillis()
+            var rescheduledCount = 0
+
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val id = obj.getInt("id")
+                val timeMs = obj.getLong("timeMs")
+                
+                if (timeMs > now) {
+                    val prayerAr = obj.getString("prayerAr")
+                    val prayerEn = obj.getString("prayerEn")
+                    val assetPath = obj.getString("assetPath")
+                    val image = obj.getString("image")
+
+                    val alarmIntent = Intent(context, AthanTriggerReceiver::class.java).apply {
+                        putExtra("prayer_ar", prayerAr)
+                        putExtra("prayer_en", prayerEn)
+                        putExtra("asset_path", assetPath)
+                        putExtra("image", image)
+                        putExtra("notification_id", id)
+                    }
+                    val pendingIntent = PendingIntent.getBroadcast(
+                        context,
+                        id,
+                        alarmIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMs, pendingIntent)
+                    } else {
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMs, pendingIntent)
+                    }
+                    rescheduledCount++
+                }
+            }
+            Log.d(TAG, "Success: Rescheduled $rescheduledCount future alarms.")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to reschedule alarms natively: ${e.message}")
         }
     }
 }

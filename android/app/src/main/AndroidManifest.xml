@@ -68,7 +68,14 @@
                        android:resource="@xml/widget_info" />
         </receiver>
 
-        <receiver android:name=".AthanTriggerReceiver" />
+        <receiver android:name=".AthanTriggerReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
         <receiver android:name=".AthanReceiver" />
         <service android:name=".NativeAthanService" android:foregroundServiceType="mediaPlayback" android:exported="false" />
 
