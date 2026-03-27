@@ -462,6 +462,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         if (settings.athanSoundEnabled) ...[ 
                           const SizedBox(height: 16),
+                          _AthanVolumeSlider(isDark: isDark),
+                          const SizedBox(height: 16),
                           _SwitchTile(
                             icon: Icons.sync,
                             title: 'توحيد صوت الأذان',
@@ -802,6 +804,63 @@ class _SegmentedSetting<T> extends StatelessWidget {
               ),
             );
           }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+class _AthanVolumeSlider extends StatelessWidget {
+  final bool isDark;
+  const _AthanVolumeSlider({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.watch<SettingsProvider>();
+    final textColor = isDark ? Colors.white : AppColors.darkNavy;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.volume_up, color: AppColors.gold, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'مستوى صوت الأذان',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: textColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ),
+            Text(
+              '${(settings.athanVolume * 100).toInt()}%',
+              style: const TextStyle(
+                color: AppColors.gold,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: AppColors.gold,
+            inactiveTrackColor: isDark ? Colors.white12 : Colors.black12,
+            thumbColor: AppColors.gold,
+            overlayColor: AppColors.gold.withValues(alpha: 0.2),
+            trackHeight: 4.0,
+          ),
+          child: Slider(
+            value: settings.athanVolume,
+            min: 0.0,
+            max: 1.0,
+            onChanged: (val) {
+              context.read<SettingsProvider>().setAthanVolume(val);
+            },
+          ),
         ),
       ],
     );

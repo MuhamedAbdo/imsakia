@@ -75,8 +75,9 @@ class AthanSchedulingService {
             'prayerEn': prayer.name.nameEn,
             'assetPath': assetPath,
             'prayerImage': prayerImage,
+            'volume': settings.athanVolume,
           });
-          developer.log('Scheduled exact native Athan for ${prayer.name.nameAr} at ${prayer.time}');
+          developer.log('Scheduled exact native Athan for \${prayer.name.nameAr} at \${prayer.time}');
         } catch (e) {
           developer.log('Failed to schedule native exact alarm: $e');
         }

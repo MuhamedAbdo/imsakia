@@ -24,22 +24,9 @@ class AthanReceiver : BroadcastReceiver() {
         Log.d(TAG, "STOP_ATHAN broadcast received.")
 
         // 1. Instantly stop native audio playback (Production-grade 0-latency)
-        NativeAudioController.stop()
+        NativeAudioController.stop(context)
 
-        // 2. Cancel every notification instantly (native, zero latency).
-        val notificationManager =
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.cancelAll()
-
-        // 3. Clear the SharedPreferences athan_is_playing flag natively.
-        try {
-            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-            prefs.edit().putBoolean("flutter.athan_is_playing", false).apply()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to clear athan_is_playing in prefs: ${e.message}")
-        }
-
-        // 4. Signal the Flutter engine via MethodChannel (if available) to sync UI state
+        // 2. Signal the Flutter engine via MethodChannel (if available) to sync UI state
         Handler(Looper.getMainLooper()).post {
             try {
                 val engine = FlutterEngineCache.getInstance().get("main_engine")
@@ -48,7 +35,7 @@ class AthanReceiver : BroadcastReceiver() {
                         .invokeMethod("stopAudio", null)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "MethodChannel invocation failed: ${e.message}")
+                Log.e(TAG, "MethodChannel invocation failed: \${e.message}")
             }
         }
     }

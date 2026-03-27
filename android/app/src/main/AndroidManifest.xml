@@ -70,6 +70,7 @@
 
         <receiver android:name=".AthanTriggerReceiver" />
         <receiver android:name=".AthanReceiver" />
+        <service android:name=".NativeAthanService" android:foregroundServiceType="mediaPlayback" android:exported="false" />
 
         <service android:name="com.ryanheise.audioservice.AudioService"
                  android:foregroundServiceType="mediaPlayback"

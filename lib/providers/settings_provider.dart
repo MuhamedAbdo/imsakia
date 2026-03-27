@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../core/models/settings_model.dart';
 import '../core/services/storage_service.dart';
 import '../core/services/background_service.dart';
@@ -37,6 +38,7 @@ class SettingsProvider extends ChangeNotifier {
   bool get athanSoundEnabled => _settings.athanSoundEnabled;
   bool get isUnifiedAthan => _settings.isUnifiedAthan;
   bool get qiblaVibrationEnabled => _settings.qiblaVibrationEnabled;
+  double get athanVolume => _settings.athanVolume;
 
   // Sounds
   String get selectedAthanSound => _settings.selectedAthanSound;
@@ -99,6 +101,16 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> setQiblaVibrationEnabled(bool enabled) async {
     _settings = _settings.copyWith(qiblaVibrationEnabled: enabled);
     await _save();
+  }
+
+  Future<void> setAthanVolume(double volume) async {
+    _settings = _settings.copyWith(athanVolume: volume);
+    await _save();
+    try {
+      await const MethodChannel('imsakia/athan_control').invokeMethod('updateAthanVolume', volume);
+    } catch (e) {
+      debugPrint('updateAthanVolume not implemented on native side yet');
+    }
   }
 
   /// Toggles unified-athan mode.

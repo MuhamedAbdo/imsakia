@@ -85,8 +85,24 @@ class MainActivity : AudioServiceActivity() {
                     result.success(true)
                 }
                 "stopNativeAudio" -> {
-                    NativeAudioController.stop()
+                    NativeAudioController.stop(this@MainActivity)
                     result.success(true)
+                }
+                "updateAthanVolume" -> {
+                    try {
+                        val volume = when (call.arguments) {
+                            is Double -> (call.arguments as Double).toFloat()
+                            is Float -> call.arguments as Float
+                            is Int -> (call.arguments as Int).toFloat()
+                            else -> 1.0f
+                        }
+
+                        NativeAudioController.setVolume(volume)
+                        result.success(null)
+
+                    } catch (e: Exception) {
+                        result.error("VOLUME_ERROR", e.message, null)
+                    }
                 }
                 else -> result.notImplemented()
             }
@@ -105,7 +121,7 @@ class MainActivity : AudioServiceActivity() {
     }
 
     private fun handleAthanIntent(currentIntent: Intent?) {
-        if (currentIntent?.getBooleanExtra("show_athan", false) == true) {
+        if (currentIntent?.getBooleanExtra("open_athan_screen", false) == true) {
             val prayerAr = currentIntent.getStringExtra("prayer_ar") ?: ""
             val prayerEn = currentIntent.getStringExtra("prayer_en") ?: ""
             val prayerImage = currentIntent.getStringExtra("prayer_image") ?: ""
@@ -124,7 +140,7 @@ class MainActivity : AudioServiceActivity() {
             }
             
             // Remove so it doesn't trigger again on subsequent resumes
-            currentIntent.removeExtra("show_athan")
+            currentIntent.removeExtra("open_athan_screen")
         }
     }
 

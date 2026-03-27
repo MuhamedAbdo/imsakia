@@ -85,6 +85,7 @@ class SettingsModel {
   final bool athanSoundEnabled;
   final bool isUnifiedAthan;
   final bool qiblaVibrationEnabled;
+  final double athanVolume;
 
   // Unified / default athan sound (used for all prayers when isUnifiedAthan=true)
   final String selectedAthanSound;
@@ -109,6 +110,7 @@ class SettingsModel {
     this.athanSoundEnabled = true,
     this.isUnifiedAthan = true,
     this.qiblaVibrationEnabled = true,
+    this.athanVolume = 1.0,
     this.selectedAthanSound = 'assets/audio/athan_egypt_ab.mp3',
     this.selectedFajrSound = 'assets/audio/fajr_makkah.mp3',
     this.selectedDhuhrSound = 'assets/audio/athan_egypt_ab.mp3',
@@ -129,6 +131,7 @@ class SettingsModel {
     bool? athanSoundEnabled,
     bool? isUnifiedAthan,
     bool? qiblaVibrationEnabled,
+    double? athanVolume,
     String? selectedAthanSound,
     String? selectedFajrSound,
     String? selectedDhuhrSound,
@@ -148,6 +151,7 @@ class SettingsModel {
       athanSoundEnabled: athanSoundEnabled ?? this.athanSoundEnabled,
       isUnifiedAthan: isUnifiedAthan ?? this.isUnifiedAthan,
       qiblaVibrationEnabled: qiblaVibrationEnabled ?? this.qiblaVibrationEnabled,
+      athanVolume: athanVolume ?? this.athanVolume,
       selectedAthanSound: selectedAthanSound ?? this.selectedAthanSound,
       selectedFajrSound: selectedFajrSound ?? this.selectedFajrSound,
       selectedDhuhrSound: selectedDhuhrSound ?? this.selectedDhuhrSound,
@@ -169,6 +173,7 @@ class SettingsModel {
         'athanSoundEnabled': athanSoundEnabled,
         'isUnifiedAthan': isUnifiedAthan,
         'qiblaVibrationEnabled': qiblaVibrationEnabled,
+        'athanVolume': athanVolume,
         'selectedAthanSound': selectedAthanSound,
         'selectedFajrSound': selectedFajrSound,
         'selectedDhuhrSound': selectedDhuhrSound,
@@ -191,6 +196,7 @@ class SettingsModel {
         athanSoundEnabled: json['athanSoundEnabled'] as bool? ?? true,
         isUnifiedAthan: json['isUnifiedAthan'] as bool? ?? true,
         qiblaVibrationEnabled: json['qiblaVibrationEnabled'] as bool? ?? true,
+        athanVolume: (json['athanVolume'] as num?)?.toDouble() ?? 1.0,
         selectedAthanSound: json['selectedAthanSound'] as String? ??
             'assets/audio/athan_egypt_ab.mp3',
         selectedFajrSound: json['selectedFajrSound'] as String? ??

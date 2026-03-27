@@ -10,6 +10,7 @@ import '../../providers/prayer_times_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/hijri_calendar_provider.dart';
 import '../main_layout.dart';
+import '../athan/athan_overlay_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -83,11 +84,33 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     try {
       // Step 0: Check if Athan is actively playing natively!
       final prefs = await SharedPreferences.getInstance();
-      final isPlaying = prefs.getBool('athan_is_playing') ?? false;
+      if (!mounted) return;
+
+      final isPlaying = prefs.getBool('flutter.athan_is_playing') ?? prefs.getBool('athan_is_playing') ?? false;
       if (isPlaying) {
         debugPrint('Splash: Athan is playing! Bypassing heavy startup tasks...');
-        _navigateToMain();
-        return; // Fast-track to main layout so Overlay can pop
+        
+        if (!mounted) return;
+        final currentRoute = ModalRoute.of(context)?.settings.name;
+        if (currentRoute == '/athan_overlay') return;
+        
+        final nameAr = prefs.getString('flutter.athan_prayer_ar') ?? 'الصلاة';
+        final nameEn = prefs.getString('flutter.athan_prayer_en') ?? 'Prayer';
+        final image = prefs.getString('flutter.athan_prayer_image');
+
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            settings: const RouteSettings(name: '/athan_overlay'),
+            fullscreenDialog: true,
+            builder: (_) => AthanOverlayScreen(
+              prayerNameAr: nameAr,
+              prayerNameEn: nameEn,
+              backgroundImage: image,
+            ),
+          ),
+        );
+        return; // Fast-track to Overlay
       }
 
       // Step 1: Load location (with last known as fallback if stalling)
