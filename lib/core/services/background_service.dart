@@ -183,12 +183,15 @@ void _onStart(ServiceInstance service) async {
     await athanAudio.stop();
     await flutterLocalNotificationsPlugin.cancelAll();
     try {
-      final athanChannel = MethodChannel('imsakia/athan_control');
-      await athanChannel.invokeMethod('stopNativeAudio');
-    } catch (_) {}
+      const athanChannel = MethodChannel('imsakia/athan_control');
+      await athanChannel.invokeMethod('stopNativeAudio').timeout(const Duration(milliseconds: 500));
+    } catch (e) {
+      developer.log('[BackgroundService] Failed to stop native audio: $e');
+    }
     // Clear the playing flag so the UI knows audio has ended.
     try {
       final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('flutter.athan_is_playing', false);
       await prefs.setBool('athan_is_playing', false);
     } catch (_) {}
   });

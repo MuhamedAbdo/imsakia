@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../utils/app_constants.dart';
@@ -82,23 +83,52 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     final locale = settings.languageCode;
 
     try {
-      // Step 0: Check if Athan is actively playing natively!
+      // Step 0: Check if Athan is actively playing natively with Fail-Safe Triple Validation
       final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
 
-      final isPlaying = prefs.getBool('flutter.athan_is_playing') ?? prefs.getBool('athan_is_playing') ?? false;
-      if (isPlaying) {
-        debugPrint('Splash: Athan is playing! Bypassing heavy startup tasks...');
+      // Backward Compatibility Cleanup (Task 9)
+      try {
+        final legacyKeys = ['athan_is_playing', 'athan_prayer_image', 'athan_prayer_ar', 'athan_prayer_en'];
+        for (final key in legacyKeys) {
+          if (prefs.containsKey(key)) {
+            await prefs.remove(key);
+          }
+        }
+      } catch (e) {
+        debugPrint('Splash: Legacy cleanup failed: $e');
+      }
+
+      final isPlaying = prefs.getBool('flutter.athan_is_playing') ?? false;
+      final startTime = prefs.getInt('flutter.athan_start_time') ?? 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      
+      // 1. Time-based Validation: Must have started within the last 5 minutes
+      final isTimeValid = (now - startTime) < (5 * 60 * 1000);
+
+      // 2. Real-time Native Validation (State Sync): Is the audio actually playing natively?
+      bool isReallyPlaying = false;
+      if (isPlaying && isTimeValid) {
+        try {
+          const channel = MethodChannel('imsakia/athan_control');
+          // Timeout protection: max 500ms for native check to prevent UI hang
+          isReallyPlaying = await channel.invokeMethod<bool>('checkAthanPlaying')
+              .timeout(const Duration(milliseconds: 500), onTimeout: () => false) ?? false;
+        } catch (e) {
+          debugPrint('Splash: MethodChannel error: $e');
+          isReallyPlaying = false; 
+        }
+      }
+
+      // TRIPLE VALIDATION logic (Zero-Failure Routing Lock)
+      if (isPlaying && isTimeValid && isReallyPlaying) {
+        debugPrint('Splash: Athan is playing and valid! Bypassing startup...');
         
         if (!mounted) return;
-        final currentRoute = ModalRoute.of(context)?.settings.name;
-        if (currentRoute == '/athan_overlay') return;
-        
         final nameAr = prefs.getString('flutter.athan_prayer_ar') ?? 'الصلاة';
         final nameEn = prefs.getString('flutter.athan_prayer_en') ?? 'Prayer';
-        final image = prefs.getString('flutter.athan_prayer_image');
+        final image = prefs.getString('flutter.athan_image');
 
-        if (!mounted) return;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             settings: const RouteSettings(name: '/athan_overlay'),
@@ -110,7 +140,20 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
             ),
           ),
         );
-        return; // Fast-track to Overlay
+        return; 
+      } else {
+        // KILL-SAFE RECOVERY (Task 2 & 8)
+        // If state says it WAS playing but native says NO, force atomic reset
+        if (isPlaying || !isTimeValid || !isReallyPlaying) {
+           debugPrint('Splash: Inconsistency detected ($isPlaying/$isTimeValid/$isReallyPlaying). Performing Hard Reset.');
+           try {
+             await prefs.setBool('flutter.athan_is_playing', false);
+             await prefs.remove('flutter.athan_start_time');
+             // Nuclear cleanup on native side
+             const channel = MethodChannel('imsakia/athan_control');
+             await channel.invokeMethod('stopNativeAudio').timeout(const Duration(milliseconds: 500));
+           } catch (_) {}
+        }
       }
 
       // Step 1: Load location (with last known as fallback if stalling)

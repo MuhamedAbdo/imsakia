@@ -75,7 +75,7 @@ class MainActivity : AudioServiceActivity() {
                     val prayerAr = call.argument<String>("prayerAr") ?: ""
                     val prayerEn = call.argument<String>("prayerEn") ?: ""
                     val assetPath = call.argument<String>("assetPath") ?: ""
-                    val prayerImage = call.argument<String>("prayerImage") ?: ""
+                    val prayerImage = call.argument<String>("image") ?: ""
                     scheduleAthanAlarm(id, timeMs, prayerAr, prayerEn, assetPath, prayerImage)
                     result.success(true)
                 }
@@ -104,6 +104,13 @@ class MainActivity : AudioServiceActivity() {
                         result.error("VOLUME_ERROR", e.message, null)
                     }
                 }
+                "checkAthanPlaying" -> {
+                    try {
+                        result.success(NativeAudioController.isReallyPlaying(this@MainActivity))
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
@@ -124,7 +131,7 @@ class MainActivity : AudioServiceActivity() {
         if (currentIntent?.getBooleanExtra("open_athan_screen", false) == true) {
             val prayerAr = currentIntent.getStringExtra("prayer_ar") ?: ""
             val prayerEn = currentIntent.getStringExtra("prayer_en") ?: ""
-            val prayerImage = currentIntent.getStringExtra("prayer_image") ?: ""
+            val prayerImage = currentIntent.getStringExtra("image") ?: ""
 
             try {
                 FlutterEngineCache.getInstance().get("main_engine")?.let { engine ->

@@ -18,6 +18,12 @@ class NativeAthanService : Service() {
         const val CHANNEL_ID = "adhan_athan"
         const val NOTIFICATION_ID = 5001
         const val ACTION_STOP_ATHAN = "com.muhamed.imsakia.STOP_ATHAN"
+        var isRunning = false
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        isRunning = true
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -32,7 +38,7 @@ class NativeAthanService : Service() {
         val prayerAr = intent?.getStringExtra("prayer_ar") ?: "الصلاة"
         val prayerEn = intent?.getStringExtra("prayer_en") ?: "Prayer"
         val assetPath = intent?.getStringExtra("asset_path") ?: "assets/audio/athan_egypt_ab.mp3"
-        val prayerImage = intent?.getStringExtra("prayer_image") ?: ""
+        val prayerImage = intent?.getStringExtra("image") ?: ""
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -54,7 +60,7 @@ class NativeAthanService : Service() {
             putExtra("open_athan_screen", true)
             putExtra("prayer_ar", prayerAr)
             putExtra("prayer_en", prayerEn)
-            putExtra("prayer_image", prayerImage)
+            putExtra("image", prayerImage)
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
             this,
@@ -97,29 +103,19 @@ class NativeAthanService : Service() {
                 startForeground(NOTIFICATION_ID, notification)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start foreground service: ${e.message}")
+            Log.d(TAG, "Foreground start failed, killing service: ${e.message}")
+            stopSelf()
+            return START_NOT_STICKY
         }
 
         // Start Audio Playback in Controller
         NativeAudioController.play(this, assetPath)
 
-        // Ensure SharedPreferences is updated
-        try {
-            val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-            prefs.edit()
-                .putBoolean("flutter.athan_is_playing", true)
-                .putString("flutter.athan_prayer_ar", prayerAr)
-                .putString("flutter.athan_prayer_en", prayerEn)
-                .putString("flutter.athan_prayer_image", prayerImage)
-                .apply()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to update SharedPreferences: ${e.message}")
-        }
-
         return START_STICKY
     }
 
     override fun onDestroy() {
+        isRunning = false
         super.onDestroy()
         NativeAudioController.stop(this)
     }

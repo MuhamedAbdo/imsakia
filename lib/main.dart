@@ -236,7 +236,7 @@ void main() async {
         if (!isPlaying) return;
         final nameAr = prefs.getString('athan_prayer_ar') ?? 'الصلاة';
         final nameEn = prefs.getString('athan_prayer_en') ?? 'Prayer';
-        final image = prefs.getString('athan_prayer_image');
+        final image = prefs.getString('athan_image');
         WidgetsBinding.instance.addPostFrameCallback((_) {
           // Skip if the overlay is already on screen.
           final currentName = ModalRoute.of(

@@ -31,6 +31,18 @@ object NativeAudioController {
         wakeLock = lock
 
         try {
+            // CENTRALIZED START STATE
+            try {
+                val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                prefs.edit()
+                    .putBoolean("flutter.athan_is_playing", true)
+                    .putLong("flutter.athan_start_time", System.currentTimeMillis())
+                    .apply()
+                Log.d(TAG, "Athan start state saved to SharedPreferences")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to write start state to SharedPreferences: ${e.message}")
+            }
+
             audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager?
             mediaPlayer = MediaPlayer()
 
@@ -102,60 +114,102 @@ object NativeAudioController {
             mediaPlayer?.prepareAsync()
 
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to play native audio: \${e.message}")
+            Log.e(TAG, "Failed to play native audio: ${e.message}")
             e.printStackTrace()
             stop(context)
         }
     }
 
-    fun setVolume(volume: Float) {
-        mediaPlayer?.let {
-            if (it.isPlaying) {
-                it.setVolume(volume, volume)
+    fun isReallyPlaying(context: Context?): Boolean {
+        if (context == null) return false
+        val isServiceRunning = NativeAthanService.isRunning
+        val isMediaPlayerPlaying = try { mediaPlayer?.isPlaying == true } catch (e: Exception) { false }
+        
+        var isNotificationShowing = false
+        try {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val activeNotifications = notificationManager?.activeNotifications
+                isNotificationShowing = activeNotifications?.any { it.id == 5001 } == true
+            } else {
+                // Fallback for older APIs where we can't easily check active notifications
+                isNotificationShowing = isServiceRunning 
             }
+        } catch (e: Exception) {
+            Log.d(TAG, "Notification check failed: ${e.message}")
+        }
+
+        return isServiceRunning && isMediaPlayerPlaying && isNotificationShowing
+    }
+
+    fun setVolume(volume: Float) {
+        try {
+            val mp = mediaPlayer
+            if (mp != null && mp.isPlaying) {
+                mp.setVolume(volume, volume)
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "Failed to set volume: ${e.message}")
         }
     }
 
     fun stop(context: Context?) {
         try {
-            mediaPlayer?.setOnCompletionListener(null)
-            if (mediaPlayer?.isPlaying == true) {
-                mediaPlayer?.stop()
-            }
-            mediaPlayer?.release()
+            Log.d(TAG, "NativeAudioController.stop - NUCLEAR CLEANUP")
+            
+            // 1. MediaPlayer
+            try {
+                mediaPlayer?.setOnCompletionListener(null)
+                if (mediaPlayer?.isPlaying == true) {
+                    mediaPlayer?.stop()
+                }
+                mediaPlayer?.release()
+            } catch (e: Exception) { Log.d(TAG, "MP Stop fail: ${e.message}") }
             mediaPlayer = null
             
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
-            } else {
-                @Suppress("DEPRECATION")
-                audioManager?.abandonAudioFocus(audioFocusChangeListener)
-            }
+            // 2. Audio Focus
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+                } else {
+                    @Suppress("DEPRECATION")
+                    audioManager?.abandonAudioFocus(audioFocusChangeListener)
+                }
+            } catch (e: Exception) { Log.d(TAG, "Focus Stop fail: ${e.message}") }
             
-            if (wakeLock?.isHeld == true) {
-                wakeLock?.release()
-                Log.d(TAG, "WakeLock released explicitly")
-            }
+            // 3. WakeLock
+            try {
+                if (wakeLock?.isHeld == true) {
+                    wakeLock?.release()
+                }
+            } catch (e: Exception) { Log.d(TAG, "WL Release fail: ${e.message}") }
             wakeLock = null
 
-            // Stop Foreground service if any
-            context?.stopService(Intent(context, NativeAthanService::class.java))
+            // 4. Service
+            try {
+                context?.stopService(Intent(context, NativeAthanService::class.java))
+            } catch (e: Exception) { Log.d(TAG, "Service Stop fail: ${e.message}") }
 
-            // Cancel exact notification only constraint
-            val notificationManager = context?.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-            notificationManager?.cancel(5001) // ATHAN_NOTIFICATION_ID
+            // 5. Notification
+            try {
+                val notificationManager = context?.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                notificationManager?.cancel(5001) // ATHAN_NOTIFICATION_ID
+            } catch (e: Exception) { Log.d(TAG, "Notif Cancel fail: ${e.message}") }
 
-            // Reset SharedPreferences naturally
+            // 6. SharedPreferences (HARD RESET)
             try {
                 val prefs = context?.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-                prefs?.edit()?.putBoolean("flutter.athan_is_playing", false)?.apply()
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to clear athan_is_playing in prefs: \${e.message}")
-            }
+                prefs?.edit()
+                    ?.putBoolean("flutter.athan_is_playing", false)
+                    ?.putBoolean("athan_is_playing", false) // Legacy cleanup
+                    ?.remove("flutter.athan_start_time")
+                    ?.putLong("flutter.athan_last_stop_time", System.currentTimeMillis())
+                    ?.apply()
+                Log.d(TAG, "Flags cleared successfully")
+            } catch (e: Exception) { Log.d(TAG, "Prefs Reset fail: ${e.message}") }
 
-            Log.d(TAG, "Native Athan stopped and focus abandoned")
         } catch (e: Exception) {
-            Log.e(TAG, "Error stopping audio: \${e.message}")
+            Log.d(TAG, "Global Stop error: ${e.message}")
         }
     }
 }

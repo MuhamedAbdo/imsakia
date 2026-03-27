@@ -74,7 +74,7 @@ class AthanSchedulingService {
             'prayerAr': prayer.name.nameAr,
             'prayerEn': prayer.name.nameEn,
             'assetPath': assetPath,
-            'prayerImage': prayerImage,
+            'image': prayerImage,
             'volume': settings.athanVolume,
           });
           developer.log('Scheduled exact native Athan for \${prayer.name.nameAr} at \${prayer.time}');

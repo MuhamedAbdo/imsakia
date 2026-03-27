@@ -34,6 +34,22 @@ class AthanTriggerReceiver : BroadcastReceiver() {
         val prayerAr = intent.getStringExtra("prayer_ar") ?: "الصلاة"
         val prayerEn = intent.getStringExtra("prayer_en") ?: "Prayer"
         val assetPath = intent.getStringExtra("asset_path") ?: "assets/audio/athan_egypt_ab.mp3"
+        val prayerImage = intent.getStringExtra("image") ?: ""
+        // 3. Early detection fallback (Task 1 & 7 Refinement)
+        try {
+            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            val isPlaying = prefs.getBoolean("flutter.athan_is_playing", false)
+            if (!isPlaying) {
+                prefs.edit()
+                    .putBoolean("flutter.athan_is_playing", true)
+                    .putLong("flutter.athan_start_time", System.currentTimeMillis())
+                    .apply()
+                Log.d(TAG, "Early fallback start state saved")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to write early fallback state: ${e.message}")
+        }
+
         val serviceIntent = Intent(context, NativeAthanService::class.java).apply {
             putExtras(intent)
         }
@@ -51,7 +67,7 @@ class AthanTriggerReceiver : BroadcastReceiver() {
                 putExtra("open_athan_screen", true)
                 putExtra("prayer_ar", prayerAr)
                 putExtra("prayer_en", prayerEn)
-                putExtra("prayer_image", prayerImage)
+                putExtra("image", prayerImage)
             }
             context.startActivity(fullScreenIntent)
         } catch (e: Exception) {

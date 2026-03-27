@@ -107,9 +107,11 @@ class SettingsProvider extends ChangeNotifier {
     _settings = _settings.copyWith(athanVolume: volume);
     await _save();
     try {
-      await const MethodChannel('imsakia/athan_control').invokeMethod('updateAthanVolume', volume);
+      await const MethodChannel('imsakia/athan_control')
+          .invokeMethod('updateAthanVolume', volume)
+          .timeout(const Duration(milliseconds: 500));
     } catch (e) {
-      debugPrint('updateAthanVolume not implemented on native side yet');
+      debugPrint('updateAthanVolume failed or timed out');
     }
   }
 

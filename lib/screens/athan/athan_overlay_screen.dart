@@ -54,9 +54,9 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
     // 1. Stop Native Audio Instantly
     try {
       const channel = MethodChannel('imsakia/athan_control');
-      await channel.invokeMethod('stopNativeAudio');
+      await channel.invokeMethod('stopNativeAudio').timeout(const Duration(milliseconds: 500));
     } catch (e) {
-      developer.log('Failed to stop native audio: $e');
+      developer.log('[AthanOverlay] Failed to stop native audio: $e');
     }
 
     // 2. Clear flutter local notifications if any
@@ -65,9 +65,10 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
       await plugin.cancelAll();
     } catch (_) {}
     
-    // 3. Update SharedPreferences
+    // 3. Update SharedPreferences (Handled by Native stop, but kept for UI consistency)
     try {
       final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('flutter.athan_is_playing', false);
       await prefs.setBool('athan_is_playing', false);
     } catch (_) {}
 
