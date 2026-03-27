@@ -281,6 +281,8 @@ class MainActivity : AudioServiceActivity() {
                 intent.data = Uri.fromParts("package", packageName, null)
             }
             startActivity(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
