@@ -281,8 +281,19 @@ class MainActivity : AudioServiceActivity() {
                 intent.data = Uri.fromParts("package", packageName, null)
             }
             startActivity(intent)
+        }
+    }
+
+    private fun openAppInfoSettings() {
+        try {
+            val intent = Intent().apply {
+                action = android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                data = Uri.fromParts("package", packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("MainActivity", "Failed to open App Info: ${e.message}")
         }
     }
 
