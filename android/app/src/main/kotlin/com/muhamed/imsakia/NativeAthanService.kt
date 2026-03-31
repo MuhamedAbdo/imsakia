@@ -103,12 +103,13 @@ class NativeAthanService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val stopIntent = Intent(this, NativeAthanService::class.java).apply {
+        // زر الإيقاف: يُرسل Broadcast إلى AthanReceiver (لا يمكن استخدام getService في Android 12+)
+        val stopIntent = Intent(this, AthanReceiver::class.java).apply {
             action = ACTION_STOP_ATHAN
         }
-        val stopPendingIntent = PendingIntent.getService(
+        val stopPendingIntent = PendingIntent.getBroadcast(
             this,
-            NOTIFICATION_ID,
+            NOTIFICATION_ID + 1, // request code مختلف عن الـ fullScreenPendingIntent لتجنب التعارض
             stopIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )

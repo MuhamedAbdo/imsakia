@@ -107,6 +107,7 @@
         <receiver android:name=".AthanReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="com.muhamed.imsakia.ATHAN_ACTION" />
+                <action android:name="com.muhamed.imsakia.STOP_ATHAN" />
             </intent-filter>
         </receiver>
         <service android:name=".NativeAthanService" android:foregroundServiceType="mediaPlayback" android:exported="false" />
