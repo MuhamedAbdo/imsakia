@@ -4,6 +4,7 @@ import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
 
 /**
@@ -11,8 +12,8 @@ import android.util.Log
  *
  * يستقبل Actions مرتبطة بالأذان:
  *
- * 1. ATHAN_ACTION  — الـ Action الأصلي لإطلاق الأذان (محجوز للمستقبل).
- * 2. STOP_ATHAN   — يُطلَق من زر "إيقاف الأذان" في الإشعار، وينفّذ:
+ * 1. ATHAN_ACTION_*  — يُطلق الأذان عبر NativeAthanService (من AlarmManager).
+ * 2. STOP_ATHAN      — يُطلَق من زر "إيقاف الأذان" في الإشعار أو من Flutter، وينفّذ:
  *    أ. إيقاف صوت الأذان عبر NativeAudioController.
  *    ب. إيقاف NativeAthanService.
  *    ج. إلغاء إشعار الأذان بالـ ID الصحيح.
@@ -29,17 +30,55 @@ class AthanReceiver : BroadcastReceiver() {
         val action = intent.action ?: return
         Log.i(TAG, "[ATHAN_RECEIVER] Action: $action")
 
-        when (action) {
-            NativeAthanService.ACTION_STOP_ATHAN -> handleStopAthan(context)
-            "com.muhamed.imsakia.ATHAN_ACTION"  -> {
-                // محجوز — الجدولة تتم الآن عبر الـ Flutter Background Service
-                Log.i(TAG, "[ATHAN_RECEIVER] ATHAN_ACTION received (scheduled via Flutter).")
+        when {
+            action == NativeAthanService.ACTION_STOP_ATHAN -> handleStopAthan(context)
+
+            action.startsWith("ATHAN_ACTION_") -> {
+                // AlarmManager fired — start NativeAthanService to play Athan
+                handleStartAthan(context, intent)
             }
+
+            action == "com.muhamed.imsakia.ATHAN_ACTION" -> {
+                // Legacy action — also start Athan
+                handleStartAthan(context, intent)
+            }
+
             else -> Log.w(TAG, "[ATHAN_RECEIVER] Unknown action: $action")
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * يُطلق NativeAthanService لتشغيل الأذان مع الإشعار و fullScreenIntent.
+     * يمرّر جميع بيانات الصلاة (الاسم، الصورة، المدينة) عبر extras.
+     */
+    private fun handleStartAthan(context: Context, intent: Intent) {
+        val prayerEn = intent.getStringExtra("prayer_en") ?: "Prayer"
+        val prayerAr = intent.getStringExtra("prayer_ar") ?: "الصلاة"
+        val prayerImage = intent.getStringExtra("image") ?: ""
+        val cityName = intent.getStringExtra("city") ?: ""
+
+        Log.i(TAG, "[ATHAN_RECEIVER] Starting NativeAthanService for $prayerAr ($prayerEn)")
+
+        try {
+            val serviceIntent = Intent(context, NativeAthanService::class.java).apply {
+                putExtra("prayer_en", prayerEn)
+                putExtra("prayer_ar", prayerAr)
+                putExtra("image", prayerImage)
+                putExtra("city", cityName)
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
+            Log.i(TAG, "[ATHAN_RECEIVER] ✓ NativeAthanService started.")
+        } catch (e: Exception) {
+            Log.e(TAG, "[ATHAN_RECEIVER] Failed to start NativeAthanService: ${e.message}")
+        }
+    }
 
     /**
      * ينفّذ إيقاف الأذان الكامل في 3 خطوات متتالية:

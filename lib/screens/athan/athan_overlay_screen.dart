@@ -26,6 +26,8 @@ class AthanOverlayScreen extends StatefulWidget {
 
 class _AthanOverlayScreenState extends State<AthanOverlayScreen>
     with TickerProviderStateMixin {
+  static const _athanChannel = MethodChannel('imsakia/athan_control');
+
   late AnimationController _pulseController;
   late Animation<double> _pulse;
 
@@ -40,26 +42,49 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
 
     _pulse = Tween<double>(begin: 0.92, end: 1.08).animate(_pulseController);
 
-    developer.log('[AthanOverlay] Overlay displayed for ${widget.prayerNameAr}', name: 'AthanOverlay');
+    // Force immersive mode for a true full-screen experience
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+    developer.log(
+      '[AthanOverlay] Overlay displayed for ${widget.prayerNameAr}',
+      name: 'AthanOverlay',
+    );
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
+    // Restore system UI
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
   Future<void> _stopAthan() async {
     developer.log('[AthanOverlay] Stop button tapped.', name: 'AthanOverlay');
-    
-    // Stop Audio via Background Service
+
+    // 1. Stop via Native AthanReceiver (the reliable path for native Athan)
+    try {
+      await _athanChannel.invokeMethod('stopNativeAthan');
+      developer.log('[AthanOverlay] Native Athan stopped via AthanReceiver.');
+    } catch (e) {
+      developer.log('[AthanOverlay] stopNativeAthan failed: $e');
+    }
+
+    // 2. Stop via Background Service (the Flutter-side path)
     try {
       fbs.FlutterBackgroundService().invoke('stop_audio');
     } catch (e) {
-      developer.log('[AthanOverlay] Failed to stop audio: $e');
+      developer.log('[AthanOverlay] Background service stop failed: $e');
     }
 
-    // Dismiss the overlay screen
+    // 3. Also try to stop via the native audio controller directly
+    try {
+      await _athanChannel.invokeMethod('stopNativeAudio');
+    } catch (e) {
+      developer.log('[AthanOverlay] stopNativeAudio failed: $e');
+    }
+
+    // 4. Dismiss the overlay screen
     if (mounted) {
       if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
@@ -71,145 +96,152 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // 1. Background Image
-          if (widget.backgroundImage != null)
-            Positioned.fill(
-              child: Image.asset(
-                widget.backgroundImage!,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(color: Colors.black87),
-              ),
-            ),
-
-          // 2. Dark Overlay/Gradient
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.4),
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.8),
-                  ],
+    return PopScope(
+      canPop: false, // Prevent accidental back button during Athan
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
+            // 1. Background Image
+            if (widget.backgroundImage != null)
+              Positioned.fill(
+                child: Image.asset(
+                  widget.backgroundImage!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      Container(color: Colors.black87),
                 ),
               ),
-            ),
-          ),
 
-          // 3. Content Area
-          SafeArea(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                const SizedBox(height: 40),
-
-                // Announcement Text
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Column(
-                    children: [
-                      FadeInDown(
-                        duration: const Duration(milliseconds: 800),
-                        child: Text(
-                          'حان الآن موعد أذان ${widget.prayerNameAr}',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: AppColors.gold,
-                            fontSize: 34,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'Tajawal',
-                            shadows: [
-                              Shadow(
-                                color: Colors.black54,
-                                offset: Offset(0, 4),
-                                blurRadius: 10,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      FadeInDown(
-                        delay: const Duration(milliseconds: 200),
-                        duration: const Duration(milliseconds: 800),
-                        child: Text(
-                          'حسب التوقيت المحلي لمدينة ${widget.cityName ?? ""}',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontFamily: 'Tajawal',
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
+            // 2. Dark Overlay/Gradient
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.4),
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.8),
                     ],
                   ),
                 ),
+              ),
+            ),
 
-                // Animated audio wave
-                FadeIn(
-                  delay: const Duration(milliseconds: 600),
-                  child: _AudioWave(),
-                ),
+            // 3. Content Area
+            SafeArea(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  const SizedBox(height: 40),
 
-                // Stop button
-                FadeInUp(
-                  delay: const Duration(milliseconds: 800),
-                  child: Column(
-                    children: [
-                      ScaleTransition(
-                        scale: _pulse,
-                        child: GestureDetector(
-                          onTap: _stopAthan,
-                          child: Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.error,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.error.withValues(alpha: 0.5),
-                                  blurRadius: 40,
-                                  spreadRadius: 8,
+                  // Announcement Text
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Column(
+                      children: [
+                        FadeInDown(
+                          duration: const Duration(milliseconds: 800),
+                          child: Text(
+                            'حان الآن موعد أذان ${widget.prayerNameAr}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: AppColors.gold,
+                              fontSize: 34,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Amiri',
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black54,
+                                  offset: Offset(0, 4),
+                                  blurRadius: 10,
                                 ),
                               ],
                             ),
-                            child: const Icon(
-                              Icons.stop_rounded,
-                              color: Colors.white,
-                              size: 50,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (widget.cityName != null &&
+                            widget.cityName!.isNotEmpty)
+                          FadeInDown(
+                            delay: const Duration(milliseconds: 200),
+                            duration: const Duration(milliseconds: 800),
+                            child: Text(
+                              'حسب التوقيت المحلي لمدينة ${widget.cityName}',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontFamily: 'Amiri',
+                                fontWeight: FontWeight.w400,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  // Animated audio wave
+                  FadeIn(
+                    delay: const Duration(milliseconds: 600),
+                    child: _AudioWave(),
+                  ),
+
+                  // Stop button
+                  FadeInUp(
+                    delay: const Duration(milliseconds: 800),
+                    child: Column(
+                      children: [
+                        ScaleTransition(
+                          scale: _pulse,
+                          child: GestureDetector(
+                            onTap: _stopAthan,
+                            child: Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.error,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color:
+                                        AppColors.error.withValues(alpha: 0.5),
+                                    blurRadius: 40,
+                                    spreadRadius: 8,
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.stop_rounded,
+                                color: Colors.white,
+                                size: 50,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'إيقاف الأذان',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontFamily: 'Tajawal',
-                          fontWeight: FontWeight.bold,
+                        const SizedBox(height: 20),
+                        const Text(
+                          'إيقاف الأذان',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontFamily: 'Amiri',
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 40),
-              ],
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -4,6 +4,7 @@ import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import android.app.AlarmManager
+import android.app.KeyguardManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -33,16 +34,34 @@ class MainActivity : AudioServiceActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
+            
+            // Dismiss the keyguard so our Activity shows directly
+            val km = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+            km.requestDismissKeyguard(this, object : KeyguardManager.KeyguardDismissCallback() {
+                override fun onDismissSucceeded() {
+                    Log.d("MainActivity", "[ATHAN] Keyguard dismissed successfully")
+                }
+                override fun onDismissCancelled() {
+                    Log.d("MainActivity", "[ATHAN] Keyguard dismiss cancelled")
+                }
+                override fun onDismissError() {
+                    Log.e("MainActivity", "[ATHAN] Keyguard dismiss error")
+                }
+            })
         } else {
             @Suppress("DEPRECATION")
             window.addFlags(
                 android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
             )
         }
 
         // Request notification permissions immediately when app starts
         requestNotificationPermission()
+        
+        // Handle initial launch from fullScreenIntent
+        handleAthanIntent(intent)
     }
 
 
@@ -94,8 +113,9 @@ class MainActivity : AudioServiceActivity() {
                     val prayerAr = call.argument<String>("prayerAr") ?: "الصلاة"
                     val assetPath = call.argument<String>("assetPath") ?: ""
                     val prayerImage = call.argument<String>("image") ?: ""
+                    val cityName = call.argument<String>("city") ?: ""
                     
-                    scheduleAthan(prayerName, time, prayerAr, assetPath, prayerImage)
+                    scheduleAthan(prayerName, time, prayerAr, assetPath, prayerImage, cityName)
                     result.success(true)
                 }
                 "cancelAthanAlarm" -> {
@@ -128,6 +148,18 @@ class MainActivity : AudioServiceActivity() {
                         result.success(NativeAudioController.isReallyPlaying(this@MainActivity))
                     } catch (e: Exception) {
                         result.success(false)
+                    }
+                }
+                "stopNativeAthan" -> {
+                    try {
+                        // Send STOP_ATHAN broadcast to AthanReceiver for full cleanup
+                        val stopIntent = Intent(this@MainActivity, AthanReceiver::class.java).apply {
+                            action = NativeAthanService.ACTION_STOP_ATHAN
+                        }
+                        sendBroadcast(stopIntent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("STOP_ERROR", e.message, null)
                     }
                 }
                 else -> result.notImplemented()
@@ -185,6 +217,9 @@ class MainActivity : AudioServiceActivity() {
             val prayerAr = currentIntent.getStringExtra("prayer_ar") ?: ""
             val prayerEn = currentIntent.getStringExtra("prayer_en") ?: ""
             val prayerImage = currentIntent.getStringExtra("image") ?: ""
+            val cityName = currentIntent.getStringExtra("city") ?: ""
+
+            Log.i("MainActivity", "[ATHAN_INTENT] prayer=$prayerAr, city=$cityName, image=$prayerImage")
 
             try {
                 FlutterEngineCache.getInstance().get("main_engine")?.let { engine ->
@@ -192,11 +227,12 @@ class MainActivity : AudioServiceActivity() {
                         .invokeMethod("open_athan", mapOf(
                             "prayer" to prayerAr,
                             "prayerEn" to prayerEn,
-                            "image" to prayerImage
+                            "image" to prayerImage,
+                            "city" to cityName
                         ))
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e("MainActivity", "[ATHAN_INTENT] Failed to send to Flutter: ${e.message}")
             }
             
             // Remove so it doesn't trigger again on subsequent resumes
@@ -222,7 +258,7 @@ class MainActivity : AudioServiceActivity() {
         return true
     }
 
-    private fun scheduleAthan(prayerName: String, time: Long, prayerAr: String, assetPath: String, image: String) {
+    private fun scheduleAthan(prayerName: String, time: Long, prayerAr: String, assetPath: String, image: String, city: String = "") {
         val now = System.currentTimeMillis()
         if (time <= now) {
             Log.w("MainActivity", "[NATIVE_SCHEDULE] Skipping past prayer: $prayerName")
@@ -244,6 +280,7 @@ class MainActivity : AudioServiceActivity() {
             putExtra("prayer_ar", prayerAr)
             putExtra("asset_path", assetPath)
             putExtra("image", image)
+            putExtra("city", city)
             putExtra("notification_id", (prayerName + time).hashCode())
         }
 

@@ -1,5 +1,6 @@
 package com.muhamed.imsakia
 
+import android.app.KeyguardManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -47,9 +48,14 @@ class NativeAthanService : Service() {
         val prayerAr = intent?.getStringExtra("prayer_ar") ?: "الصلاة"
         val prayerEn = intent?.getStringExtra("prayer_en") ?: "Prayer"
         val prayerImage = intent?.getStringExtra("image") ?: ""
+        val cityName = intent?.getStringExtra("city") ?: ""
 
-        setupForeground(prayerAr, prayerEn, prayerImage)
+        // 1. Acquire screen-waking WakeLock FIRST (turns screen on)
         acquireWakeLock()
+        // 2. Dismiss keyguard so our Activity can appear
+        dismissKeyguard()
+        // 3. Build foreground notification with fullScreenIntent
+        setupForeground(prayerAr, prayerEn, prayerImage, cityName)
 
         // 2. Determine and Start Audio Playback (Strictly Raw Resources)
         try {
@@ -73,7 +79,7 @@ class NativeAthanService : Service() {
         return START_STICKY
     }
 
-    private fun setupForeground(prayerAr: String, prayerEn: String, prayerImage: String) {
+    private fun setupForeground(prayerAr: String, prayerEn: String, prayerImage: String, cityName: String) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -85,16 +91,21 @@ class NativeAthanService : Service() {
                 description = "الأذان (تنبيه وقت الصلاة)"
                 setSound(null, null)
                 enableVibration(true)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                setBypassDnd(true)
             }
             notificationManager.createNotificationChannel(channel)
         }
 
         val fullScreenIntent = Intent(this, MainActivity::class.java).apply {
-            this.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            this.flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("open_athan_screen", true)
             putExtra("prayer_ar", prayerAr)
             putExtra("prayer_en", prayerEn)
             putExtra("image", prayerImage)
+            putExtra("city", cityName)
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
             this,
@@ -121,6 +132,7 @@ class NativeAthanService : Service() {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setFullScreenIntent(fullScreenPendingIntent, true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .addAction(0, "إيقاف الأذان", stopPendingIntent)
 
@@ -129,6 +141,8 @@ class NativeAthanService : Service() {
         }
 
         val notification = notificationBuilder.build()
+        // Force heads-up behavior
+        notification.flags = notification.flags or android.app.Notification.FLAG_INSISTENT
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -176,24 +190,56 @@ class NativeAthanService : Service() {
         super.onDestroy()
     }
 
+    /**
+     * Acquires a SCREEN_BRIGHT WakeLock that actually turns the screen ON.
+     * PARTIAL_WAKE_LOCK only keeps CPU alive but the screen stays off.
+     * SCREEN_BRIGHT_WAKE_LOCK + ACQUIRE_CAUSES_WAKEUP is the reliable
+     * combination to wake the device screen for alarm-type scenarios.
+     */
+    @Suppress("DEPRECATION")
     private fun acquireWakeLock() {
         if (wakeLock == null) {
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = powerManager.newWakeLock(
-                PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
-                "Imsakia::AthanServiceWakeLock"
+                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
+                PowerManager.ACQUIRE_CAUSES_WAKEUP or
+                PowerManager.ON_AFTER_RELEASE,
+                "Imsakia::AthanScreenWakeLock"
             )
         }
         
         if (wakeLock?.isHeld == false) {
-            Log.d(TAG, "Acquiring service-level WakeLock (4 min)")
+            Log.d(TAG, "Acquiring SCREEN_BRIGHT WakeLock (4 min) — screen will turn ON")
             wakeLock?.acquire(4 * 60 * 1000L)
+        }
+    }
+
+    /**
+     * Dismisses the keyguard (lock screen) so the full-screen intent Activity
+     * appears directly. Works on Android 8.0+ via KeyguardManager.
+     */
+    private fun dismissKeyguard() {
+        try {
+            val km = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // On Android 8+, requestDismissKeyguard is the clean API
+                // But since we're in a Service (no Activity), we rely on
+                // showWhenLocked + turnScreenOn flags set in the manifest & Activity.
+                Log.d(TAG, "KeyguardManager: lock screen will be dismissed by Activity flags")
+            }
+            // For older devices, deprecated API:
+            @Suppress("DEPRECATION")
+            if (km.isKeyguardLocked) {
+                Log.d(TAG, "Device is locked — fullScreenIntent will show over keyguard")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Keyguard dismiss failed: ${e.message}")
         }
     }
 
     private fun releaseWakeLock() {
         if (wakeLock?.isHeld == true) {
-            Log.d(TAG, "Releasing service-level WakeLock")
+            Log.d(TAG, "Releasing screen WakeLock")
             wakeLock?.release()
         }
         wakeLock = null

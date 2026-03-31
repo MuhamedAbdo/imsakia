@@ -210,15 +210,15 @@ void main() async {
         nav.pop();
       }
     } else if (call.method == 'open_athan') {
-        // Handle native intent calls (backup)
+        // Handle native intent calls (from fullScreenIntent)
         final args = call.arguments as Map<dynamic, dynamic>?;
         if (args != null) {
             final nameAr = args['prayer'] as String? ?? 'الصلاة';
             final nameEn = args['prayerEn'] as String? ?? 'Prayer';
             final image = args['image'] as String?;
+            final city = args['city'] as String?;
             
-            // For city, we might not have it in native intent yet.
-            pushAthanOverlay(nameAr, nameEn, null, image);
+            pushAthanOverlay(nameAr, nameEn, city, image);
         }
     }
   });
