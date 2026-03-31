@@ -12,6 +12,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.muhamed.imsakia.R
 
 class NativeAthanService : Service() {
     companion object {
@@ -23,6 +24,12 @@ class NativeAthanService : Service() {
         private var wakeLock: PowerManager.WakeLock? = null
     }
 
+    private val volumeHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var currentVolume = 0.0f
+    private val FADE_DURATION_MS = 4000L // 4 seconds
+    private val FADE_INTERVAL_MS = 100L
+    private val VOLUME_INCREMENT = 1.0f / (FADE_DURATION_MS / FADE_INTERVAL_MS)
+
     override fun onCreate() {
         super.onCreate()
         isRunning = true
@@ -33,17 +40,40 @@ class NativeAthanService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP_ATHAN) {
             Log.d(TAG, "Stopping Athan via intent action")
-            NativeAudioController.stop(this)
-            releaseWakeLock()
-            stopSelf()
+            stopAthan()
             return START_NOT_STICKY
         }
 
         val prayerAr = intent?.getStringExtra("prayer_ar") ?: "الصلاة"
         val prayerEn = intent?.getStringExtra("prayer_en") ?: "Prayer"
-        val assetPath = intent?.getStringExtra("asset_path") ?: "assets/audio/athan_egypt_ab.mp3"
         val prayerImage = intent?.getStringExtra("image") ?: ""
 
+        setupForeground(prayerAr, prayerEn, prayerImage)
+        acquireWakeLock()
+
+        // 2. Determine and Start Audio Playback (Strictly Raw Resources)
+        try {
+            // Start at volume 0.0 for fade-in
+            NativeAudioController.setVolume(0.0f)
+
+            if (prayerEn.equals("Fajr", ignoreCase = true) || prayerAr.contains("الفجر")) {
+                Log.i(TAG, "Starting Fajr Athan from Raw Resource")
+                NativeAudioController.playRaw(this, R.raw.fajr_default)
+            } else {
+                Log.i(TAG, "Starting Regular Athan from Raw Resource")
+                NativeAudioController.playRaw(this, R.raw.athan_default)
+            }
+            
+            startFadeIn()
+        } catch (e: Exception) {
+            Log.e(TAG, "Raw resource playback failed: ${e.message}")
+            // Do NOT fall back to assets as per strict requirement
+        }
+
+        return START_STICKY
+    }
+
+    private fun setupForeground(prayerAr: String, prayerEn: String, prayerImage: String) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -83,7 +113,7 @@ class NativeAthanService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        var notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("حان وقت $prayerAr")
             .setContentText("اضغط لإيقاف الأذان")
@@ -91,31 +121,15 @@ class NativeAthanService : Service() {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setOngoing(true)
-            .addAction(
-                NotificationCompat.Action(
-                    0,
-                    "إيقاف الأذان",
-                    stopPendingIntent
-                )
-            )
-            .build()
+            .addAction(0, "إيقاف الأذان", stopPendingIntent)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            notificationBuilder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        }
+
+        val notification = notificationBuilder.build()
 
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                // Apply foreground behavior for Android 12+
-                notification = NotificationCompat.Builder(this, CHANNEL_ID)
-                    .setSmallIcon(R.mipmap.ic_launcher)
-                    .setContentTitle("حان وقت $prayerAr")
-                    .setContentText("اضغط لإيقاف الأذان")
-                    .setPriority(NotificationCompat.PRIORITY_MAX)
-                    .setCategory(NotificationCompat.CATEGORY_ALARM)
-                    .setFullScreenIntent(fullScreenPendingIntent, true)
-                    .setOngoing(true)
-                    .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-                    .addAction(0, "إيقاف الأذان", stopPendingIntent)
-                    .build()
-            }
-
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
             } else {
@@ -123,23 +137,39 @@ class NativeAthanService : Service() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Foreground start failed: ${e.message}")
-            releaseWakeLock()
             stopSelf()
-            return START_NOT_STICKY
         }
+    }
 
-        // 1. Acquire WakeLock BEFORE playback
-        acquireWakeLock()
+    private fun startFadeIn() {
+        Log.i(TAG, "[SERVICE] Fade-in started")
+        currentVolume = 0.0f
+        volumeHandler.post(object : Runnable {
+            override fun run() {
+                if (currentVolume < 1.0f) {
+                    currentVolume += VOLUME_INCREMENT
+                    if (currentVolume > 1.0f) currentVolume = 1.0f
+                    NativeAudioController.setVolume(currentVolume)
+                    volumeHandler.postDelayed(this, FADE_INTERVAL_MS)
+                } else {
+                    Log.i(TAG, "[SERVICE] Fade-in completed")
+                }
+            }
+        })
+    }
 
-        // 2. Start Audio Playback in Controller
-        NativeAudioController.play(this, assetPath)
-
-        return START_STICKY
+    private fun stopAthan() {
+        volumeHandler.removeCallbacksAndMessages(null)
+        NativeAudioController.stop(this)
+        releaseWakeLock()
+        stopSelf()
     }
 
     override fun onDestroy() {
         isRunning = false
         Log.d(TAG, "Service being destroyed, cleaning up...")
+        // Memory Safety: Clear handler callbacks
+        volumeHandler.removeCallbacksAndMessages(null)
         NativeAudioController.stop(this)
         releaseWakeLock()
         super.onDestroy()

@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:developer' as developer;
 import '../core/models/prayer_times_model.dart';
 import '../core/models/location_model.dart';
 import '../core/models/settings_model.dart';
@@ -71,12 +73,31 @@ class PrayerTimesProvider extends ChangeNotifier {
       final diff = next.time.difference(DateTime.now());
       _countdown = diff.isNegative ? Duration.zero : diff;
       
-      // Determine the previous (missed) prayer
       final current = _prayerTimes?.currentPrayer;
+      
+      // ── FAIL-SAFE GUARD (Requirement 5) ────────────────────────────────────
+      // If countdown is 0 (or slightly negative) and we are not playing, force reschedule.
+      if (_countdown == Duration.zero && next.time.isBefore(DateTime.now())) {
+        _checkAndForceTrigger(next);
+      }
       
       _updateHomeWidget(current, next, _countdown);
     }
     notifyListeners();
+  }
+
+  Future<void> _checkAndForceTrigger(PrayerEntry nextPrayer) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isPlaying = prefs.getBool('flutter.athan_is_playing') ?? false;
+      
+      if (!isPlaying) {
+        developer.log('[SCHEDULER] FAIL-SAFE: Countdown reached 0 but athan_is_playing is FALSE. Forcing reschedule.');
+        await AthanSchedulingService.forceRescheduleAll();
+      }
+    } catch (e) {
+      developer.log('[SCHEDULER] FAIL-SAFE error: $e');
+    }
   }
 
   Future<void> _updateHomeWidget(

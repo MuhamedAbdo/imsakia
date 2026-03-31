@@ -18,10 +18,12 @@ import android.util.Log
 import io.flutter.embedding.engine.FlutterEngineCache
 import org.json.JSONArray
 import org.json.JSONObject
+import android.provider.Settings
 
 class MainActivity : AudioServiceActivity() {
     private val CHANNEL = "imsakia/notifications"
     private val ATHAN_CHANNEL = "imsakia/athan_control"
+    private val WATCHDOG_CHANNEL = "imsakia/watchdog_control"
     private val NOTIFICATION_PERMISSION_CODE = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,14 +84,18 @@ class MainActivity : AudioServiceActivity() {
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ATHAN_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
-                "scheduleAthanAlarm" -> {
-                    val id = call.argument<Int>("id") ?: 0
-                    val timeMs = call.argument<Long>("timeMs") ?: 0L
-                    val prayerAr = call.argument<String>("prayerAr") ?: ""
-                    val prayerEn = call.argument<String>("prayerEn") ?: ""
+                "ensureExactAlarmPermission" -> {
+                    val resultValue = ensureExactAlarmPermission()
+                    result.success(resultValue)
+                }
+                "scheduleAthan" -> {
+                    val prayerName = call.argument<String>("prayer_name") ?: ""
+                    val time = call.argument<Long>("time") ?: 0L
+                    val prayerAr = call.argument<String>("prayerAr") ?: "الصلاة"
                     val assetPath = call.argument<String>("assetPath") ?: ""
                     val prayerImage = call.argument<String>("image") ?: ""
-                    scheduleAthanAlarm(id, timeMs, prayerAr, prayerEn, assetPath, prayerImage)
+                    
+                    scheduleAthan(prayerName, time, prayerAr, assetPath, prayerImage)
                     result.success(true)
                 }
                 "cancelAthanAlarm" -> {
@@ -123,6 +129,40 @@ class MainActivity : AudioServiceActivity() {
                     } catch (e: Exception) {
                         result.success(false)
                     }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        // ── Watchdog Control Channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WATCHDOG_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startWatchdog" -> {
+                    try {
+                        val intent = Intent(this@MainActivity, ZadWatchdogService::class.java)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(intent)
+                        } else {
+                            startService(intent)
+                        }
+                        Log.i("MainActivity", "[WATCHDOG] ZadWatchdogService started from Flutter.")
+                        result.success(true)
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "[WATCHDOG] Failed to start: ${e.message}")
+                        result.error("WATCHDOG_ERROR", e.message, null)
+                    }
+                }
+                "stopWatchdog" -> {
+                    try {
+                        stopService(Intent(this@MainActivity, ZadWatchdogService::class.java))
+                        Log.i("MainActivity", "[WATCHDOG] ZadWatchdogService stopped from Flutter.")
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("WATCHDOG_ERROR", e.message, null)
+                    }
+                }
+                "isWatchdogRunning" -> {
+                    result.success(ZadWatchdogService.isRunning)
                 }
                 else -> result.notImplemented()
             }
@@ -163,34 +203,78 @@ class MainActivity : AudioServiceActivity() {
             currentIntent.removeExtra("open_athan_screen")
         }
     }
-
-    private fun scheduleAthanAlarm(id: Int, timeMs: Long, prayerAr: String, prayerEn: String, assetPath: String, prayerImage: String) {
+    private fun ensureExactAlarmPermission(): Boolean {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, AthanTriggerReceiver::class.java).apply {
-            putExtra("prayer_ar", prayerAr)
-            putExtra("prayer_en", prayerEn)
-            putExtra("asset_path", assetPath)
-            putExtra("prayer_image", prayerImage)
-            putExtra("notification_id", id)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Log.w("MainActivity", "[NATIVE] Exact alarm NOT granted. Requesting...")
+                try {
+                    val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Failed to open exact alarm settings: ${e.message}")
+                }
+                return false
+            }
+            Log.i("MainActivity", "[NATIVE] Exact alarm granted")
+            return true
         }
+        return true
+    }
+
+    private fun scheduleAthan(prayerName: String, time: Long, prayerAr: String, assetPath: String, image: String) {
+        val now = System.currentTimeMillis()
+        if (time <= now) {
+            Log.w("MainActivity", "[NATIVE_SCHEDULE] Skipping past prayer: $prayerName")
+            return
+        }
+
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        
+        // Android 12+ strict check
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+            Log.e("MainActivity", "[NATIVE_SCHEDULE] Exact alarm denied. Cannot schedule $prayerName")
+            return
+        }
+
+        val uniqueAction = "ATHAN_ACTION_${prayerName}_${time}"
+        val intent = Intent(this, AthanReceiver::class.java).apply {
+            action = uniqueAction
+            putExtra("prayer_en", prayerName)
+            putExtra("prayer_ar", prayerAr)
+            putExtra("asset_path", assetPath)
+            putExtra("image", image)
+            putExtra("notification_id", (prayerName + time).hashCode())
+        }
+
         val pendingIntent = PendingIntent.getBroadcast(
             this,
-            id,
+            (prayerName + time).hashCode(),
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Clean Slate: ALWAYS cancel any existing alarm for this prayer before scheduling a new one
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMs, pendingIntent)
+            alarmManager.cancel(pendingIntent)
+        } catch (e: Exception) {
+            Log.d("MainActivity", "Cleanup existing alarm failed for $prayerName: ${e.message}")
+        }
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, time, pendingIntent)
             } else {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMs, pendingIntent)
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, time, pendingIntent)
             }
-            // Persist for boot recovery
-            saveAlarmMetadata(id, timeMs, prayerAr, prayerEn, assetPath, prayerImage)
-        } catch (e: SecurityException) {
-            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeMs, pendingIntent)
-            saveAlarmMetadata(id, timeMs, prayerAr, prayerEn, assetPath, prayerImage)
+            
+            val dateStr = java.util.Date(time).toString()
+            Log.i("MainActivity", "[NATIVE_SCHEDULE] $prayerName | $time | $dateStr")
+            
+            // Persist for boot recovery (Both JSON and individual keys)
+            saveAlarmMetadata((prayerName + time).hashCode(), time, prayerAr, prayerName, assetPath, image)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to set alarm: ${e.message}")
         }
     }
 
@@ -220,6 +304,12 @@ class MainActivity : AudioServiceActivity() {
             newArray.put(newAlarm)
             
             prefs.edit().putString("flutter.native_scheduled_alarms", newArray.toString()).apply()
+
+            // Also store individual native keys for fast, clean recovery in BootReceiver
+            val nativeKey = "${prayerEn.lowercase()}_time"
+            prefs.edit().putLong(nativeKey, timeMs).apply()
+            Log.d("MainActivity", "Stored native key: $nativeKey = $timeMs")
+
         } catch (e: Exception) {
             Log.e("MainActivity", "Failed to save alarm metadata: ${e.message}")
         }
@@ -227,7 +317,7 @@ class MainActivity : AudioServiceActivity() {
 
     private fun cancelAthanAlarm(id: Int) {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, AthanTriggerReceiver::class.java)
+        val intent = Intent(this, AthanReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(
             this,
             id,

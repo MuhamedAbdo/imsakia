@@ -8,15 +8,15 @@ import '../models/prayer_times_model.dart';
 class NotificationService {
   static const _channelId = 'adhan_prayer_times';
   static const _channelName = 'زاد - مواقيت الصلاة';
-  static const _athanChannelId = 'adhan_athan';
-  static const _athanChannelName = 'زاد - الأذان';
+  static const _athanChannelId = 'athan_channel';
+  static const _athanChannelName = 'Athan';
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
   Future<void> initialize() async {
     const androidSettings =
-        AndroidInitializationSettings('@drawable/ic_notification');
+        AndroidInitializationSettings('ic_notification');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -79,7 +79,7 @@ class NotificationService {
       fullScreenIntent: isAthan,
       category: isAthan ? AndroidNotificationCategory.alarm : null,
       ongoing: isAthan,
-      icon: '@drawable/ic_notification',
+      icon: 'ic_notification',
       actions: isAthan
           ? const [
               AndroidNotificationAction(
@@ -121,7 +121,7 @@ class NotificationService {
       fullScreenIntent: true,
       category: AndroidNotificationCategory.alarm,
       ongoing: true,
-      icon: '@drawable/ic_notification',
+      icon: 'ic_notification',
       actions: [
         AndroidNotificationAction(
           'stop_audio',

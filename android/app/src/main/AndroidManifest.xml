@@ -11,6 +11,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
@@ -68,15 +69,46 @@
                        android:resource="@xml/widget_info" />
         </receiver>
 
-        <receiver android:name=".AthanTriggerReceiver" android:exported="true">
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true"
+            android:directBootAware="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
-        <receiver android:name=".AthanReceiver" />
+
+        <!-- ServiceRestartReceiver: يُعيد تشغيل الخدمات بعد Clear All عبر AlarmManager -->
+        <receiver
+            android:name=".ServiceRestartReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.muhamed.imsakia.RESTART_SERVICE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- ZadWatchdogService: Foreground Service خفيفة تضمن بقاء الجدولة حيّة -->
+        <service
+            android:name=".ZadWatchdogService"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Ensuring prayer time (Athan) scheduling reliability for Muslim users" />
+        </service>
+        
+        <receiver android:name=".AthanReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="com.muhamed.imsakia.ATHAN_ACTION" />
+            </intent-filter>
+        </receiver>
         <service android:name=".NativeAthanService" android:foregroundServiceType="mediaPlayback" android:exported="false" />
 
         <service android:name="com.ryanheise.audioservice.AudioService"
@@ -99,6 +131,7 @@
         <service
             android:name="id.flutter.flutter_background_service.BackgroundService"
             android:foregroundServiceType="specialUse|mediaPlayback"
+            android:stopWithTask="false"
             android:exported="true"
             tools:replace="android:exported">
             <property

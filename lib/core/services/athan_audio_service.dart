@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:audio_session/audio_session.dart';
-import 'package:just_audio/just_audio.dart';
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
+import 'package:just_audio/just_audio.dart';
 
 class AthanAudioService {
   static final AthanAudioService _instance = AthanAudioService._internal();
@@ -85,6 +87,20 @@ class AthanAudioService {
       });
 
       await _player!.setAsset(assetPath);
+
+      // Apply the current volume setting
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final raw = prefs.getString('settings');
+        if (raw != null) {
+          final settings = jsonDecode(raw) as Map<String, dynamic>;
+          final vol = (settings['athanVolume'] as num?)?.toDouble() ?? 1.0;
+          await _player!.setVolume(vol);
+        }
+      } catch (e) {
+        debugPrint('AthanAudioService: Error applying volume: $e');
+      }
+
       await _player!.play();
       _isPlaying = true;
       _lastPlayedAt = now;

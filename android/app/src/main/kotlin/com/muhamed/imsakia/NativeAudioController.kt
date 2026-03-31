@@ -26,22 +26,40 @@ object NativeAudioController {
     }
 
     fun play(context: Context, assetPath: String, lock: PowerManager.WakeLock? = null) {
-        stop(context) // Guard against multiple simultaneous athans
+        stop(context)
         applicationContext = context.applicationContext
         wakeLock = lock
 
+        setupMediaPlayer(context) { mp ->
+            val flutterAssetPath = "flutter_assets/$assetPath"
+            Log.d(TAG, "Attempting to play asset: $flutterAssetPath")
+            val afd = context.assets.openFd(flutterAssetPath)
+            mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            afd.close()
+        }
+    }
+
+    fun playRaw(context: Context, resId: Int, lock: PowerManager.WakeLock? = null) {
+        stop(context)
+        applicationContext = context.applicationContext
+        wakeLock = lock
+
+        setupMediaPlayer(context) { mp ->
+            Log.d(TAG, "Attempting to play raw resource ID: $resId")
+            val afd = context.resources.openRawResourceFd(resId)
+            mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            afd.close()
+        }
+    }
+
+    private fun setupMediaPlayer(context: Context, dataSourceSetter: (MediaPlayer) -> Unit) {
         try {
             // CENTRALIZED START STATE
-            try {
-                val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-                prefs.edit()
-                    .putBoolean("flutter.athan_is_playing", true)
-                    .putLong("flutter.athan_start_time", System.currentTimeMillis())
-                    .apply()
-                Log.d(TAG, "Athan start state saved to SharedPreferences")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to write start state to SharedPreferences: ${e.message}")
-            }
+            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            prefs.edit()
+                .putBoolean("flutter.athan_is_playing", true)
+                .putLong("flutter.athan_start_time", System.currentTimeMillis())
+                .apply()
 
             audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager?
             mediaPlayer = MediaPlayer()
@@ -53,31 +71,19 @@ object NativeAudioController {
 
             mediaPlayer?.setAudioAttributes(audioAttributes)
 
-            // Read latest volume from SharedPreferences robustly
+            // Read latest volume from SharedPreferences
             var userVolume = 1.0f
             try {
-                val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-                val allPrefs = prefs.all
-                val volumeVal = allPrefs["flutter.athan_volume"]
-                if (volumeVal is Double) {
-                    userVolume = volumeVal.toFloat()
-                } else if (volumeVal is Float) {
-                    userVolume = volumeVal
-                } else if (volumeVal is Long) {
-                    userVolume = java.lang.Double.longBitsToDouble(volumeVal).toFloat()
-                } else if (volumeVal is String) {
-                    if (volumeVal.startsWith("VGhpc2lzVGhlUHJlZml4")) {
-                        userVolume = volumeVal.replace("VGhpc2lzVGhlUHJlZml4", "").toFloatOrNull() ?: 1.0f
-                    } else {
-                        userVolume = volumeVal.toFloatOrNull() ?: 1.0f
-                    }
-                }
+                val volumeVal = prefs.all["flutter.athan_volume"]
+                if (volumeVal is Double) userVolume = volumeVal.toFloat()
+                else if (volumeVal is Float) userVolume = volumeVal
+                else if (volumeVal is String) userVolume = volumeVal.toFloatOrNull() ?: 1.0f
             } catch (e: Exception) {
-                Log.e(TAG, "Error parsing volume from prefs, fallback to 1.0f")
+                Log.e(TAG, "Volume parse error: \${e.message}")
             }
             mediaPlayer?.setVolume(userVolume, userVolume)
 
-            // Request Audio Focus to duck other audio naturally
+            // Request Audio Focus
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
                     .setAudioAttributes(audioAttributes)
@@ -87,34 +93,25 @@ object NativeAudioController {
                 audioManager?.requestAudioFocus(focusRequest!!)
             } else {
                 @Suppress("DEPRECATION")
-                audioManager?.requestAudioFocus(
-                    audioFocusChangeListener,
-                    AudioManager.STREAM_ALARM,
-                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
-                )
+                audioManager?.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
             }
 
-            // Load file from flutter_assets
-            val flutterAssetPath = "flutter_assets/$assetPath"
-            
-            Log.d(TAG, "Attempting to play: $flutterAssetPath")
-            
-            val afd = context.assets.openFd(flutterAssetPath)
-            mediaPlayer?.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-            afd.close()
+            dataSourceSetter(mediaPlayer!!)
 
+            mediaPlayer?.isLooping = false
             mediaPlayer?.setOnCompletionListener {
+                Log.d(TAG, "Playback completed naturally")
                 stop(context)
             }
 
             mediaPlayer?.setOnPreparedListener { mp ->
                 mp.start()
-                Log.d(TAG, "Playing Native Athan Successfully: $flutterAssetPath")
+                Log.d(TAG, "Athan Playback Started")
             }
             mediaPlayer?.prepareAsync()
 
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to play native audio: ${e.message}")
+            Log.e(TAG, "Failed setupMediaPlayer: \${e.message}")
             e.printStackTrace()
             stop(context)
         }

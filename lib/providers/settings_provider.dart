@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../core/models/settings_model.dart';
@@ -8,6 +9,7 @@ import '../core/services/athan_scheduling_service.dart';
 class SettingsProvider extends ChangeNotifier {
   final StorageService _storage;
   late SettingsModel _settings;
+  Timer? _volumeDebounce;
 
   SettingsProvider(this._storage) {
     _settings = _storage.getSettings();
@@ -105,14 +107,24 @@ class SettingsProvider extends ChangeNotifier {
 
   Future<void> setAthanVolume(double volume) async {
     _settings = _settings.copyWith(athanVolume: volume);
-    await _save();
-    try {
-      await const MethodChannel('imsakia/athan_control')
-          .invokeMethod('updateAthanVolume', volume)
-          .timeout(const Duration(milliseconds: 500));
-    } catch (e) {
-      debugPrint('updateAthanVolume failed or timed out');
-    }
+    notifyListeners();
+
+    // Debounce persistence and native updates
+    _volumeDebounce?.cancel();
+    _volumeDebounce = Timer(const Duration(milliseconds: 500), () async {
+      await _storage.saveSettings(_settings);
+      
+      // Natively schedule athans on settings change
+      AthanSchedulingService.scheduleFutureAthans();
+
+      try {
+        await const MethodChannel('imsakia/athan_control')
+            .invokeMethod('updateAthanVolume', volume)
+            .timeout(const Duration(milliseconds: 500));
+      } catch (e) {
+        debugPrint('updateAthanVolume failed or timed out');
+      }
+    });
   }
 
   /// Toggles unified-athan mode.
@@ -186,5 +198,11 @@ class SettingsProvider extends ChangeNotifier {
     AthanSchedulingService.scheduleFutureAthans();
     
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _volumeDebounce?.cancel();
+    super.dispose();
   }
 }

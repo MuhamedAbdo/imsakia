@@ -2,20 +2,21 @@ import 'dart:developer' as developer;
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_background_service/flutter_background_service.dart' as fbs;
 import 'package:animate_do/animate_do.dart';
 import '../../core/theme/app_colors.dart';
 
 class AthanOverlayScreen extends StatefulWidget {
   final String prayerNameAr;
   final String prayerNameEn;
+  final String? cityName;
   final String? backgroundImage;
 
   const AthanOverlayScreen({
     super.key,
     required this.prayerNameAr,
     required this.prayerNameEn,
+    this.cityName,
     this.backgroundImage,
   });
 
@@ -39,7 +40,7 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
 
     _pulse = Tween<double>(begin: 0.92, end: 1.08).animate(_pulseController);
 
-    developer.log('[AthanOverlay] Overlay displayed — audio managed by background service.', name: 'AthanOverlay');
+    developer.log('[AthanOverlay] Overlay displayed for ${widget.prayerNameAr}', name: 'AthanOverlay');
   }
 
   @override
@@ -49,32 +50,22 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
   }
 
   Future<void> _stopAthan() async {
-    developer.log('[AthanOverlay] Stop button tapped — stopping naturally.', name: 'AthanOverlay');
+    developer.log('[AthanOverlay] Stop button tapped.', name: 'AthanOverlay');
     
-    // 1. Stop Native Audio Instantly
+    // Stop Audio via Background Service
     try {
-      const channel = MethodChannel('imsakia/athan_control');
-      await channel.invokeMethod('stopNativeAudio').timeout(const Duration(milliseconds: 500));
+      fbs.FlutterBackgroundService().invoke('stop_audio');
     } catch (e) {
-      developer.log('[AthanOverlay] Failed to stop native audio: $e');
+      developer.log('[AthanOverlay] Failed to stop audio: $e');
     }
-
-    // 2. Clear flutter local notifications if any
-    try {
-      final plugin = FlutterLocalNotificationsPlugin();
-      await plugin.cancelAll();
-    } catch (_) {}
-    
-    // 3. Update SharedPreferences (Handled by Native stop, but kept for UI consistency)
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('flutter.athan_is_playing', false);
-      await prefs.setBool('athan_is_playing', false);
-    } catch (_) {}
 
     // Dismiss the overlay screen
     if (mounted) {
-      SystemNavigator.pop();
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else {
+        SystemNavigator.pop();
+      }
     }
   }
 
@@ -84,16 +75,17 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 1. Background Image (Mapped to our .png assets in BackgroundService)
+          // 1. Background Image
           if (widget.backgroundImage != null)
             Positioned.fill(
               child: Image.asset(
                 widget.backgroundImage!,
                 fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(color: Colors.black87),
               ),
             ),
 
-          // 2. Dark Overlay/Gradient for readability
+          // 2. Dark Overlay/Gradient
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -103,7 +95,7 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
                   colors: [
                     Colors.black.withValues(alpha: 0.4),
                     Colors.transparent,
-                    Colors.black.withValues(alpha: 0.7),
+                    Colors.black.withValues(alpha: 0.8),
                   ],
                 ),
               ),
@@ -117,58 +109,49 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
               children: [
                 const SizedBox(height: 40),
 
-                // Icon + Title
-                Column(
-                  children: [
-                    FadeInDown(
-                      duration: const Duration(milliseconds: 800),
-                      child: Text(
-                        'حان الآن موعد أذان',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 22,
-                          fontFamily: 'Tajawal',
-                          letterSpacing: 1,
+                // Announcement Text
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Column(
+                    children: [
+                      FadeInDown(
+                        duration: const Duration(milliseconds: 800),
+                        child: Text(
+                          'حان الآن موعد أذان ${widget.prayerNameAr}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.gold,
+                            fontSize: 34,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Tajawal',
+                            shadows: [
+                              Shadow(
+                                color: Colors.black54,
+                                offset: Offset(0, 4),
+                                blurRadius: 10,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    FadeInDown(
-                      delay: const Duration(milliseconds: 200),
-                      duration: const Duration(milliseconds: 800),
-                      child: Text(
-                        widget.prayerNameAr,
-                        style: const TextStyle(
-                          color: AppColors.gold,
-                          fontSize: 56,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Tajawal',
-                          shadows: [
-                            Shadow(
-                              color: Colors.black54,
-                              offset: Offset(0, 4),
-                              blurRadius: 10,
-                            ),
-                          ],
+                      const SizedBox(height: 16),
+                      FadeInDown(
+                        delay: const Duration(milliseconds: 200),
+                        duration: const Duration(milliseconds: 800),
+                        child: Text(
+                          'حسب التوقيت المحلي لمدينة ${widget.cityName ?? ""}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontFamily: 'Tajawal',
+                            fontWeight: FontWeight.w400,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    FadeInDown(
-                      delay: const Duration(milliseconds: 400),
-                      duration: const Duration(milliseconds: 800),
-                      child: Text(
-                        widget.prayerNameEn.toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 18,
-                          fontFamily: 'Tajawal',
-                          letterSpacing: 4,
-                          fontWeight: FontWeight.w300,
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
 
                 // Animated audio wave
@@ -187,35 +170,35 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
                         child: GestureDetector(
                           onTap: _stopAthan,
                           child: Container(
-                            width: 90,
-                            height: 90,
+                            width: 100,
+                            height: 100,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: AppColors.error,
                               boxShadow: [
                                 BoxShadow(
                                   color: AppColors.error.withValues(alpha: 0.5),
-                                  blurRadius: 30,
-                                  spreadRadius: 6,
+                                  blurRadius: 40,
+                                  spreadRadius: 8,
                                 ),
                               ],
                             ),
                             child: const Icon(
                               Icons.stop_rounded,
                               color: Colors.white,
-                              size: 40,
+                              size: 50,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       const Text(
                         'إيقاف الأذان',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 18,
+                          fontSize: 20,
                           fontFamily: 'Tajawal',
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
@@ -267,14 +250,14 @@ class _AudioWaveState extends State<_AudioWave>
           children: List.generate(7, (i) {
             final delay = i / 7;
             final animValue = ((_controller.value + delay) % 1.0);
-            final height = 12 + 40 * sin(animValue * pi).abs();
+            final height = 15 + 50 * sin(animValue * pi).abs();
             return Container(
-              width: 6,
+              width: 8,
               height: height,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
+              margin: const EdgeInsets.symmetric(horizontal: 5),
               decoration: BoxDecoration(
-                color: AppColors.gold.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(3),
+                color: AppColors.gold.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(4),
               ),
             );
           }),
@@ -283,4 +266,3 @@ class _AudioWaveState extends State<_AudioWave>
     );
   }
 }
-

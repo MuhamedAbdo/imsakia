@@ -12,6 +12,7 @@ import '../../providers/location_provider.dart';
 import '../../providers/prayer_times_provider.dart';
 import '../../providers/hijri_calendar_provider.dart';
 import '../../core/services/athan_audio_service.dart';
+import '../../features/audio/providers/audio_player_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -816,7 +817,8 @@ class _AthanVolumeSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settings = context.watch<SettingsProvider>();
+    final audioPlayer = context.watch<AudioPlayerProvider>();
+    final isDark = context.read<SettingsProvider>().isDarkMode;
     final textColor = isDark ? Colors.white : AppColors.darkNavy;
 
     return Column(
@@ -836,7 +838,7 @@ class _AthanVolumeSlider extends StatelessWidget {
               ),
             ),
             Text(
-              '${(settings.athanVolume * 100).toInt()}%',
+              '${(audioPlayer.volume * 100).toInt()}%',
               style: const TextStyle(
                 color: AppColors.gold,
                 fontWeight: FontWeight.bold,
@@ -854,10 +856,12 @@ class _AthanVolumeSlider extends StatelessWidget {
             trackHeight: 4.0,
           ),
           child: Slider(
-            value: settings.athanVolume,
+            value: audioPlayer.volume.clamp(0.0, 1.0),
             min: 0.0,
             max: 1.0,
             onChanged: (val) {
+              // Update both providers for full synchronization
+              audioPlayer.setVolume(val);
               context.read<SettingsProvider>().setAthanVolume(val);
             },
           ),

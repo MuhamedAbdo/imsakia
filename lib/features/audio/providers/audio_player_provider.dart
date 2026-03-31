@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'dart:async';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
@@ -22,14 +25,19 @@ class AudioPlayerProvider with ChangeNotifier {
   Duration _currentPosition = Duration.zero;
   Duration _totalDuration = Duration.zero;
 
+  double _volume = 1.0;
+  Timer? _volumeDebounce;
+
   bool get isPlaying => _isPlaying;
   Duration get currentPosition => _currentPosition;
   Duration get totalDuration => _totalDuration;
   SurahAudio? get currentSurah => _currentSurah;
   Reciter? get currentReciter => _currentReciter;
   List<SurahAudio> get currentPlaylist => _currentPlaylist;
+  double get volume => _volume;
 
   AudioPlayerProvider() {
+    _loadVolume();
     _initAudioSession();
     _setupAudioListeners();
     
@@ -37,6 +45,21 @@ class AudioPlayerProvider with ChangeNotifier {
       audioHandler!.onNext = skipToNext;
       audioHandler!.onPrevious = skipToPrevious;
       audioHandler!.onStopCustom = stop;
+    }
+  }
+
+  Future<void> _loadVolume() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('settings');
+      if (raw != null) {
+        final settings = jsonDecode(raw) as Map<String, dynamic>;
+        _volume = (settings['athanVolume'] as num?)?.toDouble() ?? 1.0;
+        await _audioPlayer.setVolume(_volume);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error loading volume: $e');
     }
   }
 
@@ -112,7 +135,7 @@ class AudioPlayerProvider with ChangeNotifier {
       artUri: artUri ?? Uri.parse('https://raw.githubusercontent.com/ryanheise/audio_service/master/example/web/media/art.jpg'),
     );
 
-    await _audioPlayer.setVolume(1.0);
+    await _audioPlayer.setVolume(_volume);
 
     try {
       if (surah.localPath != null && surah.localPath!.isNotEmpty) {
@@ -209,8 +232,19 @@ class AudioPlayerProvider with ChangeNotifier {
     await _audioPlayer.seek(position);
   }
 
+  Future<void> setVolume(double value) async {
+    _volume = value;
+    await _audioPlayer.setVolume(value);
+    notifyListeners();
+    // Persistence is handled by SettingsProvider when called in conjunction 
+    // or we could save directly here if needed.
+    // The Slider in SettingsScreen calls both to avoid redundant saves while
+    // maintaining state consistency.
+  }
+
   @override
   void dispose() {
+    _volumeDebounce?.cancel();
     // If we use handler's player, we shouldn't dispose it here if it's shared
     // but typically Provider dispose means app/feature is closing
     if (audioHandler == null) {

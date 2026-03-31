@@ -13,6 +13,7 @@ import '../../providers/hijri_calendar_provider.dart';
 import '../main_layout.dart';
 import '../athan/athan_overlay_screen.dart';
 import '../../core/services/miui_service.dart';
+import '../../core/services/athan_scheduling_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -176,12 +177,14 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         await prayerTimes.calculate(location.location!, settings.calculationMethod);
       }
 
-      // Step 3: Fetch Hijri date
       _updateStatus(locale == 'ar' ? 'جاري تحميل التاريخ...' : 'Loading Hijri...');
       await hijri.fetch(
         offset: settings.hijriBaseOffset,
         countryCode: location.location?.countryCode,
       );
+
+      // Step 3.5: Force Schedule Athan (Requirement 1)
+      await AthanSchedulingService.ensureAthanScheduled();
 
       // Step 4: Xiaomi (MIUI) Guidance (Task: Xiaomi Fix)
       final isMiui = await MiuiService.isMiui();
