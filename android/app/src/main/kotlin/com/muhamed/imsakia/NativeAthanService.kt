@@ -191,25 +191,27 @@ class NativeAthanService : Service() {
     }
 
     /**
-     * Acquires a SCREEN_BRIGHT WakeLock that actually turns the screen ON.
+     * Acquires a FULL_WAKE_LOCK that forces CPU + Screen + Keyboard ON.
      * PARTIAL_WAKE_LOCK only keeps CPU alive but the screen stays off.
-     * SCREEN_BRIGHT_WAKE_LOCK + ACQUIRE_CAUSES_WAKEUP is the reliable
-     * combination to wake the device screen for alarm-type scenarios.
+     * SCREEN_BRIGHT_WAKE_LOCK keeps screen bright but won't always wake it.
+     * FULL_WAKE_LOCK + ACQUIRE_CAUSES_WAKEUP is the nuclear option that
+     * guarantees the display physically turns on for alarm-type scenarios.
+     * Deprecated but proven most reliable across OEM Android variants.
      */
     @Suppress("DEPRECATION")
     private fun acquireWakeLock() {
         if (wakeLock == null) {
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = powerManager.newWakeLock(
-                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
+                PowerManager.FULL_WAKE_LOCK or
                 PowerManager.ACQUIRE_CAUSES_WAKEUP or
                 PowerManager.ON_AFTER_RELEASE,
-                "Imsakia::AthanScreenWakeLock"
+                "Imsakia::AthanFullWakeLock"
             )
         }
         
         if (wakeLock?.isHeld == false) {
-            Log.d(TAG, "Acquiring SCREEN_BRIGHT WakeLock (4 min) — screen will turn ON")
+            Log.d(TAG, "Acquiring FULL_WAKE_LOCK (4 min) — screen WILL turn ON")
             wakeLock?.acquire(4 * 60 * 1000L)
         }
     }

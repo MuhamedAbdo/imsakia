@@ -94,14 +94,14 @@ void main() async {
   AzkarService.instance.initialize();
 
   final initialNotification = await flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
-  final launchFromAthan = initialNotification?.didNotificationLaunchApp == true;
+  final launchFromNotificationAthan = initialNotification?.didNotificationLaunchApp == true;
 
   String prayerNameAr = 'الصلاة';
   String prayerNameEn = 'Prayer';
   String? cityName;
   String? backgroundImage;
 
-  if (launchFromAthan) {
+  if (launchFromNotificationAthan) {
     try {
       final payloadStr = initialNotification?.notificationResponse?.payload;
       if (payloadStr != null && payloadStr.isNotEmpty) {
@@ -113,6 +113,27 @@ void main() async {
       }
     } catch (_) {}
   }
+
+  // ── CRITICAL: Also check if launched from native fullScreenIntent
+  // This handles the case where NativeAthanService's fullScreenIntent
+  // opens MainActivity directly (not via notification tap).
+  bool launchFromNativeIntent = false;
+  try {
+    const athanChannel = MethodChannel('imsakia/athan_control');
+    final nativeData = await athanChannel.invokeMethod('getLaunchIntent');
+    if (nativeData != null && nativeData is Map) {
+      launchFromNativeIntent = true;
+      prayerNameAr = nativeData['prayer_ar'] as String? ?? prayerNameAr;
+      prayerNameEn = nativeData['prayer_en'] as String? ?? prayerNameEn;
+      cityName = nativeData['city'] as String?;
+      backgroundImage = nativeData['image'] as String?;
+      developer.log('[Main] Launched from native fullScreenIntent: $prayerNameAr', name: 'AthanLaunch');
+    }
+  } catch (e) {
+    developer.log('[Main] getLaunchIntent query failed (expected on first run): $e', name: 'AthanLaunch');
+  }
+
+  final launchFromAthan = launchFromNotificationAthan || launchFromNativeIntent;
 
   final prefs = await SharedPreferences.getInstance();
   

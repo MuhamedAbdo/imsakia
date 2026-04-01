@@ -27,7 +27,25 @@ class MainActivity : AudioServiceActivity() {
     private val WATCHDOG_CHANNEL = "imsakia/watchdog_control"
     private val NOTIFICATION_PERMISSION_CODE = 1001
 
+    companion object {
+        // Stores athan launch data so Flutter can query it at startup
+        var athanLaunchData: Map<String, String>? = null
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // ── CRITICAL: Capture athan launch data BEFORE super.onCreate()
+        // so Flutter can read it immediately when the engine initializes.
+        // This prevents the Splash Screen from appearing during Athan.
+        if (intent?.getBooleanExtra("open_athan_screen", false) == true) {
+            athanLaunchData = mapOf(
+                "prayer_ar" to (intent.getStringExtra("prayer_ar") ?: "الصلاة"),
+                "prayer_en" to (intent.getStringExtra("prayer_en") ?: "Prayer"),
+                "image" to (intent.getStringExtra("image") ?: ""),
+                "city" to (intent.getStringExtra("city") ?: "")
+            )
+            Log.i("MainActivity", "[ATHAN_LAUNCH] Captured athan data before Flutter init: ${athanLaunchData}")
+        }
+
         super.onCreate(savedInstanceState)
         
         // Android 8.1+ Show when locked
@@ -103,6 +121,18 @@ class MainActivity : AudioServiceActivity() {
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ATHAN_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
+                "getLaunchIntent" -> {
+                    // Flutter calls this at startup to check if we launched from Athan
+                    val data = athanLaunchData
+                    if (data != null) {
+                        Log.i("MainActivity", "[ATHAN_LAUNCH] Flutter queried launch intent — returning athan data")
+                        result.success(data)
+                        // Consume it so it's not returned again
+                        athanLaunchData = null
+                    } else {
+                        result.success(null)
+                    }
+                }
                 "ensureExactAlarmPermission" -> {
                     val resultValue = ensureExactAlarmPermission()
                     result.success(resultValue)
