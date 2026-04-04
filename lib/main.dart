@@ -22,6 +22,8 @@ import 'features/athan/providers/athan_provider.dart';
 import 'features/athan/services/athan_manager.dart';
 import 'features/athan/ui/athan_overlay_screen.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -43,6 +45,9 @@ void notificationBackgroundResponseHandler(NotificationResponse response) async 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Copy Athan assets to local storage for background isolate access
+  await _prepareAthanAssets();
 
   // Initialize Arabic locale for date formatting
   await initializeDateFormatting('ar', null);
@@ -163,6 +168,24 @@ class MyApp extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+/// Copies the Athan audio file from assets to local storage.
+/// This ensures background isolates can access the file even when the app is killed.
+Future<void> _prepareAthanAssets() async {
+  try {
+    final directory = await getApplicationDocumentsDirectory();
+    final path = '${directory.path}/athan_makkah.mp3';
+    final file = File(path);
+
+    if (!await file.exists()) {
+      final byteData = await rootBundle.load('assets/audio/athan_makkah.mp3');
+      await file.writeAsBytes(byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
+      debugPrint("Athan asset copied to local storage: $path");
+    }
+  } catch (e) {
+    debugPrint("Error copying athan assets: $e");
   }
 }
 

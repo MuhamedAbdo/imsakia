@@ -20,6 +20,8 @@ import 'azkar_screen.dart';
 import 'fasting_fiqh_screen.dart';
 import 'tibyan_menu_page.dart';
 import '../widgets/neumorphic_box.dart';
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
+import '../services/athan_service.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -404,6 +406,157 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             children: [
               _buildHijriCard(hijriDateMap['formatted']),
               _buildNextPrayerCard(),
+              const SizedBox(height: 10),
+              // --- Test Athan & Logs ---
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        debugPrint("--- Athan Test Started ---");
+                        
+                        // 1. Request Notification Permission
+                        var notificationStatus = await Permission.notification.status;
+                        debugPrint("Notification Status: $notificationStatus");
+                        if (!notificationStatus.isGranted) {
+                          notificationStatus = await Permission.notification.request();
+                          debugPrint("Notification Request Result: $notificationStatus");
+                        }
+                        
+                        // 2. Request Exact Alarm Permission (Android 12/13/14+)
+                        var alarmStatus = await Permission.scheduleExactAlarm.status;
+                        debugPrint("Exact Alarm Status: $alarmStatus");
+                        if (!alarmStatus.isGranted) {
+                          debugPrint("Attempting to request Exact Alarm permission...");
+                          alarmStatus = await Permission.scheduleExactAlarm.request();
+                          debugPrint("Exact Alarm Request Result: $alarmStatus");
+                          
+                          if (!alarmStatus.isGranted) {
+                            debugPrint("Permission still denied. Opening App Settings...");
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('يجب تفعيل "المنبهات والتذكيرات" من الإعدادات')),
+                              );
+                            }
+                            await openAppSettings();
+                            return;
+                          }
+                        }
+
+                        // 3. System Alert Window Permission (Critical for opening from killed state)
+                        var alertStatus = await Permission.systemAlertWindow.status;
+                        debugPrint("System Alert Window Status: $alertStatus");
+                        if (!alertStatus.isGranted) {
+                          debugPrint("Requesting System Alert Window permission...");
+                          // This usually opens the 'Display over other apps' settings
+                          await Permission.systemAlertWindow.request();
+                        }
+
+                        // 4. Battery Optimization Check (Android 14 critical)
+                        var batteryStatus = await Permission.ignoreBatteryOptimizations.status;
+                        debugPrint("Battery Optimization (Ignore) Status: $batteryStatus");
+                        if (!batteryStatus.isGranted) {
+                           debugPrint("Requesting to ignore battery optimizations...");
+                           await Permission.ignoreBatteryOptimizations.request();
+                        }
+
+                        if (!notificationStatus.isGranted) {
+                          debugPrint("Notification permission denied. Aborting.");
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('يجب منح صلاحية الإشعارات أولاً')),
+                            );
+                          }
+                          return;
+                        }
+
+                        // 4. Schedule the one-shot alarm
+                        final now = DateTime.now();
+                        final scheduleTime = now.add(const Duration(minutes: 1));
+                        debugPrint("Scheduling Alarm at: $scheduleTime");
+                        
+                        final success = await AndroidAlarmManager.oneShotAt(
+                          scheduleTime,
+                          777,
+                          AthanService.athanCallback,
+                          exact: true,
+                          wakeup: true,
+                          alarmClock: true,
+                          allowWhileIdle: true,
+                        );
+                        
+                        debugPrint("AlarmManager Scheduling Result: $success");
+                        
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('تمت جدولة الأذان التجريبي بعد دقيقة واحدة 🕌\nقم بإغلاق التطبيق وقفل الشاشة الآن.'),
+                              duration: Duration(seconds: 5),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.notifications_active, color: Colors.white),
+                      label: Text(
+                        'Test Athan',
+                        style: GoogleFonts.tajawal(
+                            fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 1,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final logs = await AthanService.readLogs();
+                        if (context.mounted) {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Athan Logs'),
+                              content: SingleChildScrollView(
+                                child: Text(logs, style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () async {
+                                    await AthanService.clearLogs();
+                                    if (context.mounted) Navigator.pop(context);
+                                  },
+                                  child: const Text('Clear'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Close'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.list_alt, color: Colors.white, size: 20),
+                      label: Text(
+                        'Logs',
+                        style: GoogleFonts.tajawal(
+                            fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueGrey,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 20),
               _buildSpecialEventCard(settings.hijriAdjustment),
               const SizedBox(height: 20),

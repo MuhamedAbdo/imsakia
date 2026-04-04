@@ -46,6 +46,7 @@ dependencies:
   
   # Background Tasks & Audio
   workmanager: ^0.9.0+3
+  flutter_background_service: ^5.0.10
   audioplayers: ^5.2.1
   android_alarm_manager_plus: ^4.0.4
   
@@ -78,6 +79,7 @@ dependencies:
   audio_service: ^0.18.18
   permission_handler: ^12.0.1
   flutter_local_notifications: ^21.0.0
+  just_audio: ^0.10.5
 
 dev_dependencies:
   flutter_test:
@@ -102,6 +104,7 @@ flutter:
     - assets/images/fateha_image.png
     - assets/images/quranlogo.png
     - assets/images/sura_hedder.png
+    - assets/audio/
     - assets/fonts/
 
   fonts:
