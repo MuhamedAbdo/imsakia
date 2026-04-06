@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class Muezzin {
@@ -265,6 +266,19 @@ class AthanProvider with ChangeNotifier {
       if (!_isUnifiedMuezzin || _isLoading) {
         _isLoading = false;
         notifyListeners();
+      }
+    }
+  }
+
+  /// Opens the system battery optimization settings for this app.
+  /// Crucial for Xiaomi users to select "No Restrictions".
+  Future<void> openBatteryOptimizationSettings() async {
+    if (Platform.isAndroid) {
+      try {
+        const channel = MethodChannel('imsakia/notifications');
+        await channel.invokeMethod('openBatteryOptimizationSettings');
+      } catch (e) {
+        debugPrint("Error opening battery settings: $e");
       }
     }
   }

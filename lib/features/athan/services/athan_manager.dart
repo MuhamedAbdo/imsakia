@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -56,22 +57,20 @@ class AthanManager {
       }
     }
     
-    // Schedule the exact alarm
-    // - alarmClock: true  → appears in the system alarm list, bypasses Doze
-    // - exact: true       → fires at the exact millisecond
-    // - wakeup: true      → wakes up the CPU even in Doze mode
-    // - allowWhileIdle    → works even in deep idle state
-    await AndroidAlarmManager.oneShotAt(
-      time,
-      alarmId,
-      athanAlarmCallback,
-      exact: true,
-      wakeup: true,
-      alarmClock: true,
-      allowWhileIdle: true,
-      rescheduleOnReboot: true,
-    );
-    debugPrint("Athan '$prayerName' scheduled for $time (alarmId=$alarmId)");
+    // Use Native Deterministic ID: (Epoch Day * 100) + alarmId
+    final dayEpoch = time.millisecondsSinceEpoch ~/ (24 * 60 * 60 * 1000);
+    final deterministicId = (dayEpoch * 100) + alarmId;
+
+    try {
+      const channel = MethodChannel('imsakia/notifications');
+      await channel.invokeMethod('scheduleExactAthan', {
+        'timeInMillis': time.millisecondsSinceEpoch,
+        'id': deterministicId,
+      });
+      debugPrint("Native Athan '$prayerName' scheduled for $time (ID=$deterministicId)");
+    } catch (e) {
+      debugPrint("Native Alarm Scheduling Failed: $e");
+    }
   }
 }
 

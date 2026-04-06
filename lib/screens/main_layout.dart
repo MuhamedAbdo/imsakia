@@ -7,7 +7,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hijri/hijri_calendar.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../providers/settings_provider.dart';
-import '../features/athan/providers/athan_provider.dart';
 import '../services/prayer_times_service.dart';
 import '../services/hadith_service.dart';
 import '../services/hijri_date_service.dart';
@@ -200,50 +199,67 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _loadInitialData();
     _startCountdownTimer();
     
-    // Check alarm permissions after a short delay to allow UI to render first
-    Future.delayed(const Duration(seconds: 2), _checkAlarmPermissions);
+    // 🔥 اطلب الصلاحيات الهامة بمجرد فتح التطبيق بدلاً من انتظار زر Test
+    // تم إضافة تأخير لمدة ثانية لضمان استقرار الـ MethodChannel
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) _requestAppPermissions();
+    });
   }
 
-  Future<void> _checkAlarmPermissions() async {
+  Future<void> _requestAppPermissions() async {
     if (!mounted || !Platform.isAndroid) return;
-    
-    final athanProvider = Provider.of<AthanProvider>(context, listen: false);
-    if (!athanProvider.isAthanEnabled) return;
 
-    final status = await Permission.scheduleExactAlarm.status;
-    if (status.isDenied || status.isRestricted) {
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(
-            'تنبيه الأذان',
-            style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, color: Colors.red),
-          ),
-          content: Text(
-            'لضمان عمل الأذان في الخلفية في الوقت الدقيق، نرجو منح التطبيق صلاحية ضبط التنبيهات الدقيقة (Alarms & Reminders).',
-            style: GoogleFonts.tajawal(),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                athanProvider.setAthanEnabled(false); // Disable it so we don't spam the user
-              },
-              child: Text('إلغاء', style: GoogleFonts.tajawal()),
+    // 1. صلاحية الإشعارات
+    var notificationStatus = await Permission.notification.status;
+    if (!notificationStatus.isGranted) {
+      await Permission.notification.request();
+    }
+
+    // 2. صلاحية المنبهات الدقيقة (Exact Alarms) - لأندرويد 12+
+    var alarmStatus = await Permission.scheduleExactAlarm.status;
+    if (alarmStatus.isDenied || alarmStatus.isRestricted) {
+      if (mounted) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Text(
+              'تنبيه الأذان الدقيق',
+              style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                await athanProvider.requestExactAlarmPermission();
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              child: Text('منح الصلاحية', style: GoogleFonts.tajawal(color: Colors.white)),
+            content: Text(
+              'لضمان عمل الأذان في الوقت الصحيح، نرجو منح التطبيق صلاحية "المنبهات والتذكيرات".',
+              style: GoogleFonts.tajawal(),
             ),
-          ],
-        ),
-      );
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('لاحقاً', style: GoogleFonts.tajawal()),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await Permission.scheduleExactAlarm.request();
+                },
+                child: Text('منح الصلاحية', style: GoogleFonts.tajawal(color: Colors.white)),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+
+    // 3. صلاحية الظهور فوق التطبيقات (System Alert Window)
+    var alertStatus = await Permission.systemAlertWindow.status;
+    if (!alertStatus.isGranted) {
+      // نطلبها فقط لو المستخدم موافق أو نحتاج تنبيه الشاشة الكاملة
+      await Permission.systemAlertWindow.request();
+    }
+
+    // 4. تجاهل تحسين البطارية (Battery Optimization)
+    var batteryStatus = await Permission.ignoreBatteryOptimizations.status;
+    if (!batteryStatus.isGranted) {
+      await Permission.ignoreBatteryOptimizations.request();
     }
   }
 
@@ -416,6 +432,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       onPressed: () async {
                         debugPrint("--- Athan Test Started ---");
                         
+                        // Cleanup: Cancel any existing test alarm before scheduling a new one
+                        await AndroidAlarmManager.cancel(777);
+                        
                         // 1. Request Notification Permission
                         var notificationStatus = await Permission.notification.status;
                         debugPrint("Notification Status: $notificationStatus");
@@ -471,27 +490,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           return;
                         }
 
-                        // 4. Schedule the one-shot alarm
+                        // 4. Schedule the one-shot alarm via Native Bridge
                         final now = DateTime.now();
-                        final scheduleTime = now.add(const Duration(minutes: 1));
-                        debugPrint("Scheduling Alarm at: $scheduleTime");
+                        final scheduleTime = now.add(const Duration(minutes: 5));
+                        debugPrint("Scheduling Native Alarm at: $scheduleTime");
                         
-                        final success = await AndroidAlarmManager.oneShotAt(
-                          scheduleTime,
-                          777,
-                          AthanService.athanCallback,
-                          exact: true,
-                          wakeup: true,
-                          alarmClock: true,
-                          allowWhileIdle: true,
-                        );
-                        
-                        debugPrint("AlarmManager Scheduling Result: $success");
+                        // Deterministic ID for test: (Epoch Day * 100) + 99 (special index for test)
+                        final testId = (now.millisecondsSinceEpoch ~/ (24 * 60 * 60 * 1000) * 100) + 99;
+
+                        try {
+                          const channel = MethodChannel('imsakia/notifications');
+                          await channel.invokeMethod('scheduleExactAthan', {
+                            'timeInMillis': scheduleTime.millisecondsSinceEpoch,
+                            'id': testId,
+                          });
+                          debugPrint("Native Alarm Scheduling Success: ID $testId");
+                        } catch (e) {
+                          debugPrint("Native Alarm Scheduling Failed: $e");
+                        }
                         
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('تمت جدولة الأذان التجريبي بعد دقيقة واحدة 🕌\nقم بإغلاق التطبيق وقفل الشاشة الآن.'),
+                              content: Text('تمت جدولة الأذان التجريبي بعد 5 دقائق 🕌\nقم بإغلاق التطبيق وقفل الشاشة الآن.'),
                               duration: Duration(seconds: 5),
                               backgroundColor: Colors.green,
                             ),
