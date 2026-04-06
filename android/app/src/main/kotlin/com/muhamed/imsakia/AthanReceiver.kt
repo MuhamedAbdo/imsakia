@@ -11,7 +11,14 @@ class AthanReceiver : BroadcastReceiver() {
         System.err.println("!!! ATHAN RECEIVER: Triggered !!!")
         
         // Start Service
-        val serviceIntent = Intent(context, AthanService::class.java)
+        val prayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
+        val alarmId = intent.getIntExtra("alarm_id", 0)
+        
+        val serviceIntent = Intent(context, AthanService::class.java).apply {
+            putExtra("prayer_name", prayerName)
+            putExtra("alarm_id", alarmId)
+        }
+        
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent)
@@ -20,8 +27,16 @@ class AthanReceiver : BroadcastReceiver() {
             }
         } catch (e: Exception) { e.printStackTrace() }
 
-        // Force Wake Screen
+        // Force Wake Screen & Start Activity early if possible
         try {
+            val intentToMain = Intent(context, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                putExtra("trigger_athan_overlay", true)
+                putExtra("prayer_name", prayerName)
+            }
+            context.startActivity(intentToMain)
+            System.err.println("!!! ATHAN RECEIVER: Early startActivity attempt sent !!!")
+            
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             val wakeLock = powerManager.newWakeLock(
                 PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,

@@ -5,6 +5,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../../services/prayer_times_service.dart';
+import '../services/athan_manager.dart';
 
 class Muezzin {
   final String id;
@@ -166,10 +168,9 @@ class AthanProvider with ChangeNotifier {
 
   Future<void> setAthanEnabled(bool value) async {
     if (value) {
-      // User wants to enable Athan, we must check for exact alarm permission on Android 14+
+      // User wants to enable Athan, we must check for exact alarm permission on Android 12+
       final hasPermission = await requestExactAlarmPermission();
       if (!hasPermission) {
-        // Permission denied, do not enable
         _isAthanEnabled = false;
         notifyListeners();
         return;
@@ -179,6 +180,13 @@ class AthanProvider with ChangeNotifier {
     _isAthanEnabled = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefEnabled, value);
+    
+    if (value) {
+      PrayerTimesService.instance.scheduleAllPrayers();
+    } else {
+      await AthanManager.cancelAllAlarms();
+    }
+    
     notifyListeners();
   }
 
@@ -279,6 +287,19 @@ class AthanProvider with ChangeNotifier {
         await channel.invokeMethod('openBatteryOptimizationSettings');
       } catch (e) {
         debugPrint("Error opening battery settings: $e");
+      }
+    }
+  }
+
+  /// Opens the Xiaomi-specific Permissions Editor.
+  /// Crucial for enabling "Show on Lock Screen" permission.
+  Future<void> openXiaomiOtherPermissions() async {
+    if (Platform.isAndroid) {
+      try {
+        const channel = MethodChannel('imsakia/notifications');
+        await channel.invokeMethod('openXiaomiOtherPermissions');
+      } catch (e) {
+        debugPrint("Error opening Xiaomi settings: $e");
       }
     }
   }

@@ -26,6 +26,9 @@ class AthanService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         System.err.println("!!! ATHAN SERVICE: onStartCommand CALLED !!!")
         
+        val prayerName = intent?.getStringExtra("prayer_name") ?: "الصلاة"
+        val alarmId = intent?.getIntExtra("alarm_id", 0) ?: 0
+        
         try {
             // 🔥 منع تداخل الأصوات: أوقف أي ميديا بلاير قديم
             mediaPlayer?.let {
@@ -36,7 +39,7 @@ class AthanService : Service() {
             }
 
             // 1. Start Foreground immediately to prevent OS kill
-            startForegroundServiceNotification()
+            startForegroundServiceNotification(prayerName, alarmId)
             
             // 2. Acquire WakeLock
             acquireWakeLock()
@@ -50,7 +53,7 @@ class AthanService : Service() {
             System.err.println("!!! ATHAN SERVICE: CRITICAL ERROR: ${e.message} !!!")
         }
         
-        return START_NOT_STICKY // ✅ لا تقم بإعادة تشغيل الخدمة تلقائياً بعد انتهائها
+        return START_NOT_STICKY 
     }
 
     private fun acquireWakeLock() {
@@ -66,7 +69,7 @@ class AthanService : Service() {
         } catch (e: Exception) { e.printStackTrace() }
     }
 
-    private fun startForegroundServiceNotification() {
+    private fun startForegroundServiceNotification(prayerName: String, alarmId: Int) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 ATHAN_SERVICE_CHANNEL, "Athan Service", NotificationManager.IMPORTANCE_HIGH
@@ -77,25 +80,44 @@ class AthanService : Service() {
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
 
+        // 🔥 تعديل الـ Intent ليحمل بيانات التفعيل لشاشة الأذان
         val mainIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+            putExtra("trigger_athan_overlay", true)
+            putExtra("prayer_name", prayerName)
+            putExtra("alarm_id", alarmId)
         }
-        val pendingIntent = PendingIntent.getActivity(this, 0, mainIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        
+        val pendingIntent = PendingIntent.getActivity(
+            this, 
+            alarmId, 
+            mainIntent, 
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         val notification = NotificationCompat.Builder(this, ATHAN_SERVICE_CHANNEL)
-            .setContentTitle("🕌 حان وقت الأذان")
-            .setContentText("جاري تشغيل أذان الصلاة...")
+            .setContentTitle("🕌 حان وقت $prayerName")
+            .setContentText("اضغط لفتح الشاشة أو انتظر التفعيل التلقائي...")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM) // ✅ مهم جداً لظهورها فوق القفل
             .setOngoing(true)
-            .setSound(null)
+            .setStyle(NotificationCompat.BigTextStyle().bigText("athan_overlay|$prayerName|$alarmId"))
             .setContentIntent(pendingIntent)
-            .setFullScreenIntent(pendingIntent, true) // Force Wake Screen
-            .setOnlyAlertOnce(true) // ✅ منع تكرار الهزاز عند التداخل
+            .setFullScreenIntent(pendingIntent, true) // ✅ التفعيل التلقائي للشاشة
+            .setOnlyAlertOnce(true)
             .build()
 
         startForeground(SERVICE_NOTIFICATION_ID, notification)
-        System.err.println("!!! ATHAN SERVICE: Foreground Started !!!")
+        System.err.println("!!! ATHAN SERVICE: Foreground Started for $prayerName !!!")
+        
+        // 🔥 محاولة فتح الأكتيفيتي قسرياً لضمان تخطي قيود شاومي
+        try {
+            startActivity(mainIntent)
+            System.err.println("!!! ATHAN SERVICE: Aggressive startActivity executed !!!")
+        } catch (e: Exception) {
+            System.err.println("!!! ATHAN SERVICE ERROR: Aggressive startActivity FAILED: ${e.message} !!!")
+        }
     }
 
     private fun playAthanAudioWithRetry() {

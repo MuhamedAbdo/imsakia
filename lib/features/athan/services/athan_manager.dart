@@ -20,7 +20,66 @@ class AthanManager {
   }
 
   static Future<void> cancelAthan(int alarmId) async {
-    await AndroidAlarmManager.cancel(alarmId);
+    try {
+      const channel = MethodChannel('imsakia/notifications');
+      await channel.invokeMethod('cancelAthan', {'id': alarmId});
+      debugPrint("Native Alarm Cancelled: ID=$alarmId");
+    } catch (e) {
+      debugPrint("Failed to cancel alarm: $e");
+    }
+  }
+
+  static Future<void> stopAthan() async {
+    try {
+      const channel = MethodChannel('imsakia/notifications');
+      await channel.invokeMethod('stopAthan');
+      await cancelAthanNotification();
+    } catch (e) {
+      debugPrint("Failed to stop athan: $e");
+    }
+  }
+
+  // ✅ جلب الأذان المعلق من الـ Native SharedPreferences
+  static Future<String?> getPendingAthan() async {
+    try {
+      const channel = MethodChannel('imsakia/notifications');
+      final result = await channel.invokeMethod<String>('getPendingAthan');
+      return result;
+    } catch (e) {
+      debugPrint('❌ Error getting pending athan: $e');
+      return null;
+    }
+  }
+
+  // ✅ تنظيف الأذان المعلق بعد الاستهلاك
+  static Future<void> clearPendingAthan() async {
+    try {
+      const channel = MethodChannel('imsakia/notifications');
+      await channel.invokeMethod('clearPendingAthan');
+    } catch (e) {
+      debugPrint('❌ Error clearing pending athan: $e');
+    }
+  }
+
+  static Future<void> cancelAllAlarms() async {
+    try {
+      const channel = MethodChannel('imsakia/notifications');
+      await channel.invokeMethod('clearAllAlarms');
+      await channel.invokeMethod('forceClearSystemAlarms'); // 🔥 مسح قسري للمنبهات المتراكمة
+      debugPrint("All Native Alarms Cleared (Basic and Force)");
+    } catch (e) {
+      debugPrint("Failed to clear all alarms: $e");
+    }
+  }
+
+  static Future<void> forceClearSystemAlarms() async {
+    try {
+      const channel = MethodChannel('imsakia/notifications');
+      await channel.invokeMethod('forceClearSystemAlarms');
+      debugPrint("Force Clear System Alarms triggered.");
+    } catch (e) {
+      debugPrint("Failed to force clear alarms: $e");
+    }
   }
 
   /// Cancels the currently displayed athan notification.
@@ -57,17 +116,14 @@ class AthanManager {
       }
     }
     
-    // Use Native Deterministic ID: (Epoch Day * 100) + alarmId
-    final dayEpoch = time.millisecondsSinceEpoch ~/ (24 * 60 * 60 * 1000);
-    final deterministicId = (dayEpoch * 100) + alarmId;
-
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('scheduleExactAthan', {
         'timeInMillis': time.millisecondsSinceEpoch,
-        'id': deterministicId,
+        'id': alarmId,
+        'prayerName': prayerName,
       });
-      debugPrint("Native Athan '$prayerName' scheduled for $time (ID=$deterministicId)");
+      debugPrint("Native Athan '$prayerName' scheduled for $time (ID=$alarmId)");
     } catch (e) {
       debugPrint("Native Alarm Scheduling Failed: $e");
     }

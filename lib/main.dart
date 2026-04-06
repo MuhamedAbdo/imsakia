@@ -22,6 +22,7 @@ import 'features/athan/providers/athan_provider.dart';
 import 'features/athan/services/athan_manager.dart';
 import 'features/athan/ui/athan_overlay_screen.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'services/prayer_times_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
@@ -70,16 +71,22 @@ void main() async {
   await flutterLocalNotificationsPlugin.initialize(
     settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
     onDidReceiveNotificationResponse: (NotificationResponse response) {
-      // Foreground tap: navigate to overlay
-      if (response.payload != null && response.payload!.startsWith('athan_overlay|')) {
-        final parts = response.payload!.split('|');
-        if (parts.length >= 3) {
-          final prayerName = parts[1];
-          final isFajr = parts[2] == 'true';
-          navigatorKey.currentState?.push(
-            MaterialPageRoute(builder: (_) => AthanOverlayScreen(prayerName: prayerName, isFajr: isFajr)),
-          );
+      // Foreground tap: navigate to overlay if it's the Athan notification (ID 888)
+      if (response.id == 888 || (response.payload != null && response.payload!.startsWith('athan_overlay|'))) {
+        String prayerName = "الصلاة";
+        bool isFajr = false;
+        
+        if (response.payload != null && response.payload!.contains('|')) {
+          final parts = response.payload!.split('|');
+          if (parts.length >= 3) {
+            prayerName = parts[1];
+            isFajr = parts[2] == 'true';
+          }
         }
+        
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(builder: (_) => AthanOverlayScreen(prayerName: prayerName, isFajr: isFajr)),
+        );
       }
       // Foreground action button tap: stop athan
       if (response.actionId == 'stop_athan_action') {
@@ -93,14 +100,20 @@ void main() async {
   
   Widget? overlayScreen;
   
-  if (notificationAppLaunchDetails?.didNotificationLaunchApp ?? false) {
+  // 1. تحقق من الأذان المعلق في Native SharedPreferences (Guaranteed Delivery)
+  final pendingPrayer = await AthanManager.getPendingAthan();
+  if (pendingPrayer != null && pendingPrayer.isNotEmpty) {
+    debugPrint("!!! main.dart: Found pending athan from native: $pendingPrayer !!!");
+    overlayScreen = AthanOverlayScreen(prayerName: pendingPrayer);
+    // ✅ نظّف فوراً بعد الاستهلاك
+    await AthanManager.clearPendingAthan();
+  } else if (notificationAppLaunchDetails?.didNotificationLaunchApp ?? false) {
+    // 2. تحقق من Notification Launch (Fallback)
     final payload = notificationAppLaunchDetails?.notificationResponse?.payload;
     if (payload != null && payload.startsWith('athan_overlay|')) {
       final parts = payload.split('|');
-      if (parts.length >= 3) {
-        final prayerName = parts[1];
-        final isFajr = parts[2] == 'true';
-        overlayScreen = AthanOverlayScreen(prayerName: prayerName, isFajr: isFajr);
+      if (parts.length >= 2) {
+        overlayScreen = AthanOverlayScreen(prayerName: parts[1]);
       }
     }
   }
@@ -109,7 +122,7 @@ void main() async {
   runApp(MyApp(settingsProvider: settingsProvider, prefs: prefs, initialOverlay: overlayScreen));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final SettingsProvider settingsProvider;
   final SharedPreferences prefs;
   final Widget? initialOverlay;
@@ -117,22 +130,78 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key, required this.settingsProvider, required this.prefs, this.initialOverlay});
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  static const platform = MethodChannel('imsakia/notifications');
+
+  @override
+  void initState() {
+    super.initState();
+    _setupMethodChannel();
+    // 🔥 جدولة المنبهات عند فتح التطبيق لأول مرة
+    Future.delayed(const Duration(seconds: 2), () {
+      PrayerTimesService.instance.scheduleAllPrayers();
+    });
+  }
+
+  void _setupMethodChannel() {
+    platform.setMethodCallHandler((call) async {
+      debugPrint("!!! FLUTTER DEBUG: MethodCall from Native: ${call.method} !!!");
+      if (call.method == "showAthanOverlay") {
+        final prayerName = call.arguments['prayerName'] ?? "الصلاة";
+        debugPrint("!!! FLUTTER DEBUG: Received showAthanOverlay for $prayerName !!!");
+        
+        // 🔥 إضافة تأخير طفيف لضمان استقرار الـ Activity فوق القفل قبل فتح الشاشة
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (navigatorKey.currentState != null) {
+            // ✅ التحقق من أننا لسنا بالفعل في شاشة الأذان لمنع التكرار
+            bool isAlreadyOnOverlay = false;
+            navigatorKey.currentState!.popUntil((route) {
+              if (route.settings.name == 'athan_overlay') {
+                isAlreadyOnOverlay = true;
+              }
+              return route.isFirst || isAlreadyOnOverlay;
+            });
+
+            if (isAlreadyOnOverlay) {
+              debugPrint("!!! FLUTTER: Already on AthanOverlayScreen, skipping push !!!");
+              return;
+            }
+
+            // ✅ تطهير المسار: أغلق أي dialogs أو صفحات فرعية أولاً
+            navigatorKey.currentState!.popUntil((route) => route.isFirst);
+            
+            navigatorKey.currentState!.push(
+              MaterialPageRoute(
+                settings: const RouteSettings(name: 'athan_overlay'),
+                builder: (context) => AthanOverlayScreen(prayerName: prayerName),
+              ),
+            );
+          }
+        });
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: settingsProvider),
+        ChangeNotifierProvider.value(value: widget.settingsProvider),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider.value(value: HadithService.instance),
         ChangeNotifierProvider(create: (_) => QuranProvider()),
         ChangeNotifierProvider(
           create: (_) => BukhariProvider(),
-        ), // إضافة البروفايدر هنا
-        ChangeNotifierProvider(create: (_) => madinah.QuranProvider(prefs)),
+        ),
+        ChangeNotifierProvider(create: (_) => madinah.QuranProvider(widget.prefs)),
         ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
         ChangeNotifierProvider(create: (_) => DownloadProvider()),
         ChangeNotifierProvider<AthanProvider>(create: (_) {
            final provider = AthanProvider();
-           provider.fetchMuezzins(); // Pre-fetch UI options
+           provider.fetchMuezzins();
            return provider;
         }),
       ],
@@ -151,12 +220,15 @@ class MyApp extends StatelessWidget {
                 theme: themeProvider.lightTheme,
                 darkTheme: themeProvider.darkTheme,
                 themeMode: _getThemeMode(settingsProvider.themeMode),
-                home: initialOverlay ?? const SplashScreen(),
+                home: widget.initialOverlay ?? const SplashScreen(),
                 routes: {
                   '/settings': (context) => const SettingsScreen(),
                   '/main': (context) => const MainLayout(),
                 },
                 builder: (context, child) {
+                  // 🔥 تحميل الصور مسبقاً في الذاكرة لضمان ظهور شاشة الأذان في جزء من الثانية (Pre-cache)
+                  _precacheAthanImages(context);
+                  
                   SystemChrome.setPreferredOrientations([
                     DeviceOrientation.portraitUp,
                   ]);
@@ -168,6 +240,27 @@ class MyApp extends StatelessWidget {
         },
       ),
     );
+  }
+
+  bool _imagesPrecached = false;
+  void _precacheAthanImages(BuildContext context) {
+    if (_imagesPrecached) return;
+    _imagesPrecached = true;
+    
+    final assets = [
+      'assets/images/fajr_dawn.png',
+      'assets/images/dhuhr_noon.png',
+      'assets/images/asr_afternoon.png',
+      'assets/images/maghrib_sunset.png',
+      'assets/images/isha_night.png',
+    ];
+    
+    debugPrint("!!! main.dart: Pre-caching ${assets.length} Athan images for instant display !!!");
+    for (final val in assets) {
+      precacheImage(AssetImage(val), context).catchError((e) {
+        debugPrint("❌ Error precaching $val: $e");
+      });
+    }
   }
 }
 

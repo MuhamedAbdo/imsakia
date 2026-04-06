@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../features/athan/services/athan_manager.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,7 +20,6 @@ import 'azkar_screen.dart';
 import 'fasting_fiqh_screen.dart';
 import 'tibyan_menu_page.dart';
 import '../widgets/neumorphic_box.dart';
-import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import '../services/athan_service.dart';
 
 class MainLayout extends StatefulWidget {
@@ -72,9 +72,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           builder: (context, snapshot) {
             if (snapshot.hasData && snapshot.data?.id == 'athan_alert') {
               return FloatingActionButton.extended(
-                onPressed: () {
-                  audioHandler?.customAction('stopAthan');
-                },
+                onPressed: () => AthanManager.stopAthan(),
                 backgroundColor: Colors.redAccent,
                 icon: const Icon(Icons.stop_circle_outlined, color: Colors.white),
                 label: Text(
@@ -430,90 +428,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     flex: 2,
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        debugPrint("--- Athan Test Started ---");
-                        
-                        // Cleanup: Cancel any existing test alarm before scheduling a new one
-                        await AndroidAlarmManager.cancel(777);
-                        
-                        // 1. Request Notification Permission
-                        var notificationStatus = await Permission.notification.status;
-                        debugPrint("Notification Status: $notificationStatus");
-                        if (!notificationStatus.isGranted) {
-                          notificationStatus = await Permission.notification.request();
-                          debugPrint("Notification Request Result: $notificationStatus");
-                        }
-                        
-                        // 2. Request Exact Alarm Permission (Android 12/13/14+)
-                        var alarmStatus = await Permission.scheduleExactAlarm.status;
-                        debugPrint("Exact Alarm Status: $alarmStatus");
-                        if (!alarmStatus.isGranted) {
-                          debugPrint("Attempting to request Exact Alarm permission...");
-                          alarmStatus = await Permission.scheduleExactAlarm.request();
-                          debugPrint("Exact Alarm Request Result: $alarmStatus");
-                          
-                          if (!alarmStatus.isGranted) {
-                            debugPrint("Permission still denied. Opening App Settings...");
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('يجب تفعيل "المنبهات والتذكيرات" من الإعدادات')),
-                              );
-                            }
-                            await openAppSettings();
-                            return;
-                          }
-                        }
-
-                        // 3. System Alert Window Permission (Critical for opening from killed state)
-                        var alertStatus = await Permission.systemAlertWindow.status;
-                        debugPrint("System Alert Window Status: $alertStatus");
-                        if (!alertStatus.isGranted) {
-                          debugPrint("Requesting System Alert Window permission...");
-                          // This usually opens the 'Display over other apps' settings
-                          await Permission.systemAlertWindow.request();
-                        }
-
-                        // 4. Battery Optimization Check (Android 14 critical)
-                        var batteryStatus = await Permission.ignoreBatteryOptimizations.status;
-                        debugPrint("Battery Optimization (Ignore) Status: $batteryStatus");
-                        if (!batteryStatus.isGranted) {
-                           debugPrint("Requesting to ignore battery optimizations...");
-                           await Permission.ignoreBatteryOptimizations.request();
-                        }
-
-                        if (!notificationStatus.isGranted) {
-                          debugPrint("Notification permission denied. Aborting.");
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('يجب منح صلاحية الإشعارات أولاً')),
-                            );
-                          }
-                          return;
-                        }
-
-                        // 4. Schedule the one-shot alarm via Native Bridge
+                        debugPrint("--- Athan Test Started (Fajr) ---");
                         final now = DateTime.now();
-                        final scheduleTime = now.add(const Duration(minutes: 5));
-                        debugPrint("Scheduling Native Alarm at: $scheduleTime");
+                        final scheduleTime = now.add(const Duration(seconds: 5));
                         
-                        // Deterministic ID for test: (Epoch Day * 100) + 99 (special index for test)
-                        final testId = (now.millisecondsSinceEpoch ~/ (24 * 60 * 60 * 1000) * 100) + 99;
-
-                        try {
-                          const channel = MethodChannel('imsakia/notifications');
-                          await channel.invokeMethod('scheduleExactAthan', {
-                            'timeInMillis': scheduleTime.millisecondsSinceEpoch,
-                            'id': testId,
-                          });
-                          debugPrint("Native Alarm Scheduling Success: ID $testId");
-                        } catch (e) {
-                          debugPrint("Native Alarm Scheduling Failed: $e");
-                        }
+                        await AthanManager.scheduleNextAthan(
+                          alarmId: 101, 
+                          time: scheduleTime,
+                          isFajr: true,
+                          prayerName: 'الفجر',
+                        );
                         
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('تمت جدولة الأذان التجريبي بعد 5 دقائق 🕌\nقم بإغلاق التطبيق وقفل الشاشة الآن.'),
-                              duration: Duration(seconds: 5),
+                              content: Text('تمت جدولة أذان الفجر للتجربة بعد 5 ثواني 🕌'),
+                              duration: Duration(seconds: 3),
                               backgroundColor: Colors.green,
                             ),
                           );
@@ -521,12 +451,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       },
                       icon: const Icon(Icons.notifications_active, color: Colors.white),
                       label: Text(
-                        'Test Athan',
+                        'تجربة الفجر',
                         style: GoogleFonts.tajawal(
-                            fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                            fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
+                        backgroundColor: Colors.teal,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                       ),
@@ -579,12 +509,76 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ],
               ),
               const SizedBox(height: 20),
+              _buildPrayerTestButtons(),
+              const SizedBox(height: 15),
+              // 🔥 Emergency Stop Button (Requested by User)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: ElevatedButton.icon(
+                  onPressed: () => AthanManager.stopAthan(),
+                  icon: const Icon(Icons.stop_circle, color: Colors.white),
+                  label: Text(
+                    "إيقاف الأذان فوراً",
+                    style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red[700],
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 15),
               _buildSpecialEventCard(settings.hijriAdjustment),
               const SizedBox(height: 20),
               _buildPrayerTimesList(hijriDateMap['monthIndex'] as int),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPrayerTestButtons() {
+    final prayers = [
+      {'name': 'الظهر', 'id': 102, 'color': Colors.blue},
+      {'name': 'العصر', 'id': 103, 'color': Colors.orange},
+      {'name': 'المغرب', 'id': 104, 'color': Colors.deepOrange},
+      {'name': 'العشاء', 'id': 105, 'color': Colors.indigo},
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: prayers.map((p) {
+          return Padding(
+            padding: const EdgeInsets.only(left: 8.0),
+            child: ElevatedButton(
+              onPressed: () async {
+                final scheduleTime = DateTime.now().add(const Duration(seconds: 5));
+                await AthanManager.scheduleNextAthan(
+                  alarmId: p['id'] as int,
+                  time: scheduleTime,
+                  isFajr: false,
+                  prayerName: p['name'] as String,
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('تجربة أذان ${p['name']} بعد 5 ثواني'), backgroundColor: p['color'] as Color),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: p['color'] as Color,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(
+                p['name'] as String,
+                style: GoogleFonts.tajawal(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -616,6 +610,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
     );
   }
+
   Widget _buildNextPrayerCard() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(

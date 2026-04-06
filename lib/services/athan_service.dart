@@ -19,7 +19,7 @@ class AthanService {
     try {
       await WakelockPlus.enable();
     } catch (e) {
-      print("Early wakelock failed: $e");
+      debugPrint("Early wakelock failed: $e");
     }
 
     // 2. Clear pre-existing audio if any (Double Athan protection)
@@ -38,7 +38,7 @@ class AthanService {
       WidgetsFlutterBinding.ensureInitialized();
       DartPluginRegistrant.ensureInitialized();
     } catch (e) {
-      print("Failed to initialize bindings: $e");
+      debugPrint("Failed to initialize bindings: $e");
     }
     
     // 4. Logging Setup
@@ -47,7 +47,7 @@ class AthanService {
       logFile = await _getLogFile();
       await _writeLog(logFile, "--- [Background] Athan Isolate Started ---");
     } catch (e) {
-      print("Logger failed: $e");
+      debugPrint("Logger failed: $e");
     }
 
     final FlutterLocalNotificationsPlugin notificationsPlugin =
@@ -152,7 +152,7 @@ class AthanService {
         await file.writeAsString("");
       }
     } catch (e) {
-      print("Error clearing log: $e");
+      debugPrint("Error clearing log: $e");
     }
   }
 

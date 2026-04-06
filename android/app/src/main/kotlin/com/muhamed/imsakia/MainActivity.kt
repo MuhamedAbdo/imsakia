@@ -15,6 +15,8 @@ import android.app.KeyguardManager
 import android.content.Context
 import android.view.WindowManager
 import android.widget.Toast
+import android.os.Handler
+import android.os.Looper
 
 class MainActivity : AudioServiceActivity() {
     private val CHANNEL = "imsakia/notifications"
@@ -23,40 +25,36 @@ class MainActivity : AudioServiceActivity() {
     private val NOTIFICATION_PERMISSION_CODE = 1001
     private val ATHAN_CHANNEL_ID = "athan_sovereign_v2"
     private var isMethodChannelSet = false
+    private val ATHAN_NATIVE_PREFS = "athan_native_prefs"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // ✅ Call super first
         super.onCreate(savedInstanceState)
+        System.err.println("!!! MAIN ACTIVITY: onCreate called, Intent: ${intent?.getStringExtra("prayer_name")} !!!")
         
-        // 🔥 ضمان ظهور التطبيق فوق شاشة القفل وتنشيط الشاشة
+        // 🔥 ضمان ظهور التطبيق فوق شاشة القفل وتنشيط الشاشة (Xiaomi Breakthrough)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
+            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+            keyguardManager.requestDismissKeyguard(this, null)
         } else {
             @Suppress("DEPRECATION")
             window.addFlags(
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
                 WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
                 WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
             )
         }
-
-        // 🔥 Indestructible breadcrumbs (Visual + Terminal + Log)
-        val timestamp = System.currentTimeMillis()
-        Toast.makeText(this, "✅ MainActivity STARTED $timestamp", Toast.LENGTH_LONG).show()
-        android.util.Log.e(TAG, "=== onCreate CALLED at $timestamp ===")
-        System.err.println("!!! ATHAN DEBUG: onCreate CALLED at $timestamp !!!")
-        System.err.println("!!! ATHAN DEBUG: Activity hashCode=${this.hashCode()} !!!")
         
-        // Keyguard management
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-            keyguardManager.requestDismissKeyguard(this, null)
-        }
+        // 🔥 Ensure window stays ON for Athan
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         requestNotificationPermission()
         createNotificationChannel()
+        checkAndShowAthanOverlay()
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -75,6 +73,19 @@ class MainActivity : AudioServiceActivity() {
                 System.err.println("!!! ATHAN DEBUG: MethodCall received: ${call.method} !!!")
                 
                 when (call.method) {
+                    "scheduleExactAthan" -> {
+                        val timeInMillis = call.argument<Long>("timeInMillis") ?: 0L
+                        val id = call.argument<Int>("id") ?: 0
+                        val prayerName = call.argument<String>("prayerName") ?: "الصلاة"
+                        System.err.println("!!! ATHAN DEBUG: Scheduling ID=$id, Time=$timeInMillis, Name=$prayerName !!!")
+                        
+                        if (timeInMillis > 0) {
+                            scheduleExactAthan(timeInMillis, id, prayerName)
+                            result.success(true)
+                        } else {
+                            result.error("INVALID_TIME", "Time must be > 0", null)
+                        }
+                    }
                     "requestNotificationPermission" -> {
                         requestNotificationPermission()
                         result.success(true)
@@ -95,24 +106,47 @@ class MainActivity : AudioServiceActivity() {
                         val payload = intent?.getStringExtra("payload")
                         result.success(payload)
                     }
-                    "scheduleExactAthan" -> {
-                        val timeInMillis = call.argument<Long>("timeInMillis") ?: 0L
+                    "cancelAthan" -> {
                         val id = call.argument<Int>("id") ?: 0
-                        System.err.println("!!! ATHAN DEBUG: Scheduling ID=$id, Time=$timeInMillis !!!")
+                        cancelAthan(id)
+                        result.success(true)
+                    }
+                    "stopAthan" -> {
+                        val serviceIntent = Intent(this, AthanService::class.java)
+                        stopService(serviceIntent)
+                        result.success(true)
+                    }
+                    "getPendingAthan" -> {
+                        val prefs = getSharedPreferences(ATHAN_NATIVE_PREFS, Context.MODE_PRIVATE)
+                        val prayerName = prefs.getString("pending_prayer_name", null)
+                        val timestamp = prefs.getLong("pending_timestamp", 0)
+                        val now = System.currentTimeMillis()
                         
-                        if (timeInMillis > 0) {
-                            scheduleExactAthan(timeInMillis, id)
-                            result.success(true)
+                        if (prayerName != null && (now - timestamp) < 30000) { // خلال 30 ثانية فقط
+                            System.err.println("!!! MAIN ACTIVITY: Returning pending athan: $prayerName !!!")
+                            result.success(prayerName)
                         } else {
-                            result.error("INVALID_TIME", "Time must be > 0", null)
+                            // تنظيف البيانات القديمة
+                            prefs.edit().remove("pending_prayer_name").remove("pending_timestamp").apply()
+                            result.success(null)
                         }
+                    }
+                    "clearPendingAthan" -> {
+                        val prefs = getSharedPreferences(ATHAN_NATIVE_PREFS, Context.MODE_PRIVATE)
+                        prefs.edit().remove("pending_prayer_name").remove("pending_timestamp").apply()
+                        System.err.println("!!! MAIN ACTIVITY: Cleared pending athan !!!")
+                        result.success(true)
                     }
                     "clearAllAlarms" -> {
                         clearAllAlarms()
+                        forceClearSystemAlarms()
+                        result.success(true)
+                    }
+                    "forceClearSystemAlarms" -> {
+                        forceClearSystemAlarms()
                         result.success(true)
                     }
                     "pingNative" -> {
-                        // Quick connectivity test
                         val response = "PONG from Native at ${System.currentTimeMillis()}"
                         System.err.println("!!! ATHAN DEBUG: $response !!!")
                         result.success(response)
@@ -122,19 +156,63 @@ class MainActivity : AudioServiceActivity() {
             }
             isMethodChannelSet = true
             System.err.println("!!! ATHAN DEBUG: MethodChannel registered successfully !!!")
+            
+            // 🔥 تحقق من وجود نية أذان معلقة عند بدء التطبيق
+            checkAndShowAthanOverlay()
+            
         } catch (e: Exception) {
             System.err.println("!!! ATHAN DEBUG: FAILED to register MethodChannel: ${e.message} !!!")
             e.printStackTrace()
         }
     }
 
-    private fun scheduleExactAthan(timeInMillis: Long, id: Int) {
-        val uniqueId = System.currentTimeMillis().toInt()
-        System.err.println("!!! MAIN ACTIVITY: Scheduling Alarm UNIQUE_ID=$uniqueId (Target ID=$id) !!!")
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        checkAndShowAthanOverlay()
+    }
+
+    private fun checkAndShowAthanOverlay() {
+        val currentIntent = intent
+        val prayerName = currentIntent?.getStringExtra("prayer_name") ?: 
+                         currentIntent?.getStringExtra("ATHAN_PRAYER_NAME") ?: 
+                         null
+
+        System.err.println("!!! MAIN ACTIVITY: checkAndShowAthanOverlay, prayerName='$prayerName' !!!")
+        
+        if (prayerName == null) return
+        
+        // 🔥 إضافة الـ Flag لضمان بقاء النسخة الحالية للأكتيفيتي
+        intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+
+        val messenger = flutterEngine?.dartExecutor?.binaryMessenger
+        if (messenger != null) {
+            // ✅ إرسال فوري للـ Flutter
+            MethodChannel(messenger, CHANNEL).invokeMethod("showAthanOverlay", mapOf(
+                "prayerName" to prayerName,
+                "timestamp" to System.currentTimeMillis()
+            ))
+            System.err.println("!!! MAIN ACTIVITY: showAthanOverlay Method Invocated !!!")
+            // ✅ إعادة تعيين الـ Intent لمنع التكرار
+            intent.removeExtra("prayer_name")
+            intent.removeExtra("ATHAN_PRAYER_NAME")
+        } else {
+            // ✅ احتياطي: حفظ في SharedPreferences منفصل
+            val prefs = getSharedPreferences(ATHAN_NATIVE_PREFS, Context.MODE_PRIVATE)
+            prefs.edit()
+                .putString("pending_prayer_name", prayerName)
+                .putLong("pending_timestamp", System.currentTimeMillis())
+                .apply()
+            System.err.println("!!! MAIN ACTIVITY: Engine not ready, saved to athan_native_prefs !!!")
+        }
+    }
+
+    private fun scheduleExactAthan(timeInMillis: Long, id: Int, prayerName: String) {
+        System.err.println("!!! MAIN ACTIVITY: Scheduling Alarm with FIXED_ID=$id, Name=$prayerName !!!")
         try {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             
-            // Check Permission
+            // ... check permission ...
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (!alarmManager.canScheduleExactAlarms()) {
                     System.err.println("!!! MAIN ACTIVITY: Permission Missing !!!")
@@ -147,9 +225,12 @@ class MainActivity : AudioServiceActivity() {
             prefs.edit().putLong(id.toString(), timeInMillis).apply()
 
             // 1. Intent for BroadcastReceiver (Actual Alarm Action)
-            val broadcastIntent = Intent(this, AthanReceiver::class.java)
+            val broadcastIntent = Intent(this, AthanReceiver::class.java).apply {
+                putExtra("prayer_name", prayerName)
+                putExtra("alarm_id", id)
+            }
             val alarmPendingIntent = android.app.PendingIntent.getBroadcast(
-                this, uniqueId, broadcastIntent, 
+                this, id, broadcastIntent, 
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
             )
 
@@ -158,7 +239,7 @@ class MainActivity : AudioServiceActivity() {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             }
             val uiPendingIntent = android.app.PendingIntent.getActivity(
-                this, uniqueId + 1, activityIntent,
+                this, id + 500, activityIntent, 
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
             )
 
@@ -166,12 +247,31 @@ class MainActivity : AudioServiceActivity() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 val clockInfo = android.app.AlarmManager.AlarmClockInfo(timeInMillis, uiPendingIntent)
                 alarmManager.setAlarmClock(clockInfo, alarmPendingIntent)
-                System.err.println("!!! MAIN ACTIVITY: Scheduled via setAlarmClock with UI Intent !!!")
+                System.err.println("!!! MAIN ACTIVITY: Scheduled via setAlarmClock (Fixed ID $id) !!!")
             } else {
                 alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
             }
         } catch (e: Exception) {
             System.err.println("!!! MAIN ACTIVITY: Error scheduling: ${e.message} !!!")
+        }
+    }
+
+    private fun cancelAthan(id: Int) {
+        System.err.println("!!! MAIN ACTIVITY: Canceling Alarm ID=$id !!!")
+        try {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            val intent = Intent(this, AthanReceiver::class.java)
+            val pIntent = android.app.PendingIntent.getBroadcast(
+                this, id, intent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(pIntent)
+            
+            // Remove from prefs
+            val prefs = getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
+            prefs.edit().remove(id.toString()).apply()
+        } catch (e: Exception) {
+            System.err.println("!!! MAIN ACTIVITY: Error canceling: ${e.message} !!!")
         }
     }
 
@@ -249,16 +349,51 @@ class MainActivity : AudioServiceActivity() {
     }
 
     private fun openXiaomiOtherPermissions() {
+        val intent = Intent("miui.intent.action.APP_PERMS_EDITOR")
+        intent.setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity")
+        intent.putExtra("extra_pkgname", packageName)
+        
         try {
-            val intent = Intent("interactive.intent.action.APP_PERMS_EDITOR").apply {
-                putExtra("extra_pkgname", packageName)
-            }
             startActivity(intent)
         } catch (e: Exception) {
-            val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", packageName, null)
+            try {
+                // Fallback for different MIUI versions
+                val intentFallback = Intent("interactive.intent.action.APP_PERMS_EDITOR")
+                intentFallback.putExtra("extra_pkgname", packageName)
+                startActivity(intentFallback)
+            } catch (e2: Exception) {
+                // Last resort: App Details
+                val intentDetails = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                intentDetails.data = android.net.Uri.fromParts("package", packageName, null)
+                startActivity(intentDetails)
             }
-            startActivity(intent)
+        }
+    }
+
+    private fun forceClearSystemAlarms() {
+        System.err.println("!!! ATHAN DEBUG: forceClearSystemAlarms CALLED !!!")
+        try {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            for (id in 100..120) {
+                // 1. Cancel Broadcast Intent
+                val bIntent = Intent(this, AthanReceiver::class.java)
+                val pbIntent = android.app.PendingIntent.getBroadcast(
+                    this, id, bIntent,
+                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+                )
+                alarmManager.cancel(pbIntent)
+
+                // 2. Cancel UI Activity Intent
+                val aIntent = Intent(this, MainActivity::class.java)
+                val paIntent = android.app.PendingIntent.getActivity(
+                    this, id + 500, aIntent,
+                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+                )
+                alarmManager.cancel(paIntent)
+            }
+            System.err.println("!!! ATHAN DEBUG: forceClearSystemAlarms COMPLETED (100-120 range) !!!")
+        } catch (e: Exception) {
+            System.err.println("!!! ATHAN DEBUG: Error in forceClearSystemAlarms: ${e.message} !!!")
         }
     }
 }

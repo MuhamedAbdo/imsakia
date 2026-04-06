@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -62,11 +63,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final provider = Provider.of<AthanProvider>(context, listen: false);
     final path = isFajr ? provider.localFajrPath : provider.localNormalPath;
     if (path != null && audioHandler != null) {
-      await audioHandler!.customAction('playAthan', {'path': path, 'prayerName': 'تجربة'});
+      await audioHandler!.customAction('playAthan', {
+        'path': path,
+        'prayerName': 'تجربة',
+      });
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('جاري تهيئة الصوت، يرجى المحاولة لاحقاً', style: GoogleFonts.tajawal())),
+          SnackBar(
+            content: Text(
+              'جاري تهيئة الصوت، يرجى المحاولة لاحقاً',
+              style: GoogleFonts.tajawal(),
+            ),
+          ),
         );
       }
     }
@@ -133,6 +142,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
 
       await PrayerTimesService.instance.getCurrentPrayerTimes();
+      await PrayerTimesService.instance.scheduleAllPrayers();
 
       if (mounted) {
         if (widget.isFirstTimeSetup) {
@@ -533,10 +543,85 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                 ),
+            ], // End of if (provider.isAthanEnabled)
+            const SizedBox(height: 15),
+            // Xiaomi & Performance Optimization Buttons
+            if (Platform.isAndroid) ...[
+              _buildActionTile(
+                context,
+                title: 'إيقاف قيود البطارية (No Restrictions)',
+                subtitle: 'مهم جداً لضمان عمل الأذان في الخلفية',
+                icon: Icons.battery_saver_rounded,
+                onTap: () => provider.openBatteryOptimizationSettings(),
+              ),
+              const SizedBox(height: 10),
+              _buildActionTile(
+                context,
+                title: 'صلاحيات شاومي الخاصة (Xiaomi Permissions)',
+                subtitle: 'فعل "Show on Lock Screen" لتفتح الصور تلقائياً',
+                icon: Icons.security_rounded,
+                onTap: () => provider.openXiaomiOtherPermissions(),
+              ),
             ],
           ],
         );
       },
+    );
+  }
+
+  Widget _buildActionTile(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.black.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.green),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.tajawal(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.tajawal(
+                      fontSize: 11,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: Colors.green,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -569,7 +654,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(width: 8),
         IconButton(
-          icon: const Icon(Icons.play_circle_outline, color: Colors.green, size: 30),
+          icon: const Icon(
+            Icons.play_circle_outline,
+            color: Colors.green,
+            size: 30,
+          ),
           tooltip: 'تشغيل تجريبي',
           onPressed: onTestPlay,
         ),

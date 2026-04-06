@@ -19,10 +19,10 @@ class PrayerTimesService {
   StreamController<Map<String, DateTime>>? _prayerTimesController;
   Timer? _updateTimer;
   SharedPreferences? _sharedPreferences;
+  bool _isScheduling = false; // 🔥 لمنع تداخل عمليات الجدولة
 
   // حذفنا _lastRamadanCalculation لأنه لم يكن يُستخدم
   Duration? _cachedTimeUntilRamadan;
-  Map<String, DateTime>? _lastScheduledTimes;
 
   Stream<Map<String, DateTime>> get prayerTimesStream =>
       (_prayerTimesController ??=
@@ -128,42 +128,114 @@ class PrayerTimesService {
     return _currentPrayerTimes;
   }
 
-  void _scheduleAthanAlarmsIfNeeded(Map<String, DateTime> newTimes) {
-    if (_lastScheduledTimes != null && _isSameMap(_lastScheduledTimes!, newTimes)) {
-      return;
-    }
-    
-    _lastScheduledTimes = Map.from(newTimes);
-    
-    final now = DateTime.now();
-    int idBase = 0;
-    for (var entry in newTimes.entries) {
-      final name = entry.key;
-      final time = entry.value;
+  Future<void> scheduleAllPrayers() async {
+    if (_isScheduling) return; 
+    _isScheduling = true;
+
+    try {
+      final location = await _getCurrentLocation();
+      if (location == null) return;
+
+      _sharedPreferences ??= await SharedPreferences.getInstance();
       
-      // Cancel the old alarm for this ID to prevent false triggers when times shift
-      AthanManager.cancelAthan(idBase);
-
-      // لا نؤذن في وقت الشروق
-      if (name != 'sunrise' && time.isAfter(now)) {
-        AthanManager.scheduleNextAthan(
-          alarmId: idBase,
-          time: time,
-          isFajr: name == 'fajr',
-          prayerName: _getArabicName(name),
-        );
+      // 🔥 مسح كافة المنبهات القديمة قبل جدولة الجديدة لتجنب امتلاء الذاكرة (الحد الأقصى 500)
+      await AthanManager.cancelAllAlarms();
+      
+      final isEnabled = _sharedPreferences!.getBool(AppConstants.athanEnabledKey) ?? true;
+      if (!isEnabled) {
+        Logger.info("Athan is disabled, skipping scheduling.");
+        return;
       }
-      idBase++;
+
+    final calculationMethod = _sharedPreferences!.getString(AppConstants.calculationMethodKey) ?? AppConstants.defaultCalculationMethod;
+    final madhab = _sharedPreferences!.getString(AppConstants.madhabKey) ?? AppConstants.defaultMadhab;
+    final dstEnabled = _sharedPreferences!.getBool(AppConstants.dstKey) ?? AppConstants.defaultDST;
+
+    final now = DateTime.now();
+    final coordinates = Coordinates(location.latitude, location.longitude);
+    
+    CalculationParameters params = _getParams(calculationMethod);
+    params.madhab = madhab == 'hanafi' ? Madhab.hanafi : Madhab.shafi;
+
+    final deviceOffsetHours = now.timeZoneOffset.inHours;
+    int targetOffsetHours = _getTargetOffset(location.country.toLowerCase(), deviceOffsetHours);
+    final totalOffset = Duration(hours: targetOffsetHours - deviceOffsetHours) + (dstEnabled ? const Duration(hours: 1) : Duration.zero);
+
+    // --- Schedule Today and Tomorrow ---
+    for (int dayOffset = 0; dayOffset <= 1; dayOffset++) {
+      final targetDate = now.add(Duration(days: dayOffset));
+      final dateComponents = DateComponents(targetDate.year, targetDate.month, targetDate.day);
+      final prayerTimes = PrayerTimes(coordinates, dateComponents, params);
+      
+      final Map<String, DateTime> times = {
+        'fajr': prayerTimes.fajr.add(totalOffset),
+        'dhuhr': prayerTimes.dhuhr.add(totalOffset),
+        'asr': prayerTimes.asr.add(totalOffset),
+        'maghrib': prayerTimes.maghrib.add(totalOffset),
+        'isha': prayerTimes.isha.add(totalOffset),
+      };
+
+      final idOffset = dayOffset * 10; // Today: 0, Tomorrow: 10
+      
+      times.forEach((name, time) {
+        if (time.isAfter(now)) {
+          int baseId = _getPrayerId(name);
+          AthanManager.scheduleNextAthan(
+            alarmId: baseId + idOffset,
+            time: time,
+            isFajr: name == 'fajr',
+            prayerName: _getArabicName(name),
+          );
+        }
+      });
+    }
+    
+    Logger.info("All prayers for Today and Tomorrow scheduled.");
+    } finally {
+      _isScheduling = false;
     }
   }
 
-  bool _isSameMap(Map<String, DateTime> a, Map<String, DateTime> b) {
-    if (a.length != b.length) return false;
-    for (var key in a.keys) {
-      if (a[key] != b[key]) return false;
+  CalculationParameters _getParams(String method) {
+    switch (method) {
+      case 'egyptian': return CalculationMethod.egyptian.getParameters();
+      case 'turkey': return CalculationMethod.turkey.getParameters();
+      case 'karachi': return CalculationMethod.karachi.getParameters();
+      case 'umm_al_qura': return CalculationMethod.umm_al_qura.getParameters();
+      case 'dubai': return CalculationMethod.dubai.getParameters();
+      case 'kuwait': return CalculationMethod.kuwait.getParameters();
+      case 'qatar': return CalculationMethod.qatar.getParameters();
+      case 'muslim_world_league': return CalculationMethod.muslim_world_league.getParameters();
+      case 'north_america': return CalculationMethod.north_america.getParameters();
+      default: return CalculationMethod.egyptian.getParameters();
     }
-    return true;
   }
+
+  int _getTargetOffset(String country, int deviceOffset) {
+    if (country.contains("turkey")) return 3;
+    if (country.contains("algeria") || country.contains("morocco")) return 1;
+    if (country.contains("egypt")) return 2;
+    if (country.contains("saudi") || country.contains("qatar") || country.contains("kuwait")) return 3;
+    if (country.contains("united arab emirates") || country.contains("emirates") || country.contains("uae")) return 4;
+    return deviceOffset;
+  }
+
+  int _getPrayerId(String name) {
+    switch (name) {
+      case 'fajr': return 101;
+      case 'dhuhr': return 102;
+      case 'asr': return 103;
+      case 'maghrib': return 104;
+      case 'isha': return 105;
+      default: return 0;
+    }
+  }
+
+  void _scheduleAthanAlarmsIfNeeded(Map<String, DateTime> newTimes) {
+    // 🔥 تم إلغاء الاستدعاء الدوري للجدولة لمنع الـ Maximum limit reached
+    // الجدولة الآن تحدث فقط عند تشغيل التطبيق أو تغيير الإعدادات
+  }
+
 
   String _getArabicName(String name) {
     switch (name) {
