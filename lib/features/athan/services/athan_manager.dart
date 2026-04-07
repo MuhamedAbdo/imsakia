@@ -128,6 +128,56 @@ class AthanManager {
       debugPrint("Native Alarm Scheduling Failed: $e");
     }
   }
+
+  static Future<void> performSmartExit() async {
+    try {
+      const channel = MethodChannel('imsakia/notifications');
+      await channel.invokeMethod('performSmartExit');
+      debugPrint("Native Smart Exit triggered.");
+    } catch (e) {
+      debugPrint("Failed to perform smart exit: $e");
+    }
+  }
+
+  static Future<void> forceExit() async {
+    try {
+      const channel = MethodChannel('imsakia/notifications');
+      await channel.invokeMethod('forceExit');
+      debugPrint("Native Force Exit (Graceful Backgrounding) triggered.");
+    } catch (e) {
+      debugPrint("Failed to perform force exit: $e");
+    }
+  }
+
+  static Future<void> finalizeAthanSession() async {
+    try {
+      const channel = MethodChannel('imsakia/notifications');
+      await channel.invokeMethod('finalizeAthanSession');
+      debugPrint("!!! ATHAN MANAGER: Native finalizeAthanSession triggered !!!");
+    } catch (e) {
+      debugPrint("!!! ATHAN MANAGER: Failed to perform finalizeAthanSession: $e");
+    }
+  }
+
+  static Future<bool> getShouldExitFlag() async {
+    try {
+      const channel = MethodChannel('imsakia/notifications');
+      final result = await channel.invokeMethod<bool>('getShouldExitFlag');
+      return result ?? false;
+    } catch (e) {
+      debugPrint("Failed to get shouldExit flag: $e");
+      return false;
+    }
+  }
+
+  static Future<void> clearShouldExitFlag() async {
+    try {
+      const channel = MethodChannel('imsakia/notifications');
+      await channel.invokeMethod('clearShouldExitFlag');
+    } catch (e) {
+      debugPrint("Failed to clear shouldExit flag: $e");
+    }
+  }
 }
 
 @pragma('vm:entry-point')

@@ -5,8 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.Build
 import android.os.Handler
@@ -136,18 +138,38 @@ class AthanService : Service() {
     private fun playAthanAudio() {
         val soundUri = android.net.Uri.parse("android.resource://${packageName}/raw/athan_makkah")
         
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val audioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+            .build()
+
+        // ✅ Request Audio Focus to pause other apps (YouTube, Radio, etc.)
+        val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(audioAttributes)
+                .setAcceptsDelayedFocusGain(true)
+                .setOnAudioFocusChangeListener { /* Handle changes if needed */ }
+                .build()
+            audioManager.requestAudioFocus(focusRequest)
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.requestAudioFocus(
+                { /* Handle changes */ },
+                AudioManager.STREAM_ALARM,
+                AudioManager.AUDIOFOCUS_GAIN
+            )
+        }
+
+        if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            System.err.println("!!! ATHAN SERVICE: Audio Focus GRANTED !!!")
+        }
+
         mediaPlayer = MediaPlayer().apply {
             setDataSource(applicationContext, soundUri)
+            setAudioAttributes(audioAttributes)
             
-            // ✅ CRITICAL: Use RINGTONE usage for MIUI compatibility
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE) 
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build()
-            )
-            
-            isLooping = false // ✅ تشغيل الأذان مرة واحدة فقط (بدون تكرار)
+            isLooping = false 
             setVolume(1.0f, 1.0f)
             
             setOnPreparedListener { mp ->
@@ -155,12 +177,32 @@ class AthanService : Service() {
                 mp.start()
             }
             
+            setOnCompletionListener {
+                System.err.println("!!! ATHAN SERVICE: Audio Completed (Natural Return) !!!")
+                
+                // ✅ 1. Keep Graceful Exit flag (still useful for SplashScreen cleanup if it was cold start)
+                val prefs = getSharedPreferences("athan_native_prefs", Context.MODE_PRIVATE)
+                prefs.edit().putBoolean("should_exit_to_background", true).commit()
+
+                // ✅ 2. Lower service priority (MIUI Fix)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_DETACH)
+                } else {
+                    @Suppress("DEPRECATION")
+                    stopForeground(false)
+                }
+                
+                // ✅ 3. Notify Flutter/MainActivity
+                val intent = Intent("com.muhamed.imsakia.ATHAN_COMPLETED")
+                sendBroadcast(intent)
+            }
+
             setOnErrorListener { mp, what, extra ->
                 System.err.println("!!! ATHAN SERVICE: Error - what=$what, extra=$extra !!!")
                 true
             }
             
-            prepareAsync() // ✅ Non-blocking
+            prepareAsync() 
         }
     }
 

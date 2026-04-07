@@ -13,7 +13,10 @@ class AthanOverlayScreen extends StatefulWidget {
     super.key,
     required this.prayerName,
     this.isFajr = false,
+    this.isColdStart = false,
   });
+
+  final bool isColdStart;
 
   @override
   State<AthanOverlayScreen> createState() => _AthanOverlayScreenState();
@@ -33,9 +36,14 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
 
   bool _stopping = false;
   late final DateTime _openedAt;
+  late final AnimationController _acceptanceFadeController;
+  late final Animation<double> _acceptanceFadeAnimation;
 
   @override
   void initState() {
+    // 🔥 Ensure screen wakes up instantly on boot/locked
+    WakelockPlus.enable();
+    
     super.initState();
     _openedAt = DateTime.now();
 
@@ -81,6 +89,16 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
       CurvedAnimation(parent: _fadeInController, curve: Curves.easeOutBack),
     );
 
+    // --- Acceptance text fade-in ---
+    _acceptanceFadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+    _acceptanceFadeAnimation = CurvedAnimation(
+      parent: _acceptanceFadeController,
+      curve: Curves.easeIn,
+    );
+
     // --- Listen to audio to auto-close when athan finishes naturally ---
     if (audioHandler != null) {
       _playbackSub = audioHandler!.playbackState.listen((state) {
@@ -95,15 +113,13 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
         }
       });
     }
-
-    // --- Keep screen on during Athan ---
-    WakelockPlus.enable();
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
     _fadeInController.dispose();
+    _acceptanceFadeController.dispose();
     _playbackSub?.cancel();
     _mediaSub?.cancel();
 
@@ -130,8 +146,32 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
       debugPrint(
         "!!! ATHAN OVERLAY: Closing overlay (Force: $force, Elapsed: ${elapsed}s) !!!",
       );
-      _stopping = true;
+      
+      // ✅ Natural Return Protocol: 
+      // If it's a natural end (not forced by button), show "تقبل الله طاعتكم" and wait 2s
+      if (!force) {
+        _acceptanceFadeController.forward();
+        
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            _stopping = true;
+            _handleNavigation();
+          }
+        });
+      } else {
+        // Forced by user: close immediately
+        _stopping = true;
+        _handleNavigation();
+      }
+    }
+  }
+
+  void _handleNavigation() {
+    debugPrint("!!! ATHAN OVERLAY: _handleNavigation - Natural Return & Savior Logic !!!");
+    if (mounted) {
       Navigator.of(context).pop();
+      // ✅ استدعاء الميثود المنقذة لضمان الخروج التام في حالة الـ Cold Start
+      AthanManager.finalizeAthanSession();
     }
   }
 
@@ -175,6 +215,7 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
         if (!didPop) _stopAthan();
       },
       child: Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: Colors.black,
         body: Container(
           width: double.infinity,
@@ -279,6 +320,20 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
               ),
             ),
             const Spacer(flex: 3),
+            // --- Acceptance Text (Natural Return) ---
+            FadeTransition(
+              opacity: _acceptanceFadeAnimation,
+              child: Text(
+                'تقبل الله طاعتكم',
+                style: GoogleFonts.tajawal(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withValues(alpha: 0.8),
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
             // --- Stop Button at Bottom Center ---
             AnimatedBuilder(
               animation: _pulseAnimation,

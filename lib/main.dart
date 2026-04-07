@@ -104,7 +104,7 @@ void main() async {
   final pendingPrayer = await AthanManager.getPendingAthan();
   if (pendingPrayer != null && pendingPrayer.isNotEmpty) {
     debugPrint("!!! main.dart: Found pending athan from native: $pendingPrayer !!!");
-    overlayScreen = AthanOverlayScreen(prayerName: pendingPrayer);
+    overlayScreen = AthanOverlayScreen(prayerName: pendingPrayer, isColdStart: true);
     // ✅ نظّف فوراً بعد الاستهلاك
     await AthanManager.clearPendingAthan();
   } else if (notificationAppLaunchDetails?.didNotificationLaunchApp ?? false) {
@@ -113,7 +113,7 @@ void main() async {
     if (payload != null && payload.startsWith('athan_overlay|')) {
       final parts = payload.split('|');
       if (parts.length >= 2) {
-        overlayScreen = AthanOverlayScreen(prayerName: parts[1]);
+        overlayScreen = AthanOverlayScreen(prayerName: parts[1], isColdStart: true);
       }
     }
   }
@@ -127,7 +127,12 @@ class MyApp extends StatefulWidget {
   final SharedPreferences prefs;
   final Widget? initialOverlay;
 
-  const MyApp({super.key, required this.settingsProvider, required this.prefs, this.initialOverlay});
+  static bool isAthanShowing = false;
+  MyApp({super.key, required this.settingsProvider, required this.prefs, this.initialOverlay}) {
+    if (initialOverlay != null) {
+      isAthanShowing = true;
+    }
+  }
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -135,11 +140,16 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   static const platform = MethodChannel('imsakia/notifications');
+  String? _currentAthanOverlay;
+  bool _isColdStartForAthan = false;
 
   @override
   void initState() {
     super.initState();
+    _isColdStartForAthan = widget.initialOverlay != null;
     _setupMethodChannel();
+    // ✅ نظام الخروج الآمن: مسح أي علم سابق عند فتح التطبيق لضمان العمل الطبيعي
+    AthanManager.clearShouldExitFlag();
     // 🔥 جدولة المنبهات عند فتح التطبيق لأول مرة
     Future.delayed(const Duration(seconds: 2), () {
       PrayerTimesService.instance.scheduleAllPrayers();
@@ -149,38 +159,79 @@ class _MyAppState extends State<MyApp> {
   void _setupMethodChannel() {
     platform.setMethodCallHandler((call) async {
       debugPrint("!!! FLUTTER DEBUG: MethodCall from Native: ${call.method} !!!");
+      
       if (call.method == "showAthanOverlay") {
         final prayerName = call.arguments['prayerName'] ?? "الصلاة";
         debugPrint("!!! FLUTTER DEBUG: Received showAthanOverlay for $prayerName !!!");
         
+        // 1. Passive check: Are we already showing this exact Athan?
+        if (_currentAthanOverlay == prayerName) {
+           debugPrint("!!! FLUTTER: Already on AthanOverlayScreen for $prayerName, skipping push !!!");
+           return;
+        }
+
         // 🔥 إضافة تأخير طفيف لضمان استقرار الـ Activity فوق القفل قبل فتح الشاشة
-        Future.delayed(const Duration(milliseconds: 500), () {
+        Future.delayed(const Duration(milliseconds: 500), () async {
           if (navigatorKey.currentState != null) {
-            // ✅ التحقق من أننا لسنا بالفعل في شاشة الأذان لمنع التكرار
-            bool isAlreadyOnOverlay = false;
-            navigatorKey.currentState!.popUntil((route) {
-              if (route.settings.name == 'athan_overlay') {
-                isAlreadyOnOverlay = true;
-              }
-              return route.isFirst || isAlreadyOnOverlay;
+            // 2. Set state before pushing
+            setState(() {
+              _currentAthanOverlay = prayerName;
+              MyApp.isAthanShowing = true;
             });
 
-            if (isAlreadyOnOverlay) {
-              debugPrint("!!! FLUTTER: Already on AthanOverlayScreen, skipping push !!!");
-              return;
-            }
-
-            // ✅ تطهير المسار: أغلق أي dialogs أو صفحات فرعية أولاً
-            navigatorKey.currentState!.popUntil((route) => route.isFirst);
-            
-            navigatorKey.currentState!.push(
+            // 3. Push on top of current stack WITHOUT clearing it
+            await navigatorKey.currentState!.push(
               MaterialPageRoute(
-                settings: const RouteSettings(name: 'athan_overlay'),
+                settings: RouteSettings(
+                  name: 'athan_overlay',
+                  arguments: {'prayerName': prayerName},
+                ),
                 builder: (context) => AthanOverlayScreen(prayerName: prayerName),
               ),
             );
+
+            // 4. Reset state after pop (manual or auto)
+            setState(() {
+              _currentAthanOverlay = null;
+              MyApp.isAthanShowing = false;
+            });
           }
         });
+      } else if (call.method == "dismissAthanOverlay") {
+        debugPrint("!!! FLUTTER DEBUG: Received dismissAthanOverlay !!!");
+        // 1. Wait for 2 seconds (Visual Comfort)
+        await Future.delayed(const Duration(seconds: 2));
+        
+        // 2. Pop the overlay if it exists
+        if (navigatorKey.currentState != null) {
+          bool wasOnOverlay = false;
+          navigatorKey.currentState!.popUntil((route) {
+            if (route.settings.name == 'athan_overlay') {
+              wasOnOverlay = true;
+              return false; // This pops the overlay
+            }
+            return true; // Stop here (the route below overlay)
+          });
+          
+          if (wasOnOverlay) {
+            debugPrint("!!! FLUTTER: Athan overlay popped via dismissAthanOverlay !!!");
+            // 3. Reset state
+            setState(() {
+              _currentAthanOverlay = null;
+            });
+            
+            // ✅ تنظيف العلم عند الإغلاق الناجح
+            AthanManager.clearShouldExitFlag();
+
+            // 4. Trigger native smart exit OR SELF-DESTRUCT for cold start
+            if (_isColdStartForAthan) {
+              debugPrint("!!! FLUTTER: SELF-DESTRUCTION for Cold Start !!!");
+              await AthanManager.forceExit();
+            } else {
+              await AthanManager.performSmartExit();
+            }
+          }
+        }
       }
     });
   }

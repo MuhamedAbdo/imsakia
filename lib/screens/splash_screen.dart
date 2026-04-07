@@ -8,6 +8,8 @@ import '../providers/theme_provider.dart';
 import '../screens/settings_screen.dart';
 import '../services/hadith_service.dart';
 import '../services/azkar_service.dart';
+import '../../main.dart';
+import '../../features/athan/services/athan_manager.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -26,22 +28,44 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _scaleAnimation;
   late Animation<double> _rotationAnimation;
   late Animation<double> _pulseAnimation;
+  Timer? _navigationTimer;
 
   @override
   void initState() {
     super.initState();
+    _checkGracefulExit();
     _initializeAnimations();
     _startAnimations();
+  }
 
-    // Initialize services in background without blocking UI
+  Future<void> _checkGracefulExit() async {
+    // ✅ نظام الخروج الصامت: تحقق من العلم قبل أي شيء
+    final shouldExit = await AthanManager.getShouldExitFlag();
+    if (shouldExit && mounted) {
+      debugPrint("!!! SPLASH SCREEN: Graceful Exit detected. Moving to back... !!!");
+      await AthanManager.clearShouldExitFlag();
+      await AthanManager.forceExit();
+      return;
+    }
+
     _initializeServicesInBackground();
 
-    // Safety timer: force navigation after 4 seconds even if initialization fails
-    Timer(const Duration(seconds: 4), () {
-      if (mounted) {
-        _navigateToMainApp();
-      }
-    });
+    if (!MyApp.isAthanShowing) {
+      _navigationTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted) {
+          _navigateToMainApp();
+        }
+      });
+    } else {
+      // ✅ صمام الأمان: إذا انتهى الأذان وظل المستخدم عالقاً هنا
+      // نقوم بنقله للتطبيق تلقائياً بعد مهلة كافية
+      Timer(const Duration(seconds: 3), () {
+        if (mounted && !MyApp.isAthanShowing) {
+          debugPrint("!!! SPLASH SCREEN: Safety fallback triggered, navigating to main... !!!");
+          _navigateToMainApp();
+        }
+      });
+    }
   }
 
   void _initializeServicesInBackground() {
@@ -92,6 +116,15 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   void _navigateToMainApp() {
+    // 🔥 Guard: If Athan Overlay is currently showing, CANCEL everything.
+    // This prevents SplashScreen from "pushReplacement" which would kill the Athan Overlay.
+    if (context.mounted && (MyApp.isAthanShowing)) {
+      debugPrint("!!! SPLASH SCREEN: Athan Overlay is active. Stopping Splash navigation timer !!!");
+      _navigationTimer?.cancel();
+      _navigationTimer = null;
+      return;
+    }
+
     final settingsProvider = Provider.of<SettingsProvider>(
       context,
       listen: false,
@@ -159,11 +192,19 @@ class _SplashScreenState extends State<SplashScreen>
     _scaleController.dispose();
     _rotationController.dispose();
     _pulseController.dispose();
+    _navigationTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // 🔥 Real-time Monitoring: If Athan is showing, cancel the timer IMMEDIATELY
+    if (MyApp.isAthanShowing && _navigationTimer != null) {
+      debugPrint("!!! SPLASH SCREEN: build() detected Athan activity, cancelling navigation timer !!!");
+      _navigationTimer?.cancel();
+      _navigationTimer = null;
+    }
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(

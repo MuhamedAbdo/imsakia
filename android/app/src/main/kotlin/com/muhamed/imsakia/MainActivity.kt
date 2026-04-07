@@ -14,9 +14,14 @@ import android.os.Bundle
 import android.app.KeyguardManager
 import android.content.Context
 import android.view.WindowManager
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.widget.Toast
 import android.os.Handler
 import android.os.Looper
+import android.media.AudioManager
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 
 class MainActivity : AudioServiceActivity() {
     private val CHANNEL = "imsakia/notifications"
@@ -27,16 +32,46 @@ class MainActivity : AudioServiceActivity() {
     private var isMethodChannelSet = false
     private val ATHAN_NATIVE_PREFS = "athan_native_prefs"
 
+    // Smart Exit Tracking
+    private var wasLockedOnStart = false
+    private var wasInAppOnStart = false
+
+    private val completionReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "com.muhamed.imsakia.ATHAN_COMPLETED") {
+                System.err.println("!!! MAIN ACTIVITY: Received ATHAN_COMPLETED broadcast !!!")
+                // Notify Flutter to dismiss after 2 seconds
+                flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                    MethodChannel(messenger, CHANNEL).invokeMethod("dismissAthanOverlay", null)
+                }
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 🔥 Protection against white flash: Translucent theme if Athan triggered this cold start
+        val isAthanIntent = intent?.getBooleanExtra("trigger_athan_overlay", false) == true || 
+                            intent?.hasExtra("prayer_name") == true
+        if (isAthanIntent) {
+            setTheme(android.R.style.Theme_Translucent_NoTitleBar)
+            window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        }
+
         // ✅ Call super first
         super.onCreate(savedInstanceState)
         System.err.println("!!! MAIN ACTIVITY: onCreate called, Intent: ${intent?.getStringExtra("prayer_name")} !!!")
         
+        // Track state for Smart Exit
+        val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        wasLockedOnStart = keyguardManager.isKeyguardLocked
+        wasInAppOnStart = false // onCreate means it wasn't in foreground
+        
+        System.err.println("!!! MAIN ACTIVITY: wasLockedOnStart=$wasLockedOnStart, wasInAppOnStart=$wasInAppOnStart !!!")
+
         // 🔥 ضمان ظهور التطبيق فوق شاشة القفل وتنشيط الشاشة (Xiaomi Breakthrough)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
-            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
             keyguardManager.requestDismissKeyguard(this, null)
         } else {
             @Suppress("DEPRECATION")
@@ -51,6 +86,13 @@ class MainActivity : AudioServiceActivity() {
         
         // 🔥 Ensure window stays ON for Athan
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // Register receiver for audio completion
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(completionReceiver, android.content.IntentFilter("com.muhamed.imsakia.ATHAN_COMPLETED"), Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(completionReceiver, android.content.IntentFilter("com.muhamed.imsakia.ATHAN_COMPLETED"))
+        }
 
         requestNotificationPermission()
         createNotificationChannel()
@@ -127,14 +169,25 @@ class MainActivity : AudioServiceActivity() {
                             result.success(prayerName)
                         } else {
                             // تنظيف البيانات القديمة
-                            prefs.edit().remove("pending_prayer_name").remove("pending_timestamp").apply()
+                            prefs.edit().remove("pending_prayer_name").remove("pending_timestamp").commit()
                             result.success(null)
                         }
                     }
                     "clearPendingAthan" -> {
                         val prefs = getSharedPreferences(ATHAN_NATIVE_PREFS, Context.MODE_PRIVATE)
-                        prefs.edit().remove("pending_prayer_name").remove("pending_timestamp").apply()
+                        prefs.edit().remove("pending_prayer_name").remove("pending_timestamp").commit()
                         System.err.println("!!! MAIN ACTIVITY: Cleared pending athan !!!")
+                        result.success(true)
+                    }
+                    "getShouldExitFlag" -> {
+                        val prefs = getSharedPreferences(ATHAN_NATIVE_PREFS, Context.MODE_PRIVATE)
+                        val shouldExit = prefs.getBoolean("should_exit_to_background", false)
+                        result.success(shouldExit)
+                    }
+                    "clearShouldExitFlag" -> {
+                        val prefs = getSharedPreferences(ATHAN_NATIVE_PREFS, Context.MODE_PRIVATE)
+                        prefs.edit().remove("should_exit_to_background").commit()
+                        System.err.println("!!! MAIN ACTIVITY: 🧹 should_exit_to_background flag cleared !!!")
                         result.success(true)
                     }
                     "clearAllAlarms" -> {
@@ -150,6 +203,33 @@ class MainActivity : AudioServiceActivity() {
                         val response = "PONG from Native at ${System.currentTimeMillis()}"
                         System.err.println("!!! ATHAN DEBUG: $response !!!")
                         result.success(response)
+                    }
+                    "finalizeAthanSession" -> {
+                        System.err.println("!!! MAIN ACTIVITY: finalizeAthanSession called. wasLockedOnStart=$wasLockedOnStart, wasInAppOnStart=$wasInAppOnStart !!!")
+                        if (wasLockedOnStart || !wasInAppOnStart) {
+                            System.err.println("!!! MAIN ACTIVITY: Cold start detected, performing Absolute Invisibility Exit !!!")
+                            moveTaskToBack(true)
+                            if (!isFinishing) {
+                                finish()
+                            }
+                        } else {
+                            System.err.println("!!! MAIN ACTIVITY: Normal start detected, ignoring finalizeAthanSession. User stays in-app. !!!")
+                        }
+                        result.success(true)
+                    }
+                    "performSmartExit" -> {
+                        // Re-routing to finalizeAthanSession logic for consistency
+                        System.err.println("!!! MAIN ACTIVITY: performSmartExit requested -> redirecting to finalizeAthanSession !!!")
+                        if (wasLockedOnStart || !wasInAppOnStart) {
+                            moveTaskToBack(true)
+                            if (!isFinishing) finish()
+                        }
+                        result.success(true)
+                    }
+                    "forceExit" -> {
+                        System.err.println("!!! MAIN ACTIVITY: forceExit requested -> moving task to back !!!")
+                        moveTaskToBack(true)
+                        result.success(true)
                     }
                     else -> result.notImplemented()
                 }
@@ -169,6 +249,12 @@ class MainActivity : AudioServiceActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        
+        // Update state for smart exit
+        val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        wasLockedOnStart = keyguardManager.isKeyguardLocked
+        wasInAppOnStart = true // If onNewIntent called, activity was already alive/foreground
+        
         checkAndShowAthanOverlay()
     }
 
@@ -202,7 +288,7 @@ class MainActivity : AudioServiceActivity() {
             prefs.edit()
                 .putString("pending_prayer_name", prayerName)
                 .putLong("pending_timestamp", System.currentTimeMillis())
-                .apply()
+                .commit()
             System.err.println("!!! MAIN ACTIVITY: Engine not ready, saved to athan_native_prefs !!!")
         }
     }
@@ -222,7 +308,7 @@ class MainActivity : AudioServiceActivity() {
             
             // Persist for Reboot
             val prefs = getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
-            prefs.edit().putLong(id.toString(), timeInMillis).apply()
+            prefs.edit().putLong(id.toString(), timeInMillis).commit()
 
             // 1. Intent for BroadcastReceiver (Actual Alarm Action)
             val broadcastIntent = Intent(this, AthanReceiver::class.java).apply {
@@ -395,5 +481,12 @@ class MainActivity : AudioServiceActivity() {
         } catch (e: Exception) {
             System.err.println("!!! ATHAN DEBUG: Error in forceClearSystemAlarms: ${e.message} !!!")
         }
+    }
+
+    override fun onDestroy() {
+        try {
+            unregisterReceiver(completionReceiver)
+        } catch (e: Exception) {}
+        super.onDestroy()
     }
 }

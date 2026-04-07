@@ -26,6 +26,7 @@
         android:allowBackup="true">
 
         <!-- MainActivity -->
+        <!-- ✅ التكوين يمنع إعادة بناء الشاشة (Recreate) في شاومي عند الاستيقاظ -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
