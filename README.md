@@ -1,6 +1,6 @@
-# إمساكية - Imsakia
+# زاد - Zad
 
-A comprehensive Islamic Flutter application designed to be a daily companion for Muslims, featuring a modern UI and reliable tools.
+A professional Islamic daily companion application (formerly Imsakia), featuring accurate prayer times, Quran reader, and spiritual tools.
 
 ---
 

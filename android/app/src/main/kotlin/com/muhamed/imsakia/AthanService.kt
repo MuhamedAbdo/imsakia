@@ -29,6 +29,7 @@ class AthanService : Service() {
         System.err.println("!!! ATHAN SERVICE: onStartCommand CALLED !!!")
         
         val prayerName = intent?.getStringExtra("prayer_name") ?: "الصلاة"
+        val prayerKey = intent?.getStringExtra("prayer_key") ?: "dhuhr"
         val alarmId = intent?.getIntExtra("alarm_id", 0) ?: 0
         
         try {
@@ -37,18 +38,17 @@ class AthanService : Service() {
                 if (it.isPlaying) it.stop()
                 it.release()
                 mediaPlayer = null
-                System.err.println("!!! ATHAN SERVICE: Old MediaPlayer stopped and released !!!")
             }
 
-            // 1. Start Foreground immediately to prevent OS kill
+            // 1. Start Foreground immediately
             startForegroundServiceNotification(prayerName, alarmId)
             
             // 2. Acquire WakeLock
             acquireWakeLock()
             
-            // 3. Play Audio in Background Thread
+            // 3. Play Audio
             Thread {
-                playAthanAudioWithRetry()
+                playAthanAudioWithRetry(prayerKey)
             }.start()
             
         } catch (e: Exception) {
@@ -122,69 +122,69 @@ class AthanService : Service() {
         }
     }
 
-    private fun playAthanAudioWithRetry() {
+    private fun playAthanAudioWithRetry(prayerKey: String) {
         while (retryCount < MAX_RETRY) {
             try {
-                System.err.println("!!! ATHAN SERVICE: Playing Audio (Attempt ${retryCount + 1}) !!!")
-                playAthanAudio()
+                System.err.println("!!! ATHAN SERVICE: Playing Audio for $prayerKey (Attempt ${retryCount + 1}) !!!")
+                playAthanAudio(prayerKey)
                 return // Success
             } catch (e: Exception) {
+                System.err.println("!!! ATHAN SERVICE: Playback Failed for $prayerKey: ${e.message} !!!")
                 retryCount++
-                Thread.sleep(1000) // Wait before retry
+                Thread.sleep(1000)
             }
         }
     }
 
-    private fun playAthanAudio() {
-        val soundUri = android.net.Uri.parse("android.resource://${packageName}/raw/athan_makkah")
-        
+    private fun playAthanAudio(prayerKey: String) {
+        // 1. القراءة من SharedPreferences الخاصة بـ Flutter
+        // ملاحظة: بلجن shared_preferences في فلاتر يضيف بادئة "flutter." لكل المفاتيح
+        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val assetPath = prefs.getString("flutter.athan_path_$prayerKey", null) 
+                        ?: if(prayerKey == "fajr") "assets/audio/fajr_makkah.mp3" else "assets/audio/athan_makkah.mp3"
+
+        System.err.println("!!! ATHAN SERVICE: Selected Asset Path: $assetPath !!!")
+
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ALARM)
-            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
 
-        // ✅ Request Audio Focus to pause other apps (YouTube, Radio, etc.)
+        // Audio Focus
         val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
                 .setAudioAttributes(audioAttributes)
-                .setAcceptsDelayedFocusGain(true)
-                .setOnAudioFocusChangeListener { /* Handle changes if needed */ }
                 .build()
             audioManager.requestAudioFocus(focusRequest)
         } else {
             @Suppress("DEPRECATION")
-            audioManager.requestAudioFocus(
-                { /* Handle changes */ },
-                AudioManager.STREAM_ALARM,
-                AudioManager.AUDIOFOCUS_GAIN
-            )
-        }
-
-        if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            System.err.println("!!! ATHAN SERVICE: Audio Focus GRANTED !!!")
+            audioManager.requestAudioFocus(null, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
         }
 
         mediaPlayer = MediaPlayer().apply {
-            setDataSource(applicationContext, soundUri)
+            // ✅ تشغيل الملف من مجلد flutter_assets داخل الـ APK
+            try {
+                val assetDescriptor = assets.openFd("flutter_assets/$assetPath")
+                setDataSource(assetDescriptor.fileDescriptor, assetDescriptor.startOffset, assetDescriptor.length)
+            } catch (e: Exception) {
+                System.err.println("!!! ATHAN SERVICE: Failed to load $assetPath, falling back to raw/athan_makkah !!!")
+                val soundUri = android.net.Uri.parse("android.resource://${packageName}/raw/athan_makkah")
+                setDataSource(applicationContext, soundUri)
+            }
+
             setAudioAttributes(audioAttributes)
-            
             isLooping = false 
             setVolume(1.0f, 1.0f)
             
             setOnPreparedListener { mp ->
-                System.err.println("!!! ATHAN SERVICE: Prepared, Starting... !!!")
                 mp.start()
             }
             
             setOnCompletionListener {
-                System.err.println("!!! ATHAN SERVICE: Audio Completed (Natural Return) !!!")
-                
-                // ✅ 1. Keep Graceful Exit flag (still useful for SplashScreen cleanup if it was cold start)
-                val prefs = getSharedPreferences("athan_native_prefs", Context.MODE_PRIVATE)
-                prefs.edit().putBoolean("should_exit_to_background", true).commit()
+                val nativePrefs = getSharedPreferences("athan_native_prefs", Context.MODE_PRIVATE)
+                nativePrefs.edit().putBoolean("should_exit_to_background", true).commit()
 
-                // ✅ 2. Lower service priority (MIUI Fix)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     stopForeground(STOP_FOREGROUND_DETACH)
                 } else {
@@ -192,13 +192,11 @@ class AthanService : Service() {
                     stopForeground(false)
                 }
                 
-                // ✅ 3. Notify Flutter/MainActivity
-                val intent = Intent("com.muhamed.imsakia.ATHAN_COMPLETED")
-                sendBroadcast(intent)
+                sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
             }
 
-            setOnErrorListener { mp, what, extra ->
-                System.err.println("!!! ATHAN SERVICE: Error - what=$what, extra=$extra !!!")
+            setOnErrorListener { _, what, extra ->
+                System.err.println("!!! ATHAN SERVICE: MediaPlayer Error what=$what extra=$extra !!!")
                 true
             }
             

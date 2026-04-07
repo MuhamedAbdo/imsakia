@@ -12,10 +12,12 @@ class AthanReceiver : BroadcastReceiver() {
         
         // Start Service
         val prayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
+        val prayerKey = intent.getStringExtra("prayer_key") ?: "dhuhr"
         val alarmId = intent.getIntExtra("alarm_id", 0)
         
         val serviceIntent = Intent(context, AthanService::class.java).apply {
             putExtra("prayer_name", prayerName)
+            putExtra("prayer_key", prayerKey)
             putExtra("alarm_id", alarmId)
         }
         

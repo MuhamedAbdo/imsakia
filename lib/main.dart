@@ -21,6 +21,7 @@ import 'features/audio/services/audio_handler.dart';
 import 'features/athan/providers/athan_provider.dart';
 import 'features/athan/services/athan_manager.dart';
 import 'features/athan/ui/athan_overlay_screen.dart';
+import 'utils/app_constants.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'services/prayer_times_service.dart';
 import 'package:path_provider/path_provider.dart';
@@ -250,11 +251,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => madinah.QuranProvider(widget.prefs)),
         ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
         ChangeNotifierProvider(create: (_) => DownloadProvider()),
-        ChangeNotifierProvider<AthanProvider>(create: (_) {
-           final provider = AthanProvider();
-           provider.fetchMuezzins();
-           return provider;
-        }),
+        ChangeNotifierProvider<AthanProvider>(create: (_) => AthanProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
@@ -265,7 +262,7 @@ class _MyAppState extends State<MyApp> {
               );
 
               return MaterialApp(
-                title: 'إمساكية',
+                title: AppConstants.appName,
                 navigatorKey: navigatorKey,
                 debugShowCheckedModeBanner: false,
                 theme: themeProvider.lightTheme,

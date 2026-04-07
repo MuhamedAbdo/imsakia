@@ -145,11 +145,16 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
     }
   
     if (name == 'playAthan' && extras != null) {
-      final String path = extras['path'] as String;
+      // 1. Extract values first as requested
+      final String path = extras['path'] as String? ?? '';
       final String prayerName = extras['prayerName'] as String? ?? "الصلاة";
-      final String title = 'حان الآن موعد أذان $prayerName';
+      final String title = extras['title'] as String? ?? 'حان الآن موعد أذان $prayerName';
+      final String? activeTestKey = extras['activeTestKey'] as String?;
       
-      // Pause the main player gracefully without breaking queue
+      // 2. Stop existing Athan if any
+      await _athanPlayer.stop();
+      
+      // 3. Pause the main player gracefully without breaking queue
       if (_player.state == PlayerState.playing) {
         await _player.pause();
       }
@@ -160,7 +165,8 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
         id: 'athan_alert',
         album: "تنبيه الأذان",
         title: title,
-        artist: "إمساكية",
+        artist: "زاد",
+        extras: {'activeTestKey': activeTestKey}, 
       ));
       
       playbackState.add(playbackState.value.copyWith(
@@ -169,8 +175,15 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
         controls: [MediaControl.stop],
         systemActions: const {MediaAction.stop},
       ));
-      
-      return await _athanPlayer.play(DeviceFileSource(path));
+
+      // 4. Play from Asset or File
+      if (path.startsWith('assets/')) {
+        // Audioplayers AssetSource expects path WITHOUT 'assets/' prefix
+        final cleanPath = path.replaceFirst('assets/', '');
+        return await _athanPlayer.play(AssetSource(cleanPath));
+      } else {
+        return await _athanPlayer.play(DeviceFileSource(path));
+      }
     }
     return super.customAction(name, extras);
   }

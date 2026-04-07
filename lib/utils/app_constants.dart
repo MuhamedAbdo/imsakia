@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class AppConstants {
   // App Info
-  static const String appName = 'إمساكية';
+  static const String appName = 'زاد';
   static const String appVersion = '1.0.0';
 
   // Splash Screen Text

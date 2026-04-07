@@ -119,10 +119,11 @@ class MainActivity : AudioServiceActivity() {
                         val timeInMillis = call.argument<Long>("timeInMillis") ?: 0L
                         val id = call.argument<Int>("id") ?: 0
                         val prayerName = call.argument<String>("prayerName") ?: "الصلاة"
-                        System.err.println("!!! ATHAN DEBUG: Scheduling ID=$id, Time=$timeInMillis, Name=$prayerName !!!")
+                        val prayerKey = call.argument<String>("prayerKey") ?: "dhuhr"
+                        System.err.println("!!! ATHAN DEBUG: Scheduling ID=$id, Time=$timeInMillis, Name=$prayerName, Key=$prayerKey !!!")
                         
                         if (timeInMillis > 0) {
-                            scheduleExactAthan(timeInMillis, id, prayerName)
+                            scheduleExactAthan(timeInMillis, id, prayerName, prayerKey)
                             result.success(true)
                         } else {
                             result.error("INVALID_TIME", "Time must be > 0", null)
@@ -293,8 +294,8 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
-    private fun scheduleExactAthan(timeInMillis: Long, id: Int, prayerName: String) {
-        System.err.println("!!! MAIN ACTIVITY: Scheduling Alarm with FIXED_ID=$id, Name=$prayerName !!!")
+    private fun scheduleExactAthan(timeInMillis: Long, id: Int, prayerName: String, prayerKey: String) {
+        System.err.println("!!! MAIN ACTIVITY: Scheduling Alarm with FIXED_ID=$id, Name=$prayerName, Key=$prayerKey !!!")
         try {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             
@@ -313,6 +314,7 @@ class MainActivity : AudioServiceActivity() {
             // 1. Intent for BroadcastReceiver (Actual Alarm Action)
             val broadcastIntent = Intent(this, AthanReceiver::class.java).apply {
                 putExtra("prayer_name", prayerName)
+                putExtra("prayer_key", prayerKey)
                 putExtra("alarm_id", id)
             }
             val alarmPendingIntent = android.app.PendingIntent.getBroadcast(

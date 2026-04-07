@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:csc_picker_plus/csc_picker_plus.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:audio_service/audio_service.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
 import '../features/athan/providers/athan_provider.dart';
@@ -44,6 +45,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     _settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     _loadSavedLocation();
+    
+    // 🔥 ضمان مزامنة الـ Switch مع حالة نظام أندرويد من اللحظة الأولى
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final platformBrightness = MediaQuery.platformBrightnessOf(context);
+        if (_settingsProvider.themeMode == AppThemeMode.system) {
+          final isDark = platformBrightness == Brightness.dark;
+          _settingsProvider.setThemeMode(isDark ? AppThemeMode.dark : AppThemeMode.light);
+        }
+      }
+    });
+
+    // تحميل المؤذنين (الآن عبر الأصول الثابتة، لا يحتاج انتظار)
+    Provider.of<AthanProvider>(context, listen: false);
   }
 
   void _loadSavedLocation() {
@@ -59,25 +74,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  void _testPlayAthan(bool isFajr) async {
+  void _testPlayAthan(String prayerKey) async {
+    if (audioHandler == null) return;
+    
     final provider = Provider.of<AthanProvider>(context, listen: false);
-    final path = isFajr ? provider.localFajrPath : provider.localNormalPath;
-    if (path != null && audioHandler != null) {
+    final state = audioHandler!.playbackState.value;
+    final activeKey = audioHandler!.mediaItem.value?.extras?['activeTestKey'];
+    final isPlayingThisKey = state.playing && activeKey == prayerKey;
+
+    if (isPlayingThisKey) {
+      await audioHandler!.stop();
+    } else {
+      final path = provider.getPathForPrayer(prayerKey);
       await audioHandler!.customAction('playAthan', {
         'path': path,
         'prayerName': 'تجربة',
+        'activeTestKey': prayerKey,
       });
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'جاري تهيئة الصوت، يرجى المحاولة لاحقاً',
-              style: GoogleFonts.tajawal(),
-            ),
-          ),
-        );
-      }
     }
   }
 
@@ -498,52 +511,88 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 contentPadding: EdgeInsets.zero,
               ),
               const SizedBox(height: 10),
-              if (provider.isLoading)
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Center(
-                    child: CircularProgressIndicator(color: Colors.green),
+              if (provider.isUnifiedMuezzin) ...[
+                _buildMuezzinDropdown(
+                  label: 'صوت المؤذن الموحد',
+                  prayerKey: 'dhuhr',
+                  muezzins: provider.generalMuezzins,
+                  selectedPath: provider.getPathForPrayer('dhuhr'),
+                  onChanged: (path) => provider.setPrayerMuezzin('dhuhr', path!),
+                  onTestPlay: () => _testPlayAthan('dhuhr'),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    "💡 سيتم استخدام أذان مكة لصلاة الفجر بشكل افتراضي عند توحيد المؤذن",
+                    style: GoogleFonts.tajawal(
+                      fontSize: 11,
+                      color: Colors.orange,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ),
-              if (provider.isUnifiedMuezzin)
-                _buildMuezzinDropdown(
-                  label: 'صوت المؤذن',
-                  muezzins: provider.muezzins,
-                  selected: provider.selectedNormalMuezzin,
-                  onChanged: (m) => provider.selectMuezzinForNormal(m!),
-                  onTestPlay: () => _testPlayAthan(false),
-                )
-              else
+              ] else
                 Theme(
                   data: Theme.of(
                     context,
                   ).copyWith(dividerColor: Colors.transparent),
                   child: ExpansionTile(
                     tilePadding: EdgeInsets.zero,
+                    initiallyExpanded: true,
                     title: Text(
-                      'تخصيص الأذان',
+                      'تخصيص أصوات الصلوات',
                       style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
                     ),
                     children: [
                       _buildMuezzinDropdown(
-                        label: 'الظهر، العصر، المغرب، العشاء',
-                        muezzins: provider.muezzins,
-                        selected: provider.selectedNormalMuezzin,
-                        onChanged: (m) => provider.selectMuezzinForNormal(m!),
-                        onTestPlay: () => _testPlayAthan(false),
+                        label: 'أذان الفجر (الصلاة خير من النوم)',
+                        prayerKey: 'fajr',
+                        muezzins: provider.fajrMuezzins,
+                        selectedPath: provider.getPathForPrayer('fajr'),
+                        onChanged: (path) => provider.setPrayerMuezzin('fajr', path!),
+                        onTestPlay: () => _testPlayAthan('fajr'),
                       ),
                       const SizedBox(height: 10),
                       _buildMuezzinDropdown(
-                        label: 'أذان الفجر (الصلاة خير من النوم)',
-                        muezzins: provider.muezzins,
-                        selected: provider.selectedFajrMuezzin,
-                        onChanged: (m) => provider.selectMuezzinForFajr(m!),
-                        onTestPlay: () => _testPlayAthan(true),
+                        label: 'أذان الظهر',
+                        prayerKey: 'dhuhr',
+                        muezzins: provider.generalMuezzins,
+                        selectedPath: provider.getPathForPrayer('dhuhr'),
+                        onChanged: (path) => provider.setPrayerMuezzin('dhuhr', path!),
+                        onTestPlay: () => _testPlayAthan('dhuhr'),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildMuezzinDropdown(
+                        label: 'أذان العصر',
+                        prayerKey: 'asr',
+                        muezzins: provider.generalMuezzins,
+                        selectedPath: provider.getPathForPrayer('asr'),
+                        onChanged: (path) => provider.setPrayerMuezzin('asr', path!),
+                        onTestPlay: () => _testPlayAthan('asr'),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildMuezzinDropdown(
+                        label: 'أذان المغرب',
+                        prayerKey: 'maghrib',
+                        muezzins: provider.generalMuezzins,
+                        selectedPath: provider.getPathForPrayer('maghrib'),
+                        onChanged: (path) => provider.setPrayerMuezzin('maghrib', path!),
+                        onTestPlay: () => _testPlayAthan('maghrib'),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildMuezzinDropdown(
+                        label: 'أذان العشاء',
+                        prayerKey: 'isha',
+                        muezzins: provider.generalMuezzins,
+                        selectedPath: provider.getPathForPrayer('isha'),
+                        onChanged: (path) => provider.setPrayerMuezzin('isha', path!),
+                        onTestPlay: () => _testPlayAthan('isha'),
                       ),
                     ],
                   ),
                 ),
-            ], // End of if (provider.isAthanEnabled)
+            ],
             const SizedBox(height: 15),
             // Xiaomi & Performance Optimization Buttons
             if (Platform.isAndroid) ...[
@@ -627,25 +676,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildMuezzinDropdown({
     required String label,
+    required String prayerKey,
     required List<Muezzin> muezzins,
-    required Muezzin? selected,
-    required void Function(Muezzin?) onChanged,
+    required String selectedPath,
+    required void Function(String?) onChanged,
     required VoidCallback onTestPlay,
   }) {
+    // العثور على المؤذن بناءً على المسار لضبط القيمة الأولية
+    Muezzin? current;
+    try {
+      current = muezzins.firstWhere((m) => m.path == selectedPath);
+    } catch (_) {
+      current = muezzins.first;
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
-          child: DropdownButtonFormField<Muezzin>(
+          child: DropdownButtonFormField<String>(
             isExpanded: true,
-            initialValue: selected,
+            initialValue: current.path,
             decoration: InputDecoration(
               labelText: label,
               labelStyle: GoogleFonts.tajawal(),
             ),
             items: muezzins.map((m) {
-              return DropdownMenuItem<Muezzin>(
-                value: m,
+              return DropdownMenuItem<String>(
+                value: m.path,
                 child: Text(m.name, style: GoogleFonts.tajawal(fontSize: 14)),
               );
             }).toList(),
@@ -653,14 +711,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(width: 8),
-        IconButton(
-          icon: const Icon(
-            Icons.play_circle_outline,
-            color: Colors.green,
-            size: 30,
-          ),
-          tooltip: 'تشغيل تجريبي',
-          onPressed: onTestPlay,
+        StreamBuilder<PlaybackState>(
+          stream: audioHandler?.playbackState,
+          builder: (context, snapshot) {
+            final state = snapshot.data;
+            final isAthanPlaying = state?.playing == true;
+            
+            // Check if this specific key is the one playing
+            bool isThisTaskPlaying = false;
+            if (audioHandler != null && isAthanPlaying) {
+               final activeKey = audioHandler!.mediaItem.value?.extras?['activeTestKey'];
+               if (activeKey == prayerKey) {
+                 isThisTaskPlaying = true;
+               }
+            }
+
+            return IconButton(
+              icon: Icon(
+                isThisTaskPlaying 
+                  ? Icons.stop_circle_outlined 
+                  : Icons.play_circle_outline,
+                color: isThisTaskPlaying ? Colors.red : Colors.green,
+                size: 30,
+              ),
+              tooltip: isThisTaskPlaying ? 'إيقاف التجربة' : 'تشغيل تجريبي',
+              onPressed: onTestPlay,
+            );
+          }
         ),
       ],
     );
