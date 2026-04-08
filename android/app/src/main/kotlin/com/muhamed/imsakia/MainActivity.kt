@@ -40,10 +40,22 @@ class MainActivity : AudioServiceActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "com.muhamed.imsakia.ATHAN_COMPLETED") {
                 System.err.println("!!! MAIN ACTIVITY: Received ATHAN_COMPLETED broadcast !!!")
-                // Notify Flutter to dismiss after 2 seconds
+                
+                // 1. Notify Flutter to dismiss the overlay
                 flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
                     MethodChannel(messenger, CHANNEL).invokeMethod("dismissAthanOverlay", null)
                 }
+                
+                // 2. 🔥 لضمان اختفاء الشاشة السوداء في حالة الـ Cold Start أو الظهور فوق القفل
+                // المطلب الجديد: لا نستدعي هذا الأمر إلا إذا كان التطبيق مغلقاً أو في الخلفية وقت حدوث الأذان
+                Handler(Looper.getMainLooper()).postDelayed({
+                    if (!isFinishing && (wasLockedOnStart || !wasInAppOnStart)) {
+                        System.err.println("!!! MAIN ACTIVITY: UI cleanup - moveTaskToBack(true) because background/locked start detected !!!")
+                        moveTaskToBack(true)
+                    } else {
+                        System.err.println("!!! MAIN ACTIVITY: Skipping moveTaskToBack - user is active in app !!!")
+                    }
+                }, 1000)
             }
         }
     }
@@ -120,10 +132,11 @@ class MainActivity : AudioServiceActivity() {
                         val id = call.argument<Int>("id") ?: 0
                         val prayerName = call.argument<String>("prayerName") ?: "الصلاة"
                         val prayerKey = call.argument<String>("prayerKey") ?: "dhuhr"
-                        System.err.println("!!! ATHAN DEBUG: Scheduling ID=$id, Time=$timeInMillis, Name=$prayerName, Key=$prayerKey !!!")
+                        val isSilent = call.argument<Boolean>("isSilent") ?: false
+                        System.err.println("!!! ATHAN DEBUG: Scheduling ID=$id, Time=$timeInMillis, Name=$prayerName, Key=$prayerKey, Silent=$isSilent !!!")
                         
                         if (timeInMillis > 0) {
-                            scheduleExactAthan(timeInMillis, id, prayerName, prayerKey)
+                            scheduleExactAthan(timeInMillis, id, prayerName, prayerKey, isSilent)
                             result.success(true)
                         } else {
                             result.error("INVALID_TIME", "Time must be > 0", null)
@@ -261,6 +274,18 @@ class MainActivity : AudioServiceActivity() {
 
     private fun checkAndShowAthanOverlay() {
         val currentIntent = intent
+        
+        // 🔥 Hard Guard: منع الـ Overlay في الوضع الصامت تماماً
+        val isSilent = currentIntent?.getBooleanExtra("is_silent", false) ?: false
+        if (isSilent) {
+            System.err.println("!!! MAIN ACTIVITY: Hard Guard - Silent mode detected in Intent. Clearing extras and skipping overlay logic !!!")
+            intent.removeExtra("prayer_name")
+            intent.removeExtra("ATHAN_PRAYER_NAME")
+            intent.removeExtra("is_silent")
+            intent.removeExtra("trigger_athan_overlay")
+            return
+        }
+
         val prayerName = currentIntent?.getStringExtra("prayer_name") ?: 
                          currentIntent?.getStringExtra("ATHAN_PRAYER_NAME") ?: 
                          null
@@ -294,8 +319,8 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
-    private fun scheduleExactAthan(timeInMillis: Long, id: Int, prayerName: String, prayerKey: String) {
-        System.err.println("!!! MAIN ACTIVITY: Scheduling Alarm with FIXED_ID=$id, Name=$prayerName, Key=$prayerKey !!!")
+    private fun scheduleExactAthan(timeInMillis: Long, id: Int, prayerName: String, prayerKey: String, isSilent: Boolean) {
+        System.err.println("!!! MAIN ACTIVITY: Scheduling Alarm with FIXED_ID=$id, Name=$prayerName, Key=$prayerKey, Silent=$isSilent !!!")
         try {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             
@@ -316,6 +341,7 @@ class MainActivity : AudioServiceActivity() {
                 putExtra("prayer_name", prayerName)
                 putExtra("prayer_key", prayerKey)
                 putExtra("alarm_id", id)
+                putExtra("is_silent", isSilent)
             }
             val alarmPendingIntent = android.app.PendingIntent.getBroadcast(
                 this, id, broadcastIntent, 

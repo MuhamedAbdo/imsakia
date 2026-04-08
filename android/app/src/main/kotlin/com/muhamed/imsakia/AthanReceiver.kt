@@ -8,13 +8,22 @@ import android.os.PowerManager
 
 class AthanReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        System.err.println("!!! ATHAN RECEIVER: Triggered !!!")
-        
-        // Start Service
         val prayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
         val prayerKey = intent.getStringExtra("prayer_key") ?: "dhuhr"
         val alarmId = intent.getIntExtra("alarm_id", 0)
+        val isSilent = intent.getBooleanExtra("is_silent", false)
         
+        System.err.println("!!! ATHAN RECEIVER: Triggered for $prayerName, Silent=$isSilent !!!")
+
+        if (isSilent) {
+            System.err.println("!!! ATHAN RECEIVER: Silent mode handling (Notification only) !!!")
+            showSilentNotification(context, prayerName, alarmId)
+            return
+        }
+
+        // --- Audible Branch: Full Protocol (Service + Activity + WakeLock) ---
+        
+        // 1. Start Service
         val serviceIntent = Intent(context, AthanService::class.java).apply {
             putExtra("prayer_name", prayerName)
             putExtra("prayer_key", prayerKey)
@@ -29,7 +38,7 @@ class AthanReceiver : BroadcastReceiver() {
             }
         } catch (e: Exception) { e.printStackTrace() }
 
-        // Force Wake Screen & Start Activity early if possible
+        // 2. Start Activity (MainActivity -> Flutter Overlay)
         try {
             val intentToMain = Intent(context, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
@@ -37,8 +46,9 @@ class AthanReceiver : BroadcastReceiver() {
                 putExtra("prayer_name", prayerName)
             }
             context.startActivity(intentToMain)
-            System.err.println("!!! ATHAN RECEIVER: Early startActivity attempt sent !!!")
+            System.err.println("!!! ATHAN RECEIVER: Activity launch triggered for audible Athan !!!")
             
+            // 3. Acquire WakeLock
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             val wakeLock = powerManager.newWakeLock(
                 PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
@@ -46,5 +56,29 @@ class AthanReceiver : BroadcastReceiver() {
             )
             wakeLock.acquire(15000) // 15 seconds
         } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    private fun showSilentNotification(context: Context, prayerName: String, alarmId: Int) {
+        val channelId = "athan_service_channel"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val importance = android.app.NotificationManager.IMPORTANCE_DEFAULT
+            val channel = android.app.NotificationChannel(channelId, "Athan Service", importance).apply {
+                setSound(null, null)
+                setShowBadge(false)
+            }
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            manager.createNotificationChannel(channel)
+        }
+
+        val builder = NotificationCompat.Builder(context, channelId)
+            .setContentTitle("صلاة $prayerName الآن")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_EVENT)
+            .setAutoCancel(true)
+            .setTimeoutAfter(300000) // 5 minutes
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        notificationManager.notify(9999 + alarmId, builder.build())
     }
 }

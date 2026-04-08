@@ -130,12 +130,14 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
   }
 
   void _closeOverlay({bool force = false}) {
-    // 🔥 تجنب الإغلاق التلقائي في أول 3 ثوانٍ للسماح للمشغل بالمزامنة
-    // إلا إذا كان الإغلاق "قسرياً" (بواسطة زر المستخدم)
+    if (!mounted || _stopping) return;
+
+    // 🔥 تجنب الإغلاق التلقائي في أول ثانيتين للسماح للمشغل بالمزامنة
+    // إلا إذا كان الإغلاق "قسرياً" (بواسطة زر المستخدم أو إشارة الناتيف)
     final now = DateTime.now();
     final elapsed = now.difference(_openedAt).inSeconds;
 
-    if (!force && elapsed < 3) {
+    if (!force && elapsed < 2) {
       debugPrint(
         "!!! ATHAN OVERLAY: Auto-close ignored (Warm-up period: ${elapsed}s) !!!",
       );

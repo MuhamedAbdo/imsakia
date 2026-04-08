@@ -141,10 +141,10 @@ class PrayerTimesService {
       // 🔥 مسح كافة المنبهات القديمة قبل جدولة الجديدة لتجنب امتلاء الذاكرة (الحد الأقصى 500)
       await AthanManager.cancelAllAlarms();
       
+      // We schedule alarms even if Athan is disabled to support silent notifications
       final isEnabled = _sharedPreferences!.getBool(AppConstants.athanEnabledKey) ?? true;
       if (!isEnabled) {
-        Logger.info("Athan is disabled, skipping scheduling.");
-        return;
+        Logger.info("Athan is disabled in settings. Scheduling alarms for silent notifications.");
       }
 
     final calculationMethod = _sharedPreferences!.getString(AppConstants.calculationMethodKey) ?? AppConstants.defaultCalculationMethod;

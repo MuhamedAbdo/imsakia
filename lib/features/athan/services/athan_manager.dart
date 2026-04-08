@@ -85,11 +85,12 @@ class AthanManager {
     await plugin.cancel(id: kAthanNotificationId);
   }
 
-  static Future<void> scheduleNextAthan({
+   static Future<void> scheduleNextAthan({
       required int alarmId,
       required DateTime time,
       required bool isFajr,
       required String prayerName,
+      bool isTest = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     
@@ -110,8 +111,10 @@ class AthanManager {
     await prefs.setString('prayerKey_$alarmId', prayerKey);
 
     final isEnabled = prefs.getBool('athan_enabled') ?? true;
-    if (!isEnabled) {
-      return;
+    final isSilent = !isEnabled;
+    
+    if (!isEnabled && !isTest) {
+      debugPrint("!!! ATHAN MANAGER: Athan is disabled, scheduling for SILENT notification. !!!");
     }
     
     if (Platform.isAndroid) {
@@ -129,8 +132,9 @@ class AthanManager {
         'id': alarmId,
         'prayerName': prayerName,
         'prayerKey': prayerKey,
+        'isSilent': isSilent,
       });
-      debugPrint("Native Athan '$prayerName' scheduled for $time (ID=$alarmId, Key=$prayerKey)");
+      debugPrint("Native Athan '$prayerName' scheduled for $time (ID=$alarmId, Key=$prayerKey, Silent=$isSilent)");
     } catch (e) {
       debugPrint("Native Alarm Scheduling Failed: $e");
     }

@@ -158,7 +158,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             child: Text('إلغاء', style: GoogleFonts.tajawal()),
           ),
           ElevatedButton(
-            onPressed: () => SystemNavigator.pop(),
+            onPressed: () {
+              Navigator.pop(context);
+              SystemNavigator.pop();
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
             ),
@@ -437,6 +440,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           time: scheduleTime,
                           isFajr: true,
                           prayerName: 'الفجر',
+                          isTest: true,
                         );
                         
                         if (context.mounted) {
@@ -561,6 +565,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   time: scheduleTime,
                   isFajr: false,
                   prayerName: p['name'] as String,
+                  isTest: true,
                 );
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(

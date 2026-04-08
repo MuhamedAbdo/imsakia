@@ -22,15 +22,52 @@ class AthanService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val SERVICE_NOTIFICATION_ID = 7777
     private val ATHAN_SERVICE_CHANNEL = "athan_service_channel"
+    private val ACTION_STOP_ATHAN = "com.muhamed.imsakia.STOP_ATHAN"
     private var retryCount = 0
     private val MAX_RETRY = 3
+    private var currentPrayerName = "الصلاة"
+    private var currentAlarmId = 0
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        System.err.println("!!! ATHAN SERVICE: onStartCommand CALLED !!!")
+        System.err.println("!!! ATHAN SERVICE: onStartCommand CALLED !!! action=${intent?.action}")
         
+        // 🔥 Hard Guard: منع تشغيل الخدمة في الوضع الصامت تماماً
+        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val isAthanEnabled = prefs.getBoolean("flutter.athan_enabled", true)
+        val isSilentInIntent = intent?.getBooleanExtra("is_silent", false) ?: false
+        
+        if (isSilentInIntent || !isAthanEnabled) {
+            System.err.println("!!! ATHAN SERVICE: Hard Guard - Silent mode detected (Intent=$isSilentInIntent, Prefs=$isAthanEnabled). Stopping immediately. !!!")
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        
+        if (intent?.action == ACTION_STOP_ATHAN) {
+            System.err.println("!!! ATHAN SERVICE: Stop action received. Checking if broadcast needed.")
+            
+            val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            val isEnabled = prefs.getBoolean("flutter.athan_enabled", true)
+            
+            if (isEnabled) {
+                System.err.println("!!! ATHAN SERVICE: Athan was enabled, sending ATHAN_COMPLETED broadcast.")
+                sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
+            } else {
+                System.err.println("!!! ATHAN SERVICE: Athan was silent, skipping broadcast.")
+            }
+            
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         val prayerName = intent?.getStringExtra("prayer_name") ?: "الصلاة"
         val prayerKey = intent?.getStringExtra("prayer_key") ?: "dhuhr"
         val alarmId = intent?.getIntExtra("alarm_id", 0) ?: 0
+        
+        currentPrayerName = prayerName
+        currentAlarmId = alarmId
+
+        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val isAthanEnabled = prefs.getBoolean("flutter.athan_enabled", true)
         
         try {
             // 🔥 منع تداخل الأصوات: أوقف أي ميديا بلاير قديم
@@ -40,16 +77,24 @@ class AthanService : Service() {
                 mediaPlayer = null
             }
 
-            // 1. Start Foreground immediately
-            startForegroundServiceNotification(prayerName, alarmId)
+            // 1. Start Foreground immediately (Always show notification)
+            startForegroundServiceNotification(prayerName, alarmId, isAthanEnabled, isOngoing = isAthanEnabled)
             
             // 2. Acquire WakeLock
             acquireWakeLock()
             
-            // 3. Play Audio
-            Thread {
-                playAthanAudioWithRetry(prayerKey)
-            }.start()
+            // 3. Play Audio (Only if enabled)
+            if (isAthanEnabled) {
+                Thread {
+                    playAthanAudioWithRetry(prayerKey)
+                }.start()
+            } else {
+                System.err.println("!!! ATHAN SERVICE: Silent mode. Keeping notification alive for 5 minutes.")
+                Handler(Looper.getMainLooper()).postDelayed({
+                    System.err.println("!!! ATHAN SERVICE: Silent 5-min timeout reached. Stopping service.")
+                    stopSelf()
+                }, 300000) // 5 minutes
+            }
             
         } catch (e: Exception) {
             System.err.println("!!! ATHAN SERVICE: CRITICAL ERROR: ${e.message} !!!")
@@ -71,7 +116,7 @@ class AthanService : Service() {
         } catch (e: Exception) { e.printStackTrace() }
     }
 
-    private fun startForegroundServiceNotification(prayerName: String, alarmId: Int) {
+    private fun startForegroundServiceNotification(prayerName: String, alarmId: Int, isAthanEnabled: Boolean, isOngoing: Boolean) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 ATHAN_SERVICE_CHANNEL, "Athan Service", NotificationManager.IMPORTANCE_HIGH
@@ -82,7 +127,15 @@ class AthanService : Service() {
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
 
-        // 🔥 تعديل الـ Intent ليحمل بيانات التفعيل لشاشة الأذان
+        // Action for Notification Content Click: Stop Athan
+        val stopIntent = Intent(this, AthanService::class.java).apply {
+            action = ACTION_STOP_ATHAN
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this, alarmId + 1000, stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val mainIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
             putExtra("trigger_athan_overlay", true)
@@ -90,35 +143,43 @@ class AthanService : Service() {
             putExtra("alarm_id", alarmId)
         }
         
-        val pendingIntent = PendingIntent.getActivity(
+        val fullScreenPendingIntent = PendingIntent.getActivity(
             this, 
             alarmId, 
             mainIntent, 
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(this, ATHAN_SERVICE_CHANNEL)
-            .setContentTitle("🕌 حان وقت $prayerName")
-            .setContentText("اضغط لفتح الشاشة أو انتظر التفعيل التلقائي...")
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_ALARM) // ✅ مهم جداً لظهورها فوق القفل
-            .setOngoing(true)
-            .setStyle(NotificationCompat.BigTextStyle().bigText("athan_overlay|$prayerName|$alarmId"))
-            .setContentIntent(pendingIntent)
-            .setFullScreenIntent(pendingIntent, true) // ✅ التفعيل التلقائي للشاشة
-            .setOnlyAlertOnce(true)
-            .build()
-
-        startForeground(SERVICE_NOTIFICATION_ID, notification)
-        System.err.println("!!! ATHAN SERVICE: Foreground Started for $prayerName !!!")
+        val body = if (isAthanEnabled && isOngoing) "اضغط للإيقاف" else ""
         
-        // 🔥 محاولة فتح الأكتيفيتي قسرياً لضمان تخطي قيود شاومي
-        try {
-            startActivity(mainIntent)
-            System.err.println("!!! ATHAN SERVICE: Aggressive startActivity executed !!!")
-        } catch (e: Exception) {
-            System.err.println("!!! ATHAN SERVICE ERROR: Aggressive startActivity FAILED: ${e.message} !!!")
+        val notificationBuilder = NotificationCompat.Builder(this, ATHAN_SERVICE_CHANNEL)
+            .setContentTitle("صلاة $prayerName الآن")
+            .setContentText(body)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setPriority(if (isAthanEnabled) NotificationCompat.PRIORITY_MAX else NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(if (isAthanEnabled) NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
+            .setOngoing(isOngoing)
+            .setAutoCancel(true)
+            .setTimeoutAfter(300000) // 5 minutes
+            .setOnlyAlertOnce(true)
+            .setContentIntent(stopPendingIntent) // Tap to stop
+            
+        if (isAthanEnabled) {
+            notificationBuilder.setFullScreenIntent(fullScreenPendingIntent, true)
+        }
+
+        val notification = notificationBuilder.build()
+        startForeground(SERVICE_NOTIFICATION_ID, notification)
+        System.err.println("!!! ATHAN SERVICE: Foreground Started for $prayerName (Ongoing=$isOngoing) !!!")
+
+        if (isAthanEnabled) {
+            // 🔥 محاولة فتح الأكتيفيتي قسرياً فقط في حالة تفعيل الأذان
+            try {
+                startActivity(mainIntent)
+                System.err.println("!!! ATHAN SERVICE: Aggressive startActivity executed (Athan Enabled) !!!")
+            } catch (e: Exception) {
+                System.err.println("!!! ATHAN SERVICE ERROR: Aggressive startActivity FAILED: ${e.message} !!!")
+            }
         }
     }
 
@@ -185,12 +246,9 @@ class AthanService : Service() {
                 val nativePrefs = getSharedPreferences("athan_native_prefs", Context.MODE_PRIVATE)
                 nativePrefs.edit().putBoolean("should_exit_to_background", true).commit()
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    stopForeground(STOP_FOREGROUND_DETACH)
-                } else {
-                    @Suppress("DEPRECATION")
-                    stopForeground(false)
-                }
+                // التحول لوضع "قابل للمسح" بعد انتهاء الصوت
+                System.err.println("!!! ATHAN SERVICE: Audio completed. Making notification cancellable.")
+                startForegroundServiceNotification(currentPrayerName, currentAlarmId, isAthanEnabled = true, isOngoing = false)
                 
                 sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
             }
@@ -209,6 +267,7 @@ class AthanService : Service() {
         mediaPlayer?.release()
         wakeLock?.release()
         stopForeground(STOP_FOREGROUND_REMOVE)
+        sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
         super.onDestroy()
     }
 

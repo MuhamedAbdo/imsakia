@@ -200,8 +200,8 @@ class _MyAppState extends State<MyApp> {
         });
       } else if (call.method == "dismissAthanOverlay") {
         debugPrint("!!! FLUTTER DEBUG: Received dismissAthanOverlay !!!");
-        // 1. Wait for 2 seconds (Visual Comfort)
-        await Future.delayed(const Duration(seconds: 2));
+        // 1. تأخير بسيط جداً (500ms) للسماح بتنسيق العمليات
+        await Future.delayed(const Duration(milliseconds: 500));
         
         // 2. Pop the overlay if it exists
         if (navigatorKey.currentState != null) {
