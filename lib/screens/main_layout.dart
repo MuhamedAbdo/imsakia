@@ -5,7 +5,6 @@ import '../features/athan/services/athan_manager.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:hijri/hijri_calendar.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../providers/settings_provider.dart';
 import '../services/prayer_times_service.dart';
@@ -20,6 +19,7 @@ import 'azkar_screen.dart';
 import 'fasting_fiqh_screen.dart';
 import 'tibyan_menu_page.dart';
 import '../widgets/neumorphic_box.dart';
+import '../widgets/event_card_widget.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -401,7 +401,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               _buildHijriCard(hijriDateMap['formatted']),
               _buildNextPrayerCard(),
               const SizedBox(height: 10),
-              _buildSpecialEventCard(settings.hijriAdjustment),
+              const EventCardWidget(),
               const SizedBox(height: 20),
               _buildPrayerTimesList(hijriDateMap['monthIndex'] as int),
             ],
@@ -500,149 +500,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildSpecialEventCard(int adjustment) {
-    final hijriDate = HijriDateService.getHijriDate(DateTime.now(), adjustment);
-    final day = hijriDate['dayIndex'] as int;
-    final month = hijriDate['monthIndex'] as int;
-
-    if (month == 10 && day == 1) {
-      return _buildGreetingCard(
-        'عيد فطر مبارك',
-        'تقبل الله صيامكم وقيامكم',
-        Colors.orange,
-      );
-    }
-    if (month == 12 && day == 9) {
-      return _buildGreetingCard('وقفة عرفات', 'لبيك اللهم لبيك', Colors.brown);
-    }
-    if (month == 12 && day >= 10 && day <= 13) {
-      return _buildGreetingCard(
-        'عيد أضحى مبارك',
-        'أيام تشريق مباركة',
-        Colors.green,
-      );
-    }
-
-    if (month != 9) {
-      return _buildRamadanCounter(adjustment);
-    }
-
-    return _buildHadithOfTheDayCard();
-  }
-
-  Widget _buildRamadanCounter(int adjustment) {
-    final hNow = HijriCalendar.now();
-    hNow.hDay += adjustment;
-
-    int targetYear = hNow.hYear;
-    if (hNow.hMonth > 9 || (hNow.hMonth == 9 && hNow.hDay >= 1)) {
-      targetYear++;
-    }
-
-    final targetRamadan = HijriCalendar();
-    targetRamadan.hYear = targetYear;
-    targetRamadan.hMonth = 9;
-    targetRamadan.hDay = 1;
-
-    DateTime targetDateTime = targetRamadan.hijriToGregorian(
-      targetRamadan.hYear,
-      9,
-      1,
-    );
-    DateTime nowAdjusted = DateTime.now().add(Duration(days: adjustment));
-
-    Duration diff = targetDateTime.difference(nowAdjusted);
-    int days = diff.inDays;
-    int hours = diff.inHours.remainder(24);
-    int minutes = diff.inMinutes.remainder(60);
-
-    if (days < 0) return _buildHadithOfTheDayCard();
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      child: NeumorphicBox(
-        borderRadius: 20,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Text(
-                'باقي على شهر رمضان المبارك',
-                style: GoogleFonts.tajawal(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF8B4513),
-                ),
-              ),
-              const SizedBox(height: 15),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildTimeUnit(days.toString().padLeft(2, '0'), 'يوم'),
-                  const SizedBox(width: 15),
-                  _buildTimeUnit(hours.toString().padLeft(2, '0'), 'ساعة'),
-                  const SizedBox(width: 15),
-                  _buildTimeUnit(minutes.toString().padLeft(2, '0'), 'دقيقة'),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHadithOfTheDayCard() {
-    return Consumer<HadithService>(
-      builder: (context, service, _) {
-        final hadith = service.getTodayHadith();
-        if (hadith == null) return const SizedBox.shrink();
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        return Container(
-          width: double.infinity,
-          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-          child: NeumorphicBox(
-            borderRadius: 20,
-            child: Padding(
-              padding: const EdgeInsets.all(22),
-              child: Column(
-                children: [
-                  Text(
-                    'حديث اليوم',
-                    style: GoogleFonts.tajawal(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: isDark
-                          ? Colors.amber[200]
-                          : Theme.of(context).primaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    hadith.text,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.tajawal(
-                      fontSize: 17,
-                      height: 1.6,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '[ ${hadith.source} ]',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 12,
-                      color: isDark ? Colors.grey[400] : Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   Widget _buildPrayerTimesList(int currentMonth) {
     final prayerKeys = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
@@ -769,67 +626,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildTimeUnit(String value, String label) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            value,
-            style: GoogleFonts.tajawal(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF8B4513),
-            ),
-          ),
-        ),
-        Text(
-          label,
-          style: GoogleFonts.tajawal(
-            fontSize: 12,
-            color: const Color(0xFF8B4513),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGreetingCard(String title, String sub, Color color) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      child: NeumorphicBox(
-        borderRadius: 15,
-        baseColor: color,
-        lightShadowColor: color.withValues(alpha: 0.5),
-        darkShadowColor: color.withValues(alpha: 0.8),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.tajawal(
-                  fontSize: 22,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                sub,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.tajawal(color: Colors.white70),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   String _getPrayerName(String key) {
     switch (key) {

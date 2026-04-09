@@ -24,6 +24,7 @@ import 'features/athan/ui/athan_overlay_screen.dart';
 import 'utils/app_constants.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'services/prayer_times_service.dart';
+import 'services/home_events_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
@@ -238,6 +239,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider.value(value: HadithService.instance),
         ChangeNotifierProvider(create: (_) => QuranProvider()),
+        ChangeNotifierProvider(create: (_) => HomeEventsService()),
         ChangeNotifierProvider(
           create: (_) => BukhariProvider(),
         ),

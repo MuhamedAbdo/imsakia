@@ -117,6 +117,7 @@ flutter:
     - assets/images/asr_afternoon.png
     - assets/images/maghrib_sunset.png
     - assets/images/isha_night.png
+    - assets/images/events/
     - assets/audio/
     - assets/fonts/
 
