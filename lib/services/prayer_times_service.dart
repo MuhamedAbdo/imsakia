@@ -7,6 +7,8 @@ import '../utils/app_constants.dart';
 import '../utils/logger.dart'; // تأكد من وجود هذا المسار
 import 'hijri_date_service.dart';
 import '../features/athan/services/athan_manager.dart';
+import 'package:home_widget/home_widget.dart';
+import 'home_events_service.dart';
 
 class PrayerTimesService {
   static PrayerTimesService? _instance;
@@ -122,10 +124,77 @@ class PrayerTimesService {
     };
 
     _scheduleAthanAlarmsIfNeeded(_currentPrayerTimes!);
+    
+    // 🔥 تحديث بيانات الويدجت (Android Home Screen Widget)
+    updateWidgetData();
 
     _prayerTimesController?.add(_currentPrayerTimes!);
     _startUpdateTimer();
     return _currentPrayerTimes;
+  }
+
+  /// يزامن بيانات مواقيت الصلاة والمناسبات مع ويدجت الشاشة الرئيسية
+  Future<void> updateWidgetData() async {
+    try {
+      if (_currentPrayerTimes == null) return;
+
+      final nextPrayerKey = getNextPrayer() ?? 'fajr';
+      final nextPrayerTime = getNextPrayerTime();
+      final nextPrayerName = _getArabicName(nextPrayerKey);
+      
+      final lastPrayerKey = getLastPrayer() ?? 'isha';
+      final lastPrayerTime = getLastPrayerTime();
+      final lastPrayerName = _getArabicName(lastPrayerKey);
+      final lastPrayerInfo = "$lastPrayerName ${_formatTimeTo12h(lastPrayerTime)}";
+      
+      // حساب العد التنازلي للصلاة القادمة
+      String countdownText = "00:00";
+      if (nextPrayerTime != null) {
+        final diff = nextPrayerTime.difference(DateTime.now());
+        if (diff.isNegative) {
+          countdownText = "00:00";
+        } else {
+          final hours = diff.inHours;
+          final minutes = diff.inMinutes % 60;
+          countdownText = "${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}";
+        }
+      }
+
+      _sharedPreferences ??= await SharedPreferences.getInstance();
+      final city = _sharedPreferences!.getString(AppConstants.selectedCityKey)?.split(',').first.trim() ?? 'القاهرة';
+
+      // جلب بيانات التاريخ الهجري والمناسبات
+      final hijriAdjustment = _sharedPreferences!.getInt('hijri_adjustment') ?? 0;
+      final hijriDate = HijriDateService.getHijriDate(DateTime.now(), hijriAdjustment);
+      final hijriDateFull = hijriDate['formatted'] as String;
+
+      final eventsService = HomeEventsService();
+      final event = eventsService.currentEvent;
+      final eventTypeName = event?.type.toString().split('.').last ?? 'none';
+
+      // حفظ البيانات للويدجت بالمفاتيح المطلوبة بدقة للهيكل الجديد
+      await HomeWidget.saveWidgetData<String>('flutter.next_prayer_name', nextPrayerName);
+      await HomeWidget.saveWidgetData<String>('flutter.countdown_text', countdownText);
+      await HomeWidget.saveWidgetData<String>('flutter.last_prayer_display', lastPrayerInfo);
+      await HomeWidget.saveWidgetData<String>('flutter.hijri_date_full', hijriDateFull);
+      await HomeWidget.saveWidgetData<String>('flutter.current_city', city);
+      await HomeWidget.saveWidgetData<String>('flutter.today_event_type', eventTypeName);
+
+      // طلب تحديث الويدجت من جانب الأندرويد
+      await HomeWidget.updateWidget(
+        name: 'PrayerWidget',
+        androidName: 'PrayerWidget',
+      );
+      
+      Logger.info("Widget data updated: $nextPrayerName at ${nextPrayerTime.toString()}");
+    } catch (e) {
+      Logger.error("Failed to update widget data: $e");
+    }
+  }
+
+  String _formatTimeTo12h(DateTime? time) {
+    if (time == null) return '--:--';
+    return DateFormat('h:mm a', 'ar').format(time);
   }
 
   Future<void> scheduleAllPrayers() async {
@@ -322,6 +391,33 @@ class PrayerTimesService {
   Duration? getTimeUntilNextPrayer() {
     final nextTime = getNextPrayerTime();
     return nextTime?.difference(DateTime.now());
+  }
+
+  String? getLastPrayer() {
+    if (_currentPrayerTimes == null) return null;
+    final now = DateTime.now();
+    String? last;
+    final keys = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    for (final key in keys) {
+      final time = _currentPrayerTimes![key];
+      if (time != null && time.isBefore(now)) {
+        last = key;
+      } else if (time != null && time.isAfter(now)) {
+        break;
+      }
+    }
+    return last ?? 'isha';
+  }
+
+  DateTime? getLastPrayerTime() {
+    if (_currentPrayerTimes == null) return null;
+    final lastPrayer = getLastPrayer();
+    final time = _currentPrayerTimes![lastPrayer];
+    if (time == null) return null;
+    if (time.isAfter(DateTime.now())) {
+      return time.subtract(const Duration(days: 1));
+    }
+    return time;
   }
 
   Future<Duration?> getTimeUntilRamadan() async {

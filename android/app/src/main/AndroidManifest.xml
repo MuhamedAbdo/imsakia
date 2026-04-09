@@ -93,5 +93,17 @@
             </intent-filter>
         </receiver>
 
+        <!-- Prayer Widget -->
+        <receiver android:name=".PrayerWidget" android:exported="true" android:label="زاد - مواقيت الصلاة">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.muhamed.imsakia.UPDATE_COUNTDOWN" />
+                <action android:name="android.intent.action.TIME_TICK" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/prayer_widget_info" />
+        </receiver>
+
     </application>
 </manifest>

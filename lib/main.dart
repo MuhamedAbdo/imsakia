@@ -151,9 +151,10 @@ class _MyAppState extends State<MyApp> {
     _setupMethodChannel();
     // ✅ نظام الخروج الآمن: مسح أي علم سابق عند فتح التطبيق لضمان العمل الطبيعي
     AthanManager.clearShouldExitFlag();
-    // 🔥 جدولة المنبهات عند فتح التطبيق لأول مرة
+    // 🔥 جدولة المنبهات وتحديث الويدجت عند فتح التطبيق لأول مرة
     Future.delayed(const Duration(seconds: 2), () {
       PrayerTimesService.instance.scheduleAllPrayers();
+      PrayerTimesService.instance.updateWidgetData();
     });
   }
 

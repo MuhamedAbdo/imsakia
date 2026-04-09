@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/app_constants.dart';
+import '../services/prayer_times_service.dart';
 
 enum AppThemeMode { light, dark, system }
 
@@ -84,6 +85,10 @@ class SettingsProvider extends ChangeNotifier {
     _selectedCityName = cityId;
     await _prefs?.setString(AppConstants.selectedCityKey, cityId);
     await _prefs?.setString('selected_city_name', cityId);
+    
+    // 🔥 تحديث بيانات الويدجت فوراً عند تغيير المدينة
+    PrayerTimesService.instance.updateWidgetData();
+    
     notifyListeners();
   }
 
