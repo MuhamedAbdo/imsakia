@@ -3,7 +3,6 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart' as ffi;
 import 'package:path/path.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
 
 class DbHelper {
   static sqlite.Database? _db;
@@ -41,8 +40,7 @@ class DbHelper {
           "SELECT name FROM sqlite_master WHERE type='table' AND (name='ayah_edition')",
         );
         if (tables.isNotEmpty) isValid = true;
-      } catch (e) {
-        debugPrint("Error validating database: \$e");
+      } catch (_) {
       } finally {
         await checkDb?.close();
       }
@@ -60,8 +58,7 @@ class DbHelper {
           data.lengthInBytes,
         );
         await File(path).writeAsBytes(bytes, flush: true);
-      } catch (e) {
-        debugPrint("Error copying database: \$e");
+      } catch (_) {
       }
     }
 
@@ -80,8 +77,7 @@ class DbHelper {
       await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_ayah_edition_ayah_id ON ayah_edition(ayah_id)',
       );
-    } catch (e) {
-      debugPrint("Warning: Indexes: \$e");
+    } catch (_) {
     }
   }
 
@@ -122,8 +118,7 @@ class DbHelper {
       if (tafsir.isNotEmpty) {
         return tafsir.first['data']?.toString() ?? "التفسير غير متوفر.";
       }
-    } catch (e) {
-      debugPrint("Error fetching tafsir: $e");
+    } catch (_) {
     }
 
     return "لا يوجد تفسير متاح.";

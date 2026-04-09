@@ -51,18 +51,12 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
     if (widget.prayerName.isEmpty ||
         widget.prayerName == "الصلاة" ||
         widget.prayerName.toLowerCase() == "null") {
-      debugPrint(
-        "!!! ATHAN OVERLAY: Invalid prayer name, closing immediately !!!",
-      );
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) Navigator.of(context).pop();
       });
       return;
     }
 
-    debugPrint(
-      "!!! FLUTTER: AthanOverlayScreen opened for '${widget.prayerName}' !!!",
-    );
 
     // --- Pulse animation for stop button glow ---
     _pulseController = AnimationController(
@@ -138,16 +132,10 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
     final elapsed = now.difference(_openedAt).inSeconds;
 
     if (!force && elapsed < 2) {
-      debugPrint(
-        "!!! ATHAN OVERLAY: Auto-close ignored (Warm-up period: ${elapsed}s) !!!",
-      );
       return;
     }
 
     if (mounted && !_stopping) {
-      debugPrint(
-        "!!! ATHAN OVERLAY: Closing overlay (Force: $force, Elapsed: ${elapsed}s) !!!",
-      );
       
       // ✅ Natural Return Protocol: 
       // If it's a natural end (not forced by button), show "تقبل الله طاعتكم" and wait 2s
@@ -169,7 +157,6 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
   }
 
   void _handleNavigation() {
-    debugPrint("!!! ATHAN OVERLAY: _handleNavigation - Natural Return & Savior Logic !!!");
     if (mounted) {
       Navigator.of(context).pop();
       // ✅ استدعاء الميثود المنقذة لضمان الخروج التام في حالة الـ Cold Start
@@ -193,9 +180,6 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
       path = 'assets/images/isha_night.png';
     }
 
-    debugPrint(
-      "!!! ATHAN OVERLAY: Selected background '$path' for prayer '$name' !!!",
-    );
     return path;
   }
 

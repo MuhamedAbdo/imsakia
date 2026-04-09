@@ -20,7 +20,6 @@ import 'azkar_screen.dart';
 import 'fasting_fiqh_screen.dart';
 import 'tibyan_menu_page.dart';
 import '../widgets/neumorphic_box.dart';
-import '../services/athan_service.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -365,17 +364,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_lastLoadedCity != settings.selectedCity) {
       _lastLoadedCity = settings.selectedCity;
       _loadPrayerTimes();
     }
 
-    final cityName = settings.selectedCity.split(',').first.trim();
-    final countryName = settings.selectedCity.split(',').length > 1
-        ? settings.selectedCity.split(',').last.trim()
-        : '';
     final hijriDateMap = HijriDateService.getHijriDate(
       DateTime.now(),
       settings.hijriAdjustment,
@@ -383,28 +377,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 70,
-        title: Column(
-          children: [
-            Text(
-              'مواقيت الصلاة',
-              style: GoogleFonts.tajawal(
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              cityName.isEmpty
-                  ? 'لم يتم تحديد موقع'
-                  : '$cityName - $countryName',
-              style: GoogleFonts.tajawal(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: isDark ? Colors.grey[300] : Colors.grey[700],
-              ),
-            ),
-          ],
+        title: Text(
+          'مواقيت الصلاة',
+          style: GoogleFonts.tajawal(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         centerTitle: true,
         actions: [
@@ -424,115 +401,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               _buildHijriCard(hijriDateMap['formatted']),
               _buildNextPrayerCard(),
               const SizedBox(height: 10),
-              // --- Test Athan & Logs ---
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        debugPrint("--- Athan Test Started (Fajr) ---");
-                        final now = DateTime.now();
-                        final scheduleTime = now.add(const Duration(seconds: 5));
-                        
-                        await AthanManager.scheduleNextAthan(
-                          alarmId: 101, 
-                          time: scheduleTime,
-                          isFajr: true,
-                          prayerName: 'الفجر',
-                          isTest: true,
-                        );
-                        
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('تمت جدولة أذان الفجر للتجربة بعد 5 ثواني 🕌'),
-                              duration: Duration(seconds: 3),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.notifications_active, color: Colors.white),
-                      label: Text(
-                        'تجربة الفجر',
-                        style: GoogleFonts.tajawal(
-                            fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 1,
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        final logs = await AthanService.readLogs();
-                        if (context.mounted) {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Athan Logs'),
-                              content: SingleChildScrollView(
-                                child: Text(logs, style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () async {
-                                    await AthanService.clearLogs();
-                                    if (context.mounted) Navigator.pop(context);
-                                  },
-                                  child: const Text('Clear'),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Close'),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.list_alt, color: Colors.white, size: 20),
-                      label: Text(
-                        'Logs',
-                        style: GoogleFonts.tajawal(
-                            fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueGrey,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _buildPrayerTestButtons(),
-              const SizedBox(height: 15),
-              // 🔥 Emergency Stop Button (Requested by User)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40),
-                child: ElevatedButton.icon(
-                  onPressed: () => AthanManager.stopAthan(),
-                  icon: const Icon(Icons.stop_circle, color: Colors.white),
-                  label: Text(
-                    "إيقاف الأذان فوراً",
-                    style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red[700],
-                    minimumSize: const Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 15),
               _buildSpecialEventCard(settings.hijriAdjustment),
               const SizedBox(height: 20),
               _buildPrayerTimesList(hijriDateMap['monthIndex'] as int),
@@ -543,50 +411,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildPrayerTestButtons() {
-    final prayers = [
-      {'name': 'الظهر', 'id': 102, 'color': Colors.blue},
-      {'name': 'العصر', 'id': 103, 'color': Colors.orange},
-      {'name': 'المغرب', 'id': 104, 'color': Colors.deepOrange},
-      {'name': 'العشاء', 'id': 105, 'color': Colors.indigo},
-    ];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: prayers.map((p) {
-          return Padding(
-            padding: const EdgeInsets.only(left: 8.0),
-            child: ElevatedButton(
-              onPressed: () async {
-                final scheduleTime = DateTime.now().add(const Duration(seconds: 5));
-                await AthanManager.scheduleNextAthan(
-                  alarmId: p['id'] as int,
-                  time: scheduleTime,
-                  isFajr: false,
-                  prayerName: p['name'] as String,
-                  isTest: true,
-                );
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('تجربة أذان ${p['name']} بعد 5 ثواني'), backgroundColor: p['color'] as Color),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: p['color'] as Color,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: Text(
-                p['name'] as String,
-                style: GoogleFonts.tajawal(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
 
   Widget _buildHijriCard(String formattedDate) {
     return Container(

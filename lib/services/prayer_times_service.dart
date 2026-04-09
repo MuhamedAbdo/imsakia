@@ -142,10 +142,6 @@ class PrayerTimesService {
       await AthanManager.cancelAllAlarms();
       
       // We schedule alarms even if Athan is disabled to support silent notifications
-      final isEnabled = _sharedPreferences!.getBool(AppConstants.athanEnabledKey) ?? true;
-      if (!isEnabled) {
-        Logger.info("Athan is disabled in settings. Scheduling alarms for silent notifications.");
-      }
 
     final calculationMethod = _sharedPreferences!.getString(AppConstants.calculationMethodKey) ?? AppConstants.defaultCalculationMethod;
     final madhab = _sharedPreferences!.getString(AppConstants.madhabKey) ?? AppConstants.defaultMadhab;
@@ -190,7 +186,6 @@ class PrayerTimesService {
       });
     }
     
-    Logger.info("All prayers for Today and Tomorrow scheduled.");
     } finally {
       _isScheduling = false;
     }

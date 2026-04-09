@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:ui';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,9 +22,7 @@ class AthanManager {
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('cancelAthan', {'id': alarmId});
-      debugPrint("Native Alarm Cancelled: ID=$alarmId");
-    } catch (e) {
-      debugPrint("Failed to cancel alarm: $e");
+    } catch (_) {
     }
   }
 
@@ -34,8 +31,7 @@ class AthanManager {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('stopAthan');
       await cancelAthanNotification();
-    } catch (e) {
-      debugPrint("Failed to stop athan: $e");
+    } catch (_) {
     }
   }
 
@@ -44,8 +40,7 @@ class AthanManager {
       const channel = MethodChannel('imsakia/notifications');
       final result = await channel.invokeMethod<String>('getPendingAthan');
       return result;
-    } catch (e) {
-      debugPrint('❌ Error getting pending athan: $e');
+    } catch (_) {
       return null;
     }
   }
@@ -54,8 +49,7 @@ class AthanManager {
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('clearPendingAthan');
-    } catch (e) {
-      debugPrint('❌ Error clearing pending athan: $e');
+    } catch (_) {
     }
   }
 
@@ -64,9 +58,7 @@ class AthanManager {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('clearAllAlarms');
       await channel.invokeMethod('forceClearSystemAlarms'); 
-      debugPrint("All Native Alarms Cleared (Basic and Force)");
-    } catch (e) {
-      debugPrint("Failed to clear all alarms: $e");
+    } catch (_) {
     }
   }
 
@@ -74,9 +66,7 @@ class AthanManager {
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('forceClearSystemAlarms');
-      debugPrint("Force Clear System Alarms triggered.");
-    } catch (e) {
-      debugPrint("Failed to force clear alarms: $e");
+    } catch (_) {
     }
   }
 
@@ -114,13 +104,11 @@ class AthanManager {
     final isSilent = !isEnabled;
     
     if (!isEnabled && !isTest) {
-      debugPrint("!!! ATHAN MANAGER: Athan is disabled, scheduling for SILENT notification. !!!");
     }
     
     if (Platform.isAndroid) {
       final status = await Permission.scheduleExactAlarm.status;
       if (status.isDenied || status.isRestricted) {
-        debugPrint("Cannot schedule exact alarm: Permission denied.");
         return; 
       }
     }
@@ -134,9 +122,7 @@ class AthanManager {
         'prayerKey': prayerKey,
         'isSilent': isSilent,
       });
-      debugPrint("Native Athan '$prayerName' scheduled for $time (ID=$alarmId, Key=$prayerKey, Silent=$isSilent)");
-    } catch (e) {
-      debugPrint("Native Alarm Scheduling Failed: $e");
+    } catch (_) {
     }
   }
 
@@ -144,9 +130,7 @@ class AthanManager {
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('performSmartExit');
-      debugPrint("Native Smart Exit triggered.");
-    } catch (e) {
-      debugPrint("Failed to perform smart exit: $e");
+    } catch (_) {
     }
   }
 
@@ -154,9 +138,7 @@ class AthanManager {
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('forceExit');
-      debugPrint("Native Force Exit (Graceful Backgrounding) triggered.");
-    } catch (e) {
-      debugPrint("Failed to perform force exit: $e");
+    } catch (_) {
     }
   }
 
@@ -164,9 +146,7 @@ class AthanManager {
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('finalizeAthanSession');
-      debugPrint("!!! ATHAN MANAGER: Native finalizeAthanSession triggered !!!");
-    } catch (e) {
-      debugPrint("!!! ATHAN MANAGER: Failed to perform finalizeAthanSession: $e");
+    } catch (_) {
     }
   }
 
@@ -175,8 +155,7 @@ class AthanManager {
       const channel = MethodChannel('imsakia/notifications');
       final result = await channel.invokeMethod<bool>('getShouldExitFlag');
       return result ?? false;
-    } catch (e) {
-      debugPrint("Failed to get shouldExit flag: $e");
+    } catch (_) {
       return false;
     }
   }
@@ -185,8 +164,7 @@ class AthanManager {
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('clearShouldExitFlag');
-    } catch (e) {
-      debugPrint("Failed to clear shouldExit flag: $e");
+    } catch (_) {
     }
   }
 }

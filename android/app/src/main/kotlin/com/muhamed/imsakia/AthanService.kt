@@ -21,7 +21,7 @@ class AthanService : Service() {
     private var mediaPlayer: MediaPlayer? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private val SERVICE_NOTIFICATION_ID = 7777
-    private val ATHAN_SERVICE_CHANNEL = "athan_service_channel"
+    private val ATHAN_SERVICE_CHANNEL = "athan_audible_channel"
     private val ACTION_STOP_ATHAN = "com.muhamed.imsakia.STOP_ATHAN"
     private var retryCount = 0
     private val MAX_RETRY = 3
@@ -29,45 +29,33 @@ class AthanService : Service() {
     private var currentAlarmId = 0
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        System.err.println("!!! ATHAN SERVICE: onStartCommand CALLED !!! action=${intent?.action}")
         
-        // 🔥 Hard Guard: منع تشغيل الخدمة في الوضع الصامت تماماً
         val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         val isAthanEnabled = prefs.getBoolean("flutter.athan_enabled", true)
         val isSilentInIntent = intent?.getBooleanExtra("is_silent", false) ?: false
         
-        if (isSilentInIntent || !isAthanEnabled) {
-            System.err.println("!!! ATHAN SERVICE: Hard Guard - Silent mode detected (Intent=$isSilentInIntent, Prefs=$isAthanEnabled). Stopping immediately. !!!")
-            stopSelf()
-            return START_NOT_STICKY
-        }
-        
-        if (intent?.action == ACTION_STOP_ATHAN) {
-            System.err.println("!!! ATHAN SERVICE: Stop action received. Checking if broadcast needed.")
-            
-            val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-            val isEnabled = prefs.getBoolean("flutter.athan_enabled", true)
-            
-            if (isEnabled) {
-                System.err.println("!!! ATHAN SERVICE: Athan was enabled, sending ATHAN_COMPLETED broadcast.")
-                sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
-            } else {
-                System.err.println("!!! ATHAN SERVICE: Athan was silent, skipping broadcast.")
-            }
-            
-            stopSelf()
-            return START_NOT_STICKY
-        }
-
         val prayerName = intent?.getStringExtra("prayer_name") ?: "الصلاة"
         val prayerKey = intent?.getStringExtra("prayer_key") ?: "dhuhr"
         val alarmId = intent?.getIntExtra("alarm_id", 0) ?: 0
         
         currentPrayerName = prayerName
         currentAlarmId = alarmId
-
-        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        val isAthanEnabled = prefs.getBoolean("flutter.athan_enabled", true)
+        
+        if (isSilentInIntent || !isAthanEnabled) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        
+        if (intent?.action == ACTION_STOP_ATHAN) {
+            
+            if (isAthanEnabled) {
+                sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
+            } else {
+            }
+            
+            stopSelf()
+            return START_NOT_STICKY
+        }
         
         try {
             // 🔥 منع تداخل الأصوات: أوقف أي ميديا بلاير قديم
@@ -89,15 +77,12 @@ class AthanService : Service() {
                     playAthanAudioWithRetry(prayerKey)
                 }.start()
             } else {
-                System.err.println("!!! ATHAN SERVICE: Silent mode. Keeping notification alive for 5 minutes.")
                 Handler(Looper.getMainLooper()).postDelayed({
-                    System.err.println("!!! ATHAN SERVICE: Silent 5-min timeout reached. Stopping service.")
                     stopSelf()
                 }, 300000) // 5 minutes
             }
             
         } catch (e: Exception) {
-            System.err.println("!!! ATHAN SERVICE: CRITICAL ERROR: ${e.message} !!!")
         }
         
         return START_NOT_STICKY 
@@ -123,6 +108,8 @@ class AthanService : Service() {
             ).apply {
                 setSound(null, null)
                 setShowBadge(false)
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 500, 200, 500)
             }
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
@@ -163,6 +150,7 @@ class AthanService : Service() {
             .setTimeoutAfter(300000) // 5 minutes
             .setOnlyAlertOnce(true)
             .setContentIntent(stopPendingIntent) // Tap to stop
+            .setVibrate(longArrayOf(0, 500, 200, 500))
             
         if (isAthanEnabled) {
             notificationBuilder.setFullScreenIntent(fullScreenPendingIntent, true)
@@ -170,15 +158,12 @@ class AthanService : Service() {
 
         val notification = notificationBuilder.build()
         startForeground(SERVICE_NOTIFICATION_ID, notification)
-        System.err.println("!!! ATHAN SERVICE: Foreground Started for $prayerName (Ongoing=$isOngoing) !!!")
 
         if (isAthanEnabled) {
             // 🔥 محاولة فتح الأكتيفيتي قسرياً فقط في حالة تفعيل الأذان
             try {
                 startActivity(mainIntent)
-                System.err.println("!!! ATHAN SERVICE: Aggressive startActivity executed (Athan Enabled) !!!")
             } catch (e: Exception) {
-                System.err.println("!!! ATHAN SERVICE ERROR: Aggressive startActivity FAILED: ${e.message} !!!")
             }
         }
     }
@@ -186,11 +171,9 @@ class AthanService : Service() {
     private fun playAthanAudioWithRetry(prayerKey: String) {
         while (retryCount < MAX_RETRY) {
             try {
-                System.err.println("!!! ATHAN SERVICE: Playing Audio for $prayerKey (Attempt ${retryCount + 1}) !!!")
                 playAthanAudio(prayerKey)
                 return // Success
             } catch (e: Exception) {
-                System.err.println("!!! ATHAN SERVICE: Playback Failed for $prayerKey: ${e.message} !!!")
                 retryCount++
                 Thread.sleep(1000)
             }
@@ -204,7 +187,6 @@ class AthanService : Service() {
         val assetPath = prefs.getString("flutter.athan_path_$prayerKey", null) 
                         ?: if(prayerKey == "fajr") "assets/audio/fajr_makkah.mp3" else "assets/audio/athan_makkah.mp3"
 
-        System.err.println("!!! ATHAN SERVICE: Selected Asset Path: $assetPath !!!")
 
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val audioAttributes = AudioAttributes.Builder()
@@ -229,7 +211,6 @@ class AthanService : Service() {
                 val assetDescriptor = assets.openFd("flutter_assets/$assetPath")
                 setDataSource(assetDescriptor.fileDescriptor, assetDescriptor.startOffset, assetDescriptor.length)
             } catch (e: Exception) {
-                System.err.println("!!! ATHAN SERVICE: Failed to load $assetPath, falling back to raw/athan_makkah !!!")
                 val soundUri = android.net.Uri.parse("android.resource://${packageName}/raw/athan_makkah")
                 setDataSource(applicationContext, soundUri)
             }
@@ -247,14 +228,12 @@ class AthanService : Service() {
                 nativePrefs.edit().putBoolean("should_exit_to_background", true).commit()
 
                 // التحول لوضع "قابل للمسح" بعد انتهاء الصوت
-                System.err.println("!!! ATHAN SERVICE: Audio completed. Making notification cancellable.")
                 startForegroundServiceNotification(currentPrayerName, currentAlarmId, isAthanEnabled = true, isOngoing = false)
                 
                 sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
             }
 
             setOnErrorListener { _, what, extra ->
-                System.err.println("!!! ATHAN SERVICE: MediaPlayer Error what=$what extra=$extra !!!")
                 true
             }
             

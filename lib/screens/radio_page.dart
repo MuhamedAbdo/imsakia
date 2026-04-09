@@ -27,11 +27,9 @@ class _RadioPageState extends State<RadioPage> {
   }
 
   void _initRadioPlayer() {
-    debugPrint("Initializing AudioPlayer for radio...");
     
     // Listen to player state changes
     _audioPlayer.onPlayerStateChanged.listen((state) {
-      debugPrint("Playback state changed: $state");
       if (mounted) {
         setState(() => isPlaying = state == PlayerState.playing);
       }
@@ -40,27 +38,16 @@ class _RadioPageState extends State<RadioPage> {
 
   Future<void> _fetchRadios() async {
     try {
-      debugPrint("Fetching radios from API...");
       final response = await Dio().get('https://mp3quran.net/api/v3/radios?language=ar');
       if (response.data != null) {
-        debugPrint("API Response received");
-        debugPrint("Number of radios: ${response.data['radios']?.length ?? 0}");
-        
-        // Log first radio details for debugging
-        if (response.data['radios']?.isNotEmpty == true) {
-          final firstRadio = response.data['radios'][0];
-          debugPrint("First radio: ${firstRadio['name']} -> ${firstRadio['url']}");
-        }
         
         setState(() {
           allRadios = response.data['radios'];
           filteredRadios = allRadios;
           isLoading = false;
         });
-        debugPrint("Radios loaded successfully");
       }
     } catch (e) {
-      debugPrint("Error fetching radios: $e");
       setState(() {
         isLoading = false;
       });
@@ -77,19 +64,12 @@ class _RadioPageState extends State<RadioPage> {
 
   void _playRadio(int index, dynamic radioData) async {
     try {
-      debugPrint("=== Radio Debug ===");
-      debugPrint("Name: ${radioData['name']}");
-      debugPrint("URL: ${radioData['url']}");
-      debugPrint("Current index: $currentIndex, Selected index: $index");
-      debugPrint("Is playing: $isPlaying");
       
       final radioUrl = radioData['url'];
       
       if (currentIndex == index && isPlaying) {
-        debugPrint("Pausing radio...");
         await _audioPlayer.pause();
       } else {
-        debugPrint("Setting new station...");
         
         // Stop current playback
         await _audioPlayer.stop();
@@ -101,13 +81,11 @@ class _RadioPageState extends State<RadioPage> {
         await _audioPlayer.play(UrlSource(radioUrl));
         
         setState(() => currentIndex = index);
-        debugPrint("Playback started for index: $index");
         
         // Show success message
         _showMessage('جاري تشغيل: ${radioData['name']}', Colors.green);
       }
     } catch (e) {
-      debugPrint("Radio Error: $e");
       _showError('خطأ في تشغيل الإذاعة: $e');
     }
   }

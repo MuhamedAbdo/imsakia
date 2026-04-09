@@ -42,7 +42,6 @@ class _SplashScreenState extends State<SplashScreen>
     // ✅ نظام الخروج الصامت: تحقق من العلم قبل أي شيء
     final shouldExit = await AthanManager.getShouldExitFlag();
     if (shouldExit && mounted) {
-      debugPrint("!!! SPLASH SCREEN: Graceful Exit detected. Moving to back... !!!");
       await AthanManager.clearShouldExitFlag();
       await AthanManager.forceExit();
       return;
@@ -61,7 +60,6 @@ class _SplashScreenState extends State<SplashScreen>
       // نقوم بنقله للتطبيق تلقائياً بعد مهلة كافية
       Timer(const Duration(seconds: 3), () {
         if (mounted && !MyApp.isAthanShowing) {
-          debugPrint("!!! SPLASH SCREEN: Safety fallback triggered, navigating to main... !!!");
           _navigateToMainApp();
         }
       });
@@ -79,11 +77,9 @@ class _SplashScreenState extends State<SplashScreen>
           .timeout(
             const Duration(seconds: 3),
             onTimeout: () {
-              debugPrint('⚠️ SettingsProvider initialization timeout');
             },
           )
           .catchError((e) {
-            debugPrint('❌ SettingsProvider initialization error: $e');
           });
     }
 
@@ -95,11 +91,9 @@ class _SplashScreenState extends State<SplashScreen>
         .timeout(
           const Duration(seconds: 3),
           onTimeout: () {
-            debugPrint('⚠️ HadithService initialization timeout');
           },
         )
         .catchError((e) {
-          debugPrint('❌ HadithService initialization error: $e');
         });
 
     AzkarService.instance
@@ -107,11 +101,9 @@ class _SplashScreenState extends State<SplashScreen>
         .timeout(
           const Duration(seconds: 3),
           onTimeout: () {
-            debugPrint('⚠️ AzkarService initialization timeout');
           },
         )
         .catchError((e) {
-          debugPrint('❌ AzkarService initialization error: $e');
         });
   }
 
@@ -119,7 +111,6 @@ class _SplashScreenState extends State<SplashScreen>
     // 🔥 Guard: If Athan Overlay is currently showing, CANCEL everything.
     // This prevents SplashScreen from "pushReplacement" which would kill the Athan Overlay.
     if (context.mounted && (MyApp.isAthanShowing)) {
-      debugPrint("!!! SPLASH SCREEN: Athan Overlay is active. Stopping Splash navigation timer !!!");
       _navigationTimer?.cancel();
       _navigationTimer = null;
       return;
@@ -200,7 +191,6 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     // 🔥 Real-time Monitoring: If Athan is showing, cancel the timer IMMEDIATELY
     if (MyApp.isAthanShowing && _navigationTimer != null) {
-      debugPrint("!!! SPLASH SCREEN: build() detected Athan activity, cancelling navigation timer !!!");
       _navigationTimer?.cancel();
       _navigationTimer = null;
     }

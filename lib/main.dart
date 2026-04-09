@@ -104,7 +104,6 @@ void main() async {
   // 1. تحقق من الأذان المعلق في Native SharedPreferences (Guaranteed Delivery)
   final pendingPrayer = await AthanManager.getPendingAthan();
   if (pendingPrayer != null && pendingPrayer.isNotEmpty) {
-    debugPrint("!!! main.dart: Found pending athan from native: $pendingPrayer !!!");
     overlayScreen = AthanOverlayScreen(prayerName: pendingPrayer, isColdStart: true);
     // ✅ نظّف فوراً بعد الاستهلاك
     await AthanManager.clearPendingAthan();
@@ -159,15 +158,12 @@ class _MyAppState extends State<MyApp> {
 
   void _setupMethodChannel() {
     platform.setMethodCallHandler((call) async {
-      debugPrint("!!! FLUTTER DEBUG: MethodCall from Native: ${call.method} !!!");
       
       if (call.method == "showAthanOverlay") {
         final prayerName = call.arguments['prayerName'] ?? "الصلاة";
-        debugPrint("!!! FLUTTER DEBUG: Received showAthanOverlay for $prayerName !!!");
         
         // 1. Passive check: Are we already showing this exact Athan?
         if (_currentAthanOverlay == prayerName) {
-           debugPrint("!!! FLUTTER: Already on AthanOverlayScreen for $prayerName, skipping push !!!");
            return;
         }
 
@@ -199,7 +195,6 @@ class _MyAppState extends State<MyApp> {
           }
         });
       } else if (call.method == "dismissAthanOverlay") {
-        debugPrint("!!! FLUTTER DEBUG: Received dismissAthanOverlay !!!");
         // 1. تأخير بسيط جداً (500ms) للسماح بتنسيق العمليات
         await Future.delayed(const Duration(milliseconds: 500));
         
@@ -215,7 +210,6 @@ class _MyAppState extends State<MyApp> {
           });
           
           if (wasOnOverlay) {
-            debugPrint("!!! FLUTTER: Athan overlay popped via dismissAthanOverlay !!!");
             // 3. Reset state
             setState(() {
               _currentAthanOverlay = null;
@@ -226,7 +220,6 @@ class _MyAppState extends State<MyApp> {
 
             // 4. Trigger native smart exit OR SELF-DESTRUCT for cold start
             if (_isColdStartForAthan) {
-              debugPrint("!!! FLUTTER: SELF-DESTRUCTION for Cold Start !!!");
               await AthanManager.forceExit();
             } else {
               await AthanManager.performSmartExit();
@@ -303,10 +296,8 @@ class _MyAppState extends State<MyApp> {
       'assets/images/isha_night.png',
     ];
     
-    debugPrint("!!! main.dart: Pre-caching ${assets.length} Athan images for instant display !!!");
     for (final val in assets) {
-      precacheImage(AssetImage(val), context).catchError((e) {
-        debugPrint("❌ Error precaching $val: $e");
+      precacheImage(AssetImage(val), context).catchError((_) {
       });
     }
   }
@@ -323,10 +314,8 @@ Future<void> _prepareAthanAssets() async {
     if (!await file.exists()) {
       final byteData = await rootBundle.load('assets/audio/athan_makkah.mp3');
       await file.writeAsBytes(byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
-      debugPrint("Athan asset copied to local storage: $path");
     }
-  } catch (e) {
-    debugPrint("Error copying athan assets: $e");
+  } catch (_) {
   }
 }
 

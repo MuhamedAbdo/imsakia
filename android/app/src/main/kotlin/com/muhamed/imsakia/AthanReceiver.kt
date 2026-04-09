@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
+import androidx.core.app.NotificationCompat
 
 class AthanReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -13,10 +14,8 @@ class AthanReceiver : BroadcastReceiver() {
         val alarmId = intent.getIntExtra("alarm_id", 0)
         val isSilent = intent.getBooleanExtra("is_silent", false)
         
-        System.err.println("!!! ATHAN RECEIVER: Triggered for $prayerName, Silent=$isSilent !!!")
 
         if (isSilent) {
-            System.err.println("!!! ATHAN RECEIVER: Silent mode handling (Notification only) !!!")
             showSilentNotification(context, prayerName, alarmId)
             return
         }
@@ -46,7 +45,6 @@ class AthanReceiver : BroadcastReceiver() {
                 putExtra("prayer_name", prayerName)
             }
             context.startActivity(intentToMain)
-            System.err.println("!!! ATHAN RECEIVER: Activity launch triggered for audible Athan !!!")
             
             // 3. Acquire WakeLock
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -59,12 +57,14 @@ class AthanReceiver : BroadcastReceiver() {
     }
 
     private fun showSilentNotification(context: Context, prayerName: String, alarmId: Int) {
-        val channelId = "athan_service_channel"
+        val channelId = "athan_silent_channel"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val importance = android.app.NotificationManager.IMPORTANCE_DEFAULT
-            val channel = android.app.NotificationChannel(channelId, "Athan Service", importance).apply {
+            val channel = android.app.NotificationChannel(channelId, "Athan Service (Silent)", importance).apply {
                 setSound(null, null)
                 setShowBadge(false)
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 200, 100, 200)
             }
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
             manager.createNotificationChannel(channel)
@@ -77,6 +77,7 @@ class AthanReceiver : BroadcastReceiver() {
             .setCategory(NotificationCompat.CATEGORY_EVENT)
             .setAutoCancel(true)
             .setTimeoutAfter(300000) // 5 minutes
+            .setVibrate(longArrayOf(0, 200, 100, 200))
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         notificationManager.notify(9999 + alarmId, builder.build())

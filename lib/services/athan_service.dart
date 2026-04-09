@@ -18,8 +18,7 @@ class AthanService {
     // 1. Force the CPU to wake up IMMEDIATELY (Priority 1)
     try {
       await WakelockPlus.enable();
-    } catch (e) {
-      debugPrint("Early wakelock failed: $e");
+    } catch (_) {
     }
 
     // 2. Clear pre-existing audio if any (Double Athan protection)
@@ -28,7 +27,7 @@ class AthanService {
         await _player!.stop();
         await _player!.dispose();
         _player = null;
-      } catch (e) {
+      } catch (_) {
         // Silently fail as it's just cleanup
       }
     }
@@ -37,8 +36,7 @@ class AthanService {
     try {
       WidgetsFlutterBinding.ensureInitialized();
       DartPluginRegistrant.ensureInitialized();
-    } catch (e) {
-      debugPrint("Failed to initialize bindings: $e");
+    } catch (_) {
     }
     
     // 4. Logging Setup
@@ -46,8 +44,7 @@ class AthanService {
     try {
       logFile = await _getLogFile();
       await _writeLog(logFile, "--- [Background] Athan Isolate Started ---");
-    } catch (e) {
-      debugPrint("Logger failed: $e");
+    } catch (_) {
     }
 
     final FlutterLocalNotificationsPlugin notificationsPlugin =
@@ -121,7 +118,7 @@ class AthanService {
         await _player?.stop();
         await _player?.dispose();
         _player = null;
-      } catch (e) {
+      } catch (_) {
         // Silently fail
       }
       
@@ -151,8 +148,7 @@ class AthanService {
       if (await file.exists()) {
         await file.writeAsString("");
       }
-    } catch (e) {
-      debugPrint("Error clearing log: $e");
+    } catch (_) {
     }
   }
 
