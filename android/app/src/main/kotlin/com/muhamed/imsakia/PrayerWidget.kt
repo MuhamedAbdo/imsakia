@@ -63,6 +63,36 @@ class PrayerWidget : HomeWidgetProvider() {
         )
         views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
 
+        // 5. جدولة تنبيه (Alarm) وقت الصلاة لضمان تحديث الطقم وقت الـ Zero
+        if (nextTimestamp > System.currentTimeMillis()) {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            val alarmIntent = Intent(context, PrayerWidget::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, appWidgetIds)
+            }
+            // نستخدم كود ثابت لنتمكن من تحديث/إلغاء التنبيه السابق
+            val alarmPendingIntent = PendingIntent.getBroadcast(
+                context,
+                1001,
+                alarmIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    nextTimestamp,
+                    alarmPendingIntent
+                )
+            } else {
+                alarmManager.setExact(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    nextTimestamp,
+                    alarmPendingIntent
+                )
+            }
+        }
+
         for (appWidgetId in appWidgetIds) {
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
