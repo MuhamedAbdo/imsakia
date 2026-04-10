@@ -9,7 +9,7 @@ class SettingsProvider extends ChangeNotifier {
   SharedPreferences? _prefs;
   bool _isInitialized = false;
 
-  AppThemeMode _themeMode = AppThemeMode.system;
+  AppThemeMode _themeMode = AppThemeMode.dark;
   String _selectedCity = AppConstants.defaultCity;
   String _selectedCityName = "القاهرة، مصر";
   String _selectedCalculationMethod = AppConstants.defaultCalculationMethod;
@@ -50,10 +50,10 @@ class SettingsProvider extends ChangeNotifier {
     _selectedCity = _prefs?.getString(AppConstants.selectedCityKey) ?? AppConstants.defaultCity;
     _selectedCityName = _prefs?.getString('selected_city_name') ?? "القاهرة، مصر";
 
-    final savedTheme = _prefs?.getString(AppConstants.themeModeKey) ?? 'system';
+    final savedTheme = _prefs?.getString(AppConstants.themeModeKey) ?? 'dark';
     _themeMode = AppThemeMode.values.firstWhere(
       (mode) => mode.toString().split('.').last == savedTheme,
-      orElse: () => AppThemeMode.system,
+      orElse: () => AppThemeMode.dark,
     );
 
     _selectedCalculationMethod = _prefs?.getString(AppConstants.calculationMethodKey) ?? AppConstants.defaultCalculationMethod;
@@ -125,7 +125,7 @@ class SettingsProvider extends ChangeNotifier {
   void _setDefaults() {
     _selectedCity = AppConstants.defaultCity;
     _selectedCityName = "القاهرة، مصر";
-    _themeMode = AppThemeMode.system;
+    _themeMode = AppThemeMode.dark;
     _hijriAdjustment = 0;
     _autoHijriAdjustment = true;
   }

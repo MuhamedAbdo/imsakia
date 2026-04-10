@@ -136,14 +136,6 @@ class _CountdownContent extends StatelessWidget {
             color: color,
           ),
         ),
-        const SizedBox(width: 5),
-        Text(
-          'بعد',
-          style: GoogleFonts.tajawal(
-            fontSize: 16,
-            color: color.withValues(alpha: 0.9),
-          ),
-        ),
       ],
     );
   }
