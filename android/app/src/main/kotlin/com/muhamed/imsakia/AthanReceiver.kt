@@ -20,7 +20,20 @@ class AthanReceiver : BroadcastReceiver() {
             return
         }
 
-        // --- Audible Branch: Full Protocol (Service + Activity + WakeLock) ---
+        android.util.Log.i("ZadAthan", "!!! Athan Alert Triggered (Sovereign): $prayerName !!!")
+
+        // 0. Acquire WakeLock IMMEDIATELY (Full Wake)
+        try {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            val wakeLock = powerManager.newWakeLock(
+                PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
+                "Zad:SovereignWakeLock"
+            )
+            wakeLock.acquire(30000) // 30 seconds to allow Flutter to load
+            android.util.Log.d("ZadAthan", "--- WakeLock Acquired ---")
+        } catch (e: Exception) { e.printStackTrace() }
+
+        // --- Audible Branch: Full Protocol (Service + Activity) ---
         
         // 1. Start Service
         val serviceIntent = Intent(context, AthanService::class.java).apply {
@@ -43,16 +56,11 @@ class AthanReceiver : BroadcastReceiver() {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
                 putExtra("trigger_athan_overlay", true)
                 putExtra("prayer_name", prayerName)
+                putExtra("prayer_key", prayerKey)
+                putExtra("alarm_id", alarmId)
             }
             context.startActivity(intentToMain)
-            
-            // 3. Acquire WakeLock
-            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-            val wakeLock = powerManager.newWakeLock(
-                PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
-                "Imsakia:WakeLock"
-            )
-            wakeLock.acquire(15000) // 15 seconds
+            android.util.Log.d("ZadAthan", "--- MainActivity Started ---")
         } catch (e: Exception) { e.printStackTrace() }
     }
 

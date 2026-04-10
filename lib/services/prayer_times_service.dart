@@ -390,7 +390,9 @@ class PrayerTimesService {
     final prayerTime = _currentPrayerTimes![nextPrayer];
     if (prayerTime == null) return null;
 
-    if (prayerTime.isBefore(DateTime.now())) {
+    final now = DateTime.now();
+    // إذا كانت الصلاة المجلوبة (مثل الظهر) قد مرت اليوم، أو كنا في نهاية اليوم وننتقل للفجر
+    if (prayerTime.isBefore(now)) {
       return prayerTime.add(const Duration(days: 1));
     }
     return prayerTime;

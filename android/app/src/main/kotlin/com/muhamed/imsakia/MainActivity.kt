@@ -58,28 +58,26 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // 🔥 Protection against white flash: Translucent theme if Athan triggered this cold start
+        // 🔥 1. Priority Theme & Window Flags (BEFORE super.onCreate/setContentView)
         val isAthanIntent = intent?.getBooleanExtra("trigger_athan_overlay", false) == true || 
                             intent?.hasExtra("prayer_name") == true
         if (isAthanIntent) {
-            setTheme(android.R.style.Theme_Translucent_NoTitleBar)
-            window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setTheme(android.R.style.Theme_Black_NoTitleBar_Fullscreen)
         }
 
-        // ✅ Call super first
-        super.onCreate(savedInstanceState)
-        
-        // Track state for Smart Exit
         val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-        wasLockedOnStart = keyguardManager.isKeyguardLocked
-        wasInAppOnStart = false // onCreate means it wasn't in foreground
-        
-
-        // 🔥 ضمان ظهور التطبيق فوق شاشة القفل وتنشيط الشاشة (Xiaomi Breakthrough)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
-            keyguardManager.requestDismissKeyguard(this, null)
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                setInheritShowWhenLocked(true)
+            }
+
+            // 🔥 Root Cause Fix: 200ms delay to ensure activity covers screen before dismissing keyguard
+            Handler(Looper.getMainLooper()).postDelayed({
+                keyguardManager.requestDismissKeyguard(this, null)
+            }, 200)
         } else {
             @Suppress("DEPRECATION")
             window.addFlags(
@@ -90,9 +88,14 @@ class MainActivity : AudioServiceActivity() {
                 WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
             )
         }
-        
-        // 🔥 Ensure window stays ON for Athan
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // ✅ 2. super.onCreate
+        super.onCreate(savedInstanceState)
+        
+        // Track state for Smart Exit
+        wasLockedOnStart = keyguardManager.isKeyguardLocked
+        wasInAppOnStart = false 
 
         // Register receiver for audio completion
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -243,10 +246,16 @@ class MainActivity : AudioServiceActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         
-        // Update state for smart exit
+        // 🔥 Immediate Keyguard Dismissal on New Intent with 200ms delay
         val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                keyguardManager.requestDismissKeyguard(this, null)
+            }, 200)
+        }
+        
         wasLockedOnStart = keyguardManager.isKeyguardLocked
-        wasInAppOnStart = true // If onNewIntent called, activity was already alive/foreground
+        wasInAppOnStart = true 
         
         checkAndShowAthanOverlay()
     }
@@ -307,7 +316,10 @@ class MainActivity : AudioServiceActivity() {
             
             // Persist for Reboot
             val prefs = getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
-            prefs.edit().putLong(id.toString(), timeInMillis).commit()
+            prefs.edit()
+                .putLong(id.toString(), timeInMillis)
+                .putString("${id}_data", "$prayerName|$prayerKey|$isSilent")
+                .commit()
 
             // 1. Intent for BroadcastReceiver (Actual Alarm Action)
             val broadcastIntent = Intent(this, AthanReceiver::class.java).apply {
@@ -353,7 +365,7 @@ class MainActivity : AudioServiceActivity() {
             
             // Remove from prefs
             val prefs = getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
-            prefs.edit().remove(id.toString()).apply()
+            prefs.edit().remove(id.toString()).remove("${id}_data").commit()
         } catch (e: Exception) {
         }
     }
@@ -371,7 +383,7 @@ class MainActivity : AudioServiceActivity() {
                 )
                 alarmManager.cancel(pIntent)
             }
-            prefs.edit().clear().apply()
+            prefs.edit().clear().commit()
         } catch (e: Exception) {
         }
     }

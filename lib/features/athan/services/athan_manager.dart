@@ -167,6 +167,18 @@ class AthanManager {
     } catch (_) {
     }
   }
+
+  /// Schedules a test athan alert for 15 seconds from now.
+  static Future<void> testAthan() async {
+    final now = DateTime.now();
+    await scheduleNextAthan(
+      alarmId: 999, // Unique ID for test
+      time: now.add(const Duration(minutes: 5)),
+      isFajr: false,
+      prayerName: "تجربة الأذان",
+      isTest: true,
+    );
+  }
 }
 
 @pragma('vm:entry-point')

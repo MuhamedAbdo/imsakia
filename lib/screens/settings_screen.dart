@@ -13,6 +13,7 @@ import '../features/athan/providers/athan_provider.dart';
 import '../services/prayer_times_service.dart';
 import '../widgets/neumorphic_box.dart';
 import '../features/audio/services/audio_handler.dart';
+import '../features/athan/services/athan_manager.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool isFirstTimeSetup;
@@ -610,6 +611,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: 'فعل "Show on Lock Screen" لتفتح الصور تلقائياً',
                 icon: Icons.security_rounded,
                 onTap: () => provider.openXiaomiOtherPermissions(),
+              ),
+              const SizedBox(height: 15),
+              const Divider(height: 30),
+              _buildActionTile(
+                context,
+                title: 'اختبار نظام الأذان (٥ دقائق)',
+                subtitle: 'سيطلق الأذان بعد ٥ دقائق لاختبار الـ Restart والـ WakeLock',
+                icon: Icons.timer_outlined,
+                onTap: () async {
+                  await AthanManager.testAthan();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('سيتم تشغيل الأذان التجريبي بعد ٥ دقائق. يمكنك الآن عمل Reboot للهاتف لتجربة استعادة الخدمة.'),
+                        duration: Duration(seconds: 7),
+                      ),
+                    );
+                  }
+                },
               ),
             ],
           ],
