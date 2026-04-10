@@ -1,49 +1,78 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_container"
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/widget_bg"
-    android:orientation="horizontal"
-    android:padding="12dp"
-    android:layoutDirection="rtl"
-    android:weightSum="10"
-    android:gravity="center_vertical">
+    android:layout_height="match_parent">
 
-    <!-- 1. Right: Brand -->
-    <TextView
-        android:layout_width="0dp"
+    <ImageView
+        android:id="@+id/widget_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/bg_v2"
+        android:scaleType="centerCrop" />
+
+    <!-- الجهة اليسرى: اسم التطبيق والتاريخ (داخل الدائرة بعد عكس الصورة) -->
+    <LinearLayout
+        android:id="@+id/ll_app_info"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_weight="2"
-        android:text="زاد"
-        android:textColor="#FFFFFF"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:fontFamily="sans-serif-medium"
-        android:gravity="right" />
+        android:layout_alignParentStart="true"
+        android:layout_centerVertical="true"
+        android:layout_marginStart="42dp"
+        android:orientation="vertical"
+        android:gravity="center">
 
-    <!-- 2. Middle: Prayer Name -->
-    <TextView
-        android:id="@+id/prayer_name"
-        android:layout_width="0dp"
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="زاد"
+            android:textColor="#D4AF37"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:id="@+id/hijri_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="-- رمضان ١٤٤٧"
+            android:textColor="#FFFFFF"
+            android:textSize="10sp"
+            android:alpha="0.8"
+            android:fontFamily="sans-serif-light"
+            android:layout_marginTop="-4dp" />
+    </LinearLayout>
+
+    <!-- الجهة اليمنى: الموعد القادم والعداد (المساحة المستطيلة) -->
+    <LinearLayout
+        android:id="@+id/ll_prayer_info"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_weight="5"
-        android:text="الصلاة"
-        android:textColor="#FFFFFF"
-        android:textSize="18sp"
-        android:fontFamily="sans-serif-medium"
-        android:gravity="center" />
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:layout_marginEnd="48dp"
+        android:orientation="vertical"
+        android:gravity="center">
 
-    <!-- 3. Left: Timer (HH:MM) -->
-    <TextView
-        android:id="@+id/countdown_short"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="3"
-        android:text="--:--"
-        android:textColor="#FFFFFF"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:fontFamily="sans-serif-medium"
-        android:gravity="left" />
+        <TextView
+            android:id="@+id/prayer_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="المغرب"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:alpha="0.6"
+            android:fontFamily="sans-serif-medium" />
 
-</LinearLayout>
+        <TextView
+            android:id="@+id/countdown_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="00:00"
+            android:textColor="#D4AF37"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:layout_marginTop="-4dp" />
+    </LinearLayout>
+
+</RelativeLayout>
