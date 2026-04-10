@@ -172,8 +172,11 @@ class PrayerTimesService {
       final event = eventsService.currentEvent;
       final eventTypeName = event?.type.toString().split('.').last ?? 'none';
 
+      final nextPrayerDisplay = "$nextPrayerName ${_formatTimeTo12h(nextPrayerTime)}";
+      
       // حفظ البيانات للويدجت بالمفاتيح المطلوبة بدقة للهيكل الجديد
       await HomeWidget.saveWidgetData<String>('flutter.next_prayer_name', nextPrayerName);
+      await HomeWidget.saveWidgetData<String>('flutter.next_prayer_display', nextPrayerDisplay);
       await HomeWidget.saveWidgetData<String>('flutter.countdown_text', countdownText);
       await HomeWidget.saveWidgetData<String>('flutter.last_prayer_display', lastPrayerInfo);
       await HomeWidget.saveWidgetData<String>('flutter.hijri_date_full', hijriDateFull);

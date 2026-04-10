@@ -15,15 +15,17 @@ class PrayerWidget : HomeWidgetProvider() {
     ) {
         val views = RemoteViews(context.packageName, R.layout.prayer_widget)
         
-        // 1. التاريخ الهجري (اليمين)
+        // 1. البيانات الجمالية (اليسار)
         val hijri = widgetData.getString("flutter.hijri_date_full", "-- رمضان ١٤٤٧")
         views.setTextViewText(R.id.hijri_date, hijri)
 
-        // 2. اسم الصلاة القادمة (اليسار)
-        val nextPrayer = widgetData.getString("flutter.next_prayer_name", "الصلاة")
-        views.setTextViewText(R.id.prayer_name, nextPrayer)
+        // 2. الصلوات (اليسار)
+        val pastDisplay = widgetData.getString("flutter.last_prayer_display", "--:--")
+        val nextDisplay = widgetData.getString("flutter.next_prayer_display", "--:--")
+        views.setTextViewText(R.id.past_prayer_display, pastDisplay)
+        views.setTextViewText(R.id.next_prayer_display, nextDisplay)
 
-        // 3. العداد التنازلي (اليسار)
+        // 3. العداد التنازلي المركزي (اليمين)
         val countdown = widgetData.getString("flutter.countdown_text", "00:00")
         views.setTextViewText(R.id.countdown_text, countdown)
 
