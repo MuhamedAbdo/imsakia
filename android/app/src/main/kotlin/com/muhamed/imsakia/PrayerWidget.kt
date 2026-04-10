@@ -25,9 +25,29 @@ class PrayerWidget : HomeWidgetProvider() {
         views.setTextViewText(R.id.past_prayer_display, pastDisplay)
         views.setTextViewText(R.id.next_prayer_display, nextDisplay)
 
-        // 3. العداد التنازلي المركزي (اليمين)
-        val countdown = widgetData.getString("flutter.countdown_text", "00:00")
-        views.setTextViewText(R.id.countdown_text, countdown)
+        // 3. العداد التنازلي الذكي (Chronometer) - اليمين
+        val nextTimestamp = widgetData.getLong("flutter.next_prayer_timestamp", 0L)
+        if (nextTimestamp > 0L) {
+            val now = System.currentTimeMillis()
+            val remainingMs = nextTimestamp - now
+            
+            if (remainingMs > 0) {
+                val baseTime = android.os.SystemClock.elapsedRealtime() + remainingMs
+                
+                views.setChronometer(R.id.countdown_text, baseTime, null, true)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                    views.setChronometerCountDown(R.id.countdown_text, true)
+                }
+            } else {
+                val fallback = widgetData.getString("flutter.countdown_text", "00:00")
+                views.setChronometer(R.id.countdown_text, android.os.SystemClock.elapsedRealtime(), null, false)
+                views.setTextViewText(R.id.countdown_text, fallback)
+            }
+        } else {
+            val fallback = widgetData.getString("flutter.countdown_text", "00:00")
+            views.setChronometer(R.id.countdown_text, android.os.SystemClock.elapsedRealtime(), null, false)
+            views.setTextViewText(R.id.countdown_text, fallback)
+        }
 
         for (appWidgetId in appWidgetIds) {
             appWidgetManager.updateAppWidget(appWidgetId, views)

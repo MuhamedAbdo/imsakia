@@ -175,6 +175,11 @@ class PrayerTimesService {
       final nextPrayerDisplay = "$nextPrayerName ${_formatTimeTo12h(nextPrayerTime)}";
       
       // حفظ البيانات للويدجت بالمفاتيح المطلوبة بدقة للهيكل الجديد
+      if (nextPrayerTime != null) {
+        await HomeWidget.saveWidgetData<int>('flutter.next_prayer_timestamp', nextPrayerTime.millisecondsSinceEpoch);
+      } else {
+        await HomeWidget.saveWidgetData<int>('flutter.next_prayer_timestamp', 0);
+      }
       await HomeWidget.saveWidgetData<String>('flutter.next_prayer_name', nextPrayerName);
       await HomeWidget.saveWidgetData<String>('flutter.next_prayer_display', nextPrayerDisplay);
       await HomeWidget.saveWidgetData<String>('flutter.countdown_text', countdownText);
