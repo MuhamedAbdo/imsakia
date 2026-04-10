@@ -1,7 +1,9 @@
 package com.muhamed.imsakia
 
+import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetProvider
@@ -48,6 +50,18 @@ class PrayerWidget : HomeWidgetProvider() {
             views.setChronometer(R.id.countdown_text, android.os.SystemClock.elapsedRealtime(), null, false)
             views.setTextViewText(R.id.countdown_text, fallback)
         }
+
+        // 4. ربط الضغط على الويدجت بفتح التطبيق
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
 
         for (appWidgetId in appWidgetIds) {
             appWidgetManager.updateAppWidget(appWidgetId, views)
