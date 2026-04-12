@@ -22,6 +22,7 @@ class PrayerTimesService {
   Timer? _updateTimer;
   SharedPreferences? _sharedPreferences;
   bool _isScheduling = false; // 🔥 لمنع تداخل عمليات الجدولة
+  DateTime? _lastWidgetUpdateTime; // 🔥 لمنع استهلاك المعالج بتحديثات الويدجت المتكررة
 
   // حذفنا _lastRamadanCalculation لأنه لم يكن يُستخدم
   Duration? _cachedTimeUntilRamadan;
@@ -125,7 +126,7 @@ class PrayerTimesService {
 
     _scheduleAthanAlarmsIfNeeded(_currentPrayerTimes!);
     
-    // 🔥 تحديث بيانات الويدجت (Android Home Screen Widget)
+    // 🔥 تحديث بيانات الويدجت (Android Home Screen Widget) - تم تفعيل الـ Throttling
     updateWidgetData();
 
     _prayerTimesController?.add(_currentPrayerTimes!);
@@ -134,9 +135,18 @@ class PrayerTimesService {
   }
 
   /// يزامن بيانات مواقيت الصلاة والمناسبات مع ويدجت الشاشة الرئيسية
-  Future<void> updateWidgetData() async {
+  Future<void> updateWidgetData({bool force = false}) async {
     try {
       if (_currentPrayerTimes == null) return;
+
+      // 🛡️ Throttling Protection: تحديث الويدجت عملية مكلفة جداً، نكتفي بمرة كل 30 ثانية
+      final now = DateTime.now();
+      if (!force && _lastWidgetUpdateTime != null) {
+        if (now.difference(_lastWidgetUpdateTime!) < const Duration(seconds: 30)) {
+          return;
+        }
+      }
+      _lastWidgetUpdateTime = now;
 
       final nextPrayerKey = getNextPrayer() ?? 'fajr';
       final nextPrayerTime = getNextPrayerTime();
@@ -265,6 +275,8 @@ class PrayerTimesService {
     
     } finally {
       _isScheduling = false;
+      // ✅ عند إعادة الجدولة، نجبر الويدجت على التحديث فوراً
+      updateWidgetData(force: true);
     }
   }
 

@@ -1,8 +1,9 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:audio_service/audio_service.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../../services/prayer_times_service.dart';
 
@@ -18,7 +19,7 @@ Future<void> initAudioService() async {
       androidNotificationChannelId: 'com.ryanheise.bg_audio.channel.audio',
       androidNotificationChannelName: 'Audio playback',
       androidNotificationOngoing: true,
-      androidStopForegroundOnPause: true, // Allow swipe to dismiss when paused
+      androidStopForegroundOnPause: true,
       androidNotificationIcon: 'mipmap/ic_launcher',
     ),
   );
@@ -28,49 +29,44 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
   final AudioPlayer _player;
   final AudioPlayer _athanPlayer = AudioPlayer();
   AudioPlayer get player => _player;
+  bool _isStopping = false;
 
   void Function()? onNext;
   void Function()? onPrevious;
   void Function()? onStopCustom;
 
   MyAudioHandler(this._player) {
-    _athanPlayer.setReleaseMode(ReleaseMode.stop);
-    _athanPlayer.setAudioContext(const AudioContext(
-      android: AudioContextAndroid(
-        isSpeakerphoneOn: true,
-        stayAwake: true,
-        contentType: AndroidContentType.sonification,
-        usageType: AndroidUsageType.alarm,
-        audioFocus: AndroidAudioFocus.gainTransientExclusive,
-      ),
-      iOS: AudioContextIOS(
-        category: AVAudioSessionCategory.playback,
-        options: [
-          AVAudioSessionOptions.defaultToSpeaker,
-          AVAudioSessionOptions.mixWithOthers,
-        ],
-      ),
-    ));
+    // 🛡️ Athan Player Initialization (Session config handled in playAthan)
 
-    _athanPlayer.onPlayerComplete.listen((_) {
-       if (mediaItem.value?.id == 'athan_alert') {
+    // Handle Athan Completion
+    _athanPlayer.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed) {
+        if (mediaItem.value?.id == 'athan_alert') {
           WakelockPlus.disable();
           playbackState.add(playbackState.value.copyWith(
-             playing: false,
-             processingState: AudioProcessingState.idle,
+            playing: false,
+            processingState: AudioProcessingState.idle,
           ));
           mediaItem.add(null);
-          
-          // ✅ Refresh widget data on Athan completion
           PrayerTimesService.instance.updateWidgetData();
-       }
+        }
+      }
     });
 
-    _player.onPlayerStateChanged.listen((state) {
-      final playing = state == PlayerState.playing;
-      
+    // 🎵 Main Player State Listeners
+    _player.playerStateStream.listen((state) {
+      final playing = state.playing;
+      final processingState = {
+        ProcessingState.idle: AudioProcessingState.idle,
+        ProcessingState.loading: AudioProcessingState.loading,
+        ProcessingState.buffering: AudioProcessingState.buffering,
+        ProcessingState.ready: AudioProcessingState.ready,
+        ProcessingState.completed: AudioProcessingState.completed,
+      }[state.processingState]!;
+
       playbackState.add(playbackState.value.copyWith(
         playing: playing,
+        processingState: processingState,
         controls: [
           MediaControl.skipToPrevious,
           playing ? MediaControl.pause : MediaControl.play,
@@ -87,23 +83,23 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
       ));
     });
 
-    _player.onPositionChanged.listen((position) {
+    _player.positionStream.listen((position) {
       playbackState.add(playbackState.value.copyWith(updatePosition: position));
     });
 
-    _player.onDurationChanged.listen((duration) {
+    _player.durationStream.listen((duration) {
       final current = mediaItem.value;
-      if (current != null) {
+      if (current != null && duration != null) {
         mediaItem.add(current.copyWith(duration: duration));
       }
     });
 
-    _player.onPlayerComplete.listen((_) {
-      playbackState.add(playbackState.value.copyWith(
-        playing: false,
-        updatePosition: Duration.zero,
-      ));
-      // Auto-next will be handled in the provider, which also listens to onPlayerComplete
+    _player.playbackEventStream.listen((event) {}, onError: (Object e, StackTrace st) {
+      if (e is PlayerException) {
+        debugPrint('JustAudio PlayerException: ${e.message}');
+      } else {
+        debugPrint('JustAudio Error: $e');
+      }
     });
   }
 
@@ -112,7 +108,14 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
     required String title,
     required String artist,
     required Uri artUri,
-  }) {
+  }) async {
+    // 🛡️ تصفير مشغل الأذان عند البدء في السور لضمان تحرير الموارد
+    _athanPlayer.stop();
+
+    // 📻 Configure session for music playback
+    final session = await AudioSession.instance;
+    await session.configure(const AudioSessionConfiguration.music());
+
     mediaItem.add(MediaItem(
       id: id,
       album: "تلاوات القرآن",
@@ -121,7 +124,6 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
       artUri: artUri,
     ));
     
-    // Ensure the notification appears immediately while buffering
     playbackState.add(playbackState.value.copyWith(
       processingState: AudioProcessingState.buffering,
       playing: true,
@@ -140,32 +142,35 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
        if (mediaItem.value?.id == 'athan_alert') {
          await stop();
        }
-        // Always cancel the athan notification (id 888) so it doesn't linger
         try {
           final plugin = FlutterLocalNotificationsPlugin();
           await plugin.cancel(id: 888);
-          
-          // ✅ Refresh widget data
           await PrayerTimesService.instance.updateWidgetData();
         } catch (_) {}
         return;
     }
   
     if (name == 'playAthan' && extras != null) {
-      // 1. Extract values first as requested
       final String path = extras['path'] as String? ?? '';
       final String prayerName = extras['prayerName'] as String? ?? "الصلاة";
       final String title = extras['title'] as String? ?? 'حان الآن موعد أذان $prayerName';
       final String? activeTestKey = extras['activeTestKey'] as String?;
       
-      // 2. Stop existing Athan if any
-      await _athanPlayer.stop();
+      // 🛡️ إيقاف كافة المحركات (Stop وليس Pause) لضمان تحرير الموارد في شاومي
+      _athanPlayer.stop();
+      _player.stop();
       
-      // 3. Pause the main player gracefully without breaking queue
-      if (_player.state == PlayerState.playing) {
-        await _player.pause();
-      }
-      
+      // 🚨 Configure session for Alarm (High priority)
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration(
+        androidAudioAttributes: AndroidAudioAttributes(
+          contentType: AndroidAudioContentType.sonification,
+          usage: AndroidAudioUsage.alarm,
+        ),
+        androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientExclusive,
+        androidWillPauseWhenDucked: true,
+      ));
+
       WakelockPlus.enable();
 
       mediaItem.add(MediaItem(
@@ -183,40 +188,49 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
         systemActions: const {MediaAction.stop},
       ));
 
-      // 4. Play from Asset or File
       if (path.startsWith('assets/')) {
-        // Audioplayers AssetSource expects path WITHOUT 'assets/' prefix
-        final cleanPath = path.replaceFirst('assets/', '');
-        return await _athanPlayer.play(AssetSource(cleanPath));
+        await _athanPlayer.setAudioSource(AudioSource.asset(path));
       } else {
-        return await _athanPlayer.play(DeviceFileSource(path));
+        await _athanPlayer.setAudioSource(AudioSource.file(path));
       }
+      return await _athanPlayer.play();
     }
     return super.customAction(name, extras);
   }
 
   @override
-  Future<void> play() => _player.resume();
+  Future<void> play() => _player.play();
 
   @override
   Future<void> pause() => _player.pause();
 
   @override
   Future<void> stop() async {
-    if (mediaItem.value?.id == 'athan_alert') {
-      await _athanPlayer.stop();
-      WakelockPlus.disable();
+    if (_isStopping) return;
+    _isStopping = true;
+
+    try {
+      // 1️⃣ تحديث الحالة فوراً للواجهة (UI First)
       playbackState.add(playbackState.value.copyWith(
         playing: false,
         processingState: AudioProcessingState.idle,
       ));
-      mediaItem.add(null);
-      return;
-    }
 
-    await _player.stop();
-    if (onStopCustom != null) onStopCustom!();
-    await super.stop();
+      // 2️⃣ إيقاف المحركات بدون انتظار (Non-blocking)
+      _player.stop(); // Non-blocking
+      _athanPlayer.stop(); // Non-blocking
+      
+      if (mediaItem.value?.id == 'athan_alert') {
+        WakelockPlus.disable();
+      }
+
+      mediaItem.add(null);
+      if (onStopCustom != null) onStopCustom!();
+      
+      // ✅ ملاحظة: لا نستدعي super.stop() هنا لمنع الـ Stack Overflow المتكرر
+    } finally {
+      _isStopping = false;
+    }
   }
 
   @override

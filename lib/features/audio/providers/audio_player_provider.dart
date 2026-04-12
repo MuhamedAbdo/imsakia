@@ -1,13 +1,14 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/surah_audio.dart';
 import '../models/reciter.dart';
 import '../services/audio_handler.dart';
+import 'package:audio_service/audio_service.dart';
 
 class AudioPlayerProvider with ChangeNotifier {
   late final AudioPlayer _audioPlayer;
@@ -18,15 +19,25 @@ class AudioPlayerProvider with ChangeNotifier {
   Uri? _localArtUri;
 
   bool _isPlaying = false;
+  bool _isBuffering = false;
   Duration _currentPosition = Duration.zero;
   Duration _totalDuration = Duration.zero;
+  String? _errorMessage;
+  bool _isStopping = false;
 
   bool get isPlaying => _isPlaying;
+  bool get isBuffering => _isBuffering;
   Duration get currentPosition => _currentPosition;
   Duration get totalDuration => _totalDuration;
   SurahAudio? get currentSurah => _currentSurah;
   Reciter? get currentReciter => _currentReciter;
   List<SurahAudio> get currentPlaylist => _currentPlaylist;
+  String? get errorMessage => _errorMessage;
+
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
 
   AudioPlayerProvider() {
     _audioPlayer = audioHandler?.player ?? AudioPlayer();
@@ -44,7 +55,6 @@ class AudioPlayerProvider with ChangeNotifier {
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
 
-    // Handle audio focus interruptions (e.g. phone calls)
     session.interruptionEventStream.listen((event) {
       if (event.begin) {
         switch (event.type) {
@@ -62,7 +72,6 @@ class AudioPlayerProvider with ChangeNotifier {
             _audioPlayer.setVolume(1.0);
             break;
           case AudioInterruptionType.pause:
-            // Could optionally resume if it was paused specifically by interruption
             break;
           case AudioInterruptionType.unknown:
             break;
@@ -72,34 +81,35 @@ class AudioPlayerProvider with ChangeNotifier {
   }
 
   void _setupAudioListeners() {
-    _audioPlayer.onPlayerStateChanged.listen((state) {
-      _isPlaying = state == PlayerState.playing;
+    _audioPlayer.playerStateStream.listen((state) {
+      _isPlaying = state.playing;
+      _isBuffering = state.processingState == ProcessingState.buffering || 
+                    state.processingState == ProcessingState.loading;
 
-      // Manage CPU wakelock to prevent OS from killing background audio
       if (_isPlaying) {
         WakelockPlus.enable();
       } else {
         WakelockPlus.disable();
       }
 
+      if (state.processingState == ProcessingState.completed) {
+        _isPlaying = false;
+        _currentPosition = Duration.zero;
+        notifyListeners();
+        skipToNext();
+      }
+
       notifyListeners();
     });
 
-    _audioPlayer.onPositionChanged.listen((position) {
+    _audioPlayer.positionStream.listen((position) {
       _currentPosition = position;
       notifyListeners();
     });
 
-    _audioPlayer.onDurationChanged.listen((duration) {
-      _totalDuration = duration;
+    _audioPlayer.durationStream.listen((duration) {
+      _totalDuration = duration ?? Duration.zero;
       notifyListeners();
-    });
-
-    _audioPlayer.onPlayerComplete.listen((event) {
-      _isPlaying = false;
-      _currentPosition = Duration.zero;
-      notifyListeners();
-      skipToNext(); // Auto-next playback
     });
   }
 
@@ -108,29 +118,93 @@ class AudioPlayerProvider with ChangeNotifier {
   }
 
   Future<void> playSurah(SurahAudio surah, Reciter reciter) async {
-    _currentSurah = surah;
-    _currentReciter = reciter;
-    notifyListeners();
+    if (surah.audioUrl.isEmpty && (surah.localPath == null || surah.localPath!.isEmpty)) {
+      _errorMessage = "التسجيل غير متاح لهذا القارئ";
+      notifyListeners();
+      return;
+    }
 
-    // Update audio_service metadata
-    // We use a local file URI by copying the asset image to the app directory first
-    Uri? artUri = await _getArtUri();
-    
-    audioHandler?.setMediaItem(
-      id: surah.id.toString(),
-      title: "سورة ${surah.name}",
-      artist: reciter.name,
-      artUri: artUri ?? Uri.parse('https://raw.githubusercontent.com/ryanheise/audio_service/master/example/web/media/art.jpg'),
-    );
+    try {
+      _errorMessage = null;
+      _isBuffering = true;
+      notifyListeners();
 
-    // Reset volume mapping
-    await _audioPlayer.setVolume(1.0);
+      // 🛡️ Protection Layer: إذا كان المحرك منشغلاً بالتحميل، نوقفه فوراً وننتظر قليلاً لضمان الاستقرار
+      if (_audioPlayer.processingState == ProcessingState.loading || 
+          _audioPlayer.processingState == ProcessingState.buffering) {
+        await _audioPlayer.stop();
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
 
-    // Prioritize offline files
-    if (surah.localPath != null && surah.localPath!.isNotEmpty) {
-      await _audioPlayer.play(DeviceFileSource(surah.localPath!));
-    } else {
-      await _audioPlayer.play(UrlSource(surah.audioUrl));
+      // 🛑 Mandatory delay to clear Native layer safely
+      await _audioPlayer.stop();
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      _currentSurah = surah;
+      _currentReciter = reciter;
+      notifyListeners();
+
+      Uri? artUri = await _getArtUri();
+      
+      // Update audio_service explicitly
+      audioHandler?.setMediaItem(
+        id: surah.id.toString(),
+        title: "سورة ${surah.name}",
+        artist: reciter.name,
+        artUri: artUri ?? Uri.parse('https://raw.githubusercontent.com/ryanheise/audio_service/master/example/web/media/art.jpg'),
+      );
+
+      await _audioPlayer.setVolume(1.0);
+
+      // 🌍 Play with Smart Retry & User-Agent
+      if (surah.localPath != null && surah.localPath!.isNotEmpty) {
+        await _audioPlayer.setAudioSource(AudioSource.file(surah.localPath!));
+      } else {
+        // Prepare rich metadata tag for JustAudio -> AudioService integration
+        final tag = MediaItem(
+          id: surah.id.toString(),
+          album: "قرآن - ${reciter.name}",
+          title: "سورة ${surah.name}",
+          artist: reciter.name,
+          artUri: artUri,
+        );
+        
+        await _invokePlayWithRetry(surah.audioUrl, tag);
+      }
+      
+      await _audioPlayer.play();
+      _isBuffering = false;
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Audio Playback Error: $e");
+      _errorMessage = "حدث خطأ في الاتصال، يرجى المحاولة مرة أخرى";
+      _isBuffering = false;
+      stop(); // Non-blocking retry
+      notifyListeners();
+    }
+  }
+
+  Future<void> _invokePlayWithRetry(String url, MediaItem tag, {int retryCount = 0}) async {
+    try {
+      final source = AudioSource.uri(
+        Uri.parse(url),
+        headers: {'User-Agent': 'ZadApp/1.0'},
+        tag: tag,
+      );
+      
+      await _audioPlayer.setAudioSource(source).timeout(const Duration(seconds: 10));
+    } catch (e) {
+      final errorStr = e.toString();
+      if (errorStr.contains("404") || errorStr.contains("Not Found")) {
+        rethrow;
+      }
+
+      if (retryCount < 1) {
+        debugPrint("Network error detected, retrying... ($e)");
+        await Future.delayed(const Duration(milliseconds: 500));
+        return await _invokePlayWithRetry(url, tag, retryCount: retryCount + 1);
+      }
+      rethrow;
     }
   }
 
@@ -139,14 +213,11 @@ class AudioPlayerProvider with ChangeNotifier {
     try {
       final docDir = await getApplicationDocumentsDirectory();
       final file = File('${docDir.path}/app_logo.png');
-      
-      // If not already copied, extract from assets
       if (!await file.exists()) {
         final byteData = await rootBundle.load('assets/images/quranlogo.png');
         await file.writeAsBytes(byteData.buffer.asUint8List(
           byteData.offsetInBytes, byteData.lengthInBytes));
       }
-      
       _localArtUri = Uri.file(file.path);
       return _localArtUri;
     } catch (e) {
@@ -160,7 +231,7 @@ class AudioPlayerProvider with ChangeNotifier {
   }
 
   Future<void> resume() async {
-    await _audioPlayer.resume();
+    await _audioPlayer.play();
   }
 
   Future<void> togglePlayPause() async {
@@ -172,18 +243,27 @@ class AudioPlayerProvider with ChangeNotifier {
   }
 
   Future<void> stop() async {
-    await _audioPlayer.stop();
-    _isPlaying = false;
-    _currentPosition = Duration.zero;
-    _currentSurah = null;
-    _currentReciter = null;
-    audioHandler?.stop();
-    notifyListeners();
+    if (_isStopping) return;
+    _isStopping = true;
+
+    try {
+      // 🚨 Non-blocking Stop: نحدث الحالة داخلياً فوراً لتختفي الواجهة
+      _isPlaying = false;
+      _currentSurah = null;
+      _currentReciter = null;
+      _currentPosition = Duration.zero;
+      notifyListeners();
+
+      // نطلب التوقف في الخلفية دون انتظار Native لضمان عدم حدوث ANR أو Stack Overflow
+      _audioPlayer.stop();
+      audioHandler?.stop();
+    } finally {
+      _isStopping = false;
+    }
   }
 
   Future<void> skipToNext() async {
     if (_currentSurah == null || _currentReciter == null || _currentPlaylist.isEmpty) return;
-    
     final currentIndex = _currentPlaylist.indexWhere((s) => s.id == _currentSurah!.id);
     if (currentIndex != -1 && currentIndex + 1 < _currentPlaylist.length) {
       final nextSurah = _currentPlaylist[currentIndex + 1];
@@ -193,13 +273,10 @@ class AudioPlayerProvider with ChangeNotifier {
 
   Future<void> skipToPrevious() async {
     if (_currentSurah == null || _currentReciter == null || _currentPlaylist.isEmpty) return;
-    
     if (_currentPosition.inSeconds > 5) {
-      // If played for more than 5 seconds, restart current track instead of previous
       await seek(Duration.zero);
       return;
     }
-
     final currentIndex = _currentPlaylist.indexWhere((s) => s.id == _currentSurah!.id);
     if (currentIndex > 0) {
       final prevSurah = _currentPlaylist[currentIndex - 1];

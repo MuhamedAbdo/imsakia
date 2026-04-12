@@ -3,9 +3,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/audio_player_provider.dart';
 
-class AudioBottomSheet extends StatelessWidget {
+class AudioBottomSheet extends StatefulWidget {
   const AudioBottomSheet({super.key});
 
+  @override
+  State<AudioBottomSheet> createState() => _AudioBottomSheetState();
+}
+
+class _AudioBottomSheetState extends State<AudioBottomSheet> {
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, "0");
     String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
@@ -20,6 +25,23 @@ class AudioBottomSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final audioProvider = Provider.of<AudioPlayerProvider>(context);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    // 🛡️ Error Listener: مراقبة رسائل الخطأ وإظهارها للمستخدم
+    if (audioProvider.errorMessage != null) {
+      final msg = audioProvider.errorMessage!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(msg, style: GoogleFonts.tajawal()),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          audioProvider.clearError();
+        }
+      });
+    }
 
     if (audioProvider.currentSurah == null) return const SizedBox.shrink();
 
@@ -139,20 +161,30 @@ class AudioBottomSheet extends StatelessWidget {
                   color: isDarkMode ? Colors.white70 : Colors.black87,
                 ),
                 const SizedBox(width: 20),
-                Container(
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.blue,
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      audioProvider.isPlaying ? Icons.pause : Icons.play_arrow,
-                      size: 36,
+                if (audioProvider.isBuffering)
+                   const SizedBox(
+                     height: 36,
+                     width: 36,
+                     child: CircularProgressIndicator(
+                       strokeWidth: 3,
+                       color: Colors.blue,
+                     ),
+                   )
+                else
+                  Container(
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.blue,
                     ),
-                    color: Colors.white,
-                    onPressed: () => audioProvider.togglePlayPause(),
+                    child: IconButton(
+                      icon: Icon(
+                        audioProvider.isPlaying ? Icons.pause : Icons.play_arrow,
+                        size: 36,
+                      ),
+                      color: Colors.white,
+                      onPressed: () => audioProvider.togglePlayPause(),
+                    ),
                   ),
-                ),
                 const SizedBox(width: 20),
                 IconButton(
                   icon: const Icon(Icons.forward_10, size: 30),
@@ -161,7 +193,20 @@ class AudioBottomSheet extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+             if (audioProvider.isBuffering)
+               Padding(
+                 padding: const EdgeInsets.only(top: 4.0),
+                 child: Text(
+                   'جاري التحميل...',
+                   style: GoogleFonts.tajawal(
+                     fontSize: 10,
+                     color: Colors.blue,
+                     fontWeight: FontWeight.bold,
+                   ),
+                 ),
+               )
+             else
+               const SizedBox(height: 8),
           ],
         ),
       ),
