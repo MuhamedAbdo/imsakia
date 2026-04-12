@@ -167,15 +167,15 @@ class AthanManager {
     } catch (_) {}
   }
 
-  /// Schedules a test athan alert for 15 seconds from now.
-  static Future<void> testAthan() async {
-    final now = DateTime.now();
-    await scheduleNextAthan(
-      alarmId: 999, // Unique ID for test
-      time: now.add(const Duration(minutes: 5)),
-      isFajr: false,
-      prayerName: "تجربة الأذان",
-      isTest: true,
+  /// Schedules a test athan alert for 5 minutes from now.
+  static Future<void> scheduleTestAthan() async {
+    await AndroidAlarmManager.oneShot(
+      const Duration(minutes: 5),
+      999, // Unique ID for test
+      athanAlarmCallback,
+      exact: true,
+      wakeup: true,
+      allowWhileIdle: true,
     );
   }
 }
@@ -205,6 +205,7 @@ Future<void> athanAlarmCallback(int alarmId) async {
   await audioHandler?.customAction('playAthan', {
     'path': pathToPlay,
     'prayerName': prayerName,
+    if (alarmId == 999) 'activeTestKey': 'test_athan',
   });
   await showFullScreenAthan(prayerName, isFajr);
 }

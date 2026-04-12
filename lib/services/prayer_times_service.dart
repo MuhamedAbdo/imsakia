@@ -140,8 +140,11 @@ class PrayerTimesService {
       if (_currentPrayerTimes == null) return;
 
       // 🛡️ Throttling Protection: تحديث الويدجت عملية مكلفة جداً، نكتفي بمرة كل 30 ثانية
+      // استثناء: عند تغير "اليوم" (منتصف الليل)، نتجاوز التروتلينج فوراً لتحديث التاريخ الهجري
       final now = DateTime.now();
-      if (!force && _lastWidgetUpdateTime != null) {
+      final bool isNewDay = _lastWidgetUpdateTime == null || now.day != _lastWidgetUpdateTime!.day;
+      
+      if (!force && !isNewDay && _lastWidgetUpdateTime != null) {
         if (now.difference(_lastWidgetUpdateTime!) < const Duration(seconds: 30)) {
           return;
         }
@@ -175,7 +178,7 @@ class PrayerTimesService {
 
       // جلب بيانات التاريخ الهجري والمناسبات
       final hijriAdjustment = _sharedPreferences!.getInt('hijri_adjustment') ?? 0;
-      final hijriDate = HijriDateService.getHijriDate(DateTime.now(), hijriAdjustment);
+      final hijriDate = HijriDateService.getHijriDate(now, hijriAdjustment);
       final hijriDateFull = hijriDate['formatted'] as String;
 
       final eventsService = HomeEventsService();

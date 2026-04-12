@@ -664,7 +664,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                     'سيطلق الأذان بعد ٥ دقائق لاختبار الـ Restart والـ WakeLock',
                 icon: Icons.timer_outlined,
                 onTap: () async {
-                  await AthanManager.testAthan();
+                  await AthanManager.scheduleTestAthan();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
