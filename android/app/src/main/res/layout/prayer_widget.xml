@@ -32,7 +32,7 @@
             android:layout_height="wrap_content"
             android:text="-- رمضان ١٤٤٧"
             android:textColor="#FFFFFF"
-            android:textSize="10sp"
+            android:textSize="12.5sp"
             android:alpha="0.8"
             android:fontFamily="sans-serif-light" />
 
@@ -49,7 +49,7 @@
                 android:layout_height="wrap_content"
                 android:text="الفجر 04:11 ص"
                 android:textColor="#A0FFFFFF"
-                android:textSize="9sp"
+                android:textSize="11.25sp"
                 android:fontFamily="sans-serif-light" />
 
             <TextView
@@ -58,7 +58,7 @@
                 android:layout_height="wrap_content"
                 android:text="الظهر 11:59 م"
                 android:textColor="#FFFFFF"
-                android:textSize="12sp"
+                android:textSize="18sp"
                 android:textStyle="bold"
                 android:layout_marginTop="1dp"
                 android:fontFamily="sans-serif-medium" />

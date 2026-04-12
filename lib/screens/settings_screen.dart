@@ -14,6 +14,7 @@ import '../services/prayer_times_service.dart';
 import '../widgets/neumorphic_box.dart';
 import '../features/audio/services/audio_handler.dart';
 import '../features/athan/services/athan_manager.dart';
+import '../services/permissions_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool isFirstTimeSetup;
@@ -23,11 +24,13 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObserver {
   late SettingsProvider _settingsProvider;
   String? _selectedCountry;
   String? _selectedState;
   int _tempAdjustment = 0; // عداد مؤقت يظهر للمستخدم فقط
+  
+  Map<String, bool> _permissionStatuses = {};
 
   final Map<String, String> _calculationMethods = {
     'egyptian': 'الهيئة المصرية العامة للمساحة',
@@ -60,6 +63,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     // تحميل المؤذنين (الآن عبر الأصول الثابتة، لا يحتاج انتظار)
     Provider.of<AthanProvider>(context, listen: false);
+    
+    WidgetsBinding.instance.addObserver(this);
+    _refreshPermissionStatuses();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshPermissionStatuses();
+    }
+  }
+
+  Future<void> _refreshPermissionStatuses() async {
+    final statuses = await PermissionsService.checkAllPermissions();
+    if (mounted) {
+      setState(() {
+        _permissionStatuses = statuses;
+      });
+    }
   }
 
   void _loadSavedLocation() {
@@ -602,6 +630,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'إيقاف قيود البطارية (No Restrictions)',
                 subtitle: 'مهم جداً لضمان عمل الأذان في الخلفية',
                 icon: Icons.battery_saver_rounded,
+                isGranted: _permissionStatuses['battery_optimization'] ?? false,
                 onTap: () => provider.openBatteryOptimizationSettings(),
               ),
               const SizedBox(height: 10),
@@ -610,6 +639,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'إعدادات التشغيل التلقائي (Auto-start)',
                 subtitle: 'خاص بهواتف Oppo, Realme, Huawei, Samsung, Xiaomi',
                 icon: Icons.power_settings_new_rounded,
+                isGranted: _permissionStatuses['system_alert'] ?? false, // We check overlay/start status
                 onTap: () => provider.openComprehensivePermissions(),
               ),
               const SizedBox(height: 10),
@@ -618,6 +648,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'صلاحيات شاومي الخاصة (Xiaomi Permissions)',
                 subtitle: 'فعل "Show on Lock Screen" لتفتح الصور تلقائياً',
                 icon: Icons.security_rounded,
+                isGranted: _permissionStatuses['system_alert'] ?? false,
                 onTap: () => provider.openXiaomiOtherPermissions(),
               ),
               const SizedBox(height: 15),
@@ -652,6 +683,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required String subtitle,
     required IconData icon,
     required VoidCallback onTap,
+    bool? isGranted,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
@@ -691,11 +723,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
-            const Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 14,
-              color: Colors.green,
-            ),
+            const SizedBox(width: 12),
+            if (isGranted != null) 
+              Icon(
+                isGranted ? Icons.check_circle_rounded : Icons.warning_amber_rounded, 
+                color: isGranted ? Colors.green : Colors.orange,
+                size: 20,
+              )
+            else
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: Colors.green,
+              ),
           ],
         ),
       ),

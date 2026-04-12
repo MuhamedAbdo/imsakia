@@ -26,7 +26,6 @@ import android.media.AudioFocusRequest
 import androidx.work.*
 import java.util.concurrent.TimeUnit
 import android.appwidget.AppWidgetManager
-import android.content.ComponentName
 
 class MainActivity : AudioServiceActivity() {
     private val CHANNEL = "imsakia/notifications"

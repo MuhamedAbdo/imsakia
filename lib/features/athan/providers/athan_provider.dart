@@ -41,15 +41,29 @@ class AthanProvider with ChangeNotifier {
 
   bool _isAthanEnabled = true;
   bool _isUnifiedMuezzin = true;
+  bool _isBatteryOptimized = false;
   final Map<String, String> _prayerPaths = {};
 
   List<Muezzin> get generalMuezzins => _generalMuezzins;
   List<Muezzin> get fajrMuezzins => _fajrMuezzins;
   bool get isAthanEnabled => _isAthanEnabled;
   bool get isUnifiedMuezzin => _isUnifiedMuezzin;
+  bool get isBatteryOptimized => _isBatteryOptimized;
 
   AthanProvider() {
     _loadSavedSettings();
+    _checkPermissions();
+  }
+
+  Future<void> _checkPermissions() async {
+    if (Platform.isAndroid) {
+      _isBatteryOptimized = !(await Permission.ignoreBatteryOptimizations.isGranted);
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshStatus() async {
+    await _checkPermissions();
   }
 
   Future<void> _loadSavedSettings() async {

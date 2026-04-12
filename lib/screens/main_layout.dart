@@ -1,11 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import '../features/athan/services/athan_manager.dart';
+import '../features/athan/providers/athan_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../providers/settings_provider.dart';
 import '../services/prayer_times_service.dart';
 import '../services/hadith_service.dart';
@@ -199,68 +198,70 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _loadInitialData();
     _startCountdownTimer();
     
-    // 🔥 اطلب الصلاحيات الهامة بمجرد فتح التطبيق بدلاً من انتظار زر Test
-    // تم إضافة تأخير لمدة ثانية لضمان استقرار الـ MethodChannel
+    // ✅ The Mandatory Permissions Gateway handles first-launch permissions.
+    // Here we just refresh status for the warning banner.
     Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) _requestAppPermissions();
+      if (mounted) {
+        Provider.of<AthanProvider>(context, listen: false).refreshStatus();
+      }
     });
   }
 
-  Future<void> _requestAppPermissions() async {
-    if (!mounted || !Platform.isAndroid) return;
+  Widget _buildWarningBanner() {
+    return Consumer<AthanProvider>(
+      builder: (context, provider, _) {
+        if (!provider.isBatteryOptimized) return const SizedBox.shrink();
 
-    // 1. صلاحية الإشعارات
-    var notificationStatus = await Permission.notification.status;
-    if (!notificationStatus.isGranted) {
-      await Permission.notification.request();
-    }
-
-    // 2. صلاحية المنبهات الدقيقة (Exact Alarms) - لأندرويد 12+
-    var alarmStatus = await Permission.scheduleExactAlarm.status;
-    if (alarmStatus.isDenied || alarmStatus.isRestricted) {
-      if (mounted) {
-        await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: Text(
-              'تنبيه الأذان الدقيق',
-              style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
-            ),
-            content: Text(
-              'لضمان عمل الأذان في الوقت الصحيح، نرجو منح التطبيق صلاحية "المنبهات والتذكيرات".',
-              style: GoogleFonts.tajawal(),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('لاحقاً', style: GoogleFonts.tajawal()),
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.orange.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "تنبيه: قيود البطارية مفعلة",
+                      style: GoogleFonts.tajawal(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Colors.orange[900],
+                      ),
+                    ),
+                    Text(
+                      "الأذان قد يتوقف في الخلفية بسبب قيود النظام، يرجى مراجعة إعدادات البطارية.",
+                      style: GoogleFonts.tajawal(
+                        fontSize: 12,
+                        color: Colors.orange[800],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              ElevatedButton(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  await Permission.scheduleExactAlarm.request();
-                },
-                child: Text('منح الصلاحية', style: GoogleFonts.tajawal(color: Colors.white)),
+              TextButton(
+                onPressed: () => provider.openBatteryOptimizationSettings(),
+                child: Text(
+                  "تعديل",
+                  style: GoogleFonts.tajawal(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange[900],
+                  ),
+                ),
               ),
             ],
           ),
         );
-      }
-    }
-
-    // 3. صلاحية الظهور فوق التطبيقات (System Alert Window)
-    var alertStatus = await Permission.systemAlertWindow.status;
-    if (!alertStatus.isGranted) {
-      // نطلبها فقط لو المستخدم موافق أو نحتاج تنبيه الشاشة الكاملة
-      await Permission.systemAlertWindow.request();
-    }
-
-    // 4. تجاهل تحسين البطارية (Battery Optimization)
-    var batteryStatus = await Permission.ignoreBatteryOptimizations.status;
-    if (!batteryStatus.isGranted) {
-      await Permission.ignoreBatteryOptimizations.request();
-    }
+      },
+    );
   }
 
   void _loadInitialData() async {
@@ -398,6 +399,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
+              _buildWarningBanner(),
               _buildHijriCard(hijriDateMap['formatted']),
               _buildNextPrayerCard(),
               const SizedBox(height: 10),

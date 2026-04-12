@@ -10,6 +10,7 @@ import 'providers/bukhari_provider.dart'; // تأكد من وجود هذا ال�
 import 'screens/splash_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/main_layout.dart';
+import 'screens/permissions_gate_screen.dart';
 import 'services/hadith_service.dart';
 import 'services/azkar_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -120,16 +121,24 @@ void main() async {
   }
 
   final prefs = await SharedPreferences.getInstance();
-  runApp(MyApp(settingsProvider: settingsProvider, prefs: prefs, initialOverlay: overlayScreen));
+  final hasCompletedPermissions = prefs.getBool('permissions_granted') ?? false;
+  
+  runApp(MyApp(
+    settingsProvider: settingsProvider, 
+    prefs: prefs, 
+    initialOverlay: overlayScreen,
+    showPermissionsGate: !hasCompletedPermissions,
+  ));
 }
 
 class MyApp extends StatefulWidget {
   final SettingsProvider settingsProvider;
   final SharedPreferences prefs;
   final Widget? initialOverlay;
+  final bool showPermissionsGate;
 
   static bool isAthanShowing = false;
-  MyApp({super.key, required this.settingsProvider, required this.prefs, this.initialOverlay}) {
+  MyApp({super.key, required this.settingsProvider, required this.prefs, this.initialOverlay, this.showPermissionsGate = false}) {
     if (initialOverlay != null) {
       isAthanShowing = true;
     }
@@ -264,10 +273,12 @@ class _MyAppState extends State<MyApp> {
                 theme: themeProvider.lightTheme,
                 darkTheme: themeProvider.darkTheme,
                 themeMode: _getThemeMode(settingsProvider.themeMode),
-                home: widget.initialOverlay ?? const SplashScreen(),
+                home: widget.initialOverlay ?? 
+                      (widget.showPermissionsGate ? const PermissionsGateScreen() : const SplashScreen()),
                 routes: {
                   '/settings': (context) => const SettingsScreen(),
                   '/main': (context) => const MainLayout(),
+                  '/permissions-gate': (context) => const PermissionsGateScreen(),
                 },
                 builder: (context, child) {
                   // 🔥 تحميل الصور مسبقاً في الذاكرة لضمان ظهور شاشة الأذان في جزء من الثانية (Pre-cache)
