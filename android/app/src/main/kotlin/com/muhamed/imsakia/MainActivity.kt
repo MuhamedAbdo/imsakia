@@ -4,6 +4,7 @@ import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import android.content.Intent
+import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.os.Build
 import android.Manifest
@@ -22,6 +23,10 @@ import android.os.Looper
 import android.media.AudioManager
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
+import androidx.work.*
+import java.util.concurrent.TimeUnit
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 
 class MainActivity : AudioServiceActivity() {
     private val CHANNEL = "imsakia/notifications"
@@ -107,6 +112,31 @@ class MainActivity : AudioServiceActivity() {
         requestNotificationPermission()
         createNotificationChannel()
         checkAndShowAthanOverlay()
+        setupWidgetHeartbeat()
+    }
+
+    private fun setupWidgetHeartbeat() {
+        val workRequest = PeriodicWorkRequestBuilder<WidgetUpdateWorker>(15, TimeUnit.MINUTES)
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.NOT_REQUIRED).build())
+            .build()
+        
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "WidgetHeartbeat",
+            ExistingPeriodicWorkPolicy.KEEP,
+            workRequest
+        )
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh widget on app return
+        val widgetIntent = Intent(this, PrayerWidget::class.java).apply {
+            action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+        }
+        val ids = AppWidgetManager.getInstance(this)
+            .getAppWidgetIds(ComponentName(this, PrayerWidget::class.java))
+        widgetIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+        sendBroadcast(widgetIntent)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -149,6 +179,10 @@ class MainActivity : AudioServiceActivity() {
                     }
                     "openXiaomiOtherPermissions" -> {
                         openXiaomiOtherPermissions()
+                        result.success(true)
+                    }
+                    "openComprehensivePermissions" -> {
+                        openComprehensivePermissions()
                         result.success(true)
                     }
                     "getInitialPayload" -> {
@@ -452,11 +486,73 @@ class MainActivity : AudioServiceActivity() {
                 intentFallback.putExtra("extra_pkgname", packageName)
                 startActivity(intentFallback)
             } catch (e2: Exception) {
-                // Last resort: App Details
-                val intentDetails = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                intentDetails.data = android.net.Uri.fromParts("package", packageName, null)
-                startActivity(intentDetails)
+                // Last resort: Genius Fallback
+                openAppSettings()
             }
+        }
+    }
+
+    private fun openComprehensivePermissions() {
+        val manufacturer = Build.MANUFACTURER.lowercase()
+        try {
+            when {
+                manufacturer.contains("xiaomi") -> {
+                    try {
+                        val intent = Intent()
+                        intent.component = ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        openAppSettings()
+                    }
+                }
+                manufacturer.contains("oppo") || manufacturer.contains("realme") -> {
+                    try {
+                        val intent = Intent()
+                        intent.component = ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        try {
+                            val intent = Intent()
+                            intent.component = ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")
+                            startActivity(intent)
+                        } catch (e2: Exception) {
+                            openAppSettings()
+                        }
+                    }
+                }
+                manufacturer.contains("huawei") -> {
+                    try {
+                        val intent = Intent()
+                        intent.component = ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        openAppSettings()
+                    }
+                }
+                manufacturer.contains("samsung") -> {
+                    try {
+                        val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        openAppSettings()
+                    }
+                }
+                else -> {
+                    openAppSettings()
+                }
+            }
+        } catch (e: Exception) {
+            openAppSettings()
+        }
+    }
+
+    private fun openAppSettings() {
+        try {
+            val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            intent.data = Uri.fromParts("package", packageName, null)
+            startActivity(intent)
+        } catch (e: Exception) {
+            // Ultimate fallback
         }
     }
 

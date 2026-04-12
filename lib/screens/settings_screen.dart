@@ -607,6 +607,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 10),
               _buildActionTile(
                 context,
+                title: 'إعدادات التشغيل التلقائي (Auto-start)',
+                subtitle: 'خاص بهواتف Oppo, Realme, Huawei, Samsung, Xiaomi',
+                icon: Icons.power_settings_new_rounded,
+                onTap: () => provider.openComprehensivePermissions(),
+              ),
+              const SizedBox(height: 10),
+              _buildActionTile(
+                context,
                 title: 'صلاحيات شاومي الخاصة (Xiaomi Permissions)',
                 subtitle: 'فعل "Show on Lock Screen" لتفتح الصور تلقائياً',
                 icon: Icons.security_rounded,

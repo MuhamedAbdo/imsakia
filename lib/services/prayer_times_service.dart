@@ -148,11 +148,11 @@ class PrayerTimesService {
       final lastPrayerInfo = "$lastPrayerName ${_formatTimeTo12h(lastPrayerTime)}";
       
       // حساب العد التنازلي للصلاة القادمة
-      String countdownText = "00:00";
+      String countdownText = "جاري التحديث...";
       if (nextPrayerTime != null) {
         final diff = nextPrayerTime.difference(DateTime.now());
         if (diff.isNegative) {
-          countdownText = "00:00";
+          countdownText = "جاري التحديث...";
         } else {
           final hours = diff.inHours;
           final minutes = diff.inMinutes % 60;

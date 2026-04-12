@@ -4,6 +4,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../../../services/prayer_times_service.dart';
 
 MyAudioHandler? audioHandler;
 
@@ -59,6 +60,9 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
              processingState: AudioProcessingState.idle,
           ));
           mediaItem.add(null);
+          
+          // ✅ Refresh widget data on Athan completion
+          PrayerTimesService.instance.updateWidgetData();
        }
     });
 
@@ -136,12 +140,15 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
        if (mediaItem.value?.id == 'athan_alert') {
          await stop();
        }
-       // Always cancel the athan notification (id 888) so it doesn't linger
-       try {
-         final plugin = FlutterLocalNotificationsPlugin();
-         await plugin.cancel(id: 888);
-       } catch (_) {}
-       return;
+        // Always cancel the athan notification (id 888) so it doesn't linger
+        try {
+          final plugin = FlutterLocalNotificationsPlugin();
+          await plugin.cancel(id: 888);
+          
+          // ✅ Refresh widget data
+          await PrayerTimesService.instance.updateWidgetData();
+        } catch (_) {}
+        return;
     }
   
     if (name == 'playAthan' && extras != null) {

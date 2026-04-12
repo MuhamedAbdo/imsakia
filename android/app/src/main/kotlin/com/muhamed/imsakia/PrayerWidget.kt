@@ -41,14 +41,13 @@ class PrayerWidget : HomeWidgetProvider() {
                     views.setChronometerCountDown(R.id.countdown_text, true)
                 }
             } else {
-                val fallback = widgetData.getString("flutter.countdown_text", "00:00")
+                // Negative or zero: "جاري التحديث..."
                 views.setChronometer(R.id.countdown_text, android.os.SystemClock.elapsedRealtime(), null, false)
-                views.setTextViewText(R.id.countdown_text, fallback)
+                views.setTextViewText(R.id.countdown_text, "جاري التحديث...")
             }
         } else {
-            val fallback = widgetData.getString("flutter.countdown_text", "00:00")
             views.setChronometer(R.id.countdown_text, android.os.SystemClock.elapsedRealtime(), null, false)
-            views.setTextViewText(R.id.countdown_text, fallback)
+            views.setTextViewText(R.id.countdown_text, "جاري التحديث...")
         }
 
         // 4. ربط الضغط على الويدجت بفتح التطبيق

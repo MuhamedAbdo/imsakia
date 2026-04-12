@@ -160,4 +160,15 @@ class AthanProvider with ChangeNotifier {
       }
     }
   }
+
+  Future<void> openComprehensivePermissions() async {
+    if (Platform.isAndroid) {
+      try {
+        const channel = MethodChannel('imsakia/notifications');
+        await channel.invokeMethod('openComprehensivePermissions');
+      } catch (e) {
+        debugPrint("Error opening comprehensive permissions: $e");
+      }
+    }
+  }
 }

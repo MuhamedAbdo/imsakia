@@ -5,6 +5,7 @@ import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../../../services/prayer_times_service.dart';
 import '../../audio/services/audio_handler.dart';
 
 /// The notification ID for the athan full-screen overlay notification.
@@ -22,8 +23,7 @@ class AthanManager {
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('cancelAthan', {'id': alarmId});
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   static Future<void> stopAthan() async {
@@ -31,8 +31,10 @@ class AthanManager {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('stopAthan');
       await cancelAthanNotification();
-    } catch (_) {
-    }
+
+      // ✅ Refresh widget data immediately
+      await PrayerTimesService.instance.updateWidgetData();
+    } catch (_) {}
   }
 
   static Future<String?> getPendingAthan() async {
@@ -49,44 +51,47 @@ class AthanManager {
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('clearPendingAthan');
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   static Future<void> cancelAllAlarms() async {
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('clearAllAlarms');
-      await channel.invokeMethod('forceClearSystemAlarms'); 
-    } catch (_) {
-    }
+      await channel.invokeMethod('forceClearSystemAlarms');
+    } catch (_) {}
   }
 
   static Future<void> forceClearSystemAlarms() async {
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('forceClearSystemAlarms');
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   static Future<void> cancelAthanNotification() async {
-    final plugin = FlutterLocalNotificationsPlugin();
-    await plugin.cancel(id: kAthanNotificationId);
+    // Always cancel the athan notification (id 888) so it doesn't linger
+    try {
+      final plugin = FlutterLocalNotificationsPlugin();
+      await plugin.cancel(id: 888);
+
+      // ✅ Refresh widget data
+      await PrayerTimesService.instance.updateWidgetData();
+    } catch (_) {}
   }
 
-   static Future<void> scheduleNextAthan({
-      required int alarmId,
-      required DateTime time,
-      required bool isFajr,
-      required String prayerName,
-      bool isTest = false,
+  static Future<void> scheduleNextAthan({
+    required int alarmId,
+    required DateTime time,
+    required bool isFajr,
+    required String prayerName,
+    bool isTest = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     await prefs.setBool('isFajr_$alarmId', isFajr);
     await prefs.setString('prayerName_$alarmId', prayerName);
-    
+
     String prayerKey = "dhuhr";
     if (isFajr) {
       prayerKey = "fajr";
@@ -97,22 +102,21 @@ class AthanManager {
     } else if (prayerName.contains("عشاء")) {
       prayerKey = "isha";
     }
-    
+
     await prefs.setString('prayerKey_$alarmId', prayerKey);
 
     final isEnabled = prefs.getBool('athan_enabled') ?? true;
     final isSilent = !isEnabled;
-    
-    if (!isEnabled && !isTest) {
-    }
-    
+
+    if (!isEnabled && !isTest) {}
+
     if (Platform.isAndroid) {
       final status = await Permission.scheduleExactAlarm.status;
       if (status.isDenied || status.isRestricted) {
-        return; 
+        return;
       }
     }
-    
+
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('scheduleExactAthan', {
@@ -122,32 +126,28 @@ class AthanManager {
         'prayerKey': prayerKey,
         'isSilent': isSilent,
       });
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   static Future<void> performSmartExit() async {
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('performSmartExit');
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   static Future<void> forceExit() async {
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('forceExit');
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   static Future<void> finalizeAthanSession() async {
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('finalizeAthanSession');
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   static Future<bool> getShouldExitFlag() async {
@@ -164,8 +164,7 @@ class AthanManager {
     try {
       const channel = MethodChannel('imsakia/notifications');
       await channel.invokeMethod('clearShouldExitFlag');
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   /// Schedules a test athan alert for 15 seconds from now.
@@ -183,30 +182,37 @@ class AthanManager {
 
 @pragma('vm:entry-point')
 Future<void> athanAlarmCallback(int alarmId) async {
-    DartPluginRegistrant.ensureInitialized();
-    
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.reload();
-    
-    final isEnabled = prefs.getBool('athan_enabled') ?? true;
-    if (!isEnabled) return;
+  DartPluginRegistrant.ensureInitialized();
 
-    final isFajr = prefs.getBool('isFajr_$alarmId') ?? false;
-    final prayerName = prefs.getString('prayerName_$alarmId') ?? "الصلاة";
-    final prayerKey = prefs.getString('prayerKey_$alarmId') ?? (isFajr ? "fajr" : "dhuhr");
-    final pathToPlay = prefs.getString('athan_path_$prayerKey') ?? "assets/audio/athan_mishari.mp3";
-    
-    if (audioHandler == null) {
-        await initAudioService();
-    }
-    
-    await audioHandler?.customAction('playAthan', {'path': pathToPlay, 'prayerName': prayerName});
-    await showFullScreenAthan(prayerName, isFajr);
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.reload();
+
+  final isEnabled = prefs.getBool('athan_enabled') ?? true;
+  if (!isEnabled) return;
+
+  final isFajr = prefs.getBool('isFajr_$alarmId') ?? false;
+  final prayerName = prefs.getString('prayerName_$alarmId') ?? "الصلاة";
+  final prayerKey =
+      prefs.getString('prayerKey_$alarmId') ?? (isFajr ? "fajr" : "dhuhr");
+  final pathToPlay =
+      prefs.getString('athan_path_$prayerKey') ??
+      "assets/audio/athan_mishari.mp3";
+
+  if (audioHandler == null) {
+    await initAudioService();
+  }
+
+  await audioHandler?.customAction('playAthan', {
+    'path': pathToPlay,
+    'prayerName': prayerName,
+  });
+  await showFullScreenAthan(prayerName, isFajr);
 }
 
 Future<void> showFullScreenAthan(String prayerName, bool isFajr) async {
-  final FlutterLocalNotificationsPlugin plugin = FlutterLocalNotificationsPlugin();
-  
+  final FlutterLocalNotificationsPlugin plugin =
+      FlutterLocalNotificationsPlugin();
+
   await plugin.initialize(
     settings: const InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
@@ -214,10 +220,10 @@ Future<void> showFullScreenAthan(String prayerName, bool isFajr) async {
   );
 
   const AndroidNotificationAction stopAction = AndroidNotificationAction(
-    'stop_athan_action',       
-    'إيقاف الأذان',            
-    showsUserInterface: false, 
-    cancelNotification: true,  
+    'stop_athan_action',
+    'إيقاف الأذان',
+    showsUserInterface: false,
+    cancelNotification: true,
   );
 
   final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
@@ -236,8 +242,10 @@ Future<void> showFullScreenAthan(String prayerName, bool isFajr) async {
     actions: const [stopAction],
     largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
   );
-  
-  final NotificationDetails details = NotificationDetails(android: androidDetails);
+
+  final NotificationDetails details = NotificationDetails(
+    android: androidDetails,
+  );
 
   await plugin.show(
     id: kAthanNotificationId,
