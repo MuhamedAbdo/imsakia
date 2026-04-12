@@ -10,7 +10,7 @@ import 'providers/bukhari_provider.dart'; // تأكد من وجود هذا ال�
 import 'screens/splash_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/main_layout.dart';
-import 'screens/permissions_gate_screen.dart';
+import 'screens/sequential_permissions_screen.dart';
 import 'services/hadith_service.dart';
 import 'services/azkar_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -273,12 +273,12 @@ class _MyAppState extends State<MyApp> {
                 theme: themeProvider.lightTheme,
                 darkTheme: themeProvider.darkTheme,
                 themeMode: _getThemeMode(settingsProvider.themeMode),
-                home: widget.initialOverlay ?? 
-                      (widget.showPermissionsGate ? const PermissionsGateScreen() : const SplashScreen()),
+                home: _resolveInitialScreen(),
                 routes: {
                   '/settings': (context) => const SettingsScreen(),
                   '/main': (context) => const MainLayout(),
-                  '/permissions-gate': (context) => const PermissionsGateScreen(),
+                  '/sequential-permissions': (context) => const SequentialPermissionsScreen(),
+                  '/city-selection': (context) => const SettingsScreen(isFirstTimeSetup: true),
                 },
                 builder: (context, child) {
                   // 🔥 تحميل الصور مسبقاً في الذاكرة لضمان ظهور شاشة الأذان في جزء من الثانية (Pre-cache)
@@ -295,6 +295,22 @@ class _MyAppState extends State<MyApp> {
         },
       ),
     );
+  }
+
+  Widget _resolveInitialScreen() {
+    // 1️⃣ الأولوية القصوى: أذان معلق (من أي مصدر)
+    if (widget.initialOverlay != null) {
+      MyApp.isAthanShowing = true;
+      return widget.initialOverlay!;
+    }
+    
+    // 2️⃣ الأولوية الثانية: إكمال إعدادات الأذونات
+    if (widget.showPermissionsGate) {
+      return const SequentialPermissionsScreen();
+    }
+    
+    // 3️⃣ الحالة الطبيعية: شاشة البداية
+    return const SplashScreen();
   }
 
   bool _imagesPrecached = false;

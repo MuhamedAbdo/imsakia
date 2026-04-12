@@ -631,7 +631,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                 subtitle: 'مهم جداً لضمان عمل الأذان في الخلفية',
                 icon: Icons.battery_saver_rounded,
                 isGranted: _permissionStatuses['battery_optimization'] ?? false,
-                onTap: () => provider.openBatteryOptimizationSettings(),
+                onTap: () => PermissionsService.openBatteryOptimizationSettings(),
               ),
               const SizedBox(height: 10),
               _buildActionTile(
@@ -640,7 +640,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                 subtitle: 'خاص بهواتف Oppo, Realme, Huawei, Samsung, Xiaomi',
                 icon: Icons.power_settings_new_rounded,
                 isGranted: _permissionStatuses['system_alert'] ?? false, // We check overlay/start status
-                onTap: () => provider.openComprehensivePermissions(),
+                onTap: () => PermissionsService.openComprehensivePermissions(),
               ),
               const SizedBox(height: 10),
               _buildActionTile(
@@ -649,7 +649,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                 subtitle: 'فعل "Show on Lock Screen" لتفتح الصور تلقائياً',
                 icon: Icons.security_rounded,
                 isGranted: _permissionStatuses['system_alert'] ?? false,
-                onTap: () => provider.openXiaomiOtherPermissions(),
+                onTap: () => PermissionsService.openComprehensivePermissions(),
               ),
               const SizedBox(height: 15),
               const Divider(height: 30),

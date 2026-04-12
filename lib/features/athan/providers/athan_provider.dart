@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../services/prayer_times_service.dart';
 import '../services/athan_manager.dart';
@@ -151,38 +150,5 @@ class AthanProvider with ChangeNotifier {
       }
     }
     return true;
-  }
-
-  Future<void> openBatteryOptimizationSettings() async {
-    if (Platform.isAndroid) {
-      try {
-        const channel = MethodChannel('imsakia/notifications');
-        await channel.invokeMethod('openBatteryOptimizationSettings');
-      } catch (e) {
-        debugPrint("Error opening battery settings: $e");
-      }
-    }
-  }
-
-  Future<void> openXiaomiOtherPermissions() async {
-    if (Platform.isAndroid) {
-      try {
-        const channel = MethodChannel('imsakia/notifications');
-        await channel.invokeMethod('openXiaomiOtherPermissions');
-      } catch (e) {
-        debugPrint("Error opening Xiaomi settings: $e");
-      }
-    }
-  }
-
-  Future<void> openComprehensivePermissions() async {
-    if (Platform.isAndroid) {
-      try {
-        const channel = MethodChannel('imsakia/notifications');
-        await channel.invokeMethod('openComprehensivePermissions');
-      } catch (e) {
-        debugPrint("Error opening comprehensive permissions: $e");
-      }
-    }
   }
 }

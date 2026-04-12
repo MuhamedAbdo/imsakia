@@ -250,6 +250,22 @@ class MainActivity : AudioServiceActivity() {
                         }
                         result.success(true)
                     }
+                    "isExactAlarmGranted" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            try {
+                                val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                                val canSchedule = alarmManager.canScheduleExactAlarms()
+                                System.err.println("!!! NATIVE CHECK: canScheduleExactAlarms = $canSchedule !!!")
+                                result.success(canSchedule)
+                            } catch (e: Exception) {
+                                System.err.println("!!! ERROR checking exact alarm: ${e.message} !!!")
+                                result.success(false)
+                            }
+                        } else {
+                            // Android 11 and below: always considered granted
+                            result.success(true)
+                        }
+                    }
                     "performSmartExit" -> {
                         // Re-routing to finalizeAthanSession logic for consistency
                         if (wasLockedOnStart || !wasInAppOnStart) {

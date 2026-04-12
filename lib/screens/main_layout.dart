@@ -18,6 +18,7 @@ import 'azkar_screen.dart';
 import 'fasting_fiqh_screen.dart';
 import 'tibyan_menu_page.dart';
 import '../widgets/neumorphic_box.dart';
+import '../services/permissions_service.dart';
 import '../widgets/event_card_widget.dart';
 
 class MainLayout extends StatefulWidget {
@@ -248,7 +249,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
               ),
               TextButton(
-                onPressed: () => provider.openBatteryOptimizationSettings(),
+                onPressed: () => PermissionsService.openBatteryOptimizationSettings(),
                 child: Text(
                   "تعديل",
                   style: GoogleFonts.tajawal(
