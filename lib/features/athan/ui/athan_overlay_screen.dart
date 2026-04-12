@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:flutter/services.dart';
 import '../../audio/services/audio_handler.dart';
 import '../services/athan_manager.dart';
 
@@ -43,6 +44,12 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
   void initState() {
     // 🔥 Ensure screen wakes up instantly on boot/locked
     WakelockPlus.enable();
+    
+    // 🛡️ Sovereignty: Take over full screen, hide navigation and status bars
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.immersiveSticky,
+      overlays: [],
+    );
     
     super.initState();
     _openedAt = DateTime.now();
@@ -119,6 +126,11 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
 
     // --- Allow screen to turn off again ---
     WakelockPlus.disable();
+
+    // 🛡️ Restore System UI
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+    );
 
     super.dispose();
   }

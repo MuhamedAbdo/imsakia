@@ -67,32 +67,12 @@ class MainActivity : AudioServiceActivity() {
                             intent?.hasExtra("prayer_name") == true
         if (isAthanIntent) {
             setTheme(android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+            // Sovereignty: Force flags if it's an Athan intent
+            applyLockScreenFlags()
         }
 
-        val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                setInheritShowWhenLocked(true)
-            }
-
-            // 🔥 Root Cause Fix: 200ms delay to ensure activity covers screen before dismissing keyguard
-            Handler(Looper.getMainLooper()).postDelayed({
-                keyguardManager.requestDismissKeyguard(this, null)
-            }, 200)
-        } else {
-            @Suppress("DEPRECATION")
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-                WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
-            )
-        }
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // Always apply flags as a safety measure but with higher priority on Athan
+        applyLockScreenFlags()
 
         // ✅ 2. super.onCreate
         super.onCreate(savedInstanceState)
@@ -295,13 +275,8 @@ class MainActivity : AudioServiceActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         
-        // 🔥 Immediate Keyguard Dismissal on New Intent with 200ms delay
-        val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            Handler(Looper.getMainLooper()).postDelayed({
-                keyguardManager.requestDismissKeyguard(this, null)
-            }, 200)
-        }
+        // 🔥 Immediate Lock Screen Breakthrough on New Intent
+        applyLockScreenFlags()
         
         wasLockedOnStart = keyguardManager.isKeyguardLocked
         wasInAppOnStart = true 
@@ -593,6 +568,33 @@ class MainActivity : AudioServiceActivity() {
             }
         } catch (e: Exception) {
         }
+    }
+
+    private fun applyLockScreenFlags() {
+        val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                setInheritShowWhenLocked(true)
+            }
+
+            // Dismiss keyguard with slight delay to ensure window focus
+            Handler(Looper.getMainLooper()).postDelayed({
+                keyguardManager.requestDismissKeyguard(this, null)
+            }, 250)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
+            )
+        }
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     override fun onDestroy() {
