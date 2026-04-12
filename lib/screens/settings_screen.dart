@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:csc_picker_plus/csc_picker_plus.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:audio_service/audio_service.dart';
@@ -15,6 +14,7 @@ import '../widgets/neumorphic_box.dart';
 import '../features/audio/services/audio_handler.dart';
 import '../features/athan/services/athan_manager.dart';
 import '../services/permissions_service.dart';
+import '../widgets/custom_localized_picker.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool isFirstTimeSetup;
@@ -24,12 +24,13 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObserver {
+class _SettingsScreenState extends State<SettingsScreen>
+    with WidgetsBindingObserver {
   late SettingsProvider _settingsProvider;
   String? _selectedCountry;
   String? _selectedState;
   int _tempAdjustment = 0; // عداد مؤقت يظهر للمستخدم فقط
-  
+
   Map<String, bool> _permissionStatuses = {};
 
   final Map<String, String> _calculationMethods = {
@@ -49,21 +50,23 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     super.initState();
     _settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     _loadSavedLocation();
-    
+
     // 🔥 ضمان مزامنة الـ Switch مع حالة نظام أندرويد من اللحظة الأولى
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final platformBrightness = MediaQuery.platformBrightnessOf(context);
         if (_settingsProvider.themeMode == AppThemeMode.system) {
           final isDark = platformBrightness == Brightness.dark;
-          _settingsProvider.setThemeMode(isDark ? AppThemeMode.dark : AppThemeMode.light);
+          _settingsProvider.setThemeMode(
+            isDark ? AppThemeMode.dark : AppThemeMode.light,
+          );
         }
       }
     });
 
     // تحميل المؤذنين (الآن عبر الأصول الثابتة، لا يحتاج انتظار)
     Provider.of<AthanProvider>(context, listen: false);
-    
+
     WidgetsBinding.instance.addObserver(this);
     _refreshPermissionStatuses();
   }
@@ -105,7 +108,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
 
   void _testPlayAthan(String prayerKey) async {
     if (audioHandler == null) return;
-    
+
     final provider = Provider.of<AthanProvider>(context, listen: false);
     final state = audioHandler!.playbackState.value;
     final activeKey = audioHandler!.mediaItem.value?.extras?['activeTestKey'];
@@ -188,6 +191,15 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
 
       if (mounted) {
         if (widget.isFirstTimeSetup) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'تم ضبط المواقيت بنجاح حسب موقعك',
+                style: GoogleFonts.tajawal(),
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
           Navigator.of(
             context,
           ).pushNamedAndRemoveUntil('/main', (route) => false);
@@ -227,35 +239,18 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                 title: 'الموقع الجغرافي',
                 icon: Icons.location_on_rounded,
                 children: [
-                  CSCPickerPlus(
-                    layout: Layout.vertical,
-                    currentCountry: _selectedCountry,
-                    currentState: _selectedState,
-                    showStates: true,
-                    showCities: false,
-                    flagState: CountryFlag.ENABLE,
-                    dropdownDecoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: isDark ? Colors.grey[900] : Colors.white,
-                      border: Border.all(
-                        color: isDark ? Colors.white24 : Colors.grey.shade300,
-                      ),
-                    ),
-                    selectedItemStyle: GoogleFonts.tajawal(
-                      fontSize: 15,
-                      color: isDark ? Colors.white : Colors.black,
-                    ),
-                    countryDropdownLabel: "اختر الدولة",
-                    stateDropdownLabel: "اختر المحافظة / الولاية",
-                    onCountryChanged: (value) {
+                  CustomLocalizedPicker(
+                    initialCountry: _selectedCountry,
+                    initialState: _selectedState,
+                    onSelectionChanged: (country, state) {
                       setState(() {
-                        _selectedCountry = value;
-                        _autoSelectMethod(value);
+                        _selectedCountry = country;
+                        _selectedState = state;
+                        if (country != null) {
+                          _autoSelectMethod(country);
+                        }
                       });
                     },
-                    onStateChanged: (value) =>
-                        setState(() => _selectedState = value),
-                    onCityChanged: (value) {},
                   ),
                 ],
               ),
@@ -546,7 +541,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                   prayerKey: 'dhuhr',
                   muezzins: provider.generalMuezzins,
                   selectedPath: provider.getPathForPrayer('dhuhr'),
-                  onChanged: (path) => provider.setPrayerMuezzin('dhuhr', path!),
+                  onChanged: (path) =>
+                      provider.setPrayerMuezzin('dhuhr', path!),
                   onTestPlay: () => _testPlayAthan('dhuhr'),
                 ),
                 const SizedBox(height: 8),
@@ -579,7 +575,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                         prayerKey: 'fajr',
                         muezzins: provider.fajrMuezzins,
                         selectedPath: provider.getPathForPrayer('fajr'),
-                        onChanged: (path) => provider.setPrayerMuezzin('fajr', path!),
+                        onChanged: (path) =>
+                            provider.setPrayerMuezzin('fajr', path!),
                         onTestPlay: () => _testPlayAthan('fajr'),
                       ),
                       const SizedBox(height: 10),
@@ -588,7 +585,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                         prayerKey: 'dhuhr',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('dhuhr'),
-                        onChanged: (path) => provider.setPrayerMuezzin('dhuhr', path!),
+                        onChanged: (path) =>
+                            provider.setPrayerMuezzin('dhuhr', path!),
                         onTestPlay: () => _testPlayAthan('dhuhr'),
                       ),
                       const SizedBox(height: 10),
@@ -597,7 +595,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                         prayerKey: 'asr',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('asr'),
-                        onChanged: (path) => provider.setPrayerMuezzin('asr', path!),
+                        onChanged: (path) =>
+                            provider.setPrayerMuezzin('asr', path!),
                         onTestPlay: () => _testPlayAthan('asr'),
                       ),
                       const SizedBox(height: 10),
@@ -606,7 +605,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                         prayerKey: 'maghrib',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('maghrib'),
-                        onChanged: (path) => provider.setPrayerMuezzin('maghrib', path!),
+                        onChanged: (path) =>
+                            provider.setPrayerMuezzin('maghrib', path!),
                         onTestPlay: () => _testPlayAthan('maghrib'),
                       ),
                       const SizedBox(height: 10),
@@ -615,7 +615,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                         prayerKey: 'isha',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('isha'),
-                        onChanged: (path) => provider.setPrayerMuezzin('isha', path!),
+                        onChanged: (path) =>
+                            provider.setPrayerMuezzin('isha', path!),
                         onTestPlay: () => _testPlayAthan('isha'),
                       ),
                     ],
@@ -631,7 +632,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                 subtitle: 'مهم جداً لضمان عمل الأذان في الخلفية',
                 icon: Icons.battery_saver_rounded,
                 isGranted: _permissionStatuses['battery_optimization'] ?? false,
-                onTap: () => PermissionsService.openBatteryOptimizationSettings(),
+                onTap: () =>
+                    PermissionsService.openBatteryOptimizationSettings(),
               ),
               const SizedBox(height: 10),
               _buildActionTile(
@@ -639,7 +641,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                 title: 'إعدادات التشغيل التلقائي (Auto-start)',
                 subtitle: 'خاص بهواتف Oppo, Realme, Huawei, Samsung, Xiaomi',
                 icon: Icons.power_settings_new_rounded,
-                isGranted: _permissionStatuses['system_alert'] ?? false, // We check overlay/start status
+                isGranted:
+                    _permissionStatuses['system_alert'] ??
+                    false, // We check overlay/start status
                 onTap: () => PermissionsService.openComprehensivePermissions(),
               ),
               const SizedBox(height: 10),
@@ -656,14 +660,17 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
               _buildActionTile(
                 context,
                 title: 'اختبار نظام الأذان (٥ دقائق)',
-                subtitle: 'سيطلق الأذان بعد ٥ دقائق لاختبار الـ Restart والـ WakeLock',
+                subtitle:
+                    'سيطلق الأذان بعد ٥ دقائق لاختبار الـ Restart والـ WakeLock',
                 icon: Icons.timer_outlined,
                 onTap: () async {
                   await AthanManager.testAthan();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('سيتم تشغيل الأذان التجريبي بعد ٥ دقائق. يمكنك الآن عمل Reboot للهاتف لتجربة استعادة الخدمة.'),
+                        content: Text(
+                          'سيتم تشغيل الأذان التجريبي بعد ٥ دقائق. يمكنك الآن عمل Reboot للهاتف لتجربة استعادة الخدمة.',
+                        ),
                         duration: Duration(seconds: 7),
                       ),
                     );
@@ -724,9 +731,11 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
               ),
             ),
             const SizedBox(width: 12),
-            if (isGranted != null) 
+            if (isGranted != null)
               Icon(
-                isGranted ? Icons.check_circle_rounded : Icons.warning_amber_rounded, 
+                isGranted
+                    ? Icons.check_circle_rounded
+                    : Icons.warning_amber_rounded,
                 color: isGranted ? Colors.green : Colors.orange,
                 size: 20,
               )
@@ -784,28 +793,29 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
           builder: (context, snapshot) {
             final state = snapshot.data;
             final isAthanPlaying = state?.playing == true;
-            
+
             // Check if this specific key is the one playing
             bool isThisTaskPlaying = false;
             if (audioHandler != null && isAthanPlaying) {
-               final activeKey = audioHandler!.mediaItem.value?.extras?['activeTestKey'];
-               if (activeKey == prayerKey) {
-                 isThisTaskPlaying = true;
-               }
+              final activeKey =
+                  audioHandler!.mediaItem.value?.extras?['activeTestKey'];
+              if (activeKey == prayerKey) {
+                isThisTaskPlaying = true;
+              }
             }
 
             return IconButton(
               icon: Icon(
-                isThisTaskPlaying 
-                  ? Icons.stop_circle_outlined 
-                  : Icons.play_circle_outline,
+                isThisTaskPlaying
+                    ? Icons.stop_circle_outlined
+                    : Icons.play_circle_outline,
                 color: isThisTaskPlaying ? Colors.red : Colors.green,
                 size: 30,
               ),
               tooltip: isThisTaskPlaying ? 'إيقاف التجربة' : 'تشغيل تجريبي',
               onPressed: onTestPlay,
             );
-          }
+          },
         ),
       ],
     );
