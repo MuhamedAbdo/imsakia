@@ -236,10 +236,10 @@ class MainActivity : AudioServiceActivity() {
                             try {
                                 val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
                                 val canSchedule = alarmManager.canScheduleExactAlarms()
-                                System.err.println("!!! NATIVE CHECK: canScheduleExactAlarms = $canSchedule !!!")
+                                android.util.Log.d("ImsakiaNative", "canScheduleExactAlarms = $canSchedule")
                                 result.success(canSchedule)
                             } catch (e: Exception) {
-                                System.err.println("!!! ERROR checking exact alarm: ${e.message} !!!")
+                                android.util.Log.w("ImsakiaNative", "Error checking exact alarm: ${e.message}")
                                 result.success(false)
                             }
                         } else {
@@ -261,8 +261,25 @@ class MainActivity : AudioServiceActivity() {
                     }
                     "isBatteryOptimizationGranted" -> {
                         val isIgnored = isBatteryOptimizationGranted()
-                        System.err.println("!!! NATIVE CHECK: isBatteryOptimizationGranted = $isIgnored !!!")
+                        android.util.Log.d("ImsakiaNative", "isBatteryOptimizationGranted = $isIgnored")
                         result.success(isIgnored)
+                    }
+                    // Fires AthanReceiver directly, bypassing AlarmManager
+                    "testDirectBroadcast" -> {
+                        try {
+                            val testIntent = Intent(this, AthanReceiver::class.java).apply {
+                                putExtra("alarm_id", 998)
+                                putExtra("prayer_name", "اختبار مباشر")
+                                putExtra("prayer_key", "dhuhr")
+                                putExtra("is_silent", false)
+                            }
+                            sendBroadcast(testIntent)
+                            android.util.Log.d("ZadAthan", "testDirectBroadcast: sendBroadcast delivered")
+                            result.success("تم الإرسال المباشر للـ Receiver")
+                        } catch (e: Exception) {
+                            android.util.Log.w("ZadAthan", "testDirectBroadcast failed: ${e.message}")
+                            result.error("BROADCAST_FAILED", e.message, null)
+                        }
                     }
                     else -> result.notImplemented()
                 }
@@ -335,12 +352,16 @@ class MainActivity : AudioServiceActivity() {
     }
 
     private fun scheduleExactAthan(timeInMillis: Long, id: Int, prayerName: String, prayerKey: String, isSilent: Boolean) {
+        android.util.Log.d("ImsakiaNative", "!!! NATIVE: Received schedule request for $prayerName (ID: $id) at $timeInMillis !!!")
         try {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             
-            // ... check permission ...
+            // Log permission status
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (!alarmManager.canScheduleExactAlarms()) {
+                val canSchedule = alarmManager.canScheduleExactAlarms()
+                android.util.Log.d("ImsakiaNative", "!!! NATIVE: canScheduleExactAlarms = $canSchedule !!!")
+                if (!canSchedule) {
+                    android.util.Log.e("ImsakiaNative", "!!! NATIVE: CANNOT SCHEDULE EXACT ALARM - PERMISSION MISSING !!!")
                     return
                 }
             }
@@ -380,6 +401,7 @@ class MainActivity : AudioServiceActivity() {
             } else {
                 alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
             }
+            android.util.Log.d("ImsakiaNative", "!!! NATIVE: Athan Scheduled Successfully for $prayerName (ID: $id) !!!")
         } catch (e: Exception) {
         }
     }

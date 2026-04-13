@@ -107,17 +107,38 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   void _testPlayAthan(String prayerKey) async {
-    if (audioHandler == null) return;
+    if (audioHandler == null) {
+      try {
+        await initAudioService();
+      } catch (e) {
+        debugPrint("ATHAN TEST: Failed to init audioHandler: $e");
+      }
+    }
 
+    // ✅ Guard: widget may have been disposed during await
+    if (!mounted) return;
+
+    if (audioHandler == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تعذّر تهيئة مشغل الصوت. أعد تشغيل التطبيق.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    // ✅ All context reads are safe — mounted confirmed above
     final provider = Provider.of<AthanProvider>(context, listen: false);
     final state = audioHandler!.playbackState.value;
     final activeKey = audioHandler!.mediaItem.value?.extras?['activeTestKey'];
     final isPlayingThisKey = state.playing && activeKey == prayerKey;
+    final path = provider.getPathForPrayer(prayerKey);
 
     if (isPlayingThisKey) {
       await audioHandler!.stop();
     } else {
-      final path = provider.getPathForPrayer(prayerKey);
       await audioHandler!.customAction('playAthan', {
         'path': path,
         'prayerName': 'تجربة',
@@ -659,19 +680,20 @@ class _SettingsScreenState extends State<SettingsScreen>
               const Divider(height: 30),
               _buildActionTile(
                 context,
-                title: 'اختبار نظام الأذان (٥ دقائق)',
-                subtitle:
-                    'سيطلق الأذان بعد ٥ دقائق لاختبار الـ Restart والـ WakeLock',
-                icon: Icons.timer_outlined,
+                title: 'تحديث وجدولة الأذان',
+                subtitle: 'يُلغي الجدولة القديمة ويُعيد حساب وجدولة جميع الصلوات من جديد',
+                icon: Icons.update_rounded,
                 onTap: () async {
-                  await AthanManager.scheduleTestAthan();
+                  await AthanManager.cancelAllAlarms();
+                  await PrayerTimesService.instance.scheduleAllPrayers();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
-                          'سيتم تشغيل الأذان التجريبي بعد ٥ دقائق. يمكنك الآن عمل Reboot للهاتف لتجربة استعادة الخدمة.',
+                          '✅ تم تحديث جدولة الأذان لجميع الصلوات بنجاح',
                         ),
-                        duration: Duration(seconds: 7),
+                        backgroundColor: Colors.green,
+                        duration: Duration(seconds: 4),
                       ),
                     );
                   }

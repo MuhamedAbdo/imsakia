@@ -121,6 +121,16 @@ void main() async {
   }
 
   final prefs = await SharedPreferences.getInstance();
+
+  // 🔥 ONE-TIME CLEANUP: Clear orphaned alarms from other branches/versions
+  // This ensures the Sovereign Athan system starts with a clean slate.
+  final hasCleanedOrphans = prefs.getBool('orphaned_alarms_cleaned_v1') ?? false;
+  if (!hasCleanedOrphans) {
+    debugPrint("!!! HARDENED: Performing one-time orphaned alarm cleanup !!!");
+    await AthanManager.cancelAllAlarms();
+    await prefs.setBool('orphaned_alarms_cleaned_v1', true);
+  }
+
   final hasCompletedPermissions = prefs.getBool('permissions_granted') ?? false;
   
   runApp(MyApp(
@@ -161,10 +171,16 @@ class _MyAppState extends State<MyApp> {
     // ✅ نظام الخروج الآمن: مسح أي علم سابق عند فتح التطبيق لضمان العمل الطبيعي
     AthanManager.clearShouldExitFlag();
     // 🔥 جدولة المنبهات وتحديث الويدجت عند فتح التطبيق لأول مرة
-    Future.delayed(const Duration(seconds: 2), () {
-      PrayerTimesService.instance.scheduleAllPrayers();
-      PrayerTimesService.instance.updateWidgetData();
-    });
+    // 🛡️ HARDENED: Skip this if we're showing an overlay to avoid heavy initialization & Geocoding issues
+    if (widget.initialOverlay == null) {
+      Future.delayed(const Duration(seconds: 2), () {
+        debugPrint("!!! HARDENED: Triggering normal startup prayer scheduling !!!");
+        PrayerTimesService.instance.scheduleAllPrayers();
+        PrayerTimesService.instance.updateWidgetData();
+      });
+    } else {
+      debugPrint("!!! HARDENED: Athan Overlay detected, skipping heavy background scheduling !!!");
+    }
   }
 
   void _setupMethodChannel() {

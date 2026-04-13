@@ -9,29 +9,36 @@ import androidx.core.app.NotificationCompat
 
 class AthanReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val prayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
-        val prayerKey = intent.getStringExtra("prayer_key") ?: "dhuhr"
-        val alarmId = intent.getIntExtra("alarm_id", 0)
-        val isSilent = intent.getBooleanExtra("is_silent", false)
-        
+        // ✅ DIAGNOSTIC: First line - always runs before any logic
+        val alarmId = intent.getIntExtra("alarm_id", -1)
+        android.util.Log.d("ZadAthan", "Receiver Awake - ID: $alarmId")
 
-        if (isSilent) {
-            showSilentNotification(context, prayerName, alarmId)
-            return
-        }
 
-        android.util.Log.i("ZadAthan", "!!! Athan Alert Triggered (Sovereign): $prayerName !!!")
-
-        // 0. Acquire WakeLock IMMEDIATELY (Full Wake)
+        // 0. Acquire WakeLock IMMEDIATELY (Full Wake) - MUST BE FIRST LINE
         try {
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             val wakeLock = powerManager.newWakeLock(
                 PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
                 "Zad:SovereignWakeLock"
             )
-            wakeLock.acquire(30000) // 30 seconds to allow Flutter to load
-            android.util.Log.d("ZadAthan", "--- WakeLock Acquired ---")
-        } catch (e: Exception) { e.printStackTrace() }
+            wakeLock.acquire(30000) // 30 seconds to allow everything to load
+            android.util.Log.d("ZadAthan", "!!! HARDENED: WakeLock Acquired as First Line !!!")
+        } catch (e: Exception) { 
+            android.util.Log.e("ZadAthan", "FAILED to acquire immediate WakeLock: ${e.message}")
+        }
+
+        val prayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
+        val prayerKey = intent.getStringExtra("prayer_key") ?: "dhuhr"
+        // alarmId already declared above (line 13) - reuse it here
+        val isSilent = intent.getBooleanExtra("is_silent", false)
+
+
+        if (isSilent) {
+            showSilentNotification(context, prayerName, alarmId)
+            return
+        }
+
+        android.util.Log.i("ZadAthan", "!!! HARDENED: Athan Alert Triggered: $prayerName !!!")
 
         // --- Audible Branch: Full Protocol (Service + Activity) ---
         

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:adhan/adhan.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
-import 'package:geocoding/geocoding.dart';
 import '../utils/app_constants.dart';
 import '../utils/logger.dart'; // تأكد من وجود هذا المسار
 import 'hijri_date_service.dart';
@@ -22,7 +21,8 @@ class PrayerTimesService {
   Timer? _updateTimer;
   SharedPreferences? _sharedPreferences;
   bool _isScheduling = false; // 🔥 لمنع تداخل عمليات الجدولة
-  DateTime? _lastWidgetUpdateTime; // 🔥 لمنع استهلاك المعالج بتحديثات الويدجت المتكررة
+  DateTime?
+  _lastWidgetUpdateTime; // 🔥 لمنع استهلاك المعالج بتحديثات الويدجت المتكررة
 
   // حذفنا _lastRamadanCalculation لأنه لم يكن يُستخدم
   Duration? _cachedTimeUntilRamadan;
@@ -125,7 +125,7 @@ class PrayerTimesService {
     };
 
     _scheduleAthanAlarmsIfNeeded(_currentPrayerTimes!);
-    
+
     // 🔥 تحديث بيانات الويدجت (Android Home Screen Widget) - تم تفعيل الـ Throttling
     updateWidgetData();
 
@@ -142,10 +142,13 @@ class PrayerTimesService {
       // 🛡️ Throttling Protection: تحديث الويدجت عملية مكلفة جداً، نكتفي بمرة كل 30 ثانية
       // استثناء: عند تغير "اليوم" (منتصف الليل)، نتجاوز التروتلينج فوراً لتحديث التاريخ الهجري
       final now = DateTime.now();
-      final bool isNewDay = _lastWidgetUpdateTime == null || now.day != _lastWidgetUpdateTime!.day;
-      
+      final bool isNewDay =
+          _lastWidgetUpdateTime == null ||
+          now.day != _lastWidgetUpdateTime!.day;
+
       if (!force && !isNewDay && _lastWidgetUpdateTime != null) {
-        if (now.difference(_lastWidgetUpdateTime!) < const Duration(seconds: 30)) {
+        if (now.difference(_lastWidgetUpdateTime!) <
+            const Duration(seconds: 30)) {
           return;
         }
       }
@@ -154,12 +157,13 @@ class PrayerTimesService {
       final nextPrayerKey = getNextPrayer() ?? 'fajr';
       final nextPrayerTime = getNextPrayerTime();
       final nextPrayerName = _getArabicName(nextPrayerKey);
-      
+
       final lastPrayerKey = getLastPrayer() ?? 'isha';
       final lastPrayerTime = getLastPrayerTime();
       final lastPrayerName = _getArabicName(lastPrayerKey);
-      final lastPrayerInfo = "$lastPrayerName ${_formatTimeTo12h(lastPrayerTime)}";
-      
+      final lastPrayerInfo =
+          "$lastPrayerName ${_formatTimeTo12h(lastPrayerTime)}";
+
       // حساب العد التنازلي للصلاة القادمة
       String countdownText = "جاري التحديث...";
       if (nextPrayerTime != null) {
@@ -169,15 +173,23 @@ class PrayerTimesService {
         } else {
           final hours = diff.inHours;
           final minutes = diff.inMinutes % 60;
-          countdownText = "${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}";
+          countdownText =
+              "${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}";
         }
       }
 
       _sharedPreferences ??= await SharedPreferences.getInstance();
-      final city = _sharedPreferences!.getString(AppConstants.selectedCityKey)?.split(',').first.trim() ?? 'القاهرة';
+      final city =
+          _sharedPreferences!
+              .getString(AppConstants.selectedCityKey)
+              ?.split(',')
+              .first
+              .trim() ??
+          'القاهرة';
 
       // جلب بيانات التاريخ الهجري والمناسبات
-      final hijriAdjustment = _sharedPreferences!.getInt('hijri_adjustment') ?? 0;
+      final hijriAdjustment =
+          _sharedPreferences!.getInt('hijri_adjustment') ?? 0;
       final hijriDate = HijriDateService.getHijriDate(now, hijriAdjustment);
       final hijriDateFull = hijriDate['formatted'] as String;
 
@@ -185,29 +197,56 @@ class PrayerTimesService {
       final event = eventsService.currentEvent;
       final eventTypeName = event?.type.toString().split('.').last ?? 'none';
 
-      final nextPrayerDisplay = "$nextPrayerName ${_formatTimeTo12h(nextPrayerTime)}";
-      
+      final nextPrayerDisplay =
+          "$nextPrayerName ${_formatTimeTo12h(nextPrayerTime)}";
+
       // حفظ البيانات للويدجت بالمفاتيح المطلوبة بدقة للهيكل الجديد
       if (nextPrayerTime != null) {
-        await HomeWidget.saveWidgetData<int>('flutter.next_prayer_timestamp', nextPrayerTime.millisecondsSinceEpoch);
+        await HomeWidget.saveWidgetData<int>(
+          'flutter.next_prayer_timestamp',
+          nextPrayerTime.millisecondsSinceEpoch,
+        );
       } else {
-        await HomeWidget.saveWidgetData<int>('flutter.next_prayer_timestamp', 0);
+        await HomeWidget.saveWidgetData<int>(
+          'flutter.next_prayer_timestamp',
+          0,
+        );
       }
-      await HomeWidget.saveWidgetData<String>('flutter.next_prayer_name', nextPrayerName);
-      await HomeWidget.saveWidgetData<String>('flutter.next_prayer_display', nextPrayerDisplay);
-      await HomeWidget.saveWidgetData<String>('flutter.countdown_text', countdownText);
-      await HomeWidget.saveWidgetData<String>('flutter.last_prayer_display', lastPrayerInfo);
-      await HomeWidget.saveWidgetData<String>('flutter.hijri_date_full', hijriDateFull);
+      await HomeWidget.saveWidgetData<String>(
+        'flutter.next_prayer_name',
+        nextPrayerName,
+      );
+      await HomeWidget.saveWidgetData<String>(
+        'flutter.next_prayer_display',
+        nextPrayerDisplay,
+      );
+      await HomeWidget.saveWidgetData<String>(
+        'flutter.countdown_text',
+        countdownText,
+      );
+      await HomeWidget.saveWidgetData<String>(
+        'flutter.last_prayer_display',
+        lastPrayerInfo,
+      );
+      await HomeWidget.saveWidgetData<String>(
+        'flutter.hijri_date_full',
+        hijriDateFull,
+      );
       await HomeWidget.saveWidgetData<String>('flutter.current_city', city);
-      await HomeWidget.saveWidgetData<String>('flutter.today_event_type', eventTypeName);
+      await HomeWidget.saveWidgetData<String>(
+        'flutter.today_event_type',
+        eventTypeName,
+      );
 
       // طلب تحديث الويدجت من جانب الأندرويد
       await HomeWidget.updateWidget(
         name: 'PrayerWidget',
         androidName: 'PrayerWidget',
       );
-      
-      Logger.info("Widget data updated: $nextPrayerName at ${nextPrayerTime.toString()}");
+
+      Logger.info(
+        "Widget data updated: $nextPrayerName at ${nextPrayerTime.toString()}",
+      );
     } catch (e) {
       Logger.error("Failed to update widget data: $e");
     }
@@ -219,7 +258,7 @@ class PrayerTimesService {
   }
 
   Future<void> scheduleAllPrayers() async {
-    if (_isScheduling) return; 
+    if (_isScheduling) return;
     _isScheduling = true;
 
     try {
@@ -227,55 +266,69 @@ class PrayerTimesService {
       if (location == null) return;
 
       _sharedPreferences ??= await SharedPreferences.getInstance();
-      
+
       // 🔥 مسح كافة المنبهات القديمة قبل جدولة الجديدة لتجنب امتلاء الذاكرة (الحد الأقصى 500)
       await AthanManager.cancelAllAlarms();
-      
+
       // We schedule alarms even if Athan is disabled to support silent notifications
 
-    final calculationMethod = _sharedPreferences!.getString(AppConstants.calculationMethodKey) ?? AppConstants.defaultCalculationMethod;
-    final madhab = _sharedPreferences!.getString(AppConstants.madhabKey) ?? AppConstants.defaultMadhab;
-    final dstEnabled = _sharedPreferences!.getBool(AppConstants.dstKey) ?? AppConstants.defaultDST;
+      final calculationMethod =
+          _sharedPreferences!.getString(AppConstants.calculationMethodKey) ??
+          AppConstants.defaultCalculationMethod;
+      final madhab =
+          _sharedPreferences!.getString(AppConstants.madhabKey) ??
+          AppConstants.defaultMadhab;
+      final dstEnabled =
+          _sharedPreferences!.getBool(AppConstants.dstKey) ??
+          AppConstants.defaultDST;
 
-    final now = DateTime.now();
-    final coordinates = Coordinates(location.latitude, location.longitude);
-    
-    CalculationParameters params = _getParams(calculationMethod);
-    params.madhab = madhab == 'hanafi' ? Madhab.hanafi : Madhab.shafi;
+      final now = DateTime.now();
+      final coordinates = Coordinates(location.latitude, location.longitude);
 
-    final deviceOffsetHours = now.timeZoneOffset.inHours;
-    int targetOffsetHours = _getTargetOffset(location.country.toLowerCase(), deviceOffsetHours);
-    final totalOffset = Duration(hours: targetOffsetHours - deviceOffsetHours) + (dstEnabled ? const Duration(hours: 1) : Duration.zero);
+      CalculationParameters params = _getParams(calculationMethod);
+      params.madhab = madhab == 'hanafi' ? Madhab.hanafi : Madhab.shafi;
 
-    // --- Schedule Today and Tomorrow ---
-    for (int dayOffset = 0; dayOffset <= 1; dayOffset++) {
-      final targetDate = now.add(Duration(days: dayOffset));
-      final dateComponents = DateComponents(targetDate.year, targetDate.month, targetDate.day);
-      final prayerTimes = PrayerTimes(coordinates, dateComponents, params);
-      
-      final Map<String, DateTime> times = {
-        'fajr': prayerTimes.fajr.add(totalOffset),
-        'dhuhr': prayerTimes.dhuhr.add(totalOffset),
-        'asr': prayerTimes.asr.add(totalOffset),
-        'maghrib': prayerTimes.maghrib.add(totalOffset),
-        'isha': prayerTimes.isha.add(totalOffset),
-      };
+      final deviceOffsetHours = now.timeZoneOffset.inHours;
+      int targetOffsetHours = _getTargetOffset(
+        location.country.toLowerCase(),
+        deviceOffsetHours,
+      );
+      final totalOffset =
+          Duration(hours: targetOffsetHours - deviceOffsetHours) +
+          (dstEnabled ? const Duration(hours: 1) : Duration.zero);
 
-      final idOffset = dayOffset * 10; // Today: 0, Tomorrow: 10
-      
-      times.forEach((name, time) {
-        if (time.isAfter(now)) {
-          int baseId = _getPrayerId(name);
-          AthanManager.scheduleNextAthan(
-            alarmId: baseId + idOffset,
-            time: time,
-            isFajr: name == 'fajr',
-            prayerName: _getArabicName(name),
-          );
-        }
-      });
-    }
-    
+      // --- Schedule Today and Tomorrow ---
+      for (int dayOffset = 0; dayOffset <= 1; dayOffset++) {
+        final targetDate = now.add(Duration(days: dayOffset));
+        final dateComponents = DateComponents(
+          targetDate.year,
+          targetDate.month,
+          targetDate.day,
+        );
+        final prayerTimes = PrayerTimes(coordinates, dateComponents, params);
+
+        final Map<String, DateTime> times = {
+          'fajr': prayerTimes.fajr.add(totalOffset),
+          'dhuhr': prayerTimes.dhuhr.add(totalOffset),
+          'asr': prayerTimes.asr.add(totalOffset),
+          'maghrib': prayerTimes.maghrib.add(totalOffset),
+          'isha': prayerTimes.isha.add(totalOffset),
+        };
+
+        final idOffset = dayOffset * 10; // Today: 0, Tomorrow: 10
+
+        times.forEach((name, time) {
+          if (time.isAfter(now)) {
+            int baseId = _getPrayerId(name);
+            AthanManager.scheduleNextAthan(
+              alarmId: baseId + idOffset,
+              time: time,
+              isFajr: name == 'fajr',
+              prayerName: _getArabicName(name),
+            );
+          }
+        });
+      }
     } finally {
       _isScheduling = false;
       // ✅ عند إعادة الجدولة، نجبر الويدجت على التحديث فوراً
@@ -285,36 +338,66 @@ class PrayerTimesService {
 
   CalculationParameters _getParams(String method) {
     switch (method) {
-      case 'egyptian': return CalculationMethod.egyptian.getParameters();
-      case 'turkey': return CalculationMethod.turkey.getParameters();
-      case 'karachi': return CalculationMethod.karachi.getParameters();
-      case 'umm_al_qura': return CalculationMethod.umm_al_qura.getParameters();
-      case 'dubai': return CalculationMethod.dubai.getParameters();
-      case 'kuwait': return CalculationMethod.kuwait.getParameters();
-      case 'qatar': return CalculationMethod.qatar.getParameters();
-      case 'muslim_world_league': return CalculationMethod.muslim_world_league.getParameters();
-      case 'north_america': return CalculationMethod.north_america.getParameters();
-      default: return CalculationMethod.egyptian.getParameters();
+      case 'egyptian':
+        return CalculationMethod.egyptian.getParameters();
+      case 'turkey':
+        return CalculationMethod.turkey.getParameters();
+      case 'karachi':
+        return CalculationMethod.karachi.getParameters();
+      case 'umm_al_qura':
+        return CalculationMethod.umm_al_qura.getParameters();
+      case 'dubai':
+        return CalculationMethod.dubai.getParameters();
+      case 'kuwait':
+        return CalculationMethod.kuwait.getParameters();
+      case 'qatar':
+        return CalculationMethod.qatar.getParameters();
+      case 'muslim_world_league':
+        return CalculationMethod.muslim_world_league.getParameters();
+      case 'north_america':
+        return CalculationMethod.north_america.getParameters();
+      default:
+        return CalculationMethod.egyptian.getParameters();
     }
   }
 
   int _getTargetOffset(String country, int deviceOffset) {
-    if (country.contains("turkey")) return 3;
-    if (country.contains("algeria") || country.contains("morocco")) return 1;
-    if (country.contains("egypt")) return 2;
-    if (country.contains("saudi") || country.contains("qatar") || country.contains("kuwait")) return 3;
-    if (country.contains("united arab emirates") || country.contains("emirates") || country.contains("uae")) return 4;
+    if (country.contains("turkey")) {
+      return 3;
+    }
+    if (country.contains("algeria") || country.contains("morocco")) {
+      return 1;
+    }
+    if (country.contains("egypt")) {
+      return 2;
+    }
+    if (country.contains("saudi") ||
+        country.contains("qatar") ||
+        country.contains("kuwait")) {
+      return 3;
+    }
+    if (country.contains("united arab emirates") ||
+        country.contains("emirates") ||
+        country.contains("uae")) {
+      return 4;
+    }
     return deviceOffset;
   }
 
   int _getPrayerId(String name) {
     switch (name) {
-      case 'fajr': return 101;
-      case 'dhuhr': return 102;
-      case 'asr': return 103;
-      case 'maghrib': return 104;
-      case 'isha': return 105;
-      default: return 0;
+      case 'fajr':
+        return 101;
+      case 'dhuhr':
+        return 102;
+      case 'asr':
+        return 103;
+      case 'maghrib':
+        return 104;
+      case 'isha':
+        return 105;
+      default:
+        return 0;
     }
   }
 
@@ -323,16 +406,22 @@ class PrayerTimesService {
     // الجدولة الآن تحدث فقط عند تشغيل التطبيق أو تغيير الإعدادات
   }
 
-
   String _getArabicName(String name) {
     switch (name) {
-      case 'fajr': return 'الفجر';
-      case 'sunrise': return 'الشروق';
-      case 'dhuhr': return 'الظهر';
-      case 'asr': return 'العصر';
-      case 'maghrib': return 'المغرب';
-      case 'isha': return 'العشاء';
-      default: return 'الصلاة';
+      case 'fajr':
+        return 'الفجر';
+      case 'sunrise':
+        return 'الشروق';
+      case 'dhuhr':
+        return 'الظهر';
+      case 'asr':
+        return 'العصر';
+      case 'maghrib':
+        return 'المغرب';
+      case 'isha':
+        return 'العشاء';
+      default:
+        return 'الصلاة';
     }
   }
 
@@ -355,20 +444,12 @@ class PrayerTimesService {
     }
 
     try {
-      List<Location> locations = await locationFromAddress(selectedCity);
-      if (locations.isNotEmpty) {
-        final loc = locations.first;
-        await _sharedPreferences!.setDouble('last_lat', loc.latitude);
-        await _sharedPreferences!.setDouble('last_lng', loc.longitude);
-        return LocationSettings(
-          latitude: loc.latitude,
-          longitude: loc.longitude,
-          city: selectedCity.split(',').first.trim(),
-          country: selectedCity.split(',').last.trim(),
-        );
-      }
+      // 🛡️ HARDENED: Do NOT use geocoding in background or when waking up for Athan.
+      // Geocoding package requires internet and can hang/fail in background.
+      Logger.info(
+        "!!! HARDENED: Skipping Geocoding address lookup to ensure background stability !!!",
+      );
     } catch (e) {
-      // استبدال print بـ Logger
       Logger.error("Geocoding Error: $e");
     }
 

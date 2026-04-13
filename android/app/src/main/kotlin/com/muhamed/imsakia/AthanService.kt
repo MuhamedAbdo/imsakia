@@ -16,6 +16,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import android.media.RingtoneManager
 
 class AthanService : Service() {
     private var mediaPlayer: MediaPlayer? = null
@@ -40,8 +41,15 @@ class AthanService : Service() {
         
         currentPrayerName = prayerName
         currentAlarmId = alarmId
+
+        android.util.Log.d("ImsakiaNative", "!!! SERVICE: Started for $prayerName (ID: $alarmId) !!!")
+        android.util.Log.d("ImsakiaNative", "!!! SERVICE: isSilentInIntent = $isSilentInIntent, isAthanEnabled (prefs) = $isAthanEnabled !!!")
         
-        if (isSilentInIntent || !isAthanEnabled) {
+        // 🔥 BYPASS: If intent is NOT silent, we play it even if global toggle is off (for tests)
+        val shouldPlayAudio = !isSilentInIntent && (isAthanEnabled || prayerName.contains("اختبار"))
+        
+        if (isSilentInIntent) {
+            android.util.Log.w("ImsakiaNative", "!!! SERVICE: Stopping because intent is SILENT !!!")
             stopSelf()
             return START_NOT_STICKY
         }
@@ -71,12 +79,14 @@ class AthanService : Service() {
             // 2. Acquire WakeLock
             acquireWakeLock()
             
-            // 3. Play Audio (Only if enabled)
-            if (isAthanEnabled) {
+            // 3. Play Audio (Only if enabled or test)
+            if (shouldPlayAudio) {
+                android.util.Log.d("ImsakiaNative", "!!! SERVICE: Triggering audio playback !!!")
                 Thread {
                     playAthanAudioWithRetry(prayerKey)
                 }.start()
             } else {
+                android.util.Log.w("ImsakiaNative", "!!! SERVICE: Audio is DISABLED, service will linger for 5m !!!")
                 Handler(Looper.getMainLooper()).postDelayed({
                     stopSelf()
                 }, 300000) // 5 minutes
@@ -206,13 +216,15 @@ class AthanService : Service() {
         }
 
         mediaPlayer = MediaPlayer().apply {
-            // ✅ تشغيل الملف من مجلد flutter_assets داخل الـ APK
             try {
+                android.util.Log.d("ImsakiaNative", "!!! HARDENED: Attempting to play asset: $assetPath !!!")
                 val assetDescriptor = assets.openFd("flutter_assets/$assetPath")
                 setDataSource(assetDescriptor.fileDescriptor, assetDescriptor.startOffset, assetDescriptor.length)
             } catch (e: Exception) {
-                val soundUri = android.net.Uri.parse("android.resource://${packageName}/raw/athan_makkah")
-                setDataSource(applicationContext, soundUri)
+                android.util.Log.e("ImsakiaNative", "!!! HARDENED ERROR: Failed to load asset $assetPath: ${e.message} !!!")
+                android.util.Log.d("ImsakiaNative", "!!! HARDENED: Falling back to SYSTEM ALARM SOUND (TYPE_ALARM) !!!")
+                val alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                setDataSource(applicationContext, alert)
             }
 
             setAudioAttributes(audioAttributes)

@@ -1,9 +1,8 @@
-import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../../services/prayer_times_service.dart';
 import '../../audio/services/audio_handler.dart';
@@ -70,7 +69,6 @@ class AthanManager {
   }
 
   static Future<void> cancelAthanNotification() async {
-    // Always cancel the athan notification (id 888) so it doesn't linger
     try {
       final plugin = FlutterLocalNotificationsPlugin();
       await plugin.cancel(id: 888);
@@ -106,15 +104,10 @@ class AthanManager {
     await prefs.setString('prayerKey_$alarmId', prayerKey);
 
     final isEnabled = prefs.getBool('athan_enabled') ?? true;
-    final isSilent = !isEnabled;
+    bool isSilent = !isEnabled;
 
-    if (!isEnabled && !isTest) {}
-
-    if (Platform.isAndroid) {
-      final status = await Permission.scheduleExactAlarm.status;
-      if (status.isDenied || status.isRestricted) {
-        return;
-      }
+    if (isTest) {
+      isSilent = false;
     }
 
     try {
@@ -126,7 +119,9 @@ class AthanManager {
         'prayerKey': prayerKey,
         'isSilent': isSilent,
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint("AthanManager: Failed to schedule $prayerName (ID: $alarmId): $e");
+    }
   }
 
   static Future<void> performSmartExit() async {
@@ -167,21 +162,44 @@ class AthanManager {
     } catch (_) {}
   }
 
-  /// Schedules a test athan alert for 5 minutes from now.
   static Future<void> scheduleTestAthan() async {
-    await AndroidAlarmManager.oneShot(
-      const Duration(minutes: 5),
-      999, // Unique ID for test
-      athanAlarmCallback,
-      exact: true,
-      wakeup: true,
-      allowWhileIdle: true,
-    );
+    debugPrint("!!! HARDENED: Triggering simplified 10-second Athan Test !!!");
+    final testTime = DateTime.now().add(const Duration(seconds: 10));
+    const alarmId = 999;
+
+    try {
+      const channel = MethodChannel('imsakia/notifications');
+      await channel.invokeMethod('scheduleExactAthan', {
+        'timeInMillis': testTime.millisecondsSinceEpoch,
+        'id': alarmId,
+        'prayerName': "اختبار الأذان HARDENED",
+        'prayerKey': "dhuhr",
+        'isSilent': false,
+      });
+      debugPrint("!!! HARDENED: Test Athan scheduled for $testTime !!!");
+    } catch (e) {
+      debugPrint("!!! HARDENED ERROR: Failed to schedule test: $e !!!");
+    }
+  }
+
+  /// ✅ DIAGNOSTIC: Fires the AthanReceiver DIRECTLY via sendBroadcast()
+  /// Bypasses AlarmManager completely to isolate the root cause.
+  /// If this works but the alarm doesn't → MIUI/AlarmManager issue.
+  /// If this also fails → Receiver registration issue.
+  static Future<String> testDirectReceiver() async {
+    try {
+      const channel = MethodChannel('imsakia/notifications');
+      final result = await channel.invokeMethod<String>('testDirectBroadcast');
+      return result ?? "تم الإرسال المباشر";
+    } catch (e) {
+      return "فشل الاختبار المباشر: $e";
+    }
   }
 }
 
 @pragma('vm:entry-point')
 Future<void> athanAlarmCallback(int alarmId) async {
+  WidgetsFlutterBinding.ensureInitialized(); // ✅ CRITICAL: Must be first - initializes plugin channels
   DartPluginRegistrant.ensureInitialized();
 
   final prefs = await SharedPreferences.getInstance();
@@ -244,15 +262,11 @@ Future<void> showFullScreenAthan(String prayerName, bool isFajr) async {
     largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
   );
 
-  final NotificationDetails details = NotificationDetails(
-    android: androidDetails,
-  );
-
   await plugin.show(
     id: kAthanNotificationId,
     title: 'حان وقت الصلاة 🕌',
     body: 'أذان $prayerName',
-    notificationDetails: details,
+    notificationDetails: NotificationDetails(android: androidDetails),
     payload: 'athan_overlay|$prayerName|$isFajr',
   );
 }
