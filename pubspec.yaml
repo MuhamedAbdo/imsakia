@@ -82,6 +82,7 @@ dependencies:
   just_audio: ^0.10.5
   home_widget: ^0.9.0
   android_intent_plus: ^5.0.2
+  flutter_compass: ^0.8.0
 
 dev_dependencies:
   flutter_test:
@@ -123,6 +124,7 @@ flutter:
     - assets/images/events/
     - assets/audio/
     - assets/fonts/
+    - assets/images/needle.svg
 
   fonts:
     - family: HafsSmart

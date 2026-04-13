@@ -12,6 +12,7 @@ import 'allah_names_page.dart'; // استيراد صفحة أسماء الله �
 import 'radio_page.dart'; // استيراد صفحة الراديو
 import '../features/quran_madinah/ui/index_screen.dart'; // استيراد صفحة الفهرس مباشرة بدلاً من صفحة الاختيار
 import '../features/audio/screens/audio_reciters_screen.dart'; // Audio module
+import 'qibla_compass_screen.dart';
 import '../widgets/neumorphic_box.dart';
 
 /// صفحة بسيطة للأقسام التي تحت التطوير
@@ -302,6 +303,13 @@ class TibyanMenuPage extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                               builder: (context) => const CalendarPage(),
+                            ),
+                          );
+                        } else if (item['title'] == 'القبلة') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const QiblaCompassScreen(),
                             ),
                           );
                         } else {
