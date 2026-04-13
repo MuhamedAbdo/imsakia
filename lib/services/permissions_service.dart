@@ -24,10 +24,17 @@ class PermissionsService {
   static Future<bool> isNotificationGranted() async => 
       await Permission.notification.isGranted;
 
-  static Future<bool> isBatteryOptimizationGranted() async => 
-      Platform.isAndroid 
-          ? await Permission.ignoreBatteryOptimizations.isGranted 
-          : true;
+  static Future<bool> isBatteryOptimizationGranted() async {
+    if (!Platform.isAndroid) return true;
+    
+    try {
+      final result = await _channel.invokeMethod<bool>('isBatteryOptimizationGranted');
+      return result ?? false;
+    } catch (e) {
+      // Fallback to permission_handler
+      return await Permission.ignoreBatteryOptimizations.isGranted;
+    }
+  }
 
   static Future<bool> isAutoStartGranted() async => 
       Platform.isAndroid 

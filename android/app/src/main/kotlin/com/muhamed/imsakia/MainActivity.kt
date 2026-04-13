@@ -78,6 +78,7 @@ class MainActivity : AudioServiceActivity() {
         super.onCreate(savedInstanceState)
         
         // Track state for Smart Exit
+        val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         wasLockedOnStart = keyguardManager.isKeyguardLocked
         wasInAppOnStart = false 
 
@@ -258,6 +259,11 @@ class MainActivity : AudioServiceActivity() {
                         moveTaskToBack(true)
                         result.success(true)
                     }
+                    "isBatteryOptimizationGranted" -> {
+                        val isIgnored = isBatteryOptimizationGranted()
+                        System.err.println("!!! NATIVE CHECK: isBatteryOptimizationGranted = $isIgnored !!!")
+                        result.success(isIgnored)
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -278,6 +284,7 @@ class MainActivity : AudioServiceActivity() {
         // 🔥 Immediate Lock Screen Breakthrough on New Intent
         applyLockScreenFlags()
         
+        val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         wasLockedOnStart = keyguardManager.isKeyguardLocked
         wasInAppOnStart = true 
         
@@ -595,6 +602,15 @@ class MainActivity : AudioServiceActivity() {
             )
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    private fun isBatteryOptimizationGranted(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            powerManager.isIgnoringBatteryOptimizations(packageName)
+        } else {
+            true
+        }
     }
 
     override fun onDestroy() {

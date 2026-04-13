@@ -45,6 +45,7 @@ class _SequentialPermissionsScreenState
   int _currentIndex = 0;
   bool _isAwaitingPermissionReturn = false;
   bool _isLoading = false;
+  bool _isProcessingTransition = false;
 
   final List<PermissionConfig> _queue = [
     PermissionConfig(
@@ -142,18 +143,40 @@ class _SequentialPermissionsScreenState
   }
 
   Future<void> _handleReturnFromSettings() async {
-    final current = _queue[_currentIndex];
-    final granted = await _isGranted(current.type);
+    if (_isProcessingTransition) return;
+    _isProcessingTransition = true;
 
-    if (granted) {
-      _proceedToNext();
-    } else {
-      // Still not granted, maybe show a snackbar or just re-show dialog
-      if (current.isCritical) {
-        _showPermissionDialog(current);
-      } else {
-        // It was elective, let the screen show the manual button again
+    try {
+      final current = _queue[_currentIndex];
+      
+      // 🔥 1. التأخير الأولي (500 ملي ثانية كحد أدنى) لضمان تحديث النظام
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      bool granted = await _isGranted(current.type);
+
+      // 🔥 2. محاولات إضافية في حالة عدم الرصد الفوري (محاولتان بفاصل 300 ملي ثانية)
+      if (!granted) {
+        for (int i = 0; i < 2; i++) {
+          await Future.delayed(const Duration(milliseconds: 300));
+          granted = await _isGranted(current.type);
+          if (granted) {
+            debugPrint('Permission granted on retry ${i + 1}');
+            break;
+          }
+        }
       }
+
+      if (granted && mounted) {
+        // ✅ انتقال فوري للخطوة التالية
+        await _proceedToNext();
+      } else {
+        // إذا لم يتم المنح بعد كل المحاولات، نظهر الحوار للأذونات الحرجة فقط
+        if (current.isCritical && mounted) {
+          _showPermissionDialog(current);
+        }
+      }
+    } finally {
+      _isProcessingTransition = false;
     }
   }
 
@@ -162,8 +185,11 @@ class _SequentialPermissionsScreenState
       setState(() {
         _currentIndex++;
       });
+      // ✅ ومضة بسيطة للانتقال للخطوة التالية
       await Future.delayed(const Duration(milliseconds: 600));
-      _showPermissionDialog(_queue[_currentIndex]);
+      if (mounted) {
+        _showPermissionDialog(_queue[_currentIndex]);
+      }
     } else {
       _completeOnboarding();
     }
@@ -304,150 +330,158 @@ class _SequentialPermissionsScreenState
     final current = _queue[_currentIndex];
     final progress = (_currentIndex + 1) / _queue.length;
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && current.isCritical) {
-          SystemNavigator.pop();
-        }
-      },
-      child: Scaffold(
-        body: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF1A237E), Color(0xFF0D47A1)],
+    // 🔥 توحيد الثيم للخطوات والحوارات ليكون Light دائماً ومستقلاً عن النظام
+    return Theme(
+      data: ThemeData.light(),
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && current.isCritical) {
+            SystemNavigator.pop();
+          }
+        },
+        child: Scaffold(
+          body: Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF1A237E), Color(0xFF0D47A1)],
+              ),
             ),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                LinearProgressIndicator(
-                  value: progress,
-                  backgroundColor: Colors.white10,
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
-                  minHeight: 6,
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 30),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.mosque_rounded,
-                          size: 100,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(height: 40),
-                        Text(
-                          'تجهيز تطبيق زاد',
-                          style: GoogleFonts.tajawal(
-                            fontSize: 32,
+            child: SafeArea(
+              child: Column(
+                children: [
+                  LinearProgressIndicator(
+                    value: progress,
+                    backgroundColor: Colors.white10,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Colors.green,
+                    ),
+                    minHeight: 6,
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 30),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.mosque_rounded,
+                            size: 100,
                             color: Colors.white,
-                            fontWeight: FontWeight.bold,
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'نتبع خطوات بسيطة لضمان عمل الأذان بدقة 100% على هاتفك الشخصي',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.tajawal(
-                            fontSize: 16,
-                            color: Colors.white70,
+                          const SizedBox(height: 40),
+                          Text(
+                            'تجهيز تطبيق زاد',
+                            style: GoogleFonts.tajawal(
+                              fontSize: 32,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 60),
+                          const SizedBox(height: 16),
+                          Text(
+                            'نتبع خطوات بسيطة لضمان عمل الأذان بدقة 100% على هاتفك الشخصي',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.tajawal(
+                              fontSize: 16,
+                              color: Colors.white70,
+                            ),
+                          ),
+                          const SizedBox(height: 60),
 
-                        // Current step display
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: Colors.white24),
+                          // Current step display
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Colors.white24),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  current.icon,
+                                  size: 50,
+                                  color: Colors.greenAccent,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  current.title,
+                                  style: GoogleFonts.tajawal(
+                                    fontSize: 20,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  current.description,
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.tajawal(
+                                    fontSize: 14,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                current.icon,
-                                size: 50,
-                                color: Colors.greenAccent,
+
+                          const SizedBox(height: 40),
+
+                          SizedBox(
+                            width: double.infinity,
+                            height: 56,
+                            child: ElevatedButton(
+                              onPressed: () => _showPermissionDialog(current),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFF0D47A1),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                current.title,
+                              child: Text(
+                                'بدء التفعيل',
                                 style: GoogleFonts.tajawal(
-                                  fontSize: 20,
-                                  color: Colors.white,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                current.description,
-                                textAlign: TextAlign.center,
+                            ),
+                          ),
+
+                          if (!current.isCritical) ...[
+                            const SizedBox(height: 12),
+                            TextButton(
+                              onPressed: () => _proceedToNext(),
+                              child: Text(
+                                'تخطي هذه الخطوة مؤقتاً',
                                 style: GoogleFonts.tajawal(
-                                  fontSize: 14,
-                                  color: Colors.white70,
+                                  color: Colors.white54,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 40),
-
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: ElevatedButton(
-                            onPressed: () => _showPermissionDialog(current),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: const Color(0xFF0D47A1),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
                             ),
-                            child: Text(
-                              'بدء التفعيل',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        if (!current.isCritical) ...[
-                          const SizedBox(height: 12),
-                          TextButton(
-                            onPressed: () => _proceedToNext(),
-                            child: Text(
-                              'تخطي هذه الخطوة مؤقتاً',
-                              style: GoogleFonts.tajawal(color: Colors.white54),
-                            ),
-                          ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: Text(
-                    'الخطوة ${_currentIndex + 1} من ${_queue.length}',
-                    style: GoogleFonts.tajawal(
-                      color: Colors.white38,
-                      fontSize: 12,
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: Text(
+                      'الخطوة ${_currentIndex + 1} من ${_queue.length}',
+                      style: GoogleFonts.tajawal(
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
