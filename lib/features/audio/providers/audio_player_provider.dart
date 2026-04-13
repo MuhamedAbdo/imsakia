@@ -154,6 +154,7 @@ class AudioPlayerProvider with ChangeNotifier {
         artUri: artUri ?? Uri.parse('https://raw.githubusercontent.com/ryanheise/audio_service/master/example/web/media/art.jpg'),
       );
 
+
       await _audioPlayer.setVolume(1.0);
 
       // 🌍 Play with Smart Retry & User-Agent

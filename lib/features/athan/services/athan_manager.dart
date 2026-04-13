@@ -163,38 +163,15 @@ class AthanManager {
   }
 
   /// Schedules a test athan alert with a configurable delay.
-  static Future<void> scheduleTestAthan({Duration delay = const Duration(seconds: 10)}) async {
-    debugPrint("!!! HARDENED: Triggering simplified Athan Test with $delay !!!");
-    final testTime = DateTime.now().add(delay);
-    const alarmId = 999;
-
-    try {
-      const channel = MethodChannel('imsakia/notifications');
-      await channel.invokeMethod('scheduleExactAthan', {
-        'timeInMillis': testTime.millisecondsSinceEpoch,
-        'id': alarmId,
-        'prayerName': "اختبار الأذان",
-        'prayerKey': "dhuhr",
-        'isSilent': false,
-      });
-      debugPrint("!!! HARDENED: Test Athan scheduled for $testTime !!!");
-    } catch (e) {
-      debugPrint("!!! HARDENED ERROR: Failed to schedule test: $e !!!");
-    }
-  }
-
-  /// ✅ DIAGNOSTIC: Fires the AthanReceiver DIRECTLY via sendBroadcast()
-  /// Bypasses AlarmManager completely to isolate the root cause.
-  /// If this works but the alarm doesn't → MIUI/AlarmManager issue.
-  /// If this also fails → Receiver registration issue.
-  static Future<String> testDirectReceiver() async {
-    try {
-      const channel = MethodChannel('imsakia/notifications');
-      final result = await channel.invokeMethod<String>('testDirectBroadcast');
-      return result ?? "تم الإرسال المباشر";
-    } catch (e) {
-      return "فشل الاختبار المباشر: $e";
-    }
+  static Future<void> scheduleTestAthan({Duration delay = const Duration(minutes: 5)}) async {
+    await AndroidAlarmManager.oneShot(
+      delay,
+      999, // Unique ID for test
+      athanAlarmCallback,
+      exact: true,
+      wakeup: true,
+      allowWhileIdle: true,
+    );
   }
 }
 
