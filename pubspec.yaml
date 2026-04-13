@@ -103,6 +103,7 @@ flutter:
   assets:
     - assets/quran.db
     - assets/data/
+    - assets/images/app_icon.png
     - assets/images/duas.png
     - assets/images/muhammed.png
     - assets/images/names.svg

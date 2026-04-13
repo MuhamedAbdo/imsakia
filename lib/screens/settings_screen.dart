@@ -18,7 +18,8 @@ import '../widgets/custom_localized_picker.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool isFirstTimeSetup;
-  const SettingsScreen({super.key, this.isFirstTimeSetup = false});
+  final VoidCallback? onSettingsSaved;
+  const SettingsScreen({super.key, this.isFirstTimeSetup = false, this.onSettingsSaved});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -204,7 +205,18 @@ class _SettingsScreenState extends State<SettingsScreen>
             context,
           ).pushNamedAndRemoveUntil('/main', (route) => false);
         } else {
-          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'تم حفظ الإعدادات بنجاح',
+                style: GoogleFonts.tajawal(),
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+          if (widget.onSettingsSaved != null) {
+            widget.onSettingsSaved!();
+          }
         }
       }
     } catch (e) {
@@ -659,17 +671,35 @@ class _SettingsScreenState extends State<SettingsScreen>
               const Divider(height: 30),
               _buildActionTile(
                 context,
-                title: 'اختبار نظام الأذان (٥ دقائق)',
+                title: 'اختبار تجريبي فوري',
+                subtitle: 'سيتم تشغيل واجهة وتنبيه الأذان فوراً للتأكد من عمل الصوت والشاشة',
+                icon: Icons.play_circle_fill_rounded,
+                onTap: () async {
+                  await AthanManager.scheduleTestAthan(delay: const Duration(seconds: 1));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('جارٍ تشغيل الأذان التجريبي...'),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 10),
+              _buildActionTile(
+                context,
+                title: 'اختبار نظام الخلفية (١٠ ثواني)',
                 subtitle:
-                    'سيطلق الأذان بعد ٥ دقائق لاختبار الـ Restart والـ WakeLock',
+                    'سيطلق الأذان بعد ١٠ ثواني لاختبار عمل التنبيهات في الخلفية',
                 icon: Icons.timer_outlined,
                 onTap: () async {
-                  await AthanManager.scheduleTestAthan();
+                  await AthanManager.scheduleTestAthan(delay: const Duration(seconds: 10));
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
-                          'سيتم تشغيل الأذان التجريبي بعد ٥ دقائق. يمكنك الآن عمل Reboot للهاتف لتجربة استعادة الخدمة.',
+                          'سيتم تشغيل الأذان التجريبي بعد ١٠ ثواني. يرجى إغلاق التطبيق أو إطفاء الشاشة الآن.',
                         ),
                         duration: Duration(seconds: 7),
                       ),

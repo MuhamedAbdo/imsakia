@@ -123,7 +123,7 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
       artist: artist,
       artUri: artUri,
     ));
-    
+
     playbackState.add(playbackState.value.copyWith(
       processingState: AudioProcessingState.buffering,
       playing: true,
@@ -134,6 +134,15 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
         MediaControl.stop,
       ],
     ));
+  }
+
+  /// تشغيل بث إذاعي مباشر عبر الـ main player
+  Future<void> playRadio(String url) async {
+    _athanPlayer.stop();
+    final session = await AudioSession.instance;
+    await session.configure(const AudioSessionConfiguration.music());
+    await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
+    await _player.play();
   }
 
   @override
@@ -149,17 +158,17 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
         } catch (_) {}
         return;
     }
-  
+
     if (name == 'playAthan' && extras != null) {
       final String path = extras['path'] as String? ?? '';
       final String prayerName = extras['prayerName'] as String? ?? "الصلاة";
       final String title = extras['title'] as String? ?? 'حان الآن موعد أذان $prayerName';
       final String? activeTestKey = extras['activeTestKey'] as String?;
-      
+
       // 🛡️ إيقاف كافة المحركات (Stop وليس Pause) لضمان تحرير الموارد في شاومي
       _athanPlayer.stop();
       _player.stop();
-      
+
       // 🚨 Configure session for Alarm (High priority)
       final session = await AudioSession.instance;
       await session.configure(const AudioSessionConfiguration(
@@ -178,9 +187,9 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
         album: "تنبيه الأذان",
         title: title,
         artist: "زاد",
-        extras: {'activeTestKey': activeTestKey}, 
+        extras: {'activeTestKey': activeTestKey},
       ));
-      
+
       playbackState.add(playbackState.value.copyWith(
         playing: true,
         processingState: AudioProcessingState.ready,
@@ -219,14 +228,14 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
       // 2️⃣ إيقاف المحركات بدون انتظار (Non-blocking)
       _player.stop(); // Non-blocking
       _athanPlayer.stop(); // Non-blocking
-      
+
       if (mediaItem.value?.id == 'athan_alert') {
         WakelockPlus.disable();
       }
 
       mediaItem.add(null);
       if (onStopCustom != null) onStopCustom!();
-      
+
       // ✅ ملاحظة: لا نستدعي super.stop() هنا لمنع الـ Stack Overflow المتكرر
     } finally {
       _isStopping = false;

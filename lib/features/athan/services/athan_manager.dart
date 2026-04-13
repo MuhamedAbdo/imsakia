@@ -167,10 +167,10 @@ class AthanManager {
     } catch (_) {}
   }
 
-  /// Schedules a test athan alert for 5 minutes from now.
-  static Future<void> scheduleTestAthan() async {
+  /// Schedules a test athan alert with a configurable delay.
+  static Future<void> scheduleTestAthan({Duration delay = const Duration(minutes: 5)}) async {
     await AndroidAlarmManager.oneShot(
-      const Duration(minutes: 5),
+      delay,
       999, // Unique ID for test
       athanAlarmCallback,
       exact: true,
