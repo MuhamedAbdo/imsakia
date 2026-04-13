@@ -696,12 +696,20 @@ class _SettingsScreenState extends State<SettingsScreen>
                 subtitle: 'سيتم تشغيل واجهة وتنبيه الأذان فوراً للتأكد من عمل الصوت والشاشة',
                 icon: Icons.play_circle_fill_rounded,
                 onTap: () async {
-                  await AthanManager.scheduleTestAthan(delay: const Duration(seconds: 1));
+                  if (audioHandler == null) {
+                    try {
+                      await initAudioService();
+                    } catch (e) {
+                      debugPrint("ATHAN TEST: Failed to init audioHandler: $e");
+                    }
+                  }
+                  final result = await AthanManager.testDirectReceiver();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('جارٍ تشغيل الأذان التجريبي...'),
-                        duration: Duration(seconds: 3),
+                      SnackBar(
+                        content: Text(result),
+                        backgroundColor: Colors.green,
+                        duration: const Duration(seconds: 3),
                       ),
                     );
                   }
