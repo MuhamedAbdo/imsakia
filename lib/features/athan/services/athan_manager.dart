@@ -162,9 +162,10 @@ class AthanManager {
     } catch (_) {}
   }
 
-  static Future<void> scheduleTestAthan() async {
-    debugPrint("!!! HARDENED: Triggering simplified 10-second Athan Test !!!");
-    final testTime = DateTime.now().add(const Duration(seconds: 10));
+  /// Schedules a test athan alert with a configurable delay.
+  static Future<void> scheduleTestAthan({Duration delay = const Duration(seconds: 10)}) async {
+    debugPrint("!!! HARDENED: Triggering simplified Athan Test with $delay !!!");
+    final testTime = DateTime.now().add(delay);
     const alarmId = 999;
 
     try {
@@ -172,7 +173,7 @@ class AthanManager {
       await channel.invokeMethod('scheduleExactAthan', {
         'timeInMillis': testTime.millisecondsSinceEpoch,
         'id': alarmId,
-        'prayerName': "اختبار الأذان HARDENED",
+        'prayerName': "اختبار الأذان",
         'prayerKey': "dhuhr",
         'isSilent': false,
       });

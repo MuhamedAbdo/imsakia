@@ -680,6 +680,47 @@ class _SettingsScreenState extends State<SettingsScreen>
               const Divider(height: 30),
               _buildActionTile(
                 context,
+                title: 'اختبار تجريبي فوري',
+                subtitle: 'سيعمل الأذان فوراً للتأكد من عمل نافذة القفل والصوت (Direct Broadcast)',
+                icon: Icons.play_circle_fill_rounded,
+                onTap: () async {
+                  final result = await AthanManager.testDirectReceiver();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(result),
+                        backgroundColor: Colors.green,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 10),
+              _buildActionTile(
+                context,
+                title: 'اختبار نظام الخلفية (١٠ ثواني)',
+                subtitle:
+                    'سيطلق الأذان بعد ١٠ ثواني لاختبار التنبيهات وإيقاظ الهاتف',
+                icon: Icons.timer_outlined,
+                onTap: () async {
+                  await AthanManager.scheduleTestAthan();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'سيتم تشغيل الأذان التجريبي بعد ١٠ ثواني. يرجى إغلاق التطبيق أو إطفاء الشاشة الآن.',
+                        ),
+                        backgroundColor: Colors.orange,
+                        duration: Duration(seconds: 7),
+                      ),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 10),
+              _buildActionTile(
+                context,
                 title: 'تحديث وجدولة الأذان',
                 subtitle: 'يُلغي الجدولة القديمة ويُعيد حساب وجدولة جميع الصلوات من جديد',
                 icon: Icons.update_rounded,
