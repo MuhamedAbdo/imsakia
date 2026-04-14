@@ -329,6 +329,8 @@ class PrayerTimesService {
           }
         });
       }
+    } catch (e) {
+      Logger.error("Failed to schedule prayers: $e");
     } finally {
       _isScheduling = false;
       // ✅ عند إعادة الجدولة، نجبر الويدجت على التحديث فوراً

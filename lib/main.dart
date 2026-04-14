@@ -121,6 +121,7 @@ void main() async {
   }
 
   final prefs = await SharedPreferences.getInstance();
+  await prefs.reload();
 
   // 🔥 ONE-TIME CLEANUP: Clear orphaned alarms from other branches/versions
   // This ensures the Sovereign Athan system starts with a clean slate.
@@ -174,9 +175,21 @@ class _MyAppState extends State<MyApp> {
     // 🛡️ HARDENED: Skip this if we're showing an overlay to avoid heavy initialization & Geocoding issues
     if (widget.initialOverlay == null) {
       Future.delayed(const Duration(seconds: 2), () {
-        debugPrint("!!! HARDENED: Triggering normal startup prayer scheduling !!!");
-        PrayerTimesService.instance.scheduleAllPrayers();
-        PrayerTimesService.instance.updateWidgetData();
+        Future.microtask(() async {
+          debugPrint("!!! HARDENED: Checking needs_sync flag at startup !!!");
+          final needsSync = widget.prefs.getBool('needs_sync') ?? false;
+          
+          if (needsSync) {
+            debugPrint("!!! HARDENED: Sync flag detected! Triggering full refresh !!!");
+            await widget.prefs.setBool('needs_sync', false); // Clear immediately
+            await PrayerTimesService.instance.scheduleAllPrayers();
+            await PrayerTimesService.instance.updateWidgetData(force: true);
+          } else {
+            debugPrint("!!! HARDENED: Triggering normal startup prayer scheduling !!!");
+            PrayerTimesService.instance.scheduleAllPrayers();
+            PrayerTimesService.instance.updateWidgetData();
+          }
+        });
       });
     } else {
       debugPrint("!!! HARDENED: Athan Overlay detected, skipping heavy background scheduling !!!");
