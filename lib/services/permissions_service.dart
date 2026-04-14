@@ -1,8 +1,8 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:android_intent_plus/android_intent.dart';
+import 'package:permission_handler/permission_handler.dart' as ph;
+
 
 class PermissionsService {
   static const MethodChannel _channel = MethodChannel('imsakia/notifications');
@@ -16,13 +16,13 @@ class PermissionsService {
       return result ?? false;
     } catch (e) {
       // Fallback to permission_handler
-      return await Permission.scheduleExactAlarm.isGranted;
+      return await ph.Permission.scheduleExactAlarm.isGranted;
     }
   }
 
   // ✅ باقي الدوال الأساسية
   static Future<bool> isNotificationGranted() async => 
-      await Permission.notification.isGranted;
+      await ph.Permission.notification.isGranted;
 
   static Future<bool> isBatteryOptimizationGranted() async {
     if (!Platform.isAndroid) return true;
@@ -32,88 +32,47 @@ class PermissionsService {
       return result ?? false;
     } catch (e) {
       // Fallback to permission_handler
-      return await Permission.ignoreBatteryOptimizations.isGranted;
+      return await ph.Permission.ignoreBatteryOptimizations.isGranted;
     }
   }
 
   static Future<bool> isAutoStartGranted() async => 
       Platform.isAndroid 
-          ? await Permission.systemAlertWindow.isGranted 
+          ? await ph.Permission.systemAlertWindow.isGranted 
           : true;
 
   // ✅ فتح إعدادات البطارية (مستقل عن Provider)
+  // ✅ فتح إعدادات البطارية عبر الـ Native لضمان الاستقرار
   static Future<void> openBatteryOptimizationSettings() async {
     if (!Platform.isAndroid) return;
     
     try {
-      final packageName = await _getPackageName();
-      final intent = AndroidIntent(
-        action: 'android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
-        data: 'package:$packageName',
-      );
-      await intent.launch();
+      await _channel.invokeMethod('openBatteryOptimizationSettings');
     } catch (e) {
-      // Fallback to app details
+      debugPrint("Error opening battery optimization settings: $e");
+      // Fallback
       await openAppSettings();
     }
   }
 
-  // ✅ فتح الإعدادات الشاملة حسب الشركة (مستقل عن Provider)
-  static Future<void> openComprehensivePermissions() async {
-    if (!Platform.isAndroid) return;
+  // ✅ فتح الإعدادات الشاملة (Auto-Start) عبر الـ Native لضمان الاستقرار
+  static Future<String> openComprehensivePermissions() async {
+    if (!Platform.isAndroid) return "unsupported";
     
     try {
-      final deviceInfo = await DeviceInfoPlugin().androidInfo;
-      final manufacturer = deviceInfo.manufacturer.toLowerCase();
-      final packageName = await _getPackageName();
-      
-      AndroidIntent? intent;
-      
-      if (manufacturer.contains('xiaomi') || manufacturer.contains('poco')) {
-        intent = AndroidIntent(
-          action: 'miui.intent.action.APP_PERMS_EDITOR',
-          package: 'com.miui.securitycenter',
-          componentName: 'com.miui.permcenter.permissions.PermissionsEditorActivity',
-          arguments: {'extra_pkgname': packageName},
-        );
-      } else if (manufacturer.contains('oppo') || manufacturer.contains('realme')) {
-        intent = AndroidIntent(
-          action: 'android.settings.APPLICATION_DETAILS_SETTINGS',
-          data: 'package:$packageName',
-        );
-      } else if (manufacturer.contains('huawei')) {
-        intent = AndroidIntent(
-          action: 'com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity',
-        );
-      } else if (manufacturer.contains('vivo')) {
-        intent = AndroidIntent(
-          action: 'com.vivo.permissionmanager.activity.BgStartUpManagerActivity',
-        );
-      }
-      
-      if (intent != null) {
-        await intent.launch();
-      } else {
-        await openAppSettings();
-      }
+      final String? result = await _channel.invokeMethod<String>('openAutoStartSettings');
+      return result ?? "error";
     } catch (e) {
-      // Ultimate fallback
-      await openAppSettings();
+      debugPrint("Error opening auto-start settings: $e");
+      return "error";
     }
   }
 
-  // ✅ مساعدة: جلب اسم الحزمة
-  static Future<String> _getPackageName() async {
-    if (Platform.isAndroid) {
-      // In a real app, use package_info_plus. For now, we use the known package name.
-      return "com.muhamed.imsakia";
-    }
-    return '';
-  }
+
 
   static Future<void> openAppSettings() async {
     // 🔥 Fix: use permission_handler's global function
-    await openAppSettings(); 
+    await ph.openAppSettings(); 
   }
 
   // ✅ التحقق من جميع الأذونات (دالة مجمعة للواجهات)
@@ -133,8 +92,8 @@ class PermissionsService {
 
   static Future<void> requestSystemPermissions() async {
     await [
-      Permission.notification,
-      Permission.scheduleExactAlarm,
+      ph.Permission.notification,
+      ph.Permission.scheduleExactAlarm,
     ].request();
   }
 }

@@ -161,9 +161,8 @@ class MainActivity : AudioServiceActivity() {
                         openXiaomiOtherPermissions()
                         result.success(true)
                     }
-                    "openComprehensivePermissions" -> {
-                        openComprehensivePermissions()
-                        result.success(true)
+                    "openAutoStartSettings", "openComprehensivePermissions" -> {
+                        openAutoStartSettings(result)
                     }
                     "getInitialPayload" -> {
                         val payload = intent?.getStringExtra("payload")
@@ -511,58 +510,99 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
-    private fun openComprehensivePermissions() {
-        val manufacturer = Build.MANUFACTURER.lowercase()
+    private fun openAutoStartSettings(result: MethodChannel.Result) {
+        val manufacturer = android.os.Build.MANUFACTURER.lowercase()
+        var moved = false
+
         try {
             when {
-                manufacturer.contains("xiaomi") -> {
-                    try {
-                        val intent = Intent()
-                        intent.component = ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")
-                        startActivity(intent)
-                    } catch (e: Exception) {
-                        openAppSettings()
-                    }
-                }
-                manufacturer.contains("oppo") || manufacturer.contains("realme") -> {
-                    try {
-                        val intent = Intent()
-                        intent.component = ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")
-                        startActivity(intent)
-                    } catch (e: Exception) {
-                        try {
-                            val intent = Intent()
-                            intent.component = ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")
-                            startActivity(intent)
-                        } catch (e2: Exception) {
-                            openAppSettings()
-                        }
-                    }
+                manufacturer.contains("transsion") || manufacturer.contains("infinix") || manufacturer.contains("tecno") -> {
+                    moved = tryStartIntent("com.transsion.phonemanager", "com.transsion.phonemanager.settings.container.ContainerActivity")
                 }
                 manufacturer.contains("huawei") -> {
-                    try {
-                        val intent = Intent()
-                        intent.component = ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")
-                        startActivity(intent)
-                    } catch (e: Exception) {
-                        openAppSettings()
+                    // Huawei Path 1
+                    moved = tryStartIntent("com.huawei.systemmanager", "com.huawei.systemmanager.appcontrol.activity.StartupAppControlActivity")
+                    if (!moved) {
+                        // Huawei Path 2
+                        moved = tryStartIntent("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity")
+                    }
+                    if (!moved) {
+                        // Fallback Huawei
+                        moved = tryStartIntent("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")
+                    }
+                }
+                manufacturer.contains("xiaomi") -> {
+                    moved = tryStartIntent("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")
+                }
+                manufacturer.contains("oppo") || manufacturer.contains("realme") -> {
+                    moved = tryStartIntent("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")
+                    if (!moved) {
+                        moved = tryStartIntent("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")
                     }
                 }
                 manufacturer.contains("samsung") -> {
                     try {
                         val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         startActivity(intent)
-                    } catch (e: Exception) {
-                        openAppSettings()
-                    }
+                        moved = true
+                    } catch (e: Exception) {}
                 }
-                else -> {
-                    openAppSettings()
+                manufacturer.contains("vivo") -> {
+                    moved = tryStartIntent("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity")
                 }
             }
+
+            if (!moved) {
+                // Final generic fallback to app details
+                try {
+                    val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    intent.data = android.net.Uri.fromParts("package", packageName, null)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                    moved = true
+                } catch (e: Exception) {}
+            }
+
+            if (moved) {
+                result.success("opened")
+            } else {
+                showFailSafeToast()
+                result.success("unsupported")
+            }
         } catch (e: Exception) {
-            openAppSettings()
+            showFailSafeToast()
+            result.success("unsupported")
         }
+    }
+
+    private fun tryStartIntent(packageName: String, className: String): Boolean {
+        return try {
+            val intent = Intent()
+            intent.component = ComponentName(packageName, className)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun showFailSafeToast() {
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(this, "يرجى تفعيل 'التشغيل التلقائي' من إعدادات الهاتف (مدير الهاتف)", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun openComprehensivePermissions() {
+        // Redirection to the new safe method if needed, but the channel now handles it
+        // Keeping this for internal calls if any
+        val fakeResult = object : MethodChannel.Result {
+            override fun success(result: Any?) {}
+            override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {}
+            override fun notImplemented() {}
+        }
+        openAutoStartSettings(fakeResult)
     }
 
     private fun openAppSettings() {
