@@ -134,7 +134,7 @@ class _SequentialPermissionsScreenState
   }
 
   Future<void> _checkCurrentStatusAndProceed() async {
-    setState(() => _isLoading = true);
+    if (mounted) setState(() => _isLoading = true);
     for (int i = 0; i < _queue.length; i++) {
       final isGranted = await _isGranted(_queue[i].type);
       if (!isGranted) {
@@ -153,7 +153,7 @@ class _SequentialPermissionsScreenState
       }
     }
     // All granted
-    _completeOnboarding();
+    if (mounted) await _completeOnboarding();
   }
 
   Future<bool> _isGranted(PermissionType type) async {
@@ -175,49 +175,48 @@ class _SequentialPermissionsScreenState
   }
 
   Future<void> _handleReturnFromSettings() async {
-    if (_isProcessingTransition) return;
+    if (_isProcessingTransition || !mounted) return;
     _isProcessingTransition = true;
-
+  
     try {
       // 🔥 1. تحقق شامل من كل الأذونات أولاً
       final statuses = await PermissionsService.checkAllPermissions();
       bool allGranted = statuses.values.every((v) => v);
-
-      if (allGranted) {
+  
+      if (allGranted && mounted) {
         // ✅ كل الرخص ممنوحة! انتقال فوري لصفحة المدينة
-        if (mounted) _completeOnboarding();
+        await _completeOnboarding();
         return;
       }
-
+  
       // 🔥 2. إذا نسي المستخدم إذناً معيناً، نتحقق من الخطوة الحالية
       final current = _queue[_currentIndex];
       bool granted = await _isGranted(current.type);
-
+  
       // محاولات إضافية في حالة عدم الرصد الفوري (محاولتان بفاصل 300 ملي ثانية)
       if (!granted) {
         for (int i = 0; i < 2; i++) {
           await Future.delayed(const Duration(milliseconds: 300));
+          if (!mounted) return;
           granted = await _isGranted(current.type);
           if (granted) break;
         }
       }
-
+  
       if (granted && mounted) {
         // ✅ انتقال للخطوة التالية
         await _proceedToNext();
-      } else {
+      } else if (mounted) {
         // 🔥 تحسين شاومي: بمجرد العودة من إعدادات شاومي، نعتبرها نجحت لتشجيع المستخدم
-        // Actual check: if we are at autoStart or xiaomiOtherPermissions step
-        if ((current.type == PermissionType.autoStart || 
-             current.type == PermissionType.xiaomiOtherPermissions) && mounted) {
-           // We'll trust the user tried their best on Xiaomi
+        if (current.type == PermissionType.autoStart || 
+            current.type == PermissionType.xiaomiOtherPermissions) {
            debugPrint('Aggressive success for Xiaomi logic: ${current.type}');
            await _proceedToNext();
            return;
         }
-
+  
         // إذا لم يتم المنح بعد كل المحاولات، نظهر الحوار للأذونات الحرجة فقط
-        if (current.isCritical && mounted && _isAwaitingPermissionReturn) {
+        if (current.isCritical && _isAwaitingPermissionReturn) {
           _showPermissionDialog(current);
         }
       }
@@ -233,9 +232,11 @@ class _SequentialPermissionsScreenState
 
   Future<void> _proceedToNext() async {
     if (_currentIndex < _queue.length - 1) {
-      setState(() {
-        _currentIndex++;
-      });
+      if (mounted) {
+        setState(() {
+          _currentIndex++;
+        });
+      }
       // ✅ ومضة بسيطة للانتقال للخطوة التالية
       await Future.delayed(const Duration(milliseconds: 600));
       if (mounted) {
@@ -245,7 +246,7 @@ class _SequentialPermissionsScreenState
       // ✅ كسر الحلقة: تم الوصول للنهاية
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('setup_completed', true);
-      _completeOnboarding();
+      if (mounted) await _completeOnboarding();
     }
   }
 
@@ -321,7 +322,9 @@ class _SequentialPermissionsScreenState
             onPressed: () {
               Navigator.pop(context, true);
               // إخفاء الـ Dialog والبدء في انتظار العودة
-              setState(() => _isAwaitingPermissionReturn = true);
+              if (mounted) {
+                setState(() => _isAwaitingPermissionReturn = true);
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
@@ -351,7 +354,7 @@ class _SequentialPermissionsScreenState
       // ✅ كسر الحلقة: بمجرد التخطي
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('setup_completed', true);
-      _proceedToNext();
+      if (mounted) await _proceedToNext();
     }
   }
 
@@ -386,7 +389,7 @@ class _SequentialPermissionsScreenState
     await prefs.setBool('setup_completed', true);
 
     if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/city-selection');
+      await Navigator.of(context).pushReplacementNamed('/city-selection');
     }
   }
 

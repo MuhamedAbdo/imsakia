@@ -652,6 +652,11 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        applyLockScreenFlags()
+    }
+
     private fun applyLockScreenFlags() {
         val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -662,10 +667,8 @@ class MainActivity : AudioServiceActivity() {
                 setInheritShowWhenLocked(true)
             }
 
-            // Dismiss keyguard with slight delay to ensure window focus
-            Handler(Looper.getMainLooper()).postDelayed({
-                keyguardManager.requestDismissKeyguard(this, null)
-            }, 250)
+            // High Priority Dismiss
+            keyguardManager.requestDismissKeyguard(this, null)
         } else {
             @Suppress("DEPRECATION")
             window.addFlags(

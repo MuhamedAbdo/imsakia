@@ -42,16 +42,28 @@ class PrayerWidget : HomeWidgetProvider() {
         // 1. Offline First: Read cached data immediately
         val hijri = widgetData.getString("flutter.hijri_date_full", "-- رمضان ١٤٤٧")
         val pastDisplay = widgetData.getString("flutter.last_prayer_display", "--:--")
-        val nextDisplay = widgetData.getString("flutter.next_prayer_display", "--:--")
-        val nextTimestamp = widgetData.getLong("flutter.next_prayer_timestamp", 0L)
+        var nextDisplay = widgetData.getString("flutter.next_prayer_display", "--:--") ?: "--:--"
+        var nextTimestamp = widgetData.getLong("flutter.next_prayer_timestamp", 0L)
 
         // Immediately show cached text to avoid "Updating..." hang
         views.setTextViewText(R.id.hijri_date, hijri)
         views.setTextViewText(R.id.past_prayer_display, pastDisplay)
+
+        // 2. Smart Countdown Self-Healing
+        val now = System.currentTimeMillis()
+        if (nextTimestamp <= now) {
+            // 🔥 البحث المحلي عن الصلاة التالية فوراً دون انتظار فلاتر
+            val localNext = findNextPrayerLocally(context)
+            if (localNext != null) {
+                nextTimestamp = localNext["timestamp"] as Long
+                nextDisplay = localNext["display"] as String
+                // Sync back to prevent repeated searching
+                syncToHomeWidget(context, localNext)
+            }
+        }
+        
         views.setTextViewText(R.id.next_prayer_display, nextDisplay)
 
-        // 2. Smart Countdown (Chronometer/Manual)
-        val now = System.currentTimeMillis()
         if (nextTimestamp > now) {
             val remainingMs = nextTimestamp - now
             val baseTime = android.os.SystemClock.elapsedRealtime() + remainingMs
@@ -65,7 +77,7 @@ class PrayerWidget : HomeWidgetProvider() {
             // 3. Schedule Reliable NEXT Alarm (StabilityChain)
             scheduleExactAlarm(context, nextTimestamp, appWidgetIds)
         } else {
-            // Fallback: If no future timestamp, show loading or zero
+            // Fallback
             views.setChronometer(R.id.countdown_text, android.os.SystemClock.elapsedRealtime(), null, false)
             views.setTextViewText(R.id.countdown_text, "جاري التحديث...")
         }
@@ -86,6 +98,52 @@ class PrayerWidget : HomeWidgetProvider() {
         for (appWidgetId in appWidgetIds) {
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
+    }
+
+    private fun findNextPrayerLocally(context: Context): Map<String, Any>? {
+        val now = System.currentTimeMillis()
+        val schedules = context.getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
+        
+        var earliestFutureTimestamp = Long.MAX_VALUE
+        var foundData: String? = null
+        
+        for (entry in schedules.all) {
+            val key = entry.key
+            if (key.endsWith("_data")) continue
+            val timestamp = entry.value as? Long ?: continue
+            
+            if (timestamp > now && timestamp < earliestFutureTimestamp) {
+                earliestFutureTimestamp = timestamp
+                foundData = schedules.getString("${key}_data", null)
+            }
+        }
+        
+        return if (foundData != null) {
+            val parts = foundData.split("|")
+            if (parts.size >= 2) {
+                val name = parts[0]
+                mapOf(
+                    "timestamp" to earliestFutureTimestamp,
+                    "name" to name,
+                    "display" to "$name ${formatTime(earliestFutureTimestamp)}"
+                )
+            } else null
+        } else null
+    }
+
+    private fun formatTime(millis: Long): String {
+        val date = java.util.Date(millis)
+        val sdf = java.text.SimpleDateFormat("h:mm a", java.util.Locale("ar"))
+        return sdf.format(date)
+    }
+
+    private fun syncToHomeWidget(context: Context, data: Map<String, Any>) {
+        val widgetData = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
+        widgetData.edit()
+            .putLong("flutter.next_prayer_timestamp", data["timestamp"] as Long)
+            .putString("flutter.next_prayer_name", data["name"] as String)
+            .putString("flutter.next_prayer_display", data["display"] as String)
+            .apply()
     }
 
     private fun scheduleExactAlarm(context: Context, triggerTime: Long, appWidgetIds: IntArray) {
