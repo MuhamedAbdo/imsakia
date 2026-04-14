@@ -491,21 +491,22 @@ class MainActivity : AudioServiceActivity() {
     }
 
     private fun openXiaomiOtherPermissions() {
-        val intent = Intent("miui.intent.action.APP_PERMS_EDITOR")
-        intent.setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity")
-        intent.putExtra("extra_pkgname", packageName)
-        
         try {
+            val intent = Intent()
+            intent.setAction("miui.intent.action.APP_PERMS_EDITOR")
+            intent.setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity")
+            intent.putExtra("extra_pkgname", packageName)
+            // ✅ هذا السطر هو مفتاح الحل في MIUI
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             startActivity(intent)
         } catch (e: Exception) {
             try {
-                // Fallback for different MIUI versions
                 val intentFallback = Intent("interactive.intent.action.APP_PERMS_EDITOR")
                 intentFallback.putExtra("extra_pkgname", packageName)
+                intentFallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 startActivity(intentFallback)
             } catch (e2: Exception) {
-                // Last resort: Genius Fallback
-                openAppSettings()
+                openAppSettings() // الملاذ الأخير
             }
         }
     }
@@ -531,8 +532,20 @@ class MainActivity : AudioServiceActivity() {
                         moved = tryStartIntent("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")
                     }
                 }
-                manufacturer.contains("xiaomi") -> {
-                    moved = tryStartIntent("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")
+                manufacturer.contains("xiaomi") || manufacturer.contains("redmi") || manufacturer.contains("poco") -> {
+                    // Try Action-based first as it's more reliable for some MIUI versions
+                    try {
+                        val intent = Intent("miui.intent.action.OP_AUTO_START")
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        startActivity(intent)
+                        moved = true
+                    } catch (e: Exception) {
+                        moved = tryStartIntent("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")
+                    }
+                    
+                    if (!moved) {
+                        moved = tryStartIntent("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity")
+                    }
                 }
                 manufacturer.contains("oppo") || manufacturer.contains("realme") -> {
                     moved = tryStartIntent("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")

@@ -11,6 +11,7 @@ enum PermissionType {
   exactAlarm,
   batteryOptimization,
   autoStart,
+  xiaomiOtherPermissions,
 }
 
 class PermissionConfig {
@@ -44,51 +45,78 @@ class _SequentialPermissionsScreenState
     with WidgetsBindingObserver {
   int _currentIndex = 0;
   bool _isAwaitingPermissionReturn = false;
-  bool _isLoading = false;
+  bool _isLoading = true;
   bool _isProcessingTransition = false;
 
-  final List<PermissionConfig> _queue = [
-    PermissionConfig(
-      type: PermissionType.notifications,
-      title: 'تفعيل الإشعارات',
-      description: 'ضروري لعرض تنبيهات أوقات الصلاة والآذان في وقتها.',
-      icon: Icons.notifications_active_rounded,
-      isCritical: true,
-      whyNeeded: 'نحتاج هذا لإرسال تنبيهات الأذان في الخلفية.',
-    ),
-    PermissionConfig(
-      type: PermissionType.exactAlarm,
-      title: 'المنبهات الدقيقة',
-      description:
-          'لضمان انطلاق الأذان في الثانية الصحيحة دون تأخير من النظام.',
-      icon: Icons.access_time_filled_rounded,
-      isCritical: true,
-      whyNeeded: 'يضمن دقة المواعيد بنسبة 100% على أندرويد 12+.',
-    ),
-    PermissionConfig(
-      type: PermissionType.batteryOptimization,
-      title: 'تحسين البطارية',
-      description: 'منع النظام من إيقاف التطبيق أو الأذان لتوفير الطاقة.',
-      icon: Icons.battery_saver_rounded,
-      isCritical: false, // Recommended
-      whyNeeded: 'يمنع "قتل" التطبيق بواسطة النظام في وضع السكون.',
-    ),
-    PermissionConfig(
-      type: PermissionType.autoStart,
-      title: 'التشغيل التلقائي',
-      description: 'ليعمل الأذان مباشرة بعد إعادة تشغيل الهاتف.',
-      icon: Icons.power_settings_new_rounded,
-      isCritical: false, // Recommended
-      whyNeeded: 'يضمن استعادة مواقيت الأذان فور فتح الهاتف.',
-    ),
-  ];
+  List<PermissionConfig> _queue = [];
+
+  void _initializeQueue(bool isXiaomi) {
+    _queue = [
+      PermissionConfig(
+        type: PermissionType.notifications,
+        title: 'تفعيل الإشعارات',
+        description: 'ضروري لعرض تنبيهات أوقات الصلاة والآذان في وقتها.',
+        icon: Icons.notifications_active_rounded,
+        isCritical: true,
+        whyNeeded: 'نحتاج هذا لإرسال تنبيهات الأذان في الخلفية.',
+      ),
+      PermissionConfig(
+        type: PermissionType.exactAlarm,
+        title: 'المنبهات الدقيقة',
+        description:
+            'لضمان انطلاق الأذان في الثانية الصحيحة دون تأخير من النظام.',
+        icon: Icons.access_time_filled_rounded,
+        isCritical: true,
+        whyNeeded: 'يضمن دقة المواعيد بنسبة 100% على أندرويد 12+.',
+      ),
+      PermissionConfig(
+        type: PermissionType.batteryOptimization,
+        title: 'تحسين البطارية',
+        description: 'منع النظام من إيقاف التطبيق أو الأذان لتوفير الطاقة.',
+        icon: Icons.battery_saver_rounded,
+        isCritical: false,
+        whyNeeded: 'يمنع "قتل" التطبيق بواسطة النظام في وضع السكون.',
+      ),
+      PermissionConfig(
+        type: PermissionType.autoStart,
+        title: 'التشغيل التلقائي',
+        description: 'ليعمل الأذان مباشرة بعد إعادة تشغيل الهاتف.',
+        icon: Icons.power_settings_new_rounded,
+        isCritical: false,
+        whyNeeded: 'يضمن استعادة مواقيت الأذان فور فتح الهاتف.',
+      ),
+    ];
+
+    if (isXiaomi) {
+      _queue.add(
+        PermissionConfig(
+          type: PermissionType.xiaomiOtherPermissions,
+          title: 'صلاحيات شاومي الخاصة',
+          description: 'لتفعيل ميزة "العرض على شاشة القفل" و "نوافذ منبثقة".',
+          icon: Icons.security_rounded,
+          isCritical: true,
+          whyNeeded: 'ضروري جداً لضمان ظهور الأذان فوق شاشة القفل.',
+        ),
+      );
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     // Find where to start
-    _checkCurrentStatusAndProceed();
+    _setupScreen();
+  }
+
+  Future<void> _setupScreen() async {
+    final isXiaomi = await PermissionsService.isXiaomiDevice();
+    if (mounted) {
+      setState(() {
+        _initializeQueue(isXiaomi);
+      });
+      _checkCurrentStatusAndProceed();
+    }
   }
 
   @override
@@ -99,8 +127,8 @@ class _SequentialPermissionsScreenState
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _isAwaitingPermissionReturn) {
-      _isAwaitingPermissionReturn = false;
+    if (state == AppLifecycleState.resumed) {
+      // ✅ تحقق مجمع عند العودة للتطبيق لضمان المزامنة
       _handleReturnFromSettings();
     }
   }
@@ -139,6 +167,10 @@ class _SequentialPermissionsScreenState
         return await PermissionsService.isBatteryOptimizationGranted();
       case PermissionType.autoStart:
         return await PermissionsService.isAutoStartGranted();
+      case PermissionType.xiaomiOtherPermissions:
+        // 👍 "الخداع البرمجي": لا يمكننا التحقق منها برمجياً، لذا نعتبرها غير ممنوحة بالبداية 
+        // حتى يضغط المستخدم على "تفعيل"
+        return false;
     }
   }
 
@@ -147,36 +179,55 @@ class _SequentialPermissionsScreenState
     _isProcessingTransition = true;
 
     try {
-      final current = _queue[_currentIndex];
-      
-      // 🔥 1. التأخير الأولي (500 ملي ثانية كحد أدنى) لضمان تحديث النظام
-      await Future.delayed(const Duration(milliseconds: 500));
+      // 🔥 1. تحقق شامل من كل الأذونات أولاً
+      final statuses = await PermissionsService.checkAllPermissions();
+      bool allGranted = statuses.values.every((v) => v);
 
+      if (allGranted) {
+        // ✅ كل الرخص ممنوحة! انتقال فوري لصفحة المدينة
+        if (mounted) _completeOnboarding();
+        return;
+      }
+
+      // 🔥 2. إذا نسي المستخدم إذناً معيناً، نتحقق من الخطوة الحالية
+      final current = _queue[_currentIndex];
       bool granted = await _isGranted(current.type);
 
-      // 🔥 2. محاولات إضافية في حالة عدم الرصد الفوري (محاولتان بفاصل 300 ملي ثانية)
+      // محاولات إضافية في حالة عدم الرصد الفوري (محاولتان بفاصل 300 ملي ثانية)
       if (!granted) {
         for (int i = 0; i < 2; i++) {
           await Future.delayed(const Duration(milliseconds: 300));
           granted = await _isGranted(current.type);
-          if (granted) {
-            debugPrint('Permission granted on retry ${i + 1}');
-            break;
-          }
+          if (granted) break;
         }
       }
 
       if (granted && mounted) {
-        // ✅ انتقال فوري للخطوة التالية
+        // ✅ انتقال للخطوة التالية
         await _proceedToNext();
       } else {
+        // 🔥 تحسين شاومي: بمجرد العودة من إعدادات شاومي، نعتبرها نجحت لتشجيع المستخدم
+        // Actual check: if we are at autoStart or xiaomiOtherPermissions step
+        if ((current.type == PermissionType.autoStart || 
+             current.type == PermissionType.xiaomiOtherPermissions) && mounted) {
+           // We'll trust the user tried their best on Xiaomi
+           debugPrint('Aggressive success for Xiaomi logic: ${current.type}');
+           await _proceedToNext();
+           return;
+        }
+
         // إذا لم يتم المنح بعد كل المحاولات، نظهر الحوار للأذونات الحرجة فقط
-        if (current.isCritical && mounted) {
+        if (current.isCritical && mounted && _isAwaitingPermissionReturn) {
           _showPermissionDialog(current);
         }
       }
     } finally {
-      _isProcessingTransition = false;
+      if (mounted) {
+        setState(() {
+          _isAwaitingPermissionReturn = false;
+          _isProcessingTransition = false;
+        });
+      }
     }
   }
 
@@ -191,6 +242,9 @@ class _SequentialPermissionsScreenState
         _showPermissionDialog(_queue[_currentIndex]);
       }
     } else {
+      // ✅ كسر الحلقة: تم الوصول للنهاية
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('setup_completed', true);
       _completeOnboarding();
     }
   }
@@ -264,7 +318,11 @@ class _SequentialPermissionsScreenState
               ),
             ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () {
+              Navigator.pop(context, true);
+              // إخفاء الـ Dialog والبدء في انتظار العودة
+              setState(() => _isAwaitingPermissionReturn = true);
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
               shape: RoundedRectangleBorder(
@@ -285,8 +343,14 @@ class _SequentialPermissionsScreenState
     );
 
     if (result == true) {
+      // ✅ كسر الحلقة: بمجرد الضغط على بدء التفعيل
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('setup_completed', true);
       _triggerPermission(config.type);
     } else if (result == false && !config.isCritical) {
+      // ✅ كسر الحلقة: بمجرد التخطي
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('setup_completed', true);
       _proceedToNext();
     }
   }
@@ -309,12 +373,17 @@ class _SequentialPermissionsScreenState
         // ✅ استخدم الخدمة المستقلة مباشرة
         await PermissionsService.openComprehensivePermissions();
         break;
+      case PermissionType.xiaomiOtherPermissions:
+        // ✅ توجيه حصري لصفحة الصلاحيات الأخرى في شاومي
+        await PermissionsService.openXiaomiOtherPermissions();
+        break;
     }
   }
 
   Future<void> _completeOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('permissions_granted', true);
+    await prefs.setBool('setup_completed', true);
 
     if (mounted) {
       Navigator.of(context).pushReplacementNamed('/city-selection');
@@ -323,7 +392,7 @@ class _SequentialPermissionsScreenState
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_isLoading || _queue.isEmpty) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 

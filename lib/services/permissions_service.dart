@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 
 
@@ -67,8 +68,31 @@ class PermissionsService {
       return "error";
     }
   }
+  // ✅ فتح صلاحيات شاومي (Other Permissions)
+  static Future<void> openXiaomiOtherPermissions() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('openXiaomiOtherPermissions');
+    } catch (e) {
+      debugPrint("Error opening Xiaomi other permissions: $e");
+      await openAppSettings();
+    }
+  }
 
-
+  // ✅ التحقق من نوع الجهاز (شاومي)
+  static Future<bool> isXiaomiDevice() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+      final AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+      final manufacturer = androidInfo.manufacturer.toLowerCase();
+      return manufacturer.contains('xiaomi') || 
+             manufacturer.contains('redmi') || 
+             manufacturer.contains('poco');
+    } catch (e) {
+      return false;
+    }
+  }
 
   static Future<void> openAppSettings() async {
     // 🔥 Fix: use permission_handler's global function

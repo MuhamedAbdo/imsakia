@@ -132,13 +132,13 @@ void main() async {
     await prefs.setBool('orphaned_alarms_cleaned_v1', true);
   }
 
-  final hasCompletedPermissions = prefs.getBool('permissions_granted') ?? false;
+  final hasCompletedSetup = prefs.getBool('setup_completed') ?? false;
   
   runApp(MyApp(
     settingsProvider: settingsProvider, 
     prefs: prefs, 
     initialOverlay: overlayScreen,
-    showPermissionsGate: !hasCompletedPermissions,
+    showPermissionsGate: !hasCompletedSetup,
   ));
 }
 
