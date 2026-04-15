@@ -309,6 +309,7 @@ class PrayerTimesService {
 
         final Map<String, DateTime> times = {
           'fajr': prayerTimes.fajr.add(totalOffset),
+          'sunrise': prayerTimes.sunrise.add(totalOffset),
           'dhuhr': prayerTimes.dhuhr.add(totalOffset),
           'asr': prayerTimes.asr.add(totalOffset),
           'maghrib': prayerTimes.maghrib.add(totalOffset),
@@ -398,6 +399,8 @@ class PrayerTimesService {
         return 104;
       case 'isha':
         return 105;
+      case 'sunrise':
+        return 106;
       default:
         return 0;
     }

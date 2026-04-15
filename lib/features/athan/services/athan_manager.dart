@@ -5,6 +5,8 @@ import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../../services/prayer_times_service.dart';
+import '../../../services/hijri_date_service.dart';
+import 'package:home_widget/home_widget.dart';
 import '../../audio/services/audio_handler.dart';
 
 /// The notification ID for the athan full-screen overlay notification.
@@ -99,12 +101,16 @@ class AthanManager {
       prayerKey = "maghrib";
     } else if (prayerName.contains("عشاء")) {
       prayerKey = "isha";
+    } else if (prayerName.contains("شروق") || prayerName.toLowerCase().contains("sunrise")) {
+      prayerKey = "sunrise";
     }
 
     await prefs.setString('prayerKey_$alarmId', prayerKey);
 
     final isEnabled = prefs.getBool('athan_enabled') ?? true;
-    bool isSilent = !isEnabled;
+    
+    // 🔥 Sunrise is ALWAYS silent
+    bool isSilent = !isEnabled || prayerKey == "sunrise";
 
     if (isTest) {
       isSilent = false;
@@ -205,12 +211,23 @@ Future<void> athanAlarmCallback(int alarmId) async {
   await prefs.setBool('needs_sync', true);
 
   final isEnabled = prefs.getBool('athan_enabled') ?? true;
-  if (!isEnabled) return;
-
   final isFajr = prefs.getBool('isFajr_$alarmId') ?? false;
-  final prayerName = prefs.getString('prayerName_$alarmId') ?? "الصلاة";
   final prayerKey =
       prefs.getString('prayerKey_$alarmId') ?? (isFajr ? "fajr" : "dhuhr");
+
+  if (!isEnabled || prayerKey == "sunrise") {
+    // 🔥 Synchronize Hijri date and widget data even if silent
+    final now = DateTime.now();
+    final hijriAdjustment = prefs.getInt('hijri_adjustment') ?? 0;
+    final hijriDate = HijriDateService.getHijriDate(now, hijriAdjustment);
+    final hijriDateFull = hijriDate['formatted'] as String;
+
+    await HomeWidget.saveWidgetData<String>('flutter.hijri_date_full', hijriDateFull);
+    await PrayerTimesService.instance.updateWidgetData(force: true);
+    return;
+  }
+
+  final prayerName = prefs.getString('prayerName_$alarmId') ?? "الصلاة";
   final pathToPlay =
       prefs.getString('athan_path_$prayerKey') ??
       "assets/audio/athan_mishari.mp3";
@@ -224,6 +241,16 @@ Future<void> athanAlarmCallback(int alarmId) async {
     'prayerName': prayerName,
     if (alarmId == 999) 'activeTestKey': 'test_athan',
   });
+  
+  // 🔥 Synchronize widget data before showing overlay
+  final now = DateTime.now();
+  final hijriAdjustment = prefs.getInt('hijri_adjustment') ?? 0;
+  final hijriDate = HijriDateService.getHijriDate(now, hijriAdjustment);
+  final hijriDateFull = hijriDate['formatted'] as String;
+
+  await HomeWidget.saveWidgetData<String>('flutter.hijri_date_full', hijriDateFull);
+  await PrayerTimesService.instance.updateWidgetData(force: true);
+
   await showFullScreenAthan(prayerName, isFajr);
 }
 

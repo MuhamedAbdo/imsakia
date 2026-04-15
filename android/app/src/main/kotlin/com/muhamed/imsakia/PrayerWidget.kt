@@ -52,13 +52,20 @@ class PrayerWidget : HomeWidgetProvider() {
         // 2. Smart Countdown Self-Healing
         val now = System.currentTimeMillis()
         if (nextTimestamp <= now) {
-            // 🔥 البحث المحلي عن الصلاة التالية فوراً دون انتظار فلاتر
+            // 🔥 البحث المحلي عن الصلاة التالية والسابقة فوراً دون انتظار فلاتر
             val localNext = findNextPrayerLocally(context)
             if (localNext != null) {
                 nextTimestamp = localNext["timestamp"] as Long
                 nextDisplay = localNext["display"] as String
                 // Sync back to prevent repeated searching
                 syncToHomeWidget(context, localNext)
+            }
+            
+            val localPast = findLastPrayerLocally(context)
+            if (localPast != null) {
+                val pastDisplayLocal = localPast["display"] as String
+                views.setTextViewText(R.id.past_prayer_display, pastDisplayLocal)
+                widgetData.edit().putString("flutter.last_prayer_display", pastDisplayLocal).apply()
             }
         }
         
@@ -110,7 +117,7 @@ class PrayerWidget : HomeWidgetProvider() {
         for (entry in schedules.all) {
             val key = entry.key
             if (key.endsWith("_data")) continue
-            val timestamp = entry.value as? Long ?: continue
+            val timestamp = (entry.value as? Number)?.toLong() ?: continue
             
             if (timestamp > now && timestamp < earliestFutureTimestamp) {
                 earliestFutureTimestamp = timestamp
@@ -126,6 +133,37 @@ class PrayerWidget : HomeWidgetProvider() {
                     "timestamp" to earliestFutureTimestamp,
                     "name" to name,
                     "display" to "$name ${formatTime(earliestFutureTimestamp)}"
+                )
+            } else null
+        } else null
+    }
+
+    private fun findLastPrayerLocally(context: Context): Map<String, Any>? {
+        val now = System.currentTimeMillis()
+        val schedules = context.getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
+        
+        var latestPastTimestamp = 0L
+        var foundData: String? = null
+        
+        for (entry in schedules.all) {
+            val key = entry.key
+            if (key.endsWith("_data")) continue
+            val timestamp = (entry.value as? Number)?.toLong() ?: continue
+            
+            if (timestamp <= now && timestamp > latestPastTimestamp) {
+                latestPastTimestamp = timestamp
+                foundData = schedules.getString("${key}_data", null)
+            }
+        }
+        
+        return if (foundData != null) {
+            val parts = foundData.split("|")
+            if (parts.size >= 2) {
+                val name = parts[0]
+                mapOf(
+                    "timestamp" to latestPastTimestamp,
+                    "name" to name,
+                    "display" to "$name ${formatTime(latestPastTimestamp)}"
                 )
             } else null
         } else null
