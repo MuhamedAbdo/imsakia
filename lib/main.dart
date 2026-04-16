@@ -174,22 +174,19 @@ class _MyAppState extends State<MyApp> {
     // 🔥 جدولة المنبهات وتحديث الويدجت عند فتح التطبيق لأول مرة
     // 🛡️ HARDENED: Skip this if we're showing an overlay to avoid heavy initialization & Geocoding issues
     if (widget.initialOverlay == null) {
-      Future.delayed(const Duration(seconds: 2), () {
-        Future.microtask(() async {
-          debugPrint("!!! HARDENED: Checking needs_sync flag at startup !!!");
-          final needsSync = widget.prefs.getBool('needs_sync') ?? false;
-          
-          if (needsSync) {
-            debugPrint("!!! HARDENED: Sync flag detected! Triggering full refresh !!!");
-            await widget.prefs.setBool('needs_sync', false); // Clear immediately
-            await PrayerTimesService.instance.scheduleAllPrayers();
-            await PrayerTimesService.instance.updateWidgetData(force: true);
-          } else {
-            debugPrint("!!! HARDENED: Triggering normal startup prayer scheduling !!!");
-            PrayerTimesService.instance.scheduleAllPrayers();
-            PrayerTimesService.instance.updateWidgetData();
-          }
-        });
+      Future.microtask(() async {
+        debugPrint("!!! HARDENED: Triggering immediate startup synchronization !!!");
+        final needsSync = widget.prefs.getBool('needs_sync') ?? false;
+        
+        if (needsSync) {
+          await widget.prefs.setBool('needs_sync', false);
+          await PrayerTimesService.instance.scheduleAllPrayers();
+        } else {
+          PrayerTimesService.instance.scheduleAllPrayers();
+        }
+        
+        // 🔥 تزامن الدخول: نحدث الويدجت فوراً وبشكل صارم عند فتح التطبيق
+        await PrayerTimesService.instance.updateWidgetData(force: true);
       });
     } else {
       debugPrint("!!! HARDENED: Athan Overlay detected, skipping heavy background scheduling !!!");

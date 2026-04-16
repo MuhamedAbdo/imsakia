@@ -49,23 +49,49 @@ class PrayerWidget : HomeWidgetProvider() {
         views.setTextViewText(R.id.hijri_date, hijri)
         views.setTextViewText(R.id.past_prayer_display, pastDisplay)
 
-        // 2. Smart Countdown Self-Healing
+        // 2. Midnight Guard & Hijri Adjustment
+        val calendar = java.util.Calendar.getInstance()
+        val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+        
+        var displayHijri = hijri
+        // وإذا كانت الساعة الحالية تجاوزت 00:00 (منتصف الليل) ولم يتم تحديث التاريخ الهجري بعد
+        if (hour in 0..4) { // Window: Midnight until Fajr (approx)
+            displayHijri = adjustHijriDateManually(hijri)
+        }
+        views.setTextViewText(R.id.hijri_date, displayHijri)
+
+        // 3. Smart Countdown Self-Healing
         val now = System.currentTimeMillis()
         if (nextTimestamp <= now) {
-            // 🔥 البحث المحلي عن الصلاة التالية والسابقة فوراً دون انتظار فلاتر
+            // البحث المحلي عن الصلاة التالية فوراً
             val localNext = findNextPrayerLocally(context)
             if (localNext != null) {
                 nextTimestamp = localNext["timestamp"] as Long
                 nextDisplay = localNext["display"] as String
+                val nextName = localNext["name"] as String
+                
+                // 🔥 تطبيق الربط الصارم للمسميات يدوياً
+                val manualPastName = getManualPastPrayer(nextName)
+                val localPast = findLastPrayerByName(context, manualPastName)
+                
+                if (localPast != null) {
+                    val pastDisplayLocal = localPast["display"] as String
+                    views.setTextViewText(R.id.past_prayer_display, pastDisplayLocal)
+                    widgetData.edit().putString("flutter.last_prayer_display", pastDisplayLocal).apply()
+                }
+
                 // Sync back to prevent repeated searching
                 syncToHomeWidget(context, localNext)
             }
-            
-            val localPast = findLastPrayerLocally(context)
-            if (localPast != null) {
-                val pastDisplayLocal = localPast["display"] as String
-                views.setTextViewText(R.id.past_prayer_display, pastDisplayLocal)
-                widgetData.edit().putString("flutter.last_prayer_display", pastDisplayLocal).apply()
+        } else {
+            // إذا كانت الصلاة القادمة صحيحة، نتأكد برضه من الربط الصارم للسابقة
+            val nextName = widgetData.getString("flutter.next_prayer_name", "") ?: ""
+            if (nextName.isNotEmpty()) {
+                val manualPastName = getManualPastPrayer(nextName)
+                val localPast = findLastPrayerByName(context, manualPastName)
+                if (localPast != null) {
+                    views.setTextViewText(R.id.past_prayer_display, localPast["display"] as String)
+                }
             }
         }
         
@@ -138,35 +164,86 @@ class PrayerWidget : HomeWidgetProvider() {
         } else null
     }
 
-    private fun findLastPrayerLocally(context: Context): Map<String, Any>? {
-        val now = System.currentTimeMillis()
+    private fun findLastPrayerByName(context: Context, name: String): Map<String, Any>? {
         val schedules = context.getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
         
-        var latestPastTimestamp = 0L
-        var foundData: String? = null
+        var targetTimestamp = 0L
         
         for (entry in schedules.all) {
             val key = entry.key
-            if (key.endsWith("_data")) continue
-            val timestamp = (entry.value as? Number)?.toLong() ?: continue
-            
-            if (timestamp <= now && timestamp > latestPastTimestamp) {
-                latestPastTimestamp = timestamp
-                foundData = schedules.getString("${key}_data", null)
+            if (!key.endsWith("_data")) continue
+            val data = entry.value as? String ?: continue
+            if (data.startsWith(name)) {
+                val baseKey = key.removeSuffix("_data")
+                val timestamp = schedules.getLong(baseKey, 0L)
+                // نأخذ أقرب توقيت مر بالفعل لهذه الصلاة
+                if (timestamp <= System.currentTimeMillis() && timestamp > targetTimestamp) {
+                    targetTimestamp = timestamp
+                }
             }
         }
         
-        return if (foundData != null) {
-            val parts = foundData.split("|")
-            if (parts.size >= 2) {
-                val name = parts[0]
-                mapOf(
-                    "timestamp" to latestPastTimestamp,
-                    "name" to name,
-                    "display" to "$name ${formatTime(latestPastTimestamp)}"
-                )
-            } else null
+        return if (targetTimestamp > 0L) {
+            mapOf(
+                "timestamp" to targetTimestamp,
+                "name" to name,
+                "display" to "$name ${formatTime(targetTimestamp)}"
+            )
         } else null
+    }
+
+    private fun getManualPastPrayer(nextName: String): String {
+        return when (nextName) {
+            "الفجر" -> "العشاء"
+            "الشروق" -> "الفجر"
+            "الظهر" -> "الشروق"
+            "العصر" -> "الظهر"
+            "المغرب" -> "العصر"
+            "العشاء" -> "المغرب"
+            else -> "المغرب"
+        }
+    }
+
+    private fun adjustHijriDateManually(fullDate: String): String {
+        val daysOfWeek = listOf("الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت")
+        var updatedDate = fullDate
+
+        // 1. تحديث اسم اليوم (مثلاً: الأربعاء -> الخميس)
+        for (i in daysOfWeek.indices) {
+            if (fullDate.contains(daysOfWeek[i])) {
+                val nextDay = daysOfWeek[(i + 1) % 7]
+                updatedDate = updatedDate.replace(daysOfWeek[i], nextDay)
+                break
+            }
+        }
+
+        // 2. زيادة رقم اليوم (مثلاً: ٢٧ -> ٢٨)
+        val arabicDigits = "٠١٢٣٤٥٦٧٨٩"
+        val regex = Regex("[0-9٠-٩]+")
+        val match = regex.find(updatedDate) ?: return updatedDate
+        
+        val originalNumStr = match.value
+        val isArabic = originalNumStr.any { it in arabicDigits }
+        
+        val standardNumStr = if (isArabic) {
+            originalNumStr.map { char ->
+                val idx = arabicDigits.indexOf(char)
+                if (idx != -1) '0' + idx else char
+            }.joinToString("")
+        } else {
+            originalNumStr
+        }
+        
+        val incrementedInt = standardNumStr.toIntOrNull()?.plus(1) ?: return updatedDate
+        var incrementedStr = incrementedInt.toString()
+        
+        if (isArabic) {
+            incrementedStr = incrementedStr.map { char ->
+                if (char in '0'..'9') arabicDigits[char - '0'] else char
+            }.joinToString("")
+        }
+        
+        return updatedDate.replaceFirst(originalNumStr, incrementedStr)
     }
 
     private fun formatTime(millis: Long): String {
