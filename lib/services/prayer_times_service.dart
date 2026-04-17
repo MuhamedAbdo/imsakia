@@ -137,7 +137,11 @@ class PrayerTimesService {
   /// يزامن بيانات مواقيت الصلاة والمناسبات مع ويدجت الشاشة الرئيسية
   Future<void> updateWidgetData({bool force = false}) async {
     try {
-      if (_currentPrayerTimes == null) return;
+      if (_currentPrayerTimes == null) {
+        // 🔥 If we are in a background isolate, we need to populate data first
+        await getCurrentPrayerTimes();
+        if (_currentPrayerTimes == null) return;
+      }
 
       // 🛡️ Throttling Protection: تحديث الويدجت عملية مكلفة جداً، نكتفي بمرة كل 30 ثانية
       // استثناء: عند تغير "اليوم" (منتصف الليل)، نتجاوز التروتلينج فوراً لتحديث التاريخ الهجري
@@ -450,10 +454,7 @@ class PrayerTimesService {
 
     try {
       // 🛡️ HARDENED: Do NOT use geocoding in background or when waking up for Athan.
-      // Geocoding package requires internet and can hang/fail in background.
-      Logger.info(
-        "!!! HARDENED: Skipping Geocoding address lookup to ensure background stability !!!",
-      );
+      // We strictly rely on cached coordinates or defaults.
     } catch (e) {
       Logger.error("Geocoding Error: $e");
     }

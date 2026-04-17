@@ -5,8 +5,6 @@ import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../../services/prayer_times_service.dart';
-import '../../../services/hijri_date_service.dart';
-import 'package:home_widget/home_widget.dart';
 import '../../audio/services/audio_handler.dart';
 
 /// The notification ID for the athan full-screen overlay notification.
@@ -101,14 +99,15 @@ class AthanManager {
       prayerKey = "maghrib";
     } else if (prayerName.contains("عشاء")) {
       prayerKey = "isha";
-    } else if (prayerName.contains("شروق") || prayerName.toLowerCase().contains("sunrise")) {
+    } else if (prayerName.contains("شروق") ||
+        prayerName.toLowerCase().contains("sunrise")) {
       prayerKey = "sunrise";
     }
 
     await prefs.setString('prayerKey_$alarmId', prayerKey);
 
     final isEnabled = prefs.getBool('athan_enabled') ?? true;
-    
+
     // 🔥 Sunrise is ALWAYS silent
     bool isSilent = !isEnabled || prayerKey == "sunrise";
 
@@ -125,8 +124,23 @@ class AthanManager {
         'prayerKey': prayerKey,
         'isSilent': isSilent,
       });
+
+      // 🔥 Sync with AndroidAlarmManager to trigger Dart logic at the same time
+      // This ensures the widget updates and Hijri date syncs even if the app is closed.
+      await AndroidAlarmManager.oneShotAt(
+        time,
+        alarmId,
+        athanAlarmCallback,
+        alarmClock: true,
+        allowWhileIdle: true,
+        exact: true,
+        wakeup: true,
+        rescheduleOnReboot: true,
+      );
     } catch (e) {
-      debugPrint("AthanManager: Failed to schedule $prayerName (ID: $alarmId): $e");
+      debugPrint(
+        "AthanManager: Failed to schedule $prayerName (ID: $alarmId): $e",
+      );
     }
   }
 
@@ -169,8 +183,12 @@ class AthanManager {
   }
 
   /// Schedules a test athan alert with a configurable delay using Sovereign Native Logic.
-  static Future<void> scheduleTestAthan({Duration delay = const Duration(seconds: 10)}) async {
-    debugPrint("!!! HARDENED: Triggering simplified Athan Test with $delay !!!");
+  static Future<void> scheduleTestAthan({
+    Duration delay = const Duration(seconds: 10),
+  }) async {
+    debugPrint(
+      "!!! HARDENED: Triggering simplified Athan Test with $delay !!!",
+    );
     final testTime = DateTime.now().add(delay);
     const alarmId = 999;
 
@@ -215,15 +233,12 @@ Future<void> athanAlarmCallback(int alarmId) async {
   final prayerKey =
       prefs.getString('prayerKey_$alarmId') ?? (isFajr ? "fajr" : "dhuhr");
 
-  if (!isEnabled || prayerKey == "sunrise") {
-    // 🔥 Synchronize Hijri date and widget data even if silent
-    final now = DateTime.now();
-    final hijriAdjustment = prefs.getInt('hijri_adjustment') ?? 0;
-    final hijriDate = HijriDateService.getHijriDate(now, hijriAdjustment);
-    final hijriDateFull = hijriDate['formatted'] as String;
+  // 🔥 UPDATE WIDGET DATA FIRST (Mandatory)
+  // This ensures the "Next Prayer" updates on the Home Screen immediately.
+  await PrayerTimesService.instance.updateWidgetData(force: true);
 
-    await HomeWidget.saveWidgetData<String>('flutter.hijri_date_full', hijriDateFull);
-    await PrayerTimesService.instance.updateWidgetData(force: true);
+  // If Athan is disabled or it's Sunrise, we stop here (widget updated above)
+  if (!isEnabled || prayerKey == "sunrise") {
     return;
   }
 
@@ -241,15 +256,6 @@ Future<void> athanAlarmCallback(int alarmId) async {
     'prayerName': prayerName,
     if (alarmId == 999) 'activeTestKey': 'test_athan',
   });
-  
-  // 🔥 Synchronize widget data before showing overlay
-  final now = DateTime.now();
-  final hijriAdjustment = prefs.getInt('hijri_adjustment') ?? 0;
-  final hijriDate = HijriDateService.getHijriDate(now, hijriAdjustment);
-  final hijriDateFull = hijriDate['formatted'] as String;
-
-  await HomeWidget.saveWidgetData<String>('flutter.hijri_date_full', hijriDateFull);
-  await PrayerTimesService.instance.updateWidgetData(force: true);
 
   await showFullScreenAthan(prayerName, isFajr);
 }

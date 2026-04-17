@@ -56,7 +56,7 @@ class PrayerWidget : HomeWidgetProvider() {
         var displayHijri = hijri
         // وإذا كانت الساعة الحالية تجاوزت 00:00 (منتصف الليل) ولم يتم تحديث التاريخ الهجري بعد
         if (hour in 0..4) { // Window: Midnight until Fajr (approx)
-            displayHijri = adjustHijriDateManually(hijri)
+            displayHijri = adjustHijriDateManually(hijri ?: "")
         }
         views.setTextViewText(R.id.hijri_date, displayHijri)
 
@@ -110,9 +110,14 @@ class PrayerWidget : HomeWidgetProvider() {
             // 3. Schedule Reliable NEXT Alarm (StabilityChain)
             scheduleExactAlarm(context, nextTimestamp, appWidgetIds)
         } else {
-            // Fallback
+            // Ultimate Fallback: If no future prayer is found even after local search
             views.setChronometer(R.id.countdown_text, android.os.SystemClock.elapsedRealtime(), null, false)
             views.setTextViewText(R.id.countdown_text, "جاري التحديث...")
+            
+            // 🔥 Force a heartbeat update via WorkManager if we are stuck
+            val widgetUpdateIntent = Intent(context, MainActivity::class.java).apply {
+                putExtra("force_widget_sync", true)
+            }
         }
 
         // 4. Interaction: Click to open app
