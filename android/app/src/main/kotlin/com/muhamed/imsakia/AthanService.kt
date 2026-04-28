@@ -21,6 +21,21 @@ import android.media.RingtoneManager
 class AthanService : Service() {
     private var mediaPlayer: MediaPlayer? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var focusRequest: android.media.AudioFocusRequest? = null
+
+    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_LOSS,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                android.util.Log.d("ImsakiaNative", "!!! SERVICE: Audio Focus Lost ($focusChange), stopping Athan !!!")
+                val stopIntent = Intent(this, AthanService::class.java).apply {
+                    action = ACTION_STOP_ATHAN
+                }
+                startService(stopIntent)
+            }
+        }
+    }
     private val SERVICE_NOTIFICATION_ID = 7777
     private val ATHAN_SERVICE_CHANNEL = "athan_audible_channel"
     private val ACTION_STOP_ATHAN = "com.muhamed.imsakia.STOP_ATHAN"
@@ -55,6 +70,12 @@ class AthanService : Service() {
         }
         
         if (intent?.action == ACTION_STOP_ATHAN) {
+            // Stop media player immediately before broadcasting to avoid lingering ring
+            mediaPlayer?.let {
+                if (it.isPlaying) it.stop()
+                it.release()
+                mediaPlayer = null
+            }
             
             if (isAthanEnabled) {
                 sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
@@ -206,13 +227,14 @@ class AthanService : Service() {
 
         // Audio Focus
         val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
                 .setAudioAttributes(audioAttributes)
+                .setOnAudioFocusChangeListener(audioFocusChangeListener)
                 .build()
-            audioManager.requestAudioFocus(focusRequest)
+            audioManager.requestAudioFocus(focusRequest!!)
         } else {
             @Suppress("DEPRECATION")
-            audioManager.requestAudioFocus(null, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
         }
 
         mediaPlayer = MediaPlayer().apply {
@@ -254,8 +276,24 @@ class AthanService : Service() {
     }
 
     override fun onDestroy() {
-        mediaPlayer?.stop()
-        mediaPlayer?.release()
+        mediaPlayer?.let {
+            if (it.isPlaying) it.stop()
+            it.release()
+        }
+        mediaPlayer = null
+        
+        try {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.abandonAudioFocus(audioFocusChangeListener)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ImsakiaNative", "Error abandoning audio focus: ${e.message}")
+        }
+        
         wakeLock?.release()
         stopForeground(STOP_FOREGROUND_REMOVE)
         sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
