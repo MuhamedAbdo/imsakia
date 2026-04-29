@@ -47,11 +47,20 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
-    _initializeServicesInBackground();
-
     if (!MyApp.isAthanShowing) {
-      _navigationTimer = Timer(const Duration(seconds: 4), () {
-        if (mounted) {
+      bool navigated = false;
+      
+      _navigationTimer = Timer(const Duration(milliseconds: 1500), () {
+        if (mounted && !navigated) {
+          navigated = true;
+          _navigateToMainApp();
+        }
+      });
+
+      _initializeServicesInBackground().then((_) {
+        if (mounted && !navigated) {
+          navigated = true;
+          _navigationTimer?.cancel();
           _navigateToMainApp();
         }
       });
@@ -66,45 +75,44 @@ class _SplashScreenState extends State<SplashScreen>
     }
   }
 
-  void _initializeServicesInBackground() {
+  Future<void> _initializeServicesInBackground() async {
     final settingsProvider = Provider.of<SettingsProvider>(
       context,
       listen: false,
     );
+    
+    final futures = <Future>[];
+
     if (!settingsProvider.isInitialized) {
-      settingsProvider
+      futures.add(settingsProvider
           .initialize()
           .timeout(
             const Duration(seconds: 3),
-            onTimeout: () {
-            },
+            onTimeout: () {},
           )
-          .catchError((e) {
-          });
+          .catchError((e) {}));
     }
 
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     themeProvider.syncWithSettingsProvider(settingsProvider.themeMode);
 
-    HadithService.instance
+    futures.add(HadithService.instance
         .initialize()
         .timeout(
           const Duration(seconds: 3),
-          onTimeout: () {
-          },
+          onTimeout: () {},
         )
-        .catchError((e) {
-        });
+        .catchError((e) {}));
 
-    AzkarService.instance
+    futures.add(AzkarService.instance
         .initialize()
         .timeout(
           const Duration(seconds: 3),
-          onTimeout: () {
-          },
+          onTimeout: () {},
         )
-        .catchError((e) {
-        });
+        .catchError((e) {}));
+        
+    await Future.wait(futures);
   }
 
   void _navigateToMainApp() {

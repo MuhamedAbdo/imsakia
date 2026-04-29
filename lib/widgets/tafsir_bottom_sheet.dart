@@ -15,8 +15,10 @@ class TafsirBottomSheet extends StatelessWidget {
     final isDarkMode = themeProvider.isDarkMode;
     final dbHelper = DbHelper();
 
+    final dialogHeight = MediaQuery.of(context).size.height * 0.9;
+
     return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
+      height: dialogHeight,
       decoration: BoxDecoration(
         color: isDarkMode ? const Color(0xFF1e1e1e) : Colors.white,
         borderRadius: const BorderRadius.only(
@@ -38,82 +40,98 @@ class TafsirBottomSheet extends StatelessWidget {
           ),
 
           // Header
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isDarkMode
-                    ? [const Color(0xFF2d2d2d), const Color(0xFF1e1e1e)]
-                    : [const Color(0xFF8B7355), const Color(0xFF6B5B45)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-            ),
-            child: Column(
-              children: [
-                // Ayah reference
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.white12 : Colors.white24,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'سورة ${_getSurahName(ayah['surah_id'] ?? 1)} - الآية ${ayah['number_in_surah'] ?? 1}',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 16,
-                      color: isDarkMode
-                          ? Colors.white
-                          : const Color(0xFFfef8f0),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDarkMode
+                      ? [const Color(0xFF2d2d2d), const Color(0xFF1e1e1e)]
+                      : [const Color(0xFF8B7355), const Color(0xFF6B5B45)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-
-                const SizedBox(height: 12),
-
-                // Ayah text
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    // التعديل هنا: استخدام .withValues بدلاً من .withOpacity
-                    color: isDarkMode
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : Colors.white.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Ayah reference
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
                       color: isDarkMode ? Colors.white12 : Colors.white24,
-                      width: 1,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'سورة ${_getSurahName(ayah['surah_id'] ?? 1)} - الآية ${ayah['number_in_surah'] ?? 1}',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 16,
+                        color: isDarkMode
+                            ? Colors.white
+                            : const Color(0xFFfef8f0),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  child: Text(
-                    ayah['text'] ?? '',
-                    style: TextStyle(
-                      fontFamily: 'HafsSmart',
-                      fontSize: 20,
-                      height: 1.8,
-                      // التعديل هنا أيضاً
-                      color: isDarkMode
-                          ? Colors.white.withValues(alpha: 0.9)
-                          : const Color(0xFF2d2d2d),
+
+                  const SizedBox(height: 12),
+
+                  // Ayah text
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: dialogHeight * 0.2,
+                        maxHeight: dialogHeight * 0.35,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        width: double.infinity,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          // التعديل هنا: استخدام .withValues بدلاً من .withOpacity
+                          color: isDarkMode
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : Colors.white.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isDarkMode ? Colors.white12 : Colors.white24,
+                            width: 1,
+                          ),
+                        ),
+                        child: SingleChildScrollView(
+                          child: Text(
+                            ayah['text'] ?? '',
+                            style: TextStyle(
+                              fontFamily: 'HafsSmart',
+                              fontSize: 20,
+                              height: 1.8,
+                              // التعديل هنا أيضاً
+                              color: isDarkMode
+                                  ? Colors.white.withValues(alpha: 0.9)
+                                  : const Color(0xFF2d2d2d),
+                            ),
+                            textAlign: TextAlign.center,
+                            textDirection: TextDirection.rtl,
+                          ),
+                        ),
+                      ),
                     ),
-                    textAlign: TextAlign.center,
-                    textDirection: TextDirection.rtl,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
           // Tafsir content
           Expanded(
+            flex: 2,
             child: FutureBuilder<String>(
               future: dbHelper.getTafsir(ayah['surah_id'] ?? 1, ayah['number_in_surah'] ?? 1),
               builder: (context, snapshot) {
@@ -162,8 +180,8 @@ class TafsirBottomSheet extends StatelessWidget {
                                 Text(
                                   tafsirText,
                                   style: GoogleFonts.tajawal(
-                                    fontSize: 16,
-                                    height: 1.6,
+                                    fontSize: 18,
+                                    height: 1.8,
                                     color: isDarkMode
                                         ? Colors.white70
                                         : Colors.black87,
