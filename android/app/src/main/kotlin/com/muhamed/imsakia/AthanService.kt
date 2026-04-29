@@ -77,11 +77,22 @@ class AthanService : Service() {
                 mediaPlayer = null
             }
             
+            try {
+                val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+                } else {
+                    @Suppress("DEPRECATION")
+                    audioManager.abandonAudioFocus(audioFocusChangeListener)
+                }
+            } catch (e: Exception) {}
+            
             if (isAthanEnabled) {
                 sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
             } else {
             }
             
+            stopForeground(true)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -155,7 +166,8 @@ class AthanService : Service() {
         )
 
         val mainIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
+            putExtra("emergency_athan_mode", true)
             putExtra("trigger_athan_overlay", true)
             putExtra("prayer_name", prayerName)
             putExtra("alarm_id", alarmId)
@@ -227,14 +239,14 @@ class AthanService : Service() {
 
         // Audio Focus
         val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
                 .setAudioAttributes(audioAttributes)
                 .setOnAudioFocusChangeListener(audioFocusChangeListener)
                 .build()
             audioManager.requestAudioFocus(focusRequest!!)
         } else {
             @Suppress("DEPRECATION")
-            audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
         }
 
         mediaPlayer = MediaPlayer().apply {
@@ -261,10 +273,20 @@ class AthanService : Service() {
                 val nativePrefs = getSharedPreferences("athan_native_prefs", Context.MODE_PRIVATE)
                 nativePrefs.edit().putBoolean("should_exit_to_background", true).commit()
 
-                // التحول لوضع "قابل للمسح" بعد انتهاء الصوت
-                startForegroundServiceNotification(currentPrayerName, currentAlarmId, isAthanEnabled = true, isOngoing = false)
+                // استعادة التركيز الصوتي فوراً
+                try {
+                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+                    } else {
+                        @Suppress("DEPRECATION")
+                        audioManager.abandonAudioFocus(audioFocusChangeListener)
+                    }
+                } catch (e: Exception) {}
                 
                 sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
+                stopForeground(true)
+                stopSelf()
             }
 
             setOnErrorListener { _, what, extra ->
@@ -295,7 +317,7 @@ class AthanService : Service() {
         }
         
         wakeLock?.release()
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopForeground(true)
         sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
         super.onDestroy()
     }

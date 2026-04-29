@@ -50,6 +50,15 @@ void notificationBackgroundResponseHandler(NotificationResponse response) async 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 🛡️ SOVEREIGN PROTOCOL: Emergency Athan Mode Check
+  const channel = MethodChannel('imsakia/notifications');
+  final bool isEmergencyAthan = await channel.invokeMethod<bool>('isEmergencyAthanMode') ?? false;
+
+  if (isEmergencyAthan) {
+    MyApp.isAthanShowing = true;
+    debugPrint("!!! SOVEREIGN: Emergency Athan Mode Detected - Freezing Widget Sync !!!");
+  }
+
   // Copy Athan assets to local storage for background isolate access
   await _prepareAthanAssets();
 
@@ -60,13 +69,6 @@ void main() async {
   // notification plugin, so audioHandler is not null when the athan overlay opens.
   await initAudioService();
   await AthanManager.initialize();
-
-  // Start non-critical services without blocking
-  HadithService.instance.initialize();
-  AzkarService.instance.initialize();
-
-  final settingsProvider = SettingsProvider();
-  await settingsProvider.initialize();
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   
@@ -119,6 +121,18 @@ void main() async {
       }
     }
   }
+
+  if (overlayScreen != null) {
+    // 🚀 وضع الطوارئ: لا ننتظر الأذكار أو الأحاديث نهائياً
+    debugPrint("!!! HARDENED: Athan Mode - Skipping ALL non-essential background tasks !!!");
+  } else {
+    // الحالة الطبيعية
+    HadithService.instance.initialize();
+    AzkarService.instance.initialize();
+  }
+
+  final settingsProvider = SettingsProvider();
+  await settingsProvider.initialize();
 
   final prefs = await SharedPreferences.getInstance();
   await prefs.reload();
@@ -200,7 +214,7 @@ class _MyAppState extends State<MyApp> {
         final prayerName = call.arguments['prayerName'] ?? "الصلاة";
         
         // 1. Passive check: Are we already showing this exact Athan?
-        if (_currentAthanOverlay == prayerName) {
+        if (_currentAthanOverlay == prayerName || MyApp.isAthanShowing) {
            return;
         }
 
@@ -235,7 +249,20 @@ class _MyAppState extends State<MyApp> {
         // 1. تأخير بسيط جداً (500ms) للسماح بتنسيق العمليات
         await Future.delayed(const Duration(milliseconds: 500));
         
-        // 2. Pop the overlay if it exists
+        // ✅ تنظيف العلم عند الإغلاق الناجح
+        AthanManager.clearShouldExitFlag();
+
+        if (_isColdStartForAthan) {
+          // خروج طوارئ فوري: إنهاء التطبيق تماماً لأنه فُتح للأذان فقط
+          setState(() {
+            _currentAthanOverlay = null;
+          });
+          await AthanManager.forceExit();
+          SystemNavigator.pop();
+          return;
+        }
+
+        // الحالة الطبيعية (Warm Start): الـ Overlay تم وضعه فوق شاشات أخرى
         if (navigatorKey.currentState != null) {
           bool wasOnOverlay = false;
           navigatorKey.currentState!.popUntil((route) {
@@ -243,24 +270,14 @@ class _MyAppState extends State<MyApp> {
               wasOnOverlay = true;
               return false; // This pops the overlay
             }
-            return true; // Stop here (the route below overlay)
+            return true; // Stop popping at the route below
           });
           
           if (wasOnOverlay) {
-            // 3. Reset state
             setState(() {
               _currentAthanOverlay = null;
             });
-            
-            // ✅ تنظيف العلم عند الإغلاق الناجح
-            AthanManager.clearShouldExitFlag();
-
-            // 4. Trigger native smart exit OR SELF-DESTRUCT for cold start
-            if (_isColdStartForAthan) {
-              await AthanManager.forceExit();
-            } else {
-              await AthanManager.performSmartExit();
-            }
+            await AthanManager.performSmartExit();
           }
         }
       }
@@ -292,12 +309,26 @@ class _MyAppState extends State<MyApp> {
                 settingsProvider.themeMode,
               );
 
+              ThemeData lightTheme = themeProvider.lightTheme;
+              ThemeData darkTheme = themeProvider.darkTheme;
+
+              if (widget.initialOverlay != null) {
+                const noAnimTheme = PageTransitionsTheme(
+                  builders: {
+                    TargetPlatform.android: NoAnimationPageTransitionsBuilder(),
+                    TargetPlatform.iOS: NoAnimationPageTransitionsBuilder(),
+                  },
+                );
+                lightTheme = lightTheme.copyWith(pageTransitionsTheme: noAnimTheme);
+                darkTheme = darkTheme.copyWith(pageTransitionsTheme: noAnimTheme);
+              }
+
               return MaterialApp(
                 title: AppConstants.appName,
                 navigatorKey: navigatorKey,
                 debugShowCheckedModeBanner: false,
-                theme: themeProvider.lightTheme,
-                darkTheme: themeProvider.darkTheme,
+                theme: lightTheme,
+                darkTheme: darkTheme,
                 themeMode: _getThemeMode(settingsProvider.themeMode),
                 home: _resolveInitialScreen(),
                 routes: {
@@ -324,18 +355,19 @@ class _MyAppState extends State<MyApp> {
   }
 
   Widget _resolveInitialScreen() {
-    // 1️⃣ الأولوية القصوى: أذان معلق (من أي مصدر)
+    // 1️⃣ الأولوية القصوى والمباشرة: الأذان
     if (widget.initialOverlay != null) {
       MyApp.isAthanShowing = true;
+      // نعود بشاشة الأذان فوراً، وهذا سيجعلها تظهر بدلاً من أي شيء آخر
       return widget.initialOverlay!;
     }
     
-    // 2️⃣ الأولوية الثانية: إكمال إعدادات الأذونات
+    // 2️⃣ إكمال الإعدادات
     if (widget.showPermissionsGate) {
       return const SequentialPermissionsScreen();
     }
     
-    // 3️⃣ الحالة الطبيعية: شاشة البداية
+    // 3️⃣ الحالة الطبيعية فقط هي من ترى الـ Splash
     return const SplashScreen();
   }
 
@@ -383,5 +415,19 @@ ThemeMode _getThemeMode(AppThemeMode mode) {
       return ThemeMode.dark;
     case AppThemeMode.system:
       return ThemeMode.system;
+  }
+}
+
+class NoAnimationPageTransitionsBuilder extends PageTransitionsBuilder {
+  const NoAnimationPageTransitionsBuilder();
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child;
   }
 }

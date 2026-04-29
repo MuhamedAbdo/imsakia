@@ -8,6 +8,7 @@ import 'hijri_date_service.dart';
 import '../features/athan/services/athan_manager.dart';
 import 'package:home_widget/home_widget.dart';
 import 'home_events_service.dart';
+import '../main.dart';
 
 class PrayerTimesService {
   static PrayerTimesService? _instance;
@@ -136,6 +137,11 @@ class PrayerTimesService {
 
   /// يزامن بيانات مواقيت الصلاة والمناسبات مع ويدجت الشاشة الرئيسية
   Future<void> updateWidgetData({bool force = false}) async {
+    if (MyApp.isAthanShowing) {
+      Logger.info("Skipping widget update (Athan is playing)");
+      return;
+    }
+    
     try {
       if (_currentPrayerTimes == null) {
         // 🔥 If we are in a background isolate, we need to populate data first

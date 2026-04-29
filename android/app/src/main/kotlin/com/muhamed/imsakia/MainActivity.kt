@@ -197,6 +197,10 @@ class MainActivity : AudioServiceActivity() {
                         prefs.edit().remove("pending_prayer_name").remove("pending_timestamp").commit()
                         result.success(true)
                     }
+                    "isEmergencyAthanMode" -> {
+                        val isEmergency = intent?.getBooleanExtra("emergency_athan_mode", false) ?: false
+                        result.success(isEmergency)
+                    }
                     "getShouldExitFlag" -> {
                         val prefs = getSharedPreferences(ATHAN_NATIVE_PREFS, Context.MODE_PRIVATE)
                         val shouldExit = prefs.getBoolean("should_exit_to_background", false)
@@ -330,6 +334,13 @@ class MainActivity : AudioServiceActivity() {
         // 🔥 إضافة الـ Flag لضمان بقاء النسخة الحالية للأكتيفيتي
         intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
 
+        // ALWAYS save to prefs for guaranteed delivery on cold start
+        val prefs = getSharedPreferences(ATHAN_NATIVE_PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString("pending_prayer_name", prayerName)
+            .putLong("pending_timestamp", System.currentTimeMillis())
+            .commit()
+
         val messenger = flutterEngine?.dartExecutor?.binaryMessenger
         if (messenger != null) {
             // ✅ إرسال فوري للـ Flutter
@@ -340,13 +351,6 @@ class MainActivity : AudioServiceActivity() {
             // ✅ إعادة تعيين الـ Intent لمنع التكرار
             intent.removeExtra("prayer_name")
             intent.removeExtra("ATHAN_PRAYER_NAME")
-        } else {
-            // ✅ احتياطي: حفظ في SharedPreferences منفصل
-            val prefs = getSharedPreferences(ATHAN_NATIVE_PREFS, Context.MODE_PRIVATE)
-            prefs.edit()
-                .putString("pending_prayer_name", prayerName)
-                .putLong("pending_timestamp", System.currentTimeMillis())
-                .commit()
         }
     }
 
