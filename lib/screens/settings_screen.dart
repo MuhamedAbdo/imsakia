@@ -12,14 +12,17 @@ import '../features/athan/providers/athan_provider.dart';
 import '../services/prayer_times_service.dart';
 import '../widgets/neumorphic_box.dart';
 import '../features/audio/services/audio_handler.dart';
-import '../features/athan/services/athan_manager.dart';
 import '../services/permissions_service.dart';
 import '../widgets/custom_localized_picker.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool isFirstTimeSetup;
   final VoidCallback? onSettingsSaved;
-  const SettingsScreen({super.key, this.isFirstTimeSetup = false, this.onSettingsSaved});
+  const SettingsScreen({
+    super.key,
+    this.isFirstTimeSetup = false,
+    this.onSettingsSaved,
+  });
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -544,11 +547,15 @@ class _SettingsScreenState extends State<SettingsScreen>
             // Master Toggle
             SwitchListTile(
               title: Text(
-                'تفعيل الأذان',
+                'تنبيه الأذان الصوتي',
                 style: GoogleFonts.tajawal(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
                 ),
+              ),
+              subtitle: Text(
+                'إيقاف التنبيه الصوتي يحول الأذان إلى إشعار صامت فقط',
+                style: GoogleFonts.tajawal(fontSize: 12, color: Colors.grey),
               ),
               value: provider.isAthanEnabled,
               activeThumbColor: Colors.green,
@@ -687,77 +694,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                 icon: Icons.security_rounded,
                 isGranted: _permissionStatuses['system_alert'] ?? false,
                 onTap: () => PermissionsService.openComprehensivePermissions(),
-              ),
-              const SizedBox(height: 15),
-              const Divider(height: 30),
-              _buildActionTile(
-                context,
-                title: 'اختبار تجريبي فوري',
-                subtitle: 'سيتم تشغيل واجهة وتنبيه الأذان فوراً للتأكد من عمل الصوت والشاشة',
-                icon: Icons.play_circle_fill_rounded,
-                onTap: () async {
-                  if (audioHandler == null) {
-                    try {
-                      await initAudioService();
-                    } catch (e) {
-                      debugPrint("ATHAN TEST: Failed to init audioHandler: $e");
-                    }
-                  }
-                  final result = await AthanManager.testDirectReceiver();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(result),
-                        backgroundColor: Colors.green,
-                        duration: const Duration(seconds: 3),
-                      ),
-                    );
-                  }
-                },
-              ),
-              const SizedBox(height: 10),
-              _buildActionTile(
-                context,
-                title: 'اختبار نظام الخلفية (١٠ ثواني)',
-                subtitle:
-                    'سيطلق الأذان بعد ١٠ ثواني لاختبار عمل التنبيهات في الخلفية',
-                icon: Icons.timer_outlined,
-                onTap: () async {
-                  await AthanManager.scheduleTestAthan(delay: const Duration(seconds: 10));
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'سيتم تشغيل الأذان التجريبي بعد ١٠ ثواني. يرجى إغلاق التطبيق أو إطفاء الشاشة الآن.',
-                        ),
-                        backgroundColor: Colors.orange,
-                        duration: Duration(seconds: 7),
-                      ),
-                    );
-                  }
-                },
-              ),
-              const SizedBox(height: 10),
-              _buildActionTile(
-                context,
-                title: 'تحديث وجدولة الأذان',
-                subtitle: 'يُلغي الجدولة القديمة ويُعيد حساب وجدولة جميع الصلوات من جديد',
-                icon: Icons.update_rounded,
-                onTap: () async {
-                  await AthanManager.cancelAllAlarms();
-                  await PrayerTimesService.instance.scheduleAllPrayers();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          '✅ تم تحديث جدولة الأذان لجميع الصلوات بنجاح',
-                        ),
-                        backgroundColor: Colors.green,
-                        duration: Duration(seconds: 4),
-                      ),
-                    );
-                  }
-                },
               ),
             ],
           ],

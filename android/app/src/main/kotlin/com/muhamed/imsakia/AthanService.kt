@@ -144,16 +144,29 @@ class AthanService : Service() {
     }
 
     private fun startForegroundServiceNotification(prayerName: String, alarmId: Int, isAthanEnabled: Boolean, isOngoing: Boolean) {
+        val channelId = if (isAthanEnabled) ATHAN_SERVICE_CHANNEL else "silent_athan_channel"
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                ATHAN_SERVICE_CHANNEL, "Athan Service", NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                setSound(null, null)
-                setShowBadge(false)
-                enableVibration(true)
-                vibrationPattern = longArrayOf(0, 500, 200, 500)
+            if (isAthanEnabled) {
+                val channel = NotificationChannel(
+                    channelId, "Athan Service", NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    setSound(null, null)
+                    setShowBadge(false)
+                    enableVibration(true)
+                    vibrationPattern = longArrayOf(0, 500, 200, 500)
+                }
+                getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+            } else {
+                val channel = NotificationChannel(
+                    channelId, "Silent Athan", NotificationManager.IMPORTANCE_DEFAULT
+                ).apply {
+                    setSound(null, null)
+                    setShowBadge(false)
+                    enableVibration(false)
+                }
+                getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
             }
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
 
         // Action for Notification Content Click: Stop Athan
@@ -180,9 +193,9 @@ class AthanService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val body = if (isAthanEnabled && isOngoing) "اضغط للإيقاف" else ""
+        val body = if (isAthanEnabled && isOngoing) "اضغط للإيقاف" else "حان الآن موعد صلاة $prayerName"
         
-        val notificationBuilder = NotificationCompat.Builder(this, ATHAN_SERVICE_CHANNEL)
+        val notificationBuilder = NotificationCompat.Builder(this, channelId)
             .setContentTitle("صلاة $prayerName الآن")
             .setContentText(body)
             .setSmallIcon(R.mipmap.ic_launcher)
@@ -192,10 +205,10 @@ class AthanService : Service() {
             .setAutoCancel(true)
             .setTimeoutAfter(300000) // 5 minutes
             .setOnlyAlertOnce(true)
-            .setContentIntent(stopPendingIntent) // Tap to stop
-            .setVibrate(longArrayOf(0, 500, 200, 500))
             
         if (isAthanEnabled) {
+            notificationBuilder.setContentIntent(stopPendingIntent) // Tap to stop
+            notificationBuilder.setVibrate(longArrayOf(0, 500, 200, 500))
             notificationBuilder.setFullScreenIntent(fullScreenPendingIntent, true)
         }
 
