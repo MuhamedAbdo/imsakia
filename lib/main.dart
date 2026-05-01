@@ -344,7 +344,10 @@ class _MyAppState extends State<MyApp> {
                   SystemChrome.setPreferredOrientations([
                     DeviceOrientation.portraitUp,
                   ]);
-                  return child!;
+                  return MediaQuery(
+                    data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+                    child: child!,
+                  );
                 },
               );
             },

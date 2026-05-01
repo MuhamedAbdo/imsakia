@@ -636,13 +636,17 @@ class _HomeScreenState extends State<HomeScreen>
                                       FontWeight.w500),
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              _getPrayerName(
-                                  _nextPrayer ?? ''),
-                              style: GoogleFonts.tajawal(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: AlignmentDirectional.centerStart,
+                              child: Text(
+                                _getPrayerName(
+                                    _nextPrayer ?? ''),
+                                style: GoogleFonts.tajawal(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white),
+                              ),
                             ),
                           ],
                         ),
@@ -662,14 +666,17 @@ class _HomeScreenState extends State<HomeScreen>
                                 offset: const Offset(0, 4))
                           ],
                         ),
-                        child: Text(
-                          _formatDuration(
-                              _timeUntilNextPrayer),
-                          style: GoogleFonts.tajawal(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: 1.5),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            _formatDuration(
+                                _timeUntilNextPrayer),
+                            style: GoogleFonts.tajawal(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 1.5),
+                          ),
                         ),
                       ),
                     ],
@@ -953,25 +960,31 @@ class _HomeScreenState extends State<HomeScreen>
         children: [
           Icon(icon, color: subColor, size: 22),
           const SizedBox(height: 10),
-          Text(
-            name,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.tajawal(
-                fontSize: 12,
-                fontWeight: isNext
-                    ? FontWeight.bold
-                    : FontWeight.w600,
-                color: textColor),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              name,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.tajawal(
+                  fontSize: 12,
+                  fontWeight: isNext
+                      ? FontWeight.bold
+                      : FontWeight.w600,
+                  color: textColor),
+            ),
           ),
           const SizedBox(height: 8),
-          Text(
-            time != null
-                ? "${(time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour)).toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}"
-                : "--:--",
-            style: GoogleFonts.tajawal(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: textColor),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              time != null
+                  ? "${(time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour)).toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}"
+                  : "--:--",
+              style: GoogleFonts.tajawal(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: textColor),
+            ),
           ),
         ],
       ),
