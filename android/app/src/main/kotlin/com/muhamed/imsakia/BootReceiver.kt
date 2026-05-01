@@ -88,11 +88,19 @@ class BootReceiver : BroadcastReceiver() {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    val clockInfo = AlarmManager.AlarmClockInfo(timeInMillis, uiPendingIntent)
-                    alarmManager.setAlarmClock(clockInfo, alarmPendingIntent)
+                if (!isSilent) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        val clockInfo = AlarmManager.AlarmClockInfo(timeInMillis, uiPendingIntent)
+                        alarmManager.setAlarmClock(clockInfo, alarmPendingIntent)
+                    } else {
+                        alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
+                    }
                 } else {
-                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
+                    } else {
+                        alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
+                    }
                 }
             } else {
                 // Cleanup past alarms

@@ -63,11 +63,7 @@ class AthanService : Service() {
         // 🔥 BYPASS: If intent is NOT silent, we play it even if global toggle is off (for tests)
         val shouldPlayAudio = !isSilentInIntent && (isAthanEnabled || prayerName.contains("اختبار"))
         
-        if (isSilentInIntent) {
-            android.util.Log.w("ImsakiaNative", "!!! SERVICE: Stopping because intent is SILENT !!!")
-            stopSelf()
-            return START_NOT_STICKY
-        }
+        // Removed early stop block for silent intent to allow polite silent notification
         
         if (intent?.action == ACTION_STOP_ATHAN) {
             // Stop media player immediately before broadcasting to avoid lingering ring
@@ -193,11 +189,13 @@ class AthanService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val body = if (isAthanEnabled && isOngoing) "اضغط للإيقاف" else "حان الآن موعد صلاة $prayerName"
+        val isShorooq = prayerName == "الشروق"
+        val titleText = if (isShorooq) "شروق الشمس الآن" else "صلاة $prayerName الآن"
+        val bodyText = if (isShorooq) "حان الآن وقت الشروق" else (if (isAthanEnabled && isOngoing) "اضغط للإيقاف" else "حان الآن موعد صلاة $prayerName")
         
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("صلاة $prayerName الآن")
-            .setContentText(body)
+            .setContentTitle(titleText)
+            .setContentText(bodyText)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setPriority(if (isAthanEnabled) NotificationCompat.PRIORITY_MAX else NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(if (isAthanEnabled) NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)

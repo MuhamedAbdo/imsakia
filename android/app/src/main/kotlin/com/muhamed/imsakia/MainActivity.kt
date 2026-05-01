@@ -397,14 +397,24 @@ class MainActivity : AudioServiceActivity() {
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
             )
 
-            // Schedule with AlarmClockInfo (Shows the icon ⏰)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                val clockInfo = android.app.AlarmManager.AlarmClockInfo(timeInMillis, uiPendingIntent)
-                alarmManager.setAlarmClock(clockInfo, alarmPendingIntent)
+            // Schedule based on Silent status
+            if (!isSilent) {
+                // Audible Athan: Use AlarmClock for maximum priority and icon visibility
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    val clockInfo = android.app.AlarmManager.AlarmClockInfo(timeInMillis, uiPendingIntent)
+                    alarmManager.setAlarmClock(clockInfo, alarmPendingIntent)
+                } else {
+                    alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
+                }
             } else {
-                alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
+                // Silent / Sunrise: Use setExactAndAllowWhileIdle to bypass Doze
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
+                } else {
+                    alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
+                }
             }
-            android.util.Log.d("ImsakiaNative", "!!! NATIVE: Athan Scheduled Successfully for $prayerName (ID: $id) !!!")
+            android.util.Log.d("ImsakiaNative", "!!! NATIVE: Athan Scheduled Successfully for $prayerName (ID: $id, Silent: $isSilent) !!!")
         } catch (e: Exception) {
         }
     }

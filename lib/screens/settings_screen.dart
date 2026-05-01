@@ -564,6 +564,23 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
             if (provider.isAthanEnabled) ...[
               const Divider(height: 20),
+              Text(
+                'تفعيل الأذان لكل صلاة (التعطيل يجعله صامتاً):',
+                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
+              ),
+              const SizedBox(height: 5),
+              Consumer<SettingsProvider>(
+                builder: (context, settings, _) => Column(
+                  children: [
+                    _buildPrayerToggleRow('الفجر', settings.fajrAthanEnabled, (v) => settings.setPrayerAthanEnabled('fajr', v)),
+                    _buildPrayerToggleRow('الظهر', settings.dhuhrAthanEnabled, (v) => settings.setPrayerAthanEnabled('dhuhr', v)),
+                    _buildPrayerToggleRow('العصر', settings.asrAthanEnabled, (v) => settings.setPrayerAthanEnabled('asr', v)),
+                    _buildPrayerToggleRow('المغرب', settings.maghribAthanEnabled, (v) => settings.setPrayerAthanEnabled('maghrib', v)),
+                    _buildPrayerToggleRow('العشاء', settings.ishaAthanEnabled, (v) => settings.setPrayerAthanEnabled('isha', v)),
+                  ],
+                ),
+              ),
+              const Divider(height: 20),
               SwitchListTile(
                 title: Text(
                   'توحيد المؤذن لجميع الصلوات',
@@ -668,8 +685,8 @@ class _SettingsScreenState extends State<SettingsScreen>
             if (Platform.isAndroid) ...[
               _buildActionTile(
                 context,
-                title: 'إيقاف قيود البطارية (No Restrictions)',
-                subtitle: 'مهم جداً لضمان عمل الأذان في الخلفية',
+                title: 'تأمين عمل التطبيق (Battery Optimization)',
+                subtitle: 'مهم جداً لشاومي وسامسونج لضمان عمل الأذان في الخلفية وقت الذروة',
                 icon: Icons.battery_saver_rounded,
                 isGranted: _permissionStatuses['battery_optimization'] ?? false,
                 onTap: () =>
@@ -766,6 +783,20 @@ class _SettingsScreenState extends State<SettingsScreen>
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPrayerToggleRow(String label, bool value, Function(bool) onChanged) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: GoogleFonts.tajawal(fontSize: 14)),
+        Switch(
+          value: value,
+          activeThumbColor: Colors.green,
+          onChanged: onChanged,
+        ),
+      ],
     );
   }
 

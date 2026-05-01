@@ -107,9 +107,10 @@ class AthanManager {
     await prefs.setString('prayerKey_$alarmId', prayerKey);
 
     final isEnabled = prefs.getBool('athan_enabled') ?? true;
+    final isPrayerEnabled = prefs.getBool('${prayerKey}_athan_enabled') ?? true;
 
     // 🔥 Sunrise is ALWAYS silent
-    bool isSilent = !isEnabled || prayerKey == "sunrise";
+    bool isSilent = !isEnabled || !isPrayerEnabled || prayerKey == "sunrise";
 
     if (isTest) {
       isSilent = false;

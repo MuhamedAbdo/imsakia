@@ -20,6 +20,12 @@ class SettingsProvider extends ChangeNotifier {
   int _hijriAdjustment = 0;
   bool _autoHijriAdjustment = true;
 
+  bool _fajrAthanEnabled = true;
+  bool _dhuhrAthanEnabled = true;
+  bool _asrAthanEnabled = true;
+  bool _maghribAthanEnabled = true;
+  bool _ishaAthanEnabled = true;
+
   // Getters
   AppThemeMode get themeMode => _themeMode;
   String get selectedCity => _selectedCity;
@@ -32,6 +38,12 @@ class SettingsProvider extends ChangeNotifier {
   bool get isInitialized => _isInitialized;
   int get hijriAdjustment => _hijriAdjustment;
   bool get autoHijriAdjustment => _autoHijriAdjustment;
+
+  bool get fajrAthanEnabled => _fajrAthanEnabled;
+  bool get dhuhrAthanEnabled => _dhuhrAthanEnabled;
+  bool get asrAthanEnabled => _asrAthanEnabled;
+  bool get maghribAthanEnabled => _maghribAthanEnabled;
+  bool get ishaAthanEnabled => _ishaAthanEnabled;
 
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -65,6 +77,12 @@ class SettingsProvider extends ChangeNotifier {
     _autoHijriAdjustment = _prefs?.getBool('auto_hijri_adjustment') ?? (_hijriAdjustment == 0);
 
     _isFirstLaunch = _prefs?.getBool(AppConstants.isFirstLaunchKey) ?? true;
+
+    _fajrAthanEnabled = _prefs?.getBool('fajr_athan_enabled') ?? true;
+    _dhuhrAthanEnabled = _prefs?.getBool('dhuhr_athan_enabled') ?? true;
+    _asrAthanEnabled = _prefs?.getBool('asr_athan_enabled') ?? true;
+    _maghribAthanEnabled = _prefs?.getBool('maghrib_athan_enabled') ?? true;
+    _ishaAthanEnabled = _prefs?.getBool('isha_athan_enabled') ?? true;
   }
 
   // التعديل التراكمي: يجمع التعديل الجديد مع المخزن مسبقاً
@@ -113,6 +131,21 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> setThemeMode(AppThemeMode mode) async {
     _themeMode = mode;
     await _prefs?.setString(AppConstants.themeModeKey, mode.toString().split('.').last);
+    notifyListeners();
+  }
+
+  Future<void> setPrayerAthanEnabled(String prayerKey, bool enabled) async {
+    switch (prayerKey) {
+      case 'fajr': _fajrAthanEnabled = enabled; break;
+      case 'dhuhr': _dhuhrAthanEnabled = enabled; break;
+      case 'asr': _asrAthanEnabled = enabled; break;
+      case 'maghrib': _maghribAthanEnabled = enabled; break;
+      case 'isha': _ishaAthanEnabled = enabled; break;
+    }
+    await _prefs?.setBool('${prayerKey}_athan_enabled', enabled);
+    
+    // إعادة جدولة المنبهات عند تغيير حالة الأذان لأي صلاة
+    PrayerTimesService.instance.scheduleAllPrayers();
     notifyListeners();
   }
 

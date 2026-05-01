@@ -143,6 +143,27 @@ class PrayerTimesService {
     }
     
     try {
+      await Future.any([
+        _performWidgetUpdate(force),
+        Future.delayed(const Duration(seconds: 5), () {
+          throw TimeoutException("Widget update timed out");
+        })
+      ]);
+    } catch (e) {
+      Logger.error("Failed to update widget data: $e");
+      // Restore previously cached text to avoid hanging on "Updating..."
+      try {
+        final nextPrayerDisplay = await HomeWidget.getWidgetData<String>('flutter.next_prayer_display', defaultValue: "--:--");
+        final countdownText = await HomeWidget.getWidgetData<String>('flutter.countdown_text', defaultValue: "--:--");
+        
+        await HomeWidget.saveWidgetData<String>('flutter.next_prayer_display', nextPrayerDisplay);
+        await HomeWidget.saveWidgetData<String>('flutter.countdown_text', countdownText);
+        await HomeWidget.updateWidget(name: 'PrayerWidget', androidName: 'PrayerWidget');
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _performWidgetUpdate(bool force) async {
       if (_currentPrayerTimes == null) {
         // 🔥 If we are in a background isolate, we need to populate data first
         await getCurrentPrayerTimes();
@@ -257,9 +278,6 @@ class PrayerTimesService {
       Logger.info(
         "Widget data updated: $nextPrayerName at ${nextPrayerTime.toString()}",
       );
-    } catch (e) {
-      Logger.error("Failed to update widget data: $e");
-    }
   }
 
   String _formatTimeTo12h(DateTime? time) {
