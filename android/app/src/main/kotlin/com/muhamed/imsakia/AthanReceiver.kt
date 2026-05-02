@@ -27,7 +27,8 @@ class AthanReceiver : BroadcastReceiver() {
             android.util.Log.e("ZadAthan", "FAILED to acquire immediate WakeLock: ${e.message}")
         }
 
-        val prayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
+        val rawPrayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
+        val prayerName = rawPrayerName.replace("صلاة الشروق", "شروق الشمس")
         val prayerKey = intent.getStringExtra("prayer_key") ?: "dhuhr"
         // alarmId already declared above (line 13) - reuse it here
         val isSilent = intent.getBooleanExtra("is_silent", false)
@@ -74,7 +75,7 @@ class AthanReceiver : BroadcastReceiver() {
     private fun showSilentNotification(context: Context, prayerName: String, alarmId: Int) {
         val channelId = "athan_silent_channel"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val importance = android.app.NotificationManager.IMPORTANCE_DEFAULT
+            val importance = android.app.NotificationManager.IMPORTANCE_HIGH
             val channel = android.app.NotificationChannel(channelId, "Athan Service (Silent)", importance).apply {
                 setSound(null, null)
                 setShowBadge(false)
@@ -91,7 +92,6 @@ class AthanReceiver : BroadcastReceiver() {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_EVENT)
             .setAutoCancel(true)
-            .setTimeoutAfter(300000) // 5 minutes
             .setVibrate(longArrayOf(0, 200, 100, 200))
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager

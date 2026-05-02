@@ -50,7 +50,8 @@ class AthanService : Service() {
         val isAthanEnabled = prefs.getBoolean("flutter.athan_enabled", true)
         val isSilentInIntent = intent?.getBooleanExtra("is_silent", false) ?: false
         
-        val prayerName = intent?.getStringExtra("prayer_name") ?: "الصلاة"
+        val rawPrayerName = intent?.getStringExtra("prayer_name") ?: "الصلاة"
+        val prayerName = rawPrayerName.replace("صلاة الشروق", "شروق الشمس")
         val prayerKey = intent?.getStringExtra("prayer_key") ?: "dhuhr"
         val alarmId = intent?.getIntExtra("alarm_id", 0) ?: 0
         
@@ -155,7 +156,7 @@ class AthanService : Service() {
                 getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
             } else {
                 val channel = NotificationChannel(
-                    channelId, "Silent Athan", NotificationManager.IMPORTANCE_DEFAULT
+                    channelId, "Silent Athan", NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     setSound(null, null)
                     setShowBadge(false)
@@ -201,7 +202,6 @@ class AthanService : Service() {
             .setCategory(if (isAthanEnabled) NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
             .setOngoing(isOngoing)
             .setAutoCancel(true)
-            .setTimeoutAfter(300000) // 5 minutes
             .setOnlyAlertOnce(true)
             
         if (isAthanEnabled) {
@@ -250,14 +250,14 @@ class AthanService : Service() {
 
         // Audio Focus
         val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                 .setAudioAttributes(audioAttributes)
                 .setOnAudioFocusChangeListener(audioFocusChangeListener)
                 .build()
             audioManager.requestAudioFocus(focusRequest!!)
         } else {
             @Suppress("DEPRECATION")
-            audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN)
         }
 
         mediaPlayer = MediaPlayer().apply {
