@@ -37,7 +37,7 @@ class AthanService : Service() {
         }
     }
     private val SERVICE_NOTIFICATION_ID = 7777
-    private val ATHAN_SERVICE_CHANNEL = "athan_audible_channel"
+    private val ATHAN_SERVICE_CHANNEL = "zad_athan_v3"
     private val ACTION_STOP_ATHAN = "com.muhamed.imsakia.STOP_ATHAN"
     private var retryCount = 0
     private val MAX_RETRY = 3
@@ -141,7 +141,7 @@ class AthanService : Service() {
     }
 
     private fun startForegroundServiceNotification(prayerName: String, alarmId: Int, isAthanEnabled: Boolean, isOngoing: Boolean) {
-        val channelId = if (isAthanEnabled) ATHAN_SERVICE_CHANNEL else "silent_athan_channel"
+        val channelId = if (isAthanEnabled) ATHAN_SERVICE_CHANNEL else "zad_silent_v3"
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (isAthanEnabled) {
@@ -190,7 +190,7 @@ class AthanService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val isShorooq = prayerName == "الشروق"
+        val isShorooq = prayerName.contains("شروق") || prayerName == "الشروق"
         val titleText = if (isShorooq) "شروق الشمس الآن" else "صلاة $prayerName الآن"
         val bodyText = if (isShorooq) "حان الآن وقت الشروق" else (if (isAthanEnabled && isOngoing) "اضغط للإيقاف" else "حان الآن موعد صلاة $prayerName")
         
@@ -198,7 +198,7 @@ class AthanService : Service() {
             .setContentTitle(titleText)
             .setContentText(bodyText)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setPriority(if (isAthanEnabled) NotificationCompat.PRIORITY_MAX else NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(if (isAthanEnabled) NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
             .setOngoing(isOngoing)
             .setAutoCancel(true)
@@ -250,14 +250,14 @@ class AthanService : Service() {
 
         // Audio Focus
         val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
                 .setAudioAttributes(audioAttributes)
                 .setOnAudioFocusChangeListener(audioFocusChangeListener)
                 .build()
             audioManager.requestAudioFocus(focusRequest!!)
         } else {
             @Suppress("DEPRECATION")
-            audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN)
+            audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
         }
 
         mediaPlayer = MediaPlayer().apply {

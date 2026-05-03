@@ -73,7 +73,7 @@ class AthanReceiver : BroadcastReceiver() {
     }
 
     private fun showSilentNotification(context: Context, prayerName: String, alarmId: Int) {
-        val channelId = "athan_silent_channel"
+        val channelId = "zad_silent_v3"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val importance = android.app.NotificationManager.IMPORTANCE_HIGH
             val channel = android.app.NotificationChannel(channelId, "Athan Service (Silent)", importance).apply {
@@ -86,8 +86,12 @@ class AthanReceiver : BroadcastReceiver() {
             manager.createNotificationChannel(channel)
         }
 
+        val titleText = if (prayerName.contains("شروق")) "شروق الشمس الآن" else "صلاة $prayerName الآن"
+        val bodyText = if (prayerName.contains("شروق")) "حان الآن وقت الشروق" else ""
+
         val builder = NotificationCompat.Builder(context, channelId)
-            .setContentTitle("صلاة $prayerName الآن")
+            .setContentTitle(titleText)
+            .setContentText(bodyText)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_EVENT)

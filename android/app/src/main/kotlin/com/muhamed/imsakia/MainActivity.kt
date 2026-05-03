@@ -357,6 +357,7 @@ class MainActivity : AudioServiceActivity() {
     private fun scheduleExactAthan(timeInMillis: Long, id: Int, prayerName: String, prayerKey: String, isSilent: Boolean) {
         android.util.Log.d("ImsakiaNative", "!!! NATIVE: Received schedule request for $prayerName (ID: $id) at $timeInMillis !!!")
         try {
+            cancelAthan(id) // منع التداخل: مسح أي منبه قديم يحمل نفس المعرف
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             
             // Log permission status

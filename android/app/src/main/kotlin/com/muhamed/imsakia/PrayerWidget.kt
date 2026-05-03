@@ -63,25 +63,10 @@ class PrayerWidget : HomeWidgetProvider() {
         // 3. Smart Countdown Self-Healing
         val now = System.currentTimeMillis()
         if (nextTimestamp <= now) {
-            // البحث المحلي عن الصلاة التالية فوراً
-            val localNext = findNextPrayerLocally(context)
-            if (localNext != null) {
-                nextTimestamp = localNext["timestamp"] as Long
-                nextDisplay = localNext["display"] as String
-                val nextName = localNext["name"] as String
-                
-                // 🔥 تطبيق الربط الصارم للمسميات يدوياً
-                val manualPastName = getManualPastPrayer(nextName)
-                val localPast = findLastPrayerByName(context, manualPastName)
-                
-                if (localPast != null) {
-                    val pastDisplayLocal = localPast["display"] as String
-                    views.setTextViewText(R.id.past_prayer_display, pastDisplayLocal)
-                    widgetData.edit().putString("flutter.last_prayer_display", pastDisplayLocal).apply()
-                }
-
-                // Sync back to prevent repeated searching
-                syncToHomeWidget(context, localNext)
+            val refreshed = forceRefreshFromLocalDatabase(context, views, widgetData)
+            if (refreshed != null) {
+                nextTimestamp = refreshed["timestamp"] as Long
+                nextDisplay = refreshed["display"] as String
             }
         } else {
             // إذا كانت الصلاة القادمة صحيحة، نتأكد برضه من الربط الصارم للسابقة
@@ -136,6 +121,29 @@ class PrayerWidget : HomeWidgetProvider() {
         for (appWidgetId in appWidgetIds) {
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
+    }
+
+    private fun forceRefreshFromLocalDatabase(context: Context, views: RemoteViews, widgetData: SharedPreferences): Map<String, Any>? {
+        // البحث المحلي عن الصلاة التالية فوراً (Local Database / SharedPreferences)
+        val localNext = findNextPrayerLocally(context)
+        if (localNext != null) {
+            val nextName = localNext["name"] as String
+            
+            // 🔥 تطبيق الربط الصارم للمسميات يدوياً
+            val manualPastName = getManualPastPrayer(nextName)
+            val localPast = findLastPrayerByName(context, manualPastName)
+            
+            if (localPast != null) {
+                val pastDisplayLocal = localPast["display"] as String
+                views.setTextViewText(R.id.past_prayer_display, pastDisplayLocal)
+                widgetData.edit().putString("flutter.last_prayer_display", pastDisplayLocal).apply()
+            }
+
+            // Sync back to prevent repeated searching
+            syncToHomeWidget(context, localNext)
+            return localNext
+        }
+        return null
     }
 
     private fun findNextPrayerLocally(context: Context): Map<String, Any>? {
