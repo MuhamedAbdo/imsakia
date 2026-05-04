@@ -36,7 +36,7 @@ class AthanService : Service() {
             }
         }
     }
-    private val SERVICE_NOTIFICATION_ID = 7777
+    private val SERVICE_NOTIFICATION_ID = 1001
     private val ATHAN_SERVICE_CHANNEL = "zad_athan_v3"
     private val ACTION_STOP_ATHAN = "com.muhamed.imsakia.STOP_ATHAN"
     private var retryCount = 0
@@ -89,7 +89,7 @@ class AthanService : Service() {
             } else {
             }
             
-            stopForeground(true)
+            stopForeground(false)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -103,6 +103,8 @@ class AthanService : Service() {
             }
 
             // 1. Start Foreground immediately (Always show notification)
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancelAll()
             startForegroundServiceNotification(prayerName, alarmId, isAthanEnabled, isOngoing = isAthanEnabled)
             
             // 2. Acquire WakeLock
@@ -250,14 +252,14 @@ class AthanService : Service() {
 
         // Audio Focus
         val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                 .setAudioAttributes(audioAttributes)
                 .setOnAudioFocusChangeListener(audioFocusChangeListener)
                 .build()
             audioManager.requestAudioFocus(focusRequest!!)
         } else {
             @Suppress("DEPRECATION")
-            audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN)
         }
 
         mediaPlayer = MediaPlayer().apply {
@@ -296,7 +298,7 @@ class AthanService : Service() {
                 } catch (e: Exception) {}
                 
                 sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
-                stopForeground(true)
+                stopForeground(false)
                 stopSelf()
             }
 
@@ -328,7 +330,7 @@ class AthanService : Service() {
         }
         
         wakeLock?.release()
-        stopForeground(true)
+        stopForeground(false)
         sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
         super.onDestroy()
     }

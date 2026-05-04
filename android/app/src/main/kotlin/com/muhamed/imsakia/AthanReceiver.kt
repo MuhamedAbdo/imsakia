@@ -13,18 +13,33 @@ class AthanReceiver : BroadcastReceiver() {
         val alarmId = intent.getIntExtra("alarm_id", -1)
         android.util.Log.d("ZadAthan", "Receiver Awake - ID: $alarmId")
 
+        // 0. Force cleanup of old notifications
+        try {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            notificationManager.cancelAll()
+        } catch (e: Exception) {}
 
-        // 0. Acquire WakeLock IMMEDIATELY (Full Wake) - MUST BE FIRST LINE
+        // 1. Acquire WakeLock IMMEDIATELY (Partial Wake) - MUST BE FIRST LINE
         try {
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             val wakeLock = powerManager.newWakeLock(
-                PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
+                PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
                 "Zad:SovereignWakeLock"
             )
             wakeLock.acquire(30000) // 30 seconds to allow everything to load
             android.util.Log.d("ZadAthan", "!!! HARDENED: WakeLock Acquired as First Line !!!")
         } catch (e: Exception) { 
             android.util.Log.e("ZadAthan", "FAILED to acquire immediate WakeLock: ${e.message}")
+        }
+
+        // 2. Expedited Widget Update
+        try {
+            val workRequest = androidx.work.OneTimeWorkRequestBuilder<WidgetUpdateWorker>()
+                .setExpedited(androidx.work.OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                .build()
+            androidx.work.WorkManager.getInstance(context).enqueue(workRequest)
+        } catch (e: Exception) {
+            android.util.Log.e("ZadAthan", "Failed to enqueue widget update: ${e.message}")
         }
 
         val rawPrayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
@@ -99,6 +114,6 @@ class AthanReceiver : BroadcastReceiver() {
             .setVibrate(longArrayOf(0, 200, 100, 200))
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-        notificationManager.notify(9999 + alarmId, builder.build())
+        notificationManager.notify(1001, builder.build())
     }
 }
