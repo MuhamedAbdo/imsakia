@@ -48,22 +48,9 @@ class EventCardWidget extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onDoubleTap: () => eventService.refresh(),
-                    child: Hero(
-                      tag: 'event_image',
-                      child: Image.asset(
-                        event.imagePath,
-                        height: 80,
-                        width: 80,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 15),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           event.title,
@@ -94,6 +81,19 @@ class EventCardWidget extends StatelessWidget {
                       ],
                     ),
                   ),
+                  const SizedBox(width: 15),
+                  GestureDetector(
+                    onDoubleTap: () => eventService.refresh(),
+                    child: Hero(
+                      tag: 'event_image',
+                      child: Image.asset(
+                        event.imagePath,
+                        height: 80,
+                        width: 80,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -118,22 +118,22 @@ class _CountdownContent extends StatelessWidget {
     final days = duration.inDays;
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
+      mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        Text(
-          'يوم',
-          style: GoogleFonts.tajawal(
-            fontSize: 16,
-            color: color.withValues(alpha: 0.9),
-          ),
-        ),
-        const SizedBox(width: 5),
         Text(
           '$days',
           style: GoogleFonts.oswald(
             fontSize: 22,
             fontWeight: FontWeight.bold,
             color: color,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          'يوم',
+          style: GoogleFonts.tajawal(
+            fontSize: 16,
+            color: color.withValues(alpha: 0.9),
           ),
         ),
       ],
@@ -150,7 +150,7 @@ class _RamadanHadithContent extends StatelessWidget {
     if (hadith == null) return const SizedBox.shrink();
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           hadith.text,
