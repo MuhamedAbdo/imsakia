@@ -89,7 +89,7 @@ class AthanService : Service() {
             } else {
             }
             
-            stopForeground(false)
+            stopForeground(STOP_FOREGROUND_DETACH)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -298,7 +298,7 @@ class AthanService : Service() {
                 } catch (e: Exception) {}
                 
                 sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
-                stopForeground(false)
+                stopForeground(STOP_FOREGROUND_DETACH)
                 stopSelf()
             }
 
@@ -330,7 +330,7 @@ class AthanService : Service() {
         }
         
         wakeLock?.release()
-        stopForeground(false)
+        stopForeground(STOP_FOREGROUND_DETACH)
         sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
         super.onDestroy()
     }

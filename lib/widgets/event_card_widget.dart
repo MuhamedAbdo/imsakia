@@ -47,6 +47,7 @@ class EventCardWidget extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(20),
               child: Row(
+                textDirection: TextDirection.rtl,
                 children: [
                   Expanded(
                     child: Column(
@@ -118,6 +119,7 @@ class _CountdownContent extends StatelessWidget {
     final days = duration.inDays;
 
     return Row(
+      textDirection: TextDirection.rtl,
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
         Text(
