@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:imsakia/screens/calendar_page.dart';
-import 'package:imsakia/services/bukhari_database_service.dart';
+import 'package:imsakia/services/bukhari_json_service.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:flutter_svg/flutter_svg.dart'; // أضفنا مكتبة الـ SVG
@@ -103,7 +103,6 @@ class TibyanMenuPage extends StatelessWidget {
     final Color secondaryTextColor = isDarkMode
         ? Colors.white70
         : Colors.brown[400]!;
-
 
     // القائمة المحدثة مع الصور الجديدة
     final List<Map<String, dynamic>> menuItems = [
@@ -316,7 +315,8 @@ class TibyanMenuPage extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const UnderDevelopmentPage(),
+                              builder: (context) =>
+                                  const UnderDevelopmentPage(),
                             ),
                           );
                         }
@@ -371,7 +371,7 @@ class TibyanMenuPage extends StatelessWidget {
             // داخل قائمة الـ Widgets في صفحة تبيان
             SliverToBoxAdapter(
               child: FutureBuilder<Map<String, dynamic>?>(
-                future: BukhariDatabaseService.getDailyHadith(),
+                future: BukhariJsonService.getDailyHadith(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(

@@ -5,6 +5,7 @@ import 'package:imsakia/providers/bukhari_provider.dart';
 import 'package:imsakia/providers/quran_provider.dart';
 import 'package:provider/provider.dart';
 import '../models/bukhari_model.dart';
+import 'bukhari_hadith_reading_page.dart';
 
 class BukhariLibraryPage extends StatefulWidget {
   const BukhariLibraryPage({super.key});
@@ -42,7 +43,12 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
   }
 
   /// دالة التلوين المحدثة باستخدام نظام الـ Mapping لتفادي الإزاحة
-  List<TextSpan> _getHighlightedText(String originalText, String query, bool isDarkMode, double fontSize) {
+  List<TextSpan> _getHighlightedText(
+    String originalText,
+    String query,
+    bool isDarkMode,
+    double fontSize,
+  ) {
     if (query.isEmpty) return [TextSpan(text: originalText)];
 
     String normalizedQuery = _removeDiacritics(query);
@@ -65,25 +71,31 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
     while ((indexOfMatch = cleanText.indexOf(normalizedQuery, start)) != -1) {
       int originalStart = mapping[start];
       int originalMatchStart = mapping[indexOfMatch];
-      
+
       if (originalMatchStart > originalStart) {
-        spans.add(TextSpan(text: originalText.substring(originalStart, originalMatchStart)));
+        spans.add(
+          TextSpan(
+            text: originalText.substring(originalStart, originalMatchStart),
+          ),
+        );
       }
 
       int matchEndInClean = indexOfMatch + normalizedQuery.length - 1;
-      int originalMatchEnd = (matchEndInClean + 1 < mapping.length) 
-          ? mapping[matchEndInClean + 1] 
+      int originalMatchEnd = (matchEndInClean + 1 < mapping.length)
+          ? mapping[matchEndInClean + 1]
           : originalText.length;
 
-      spans.add(TextSpan(
-        text: originalText.substring(originalMatchStart, originalMatchEnd),
-        style: TextStyle(
-          // تم استبدال withOpacity بـ withValues لتجنب الـ Deprecation
-          backgroundColor: Colors.amber.withValues(alpha: 0.4),
-          color: isDarkMode ? Colors.amber[100] : Colors.red[900],
-          fontWeight: FontWeight.bold,
+      spans.add(
+        TextSpan(
+          text: originalText.substring(originalMatchStart, originalMatchEnd),
+          style: TextStyle(
+            // تم استبدال withOpacity بـ withValues لتجنب الـ Deprecation
+            backgroundColor: Colors.amber.withValues(alpha: 0.4),
+            color: isDarkMode ? Colors.amber[100] : Colors.red[900],
+            fontWeight: FontWeight.bold,
+          ),
         ),
-      ));
+      );
 
       start = indexOfMatch + normalizedQuery.length;
     }
@@ -91,7 +103,7 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
     if (start < mapping.length) {
       spans.add(TextSpan(text: originalText.substring(mapping[start])));
     } else if (mapping.isEmpty && originalText.isNotEmpty) {
-       spans.add(TextSpan(text: originalText));
+      spans.add(TextSpan(text: originalText));
     }
 
     return spans;
@@ -104,8 +116,13 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
       builder: (context) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('حجم خط الأحاديث', style: GoogleFonts.tajawal(fontWeight: FontWeight.w600)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'حجم خط الأحاديث',
+            style: GoogleFonts.tajawal(fontWeight: FontWeight.w600),
+          ),
           content: StatefulBuilder(
             builder: (context, dialogSetState) {
               return Column(
@@ -136,7 +153,10 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('تم', style: GoogleFonts.tajawal(fontWeight: FontWeight.bold)),
+              child: Text(
+                'تم',
+                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
@@ -148,7 +168,7 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final appBarColor = isDarkMode ? Colors.black87 : Colors.blue;
-    const appBarContentColor = Colors.white; 
+    const appBarContentColor = Colors.white;
     final cardBg = isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
     final fontSize = Provider.of<QuranProvider>(context).fontSize;
 
@@ -161,12 +181,19 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: Scaffold(
-          backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF5F5F0),
+          backgroundColor: isDarkMode
+              ? const Color(0xFF121212)
+              : const Color(0xFFF5F5F0),
           appBar: AppBar(
             backgroundColor: appBarColor,
             elevation: 2,
-            title: Text('صحيح البخاري', 
-              style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, color: appBarContentColor)),
+            title: Text(
+              'صحيح البخاري',
+              style: GoogleFonts.tajawal(
+                fontWeight: FontWeight.bold,
+                color: appBarContentColor,
+              ),
+            ),
             centerTitle: true,
             iconTheme: const IconThemeData(color: appBarContentColor),
             leading: IconButton(
@@ -186,14 +213,21 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
               Expanded(
                 child: Consumer<BukhariProvider>(
                   builder: (context, provider, child) {
-                    if (provider.isLoading) return const Center(child: CircularProgressIndicator());
+                    if (provider.isLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
                     if (_searchController.text.isNotEmpty) {
                       return ListView.builder(
                         padding: const EdgeInsets.all(16),
                         itemCount: provider.searchResults.length,
                         itemBuilder: (context, index) => _buildHadithCard(
-                            provider.searchResults[index], isDarkMode, cardBg, fontSize, _searchController.text),
+                          provider.searchResults[index],
+                          isDarkMode,
+                          cardBg,
+                          fontSize,
+                          _searchController.text,
+                        ),
                       );
                     }
 
@@ -203,8 +237,19 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
                       itemBuilder: (context, index) {
                         final section = provider.sections[index];
                         final int id = section['id'] ?? 0;
-                        final String arabicTitle = provider.getArabicSectionName(id, section['section_name'] ?? '');
-                        return _buildSectionTile(section, arabicTitle, provider, isDarkMode, cardBg, fontSize);
+                        final String arabicTitle = provider
+                            .getArabicSectionName(
+                              id,
+                              section['section_name'] ?? '',
+                            );
+                        return _buildSectionTile(
+                          section,
+                          arabicTitle,
+                          provider,
+                          isDarkMode,
+                          cardBg,
+                          fontSize,
+                        );
                       },
                     );
                   },
@@ -227,8 +272,8 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05), // تحديث هنا أيضاً
-              blurRadius: 10
-            )
+              blurRadius: 10,
+            ),
           ],
         ),
         child: TextField(
@@ -245,7 +290,14 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
     );
   }
 
-  Widget _buildSectionTile(Map<String, dynamic> section, String title, BukhariProvider provider, bool isDarkMode, Color cardBg, double fontSize) {
+  Widget _buildSectionTile(
+    Map<String, dynamic> section,
+    String title,
+    BukhariProvider provider,
+    bool isDarkMode,
+    Color cardBg,
+    double fontSize,
+  ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: cardBg,
@@ -253,16 +305,28 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
       child: ExpansionTile(
         shape: const RoundedRectangleBorder(side: BorderSide.none),
         iconColor: Colors.blue,
-        title: Text(title, style: GoogleFonts.tajawal(fontWeight: FontWeight.w600, fontSize: 16)),
+        title: Text(
+          title,
+          style: GoogleFonts.tajawal(fontWeight: FontWeight.w600, fontSize: 16),
+        ),
         leading: const Icon(Icons.menu_book, color: Colors.blue, size: 20),
         children: [
           FutureBuilder<List<BukhariHadith>>(
             future: provider.fetchHadithsBySection(section['id'] ?? 0),
             builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) return const LinearProgressIndicator();
-              if (!snap.hasData || snap.data!.isEmpty) return const SizedBox();
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const LinearProgressIndicator();
+              }
+              if (!snap.hasData || snap.data!.isEmpty) {
+                return const SizedBox();
+              }
               return Column(
-                children: snap.data!.map((h) => _buildHadithCard(h, isDarkMode, cardBg, fontSize, "")).toList(),
+                children: snap.data!
+                    .map(
+                      (h) =>
+                          _buildHadithCard(h, isDarkMode, cardBg, fontSize, ""),
+                    )
+                    .toList(),
               );
             },
           ),
@@ -271,53 +335,114 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
     );
   }
 
-  Widget _buildHadithCard(BukhariHadith hadith, bool isDarkMode, Color cardBg, double fontSize, String query) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: isDarkMode ? Colors.white.withValues(alpha: 0.03) : Colors.grey[50], // تحديث هنا أيضاً
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDarkMode ? Colors.white10 : Colors.black12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1), // تحديث هنا أيضاً
-                  borderRadius: BorderRadius.circular(5)
-                ),
-                child: Text('حديث رقم: ${hadith.id}', style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
-              ),
-              IconButton(
-                icon: const Icon(Icons.copy_rounded, size: 18, color: Colors.grey),
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: hadith.text));
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم نسخ الحديث')));
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          RichText(
-            textAlign: TextAlign.justify,
-            text: TextSpan(
-              style: GoogleFonts.amiri(
-                fontSize: fontSize,
-                height: 1.6,
-                color: isDarkMode ? Colors.white : Colors.black87,
-              ),
-              children: _getHighlightedText(hadith.text, query, isDarkMode, fontSize),
+  Widget _buildHadithCard(
+    BukhariHadith hadith,
+    bool isDarkMode,
+    Color cardBg,
+    double fontSize,
+    String query,
+  ) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => BukhariHadithReadingPage(
+              hadith: hadith,
+              bookTitle: 'صحيح البخاري',
             ),
           ),
-        ],
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isDarkMode
+              ? Colors.white.withValues(alpha: 0.03)
+              : Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDarkMode ? Colors.white10 : Colors.black12,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    'حديث رقم: ${hadith.id}',
+                    style: const TextStyle(
+                      color: Colors.blue,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.copy_rounded,
+                        size: 18,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () async {
+                        await Clipboard.setData(
+                          ClipboardData(text: hadith.text),
+                        );
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('تم نسخ الحديث')),
+                        );
+                      },
+                    ),
+                    Icon(Icons.arrow_back_ios, size: 16, color: Colors.blue),
+                    const SizedBox(width: 4),
+                    Text(
+                      'اقرأ الحديث كاملاً',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 12,
+                        color: Colors.blue,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            RichText(
+              textAlign: TextAlign.justify,
+              text: TextSpan(
+                style: GoogleFonts.amiri(
+                  fontSize: fontSize,
+                  height: 1.6,
+                  color: isDarkMode ? Colors.white : Colors.black87,
+                ),
+                children: _getHighlightedText(
+                  hadith.text,
+                  query,
+                  isDarkMode,
+                  fontSize,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

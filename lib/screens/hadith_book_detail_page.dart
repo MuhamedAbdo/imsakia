@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/hadith_book.dart';
 import '../models/hadith_item.dart';
 import '../services/hadith_compute_service.dart';
+import '../services/bookmark_service.dart';
 import 'hadith_reading_page.dart';
 
 class HadithBookDetailPage extends StatefulWidget {
@@ -33,9 +34,11 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
     try {
       // تحميل الملف كـ String
       final jsonString = await rootBundle.loadString(widget.book.jsonPath);
-      
+
       // معالجة البيانات في الخلفية لتجنب تجميد الواجهة
-      final hadiths = await HadithComputeService.parseHadithsFromJson(jsonString);
+      final hadiths = await HadithComputeService.parseHadithsFromJson(
+        jsonString,
+      );
 
       if (mounted) {
         setState(() {
@@ -74,7 +77,10 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
       return;
     }
 
-    final results = await HadithComputeService.searchHadithsWithSmartFilter(_hadiths, query);
+    final results = await HadithComputeService.searchHadithsWithSmartFilter(
+      _hadiths,
+      query,
+    );
     if (mounted) {
       setState(() {
         _filteredHadiths = results;
@@ -94,158 +100,384 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
       builder: (context, constraints) {
         return SingleChildScrollView(
           child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: constraints.maxHeight,
-            ),
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
             child: IntrinsicHeight(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _filteredHadiths.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.search_off_rounded,
-                                size: 64,
-                                color: isDark ? Colors.white38 : Colors.black38,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'عذراً، لم يتم العثور على أحاديث تطابق بحثك',
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.tajawal(
-                                  fontSize: 16,
-                                  color: isDark ? Colors.white70 : Colors.black54,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'جرب كلمات مفتاحية أخرى أو رقم حديث مختلف',
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.tajawal(
-                                  fontSize: 14,
-                                  color: isDark ? Colors.white54 : Colors.black38,
-                                ),
-                              ),
-                            ],
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.search_off_rounded,
+                            size: 64,
+                            color: isDark ? Colors.white38 : Colors.black38,
                           ),
-                        )
-                      : Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const SizedBox(height: 20),
-                            const SizedBox(height: 15),
-                            // شريط البحث
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: isDark ? Colors.grey[800] : Colors.grey[100],
-                                  borderRadius: BorderRadius.circular(25),
-                                  border: Border.all(
-                                    color: widget.book.coverColor.withAlpha(32),
-                                  ),
-                                ),
-                                child: TextField(
-                                  controller: _searchController,
-                                  textAlign: TextAlign.right,
-                                  style: GoogleFonts.amiri(
-                                    fontSize: 16,
-                                    color: isDark ? Colors.white : Colors.black87,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: 'ابحث في الأحاديث...',
-                                    hintStyle: GoogleFonts.tajawal(
-                                      color: isDark ? Colors.white54 : Colors.black54,
-                                    ),
-                                    prefixIcon: Icon(
-                                      Icons.search_rounded,
-                                      color: widget.book.coverColor,
-                                    ),
-                                    suffixIcon: _searchController.text.isNotEmpty
-                                        ? IconButton(
-                                            icon: const Icon(Icons.clear),
-                                            onPressed: () {
-                                              _searchController.clear();
-                                              _searchHadiths('');
-                                            },
-                                          )
-                                        : null,
-                                    border: InputBorder.none,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                  onChanged: _searchHadiths,
-                                ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'عذراً، لم يتم العثور على أحاديث تطابق بحثك',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.tajawal(
+                              fontSize: 16,
+                              color: isDark ? Colors.white70 : Colors.black54,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'جرب كلمات مفتاحية أخرى أو رقم حديث مختلف',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.tajawal(
+                              fontSize: 14,
+                              color: isDark ? Colors.white54 : Colors.black38,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 20),
+                        const SizedBox(height: 15),
+                        // شريط البحث
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.grey[800]
+                                  : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(25),
+                              border: Border.all(
+                                color: widget.book.coverColor.withAlpha(32),
                               ),
                             ),
-                            const SizedBox(height: 10),
-                            // قائمة الأحاديث
-                            SizedBox(
-                              height: constraints.maxHeight - 150, // حساب الارتفاع المتاح
-                              child: ListView.builder(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                                itemCount: _filteredHadiths.length,
-                                itemBuilder: (context, index) {
-                                  final hadith = _filteredHadiths[index];
-                                  return _buildHadithCard(hadith, isDark);
-                                },
+                            child: TextField(
+                              controller: _searchController,
+                              textAlign: TextAlign.right,
+                              style: GoogleFonts.amiri(
+                                fontSize: 16,
+                                color: isDark ? Colors.white : Colors.black87,
                               ),
+                              decoration: InputDecoration(
+                                hintText: 'ابحث في الأحاديث...',
+                                hintStyle: GoogleFonts.tajawal(
+                                  color: isDark
+                                      ? Colors.white54
+                                      : Colors.black54,
+                                ),
+                                prefixIcon: Icon(
+                                  Icons.search_rounded,
+                                  color: widget.book.coverColor,
+                                ),
+                                suffixIcon: _searchController.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          _searchHadiths('');
+                                        },
+                                      )
+                                    : null,
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
+                              ),
+                              onChanged: _searchHadiths,
                             ),
-                          ],
+                          ),
                         ),
+                        const SizedBox(height: 10),
+                        // قائمة الأحاديث
+                        SizedBox(
+                          height:
+                              constraints.maxHeight -
+                              150, // حساب الارتفاع المتاح
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 5,
+                            ),
+                            itemCount: _filteredHadiths.length,
+                            itemBuilder: (context, index) {
+                              final hadith = _filteredHadiths[index];
+                              return _buildHadithCard(hadith, isDark);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         );
       },
     );
   }
+
+  /// عرض لوحة العلامات المرجعية
+  void _showBookmarksSheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        builder: (_, controller) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+          ),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: widget.book.coverColor,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(25),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'العلامات المرجعية',
+                      style: GoogleFonts.tajawal(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+              // Bookmarks List
+              Expanded(
+                child: FutureBuilder<List<int>>(
+                  future: BookmarkService.getBookmarkedHadithNumbers(
+                    widget.book.jsonPath,
+                  ),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final bookmarkedNumbers = snapshot.data ?? [];
+
+                    if (bookmarkedNumbers.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.bookmark_border_rounded,
+                              size: 64,
+                              color: isDark ? Colors.white38 : Colors.black38,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'لا توجد علامات مرجعية بعد',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 16,
+                                color: isDark ? Colors.white70 : Colors.black54,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'ابدأ بإضافة الأحاديث المفضلة لديك',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 14,
+                                color: isDark ? Colors.white54 : Colors.black38,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    // Filter hadiths to show only bookmarked ones
+                    final bookmarkedHadiths = _hadiths
+                        .where(
+                          (hadith) => bookmarkedNumbers.contains(hadith.number),
+                        )
+                        .toList();
+
+                    return ListView.builder(
+                      controller: controller,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: bookmarkedHadiths.length,
+                      itemBuilder: (context, index) {
+                        final hadith = bookmarkedHadiths[index];
+                        return _buildBookmarkedHadithCard(hadith, isDark);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBookmarkedHadithCard(HadithItem hadith, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Card(
+        elevation: 2,
+        shadowColor: widget.book.coverColor.withValues(alpha: 0.2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+          side: BorderSide(
+            color: widget.book.coverColor.withValues(alpha: 0.1),
+            width: 1,
+          ),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(15),
+          onTap: () {
+            Navigator.pop(context); // Close the bookmarks sheet
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => HadithReadingPage(
+                  hadith: hadith,
+                  bookTitle: widget.book.title,
+                  coverColor: widget.book.coverColor,
+                  allHadiths: _hadiths,
+                  currentIndex: _hadiths.indexOf(hadith),
+                  jsonPath: widget.book.jsonPath,
+                ),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // CircleAvatar لرقم الحديث
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: widget.book.coverColor,
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${hadith.number}',
+                      style: GoogleFonts.tajawal(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // نص الحديث
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        _getPreviewText(hadith.hadith),
+                        textAlign: TextAlign.right,
+                        style: GoogleFonts.amiri(
+                          fontSize: 16,
+                          height: 1.4,
+                          color: isDark ? Colors.white : Colors.black87,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Icon(
+                            Icons.arrow_back_ios,
+                            size: 12,
+                            color: widget.book.coverColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'اقرأ الحديث كاملاً',
+                            style: GoogleFonts.tajawal(
+                              fontSize: 12,
+                              color: widget.book.coverColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// تظليل نص البحث داخل النص المعروض
   Widget _highlightText(String text, String query, TextStyle style) {
     if (query.isEmpty) return Text(text, style: style);
-    
+
     final List<TextSpan> spans = [];
     final lowerText = text.toLowerCase();
     final lowerQuery = query.toLowerCase();
     int start = 0;
-    
+
     while (true) {
       final index = lowerText.indexOf(lowerQuery, start);
       if (index == -1) break;
-      
+
       // النص قبل التظليل
       if (index > start) {
-        spans.add(TextSpan(
-          text: text.substring(start, index),
-          style: style,
-        ));
+        spans.add(TextSpan(text: text.substring(start, index), style: style));
       }
-      
+
       // النص المظلل
-      spans.add(TextSpan(
-        text: text.substring(index, index + query.length),
-        style: style.copyWith(
-          backgroundColor: const Color(0xFFFFD700).withValues(alpha: 0.3),
-          color: Colors.black87,
-          fontWeight: FontWeight.bold,
+      spans.add(
+        TextSpan(
+          text: text.substring(index, index + query.length),
+          style: style.copyWith(
+            backgroundColor: const Color(0xFFFFD700).withValues(alpha: 0.3),
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-      ));
-      
+      );
+
       start = index + query.length;
     }
-    
+
     // النص المتبقي
     if (start < text.length) {
-      spans.add(TextSpan(
-        text: text.substring(start),
-        style: style,
-      ));
+      spans.add(TextSpan(text: text.substring(start), style: style));
     }
-    
+
     return RichText(
       text: TextSpan(children: spans),
       textAlign: TextAlign.right,
@@ -256,7 +488,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
 
   Widget _buildHadithCard(HadithItem hadith, bool isDark) {
     final searchQuery = _searchController.text.trim();
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Card(
@@ -280,7 +512,8 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                   bookTitle: widget.book.title,
                   coverColor: widget.book.coverColor,
                   allHadiths: _hadiths,
-                  currentIndex: _filteredHadiths.indexOf(hadith),
+                  currentIndex: _hadiths.indexOf(hadith),
+                  jsonPath: widget.book.jsonPath,
                 ),
               ),
             );
@@ -295,7 +528,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: searchQuery == hadith.number.toString() 
+                    color: searchQuery == hadith.number.toString()
                         ? const Color(0xFFFFD700).withValues(alpha: 0.3)
                         : widget.book.coverColor,
                     borderRadius: BorderRadius.circular(22),
@@ -307,8 +540,8 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                     child: Text(
                       '${hadith.number}',
                       style: GoogleFonts.tajawal(
-                        color: searchQuery == hadith.number.toString() 
-                            ? Colors.black87 
+                        color: searchQuery == hadith.number.toString()
+                            ? Colors.black87
                             : Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -366,7 +599,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -388,6 +621,49 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
             onPressed: () => Navigator.pop(context),
           ),
           actions: [
+            FutureBuilder<int>(
+              future: BookmarkService.getBookmarksCount(widget.book.jsonPath),
+              builder: (context, snapshot) {
+                final bookmarkCount = snapshot.data ?? 0;
+                return Stack(
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.bookmark_rounded,
+                        color: Colors.white,
+                      ),
+                      onPressed: () => _showBookmarksSheet(context),
+                      tooltip: 'العلامات المرجعية',
+                    ),
+                    if (bookmarkCount > 0)
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            bookmarkCount > 99 ? '99+' : '$bookmarkCount',
+                            style: GoogleFonts.tajawal(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
             const SizedBox(width: 8), // مسافة بادئة من اليمين
           ],
         ),
@@ -402,7 +678,9 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                   margin: const EdgeInsets.only(top: 20),
                   decoration: BoxDecoration(
                     color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(30),
+                    ),
                   ),
                   child: _buildContent(isDark),
                 ),
@@ -418,7 +696,9 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
               left: _isCoverOpen ? 0 : 0,
               right: _isCoverOpen ? 0 : 0,
               child: AnimatedRotation(
-                turns: _isCoverOpen ? -0.05 : 0.0, // دوران خفيف لمحاكاة فتح الكتاب من اليمين
+                turns: _isCoverOpen
+                    ? -0.05
+                    : 0.0, // دوران خفيف لمحاكاة فتح الكتاب من اليمين
                 duration: const Duration(milliseconds: 1000),
                 curve: Curves.easeInOutQuart,
                 alignment: Alignment.centerRight, // محور الدوران من جهة اليمين
@@ -430,7 +710,9 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                       tag: widget.book.jsonPath,
                       child: Container(
                         width: MediaQuery.of(context).size.width * 0.75,
-                        height: (MediaQuery.of(context).size.width * 0.75) * (3 / 2),
+                        height:
+                            (MediaQuery.of(context).size.width * 0.75) *
+                            (3 / 2),
                         decoration: BoxDecoration(
                           color: widget.book.coverColor,
                           borderRadius: const BorderRadius.only(
@@ -448,94 +730,124 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                             ),
                           ],
                         ),
-                      child: Stack(
-                        children: [
-                          // كعب الكتاب (Spine) - اليمين
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: 40,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.centerRight,
-                                  end: Alignment.centerLeft,
-                                  colors: [Colors.black.withValues(alpha: 0.35), Colors.transparent],
-                                ),
-                                borderRadius: const BorderRadius.only(
-                                  topRight: Radius.circular(6),
-                                  bottomRight: Radius.circular(6),
+                        child: Stack(
+                          children: [
+                            // كعب الكتاب (Spine) - اليمين
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              bottom: 0,
+                              width: 40,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.centerRight,
+                                    end: Alignment.centerLeft,
+                                    colors: [
+                                      Colors.black.withValues(alpha: 0.35),
+                                      Colors.transparent,
+                                    ],
+                                  ),
+                                  borderRadius: const BorderRadius.only(
+                                    topRight: Radius.circular(6),
+                                    bottomRight: Radius.circular(6),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          // الخط الفاصل الذهبي
-                          Positioned(
-                            right: 37,
-                            top: 0,
-                            bottom: 0,
-                            width: 2,
-                            child: Container(color: Colors.white.withValues(alpha: 0.15)),
-                          ),
-                          // المحتوى (الأيقونة والنصوص) - محاذاة صريحة لليسار
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(15, 20, 40, 20),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Icon(Icons.auto_stories_rounded, color: Color(0xFFFFD700), size: 50),
-                                ),
-                                const SizedBox(height: 20),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: Text(
-                                    widget.book.title,
-                                    textAlign: TextAlign.left,
-                                    style: GoogleFonts.amiri(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white, height: 1.3),
-                                  ),
-                                ),
-                                const SizedBox(height: 15),
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Container(
-                                    width: 50,
-                                    height: 2,
-                                    color: Colors.white.withValues(alpha: 0.5),
-                                  ),
-                                ),
-                                const SizedBox(height: 15),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: Text(
-                                    widget.book.author,
-                                    textAlign: TextAlign.left,
-                                    style: GoogleFonts.tajawal(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.w500),
-                                  ),
-                                ),
-                              ],
+                            // الخط الفاصل الذهبي
+                            Positioned(
+                              right: 37,
+                              top: 0,
+                              bottom: 0,
+                              width: 2,
+                              child: Container(
+                                color: Colors.white.withValues(alpha: 0.15),
+                              ),
                             ),
-                          ),
-                          // أيقونة التزيين
-                          Positioned(
-                            right: 12,
-                            top: 15,
-                            child: Opacity(
-                              opacity: 0.3,
-                              child: Icon(Icons.star_border_rounded, color: Colors.white, size: 20),
+                            // المحتوى (الأيقونة والنصوص) - محاذاة صريحة لليسار
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                15,
+                                20,
+                                40,
+                                20,
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Icon(
+                                      Icons.auto_stories_rounded,
+                                      color: Color(0xFFFFD700),
+                                      size: 50,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: Text(
+                                      widget.book.title,
+                                      textAlign: TextAlign.left,
+                                      style: GoogleFonts.amiri(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 15),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Container(
+                                      width: 50,
+                                      height: 2,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 15),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: Text(
+                                      widget.book.author,
+                                      textAlign: TextAlign.left,
+                                      style: GoogleFonts.tajawal(
+                                        fontSize: 12,
+                                        color: Colors.white70,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                            // أيقونة التزيين
+                            Positioned(
+                              right: 12,
+                              top: 15,
+                              child: Opacity(
+                                opacity: 0.3,
+                                child: Icon(
+                                  Icons.star_border_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-        ),],
+          ],
         ),
       ),
     );

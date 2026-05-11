@@ -18,7 +18,7 @@ import '../providers/settings_provider.dart';
 import '../services/prayer_times_service.dart';
 import '../services/hijri_date_service.dart';
 import '../services/hadith_service.dart';
-import '../services/bukhari_database_service.dart';
+import '../services/bukhari_json_service.dart';
 import '../services/permissions_service.dart';
 import 'azkar_screen.dart';
 import 'allah_names_page.dart';
@@ -1170,7 +1170,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // ---------------------------------------------------------------------------
   Widget _buildBukhariDailyCard(BuildContext context, bool isDark) {
     return FutureBuilder<Map<String, dynamic>?>(
-      future: BukhariDatabaseService.getDailyHadith(),
+      future: BukhariJsonService.getDailyHadith(),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data == null) {
           return const SizedBox.shrink();

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/hadith_item.dart';
+import '../services/bookmark_service.dart';
 
 class HadithReadingPage extends StatefulWidget {
   final HadithItem hadith;
@@ -10,6 +11,7 @@ class HadithReadingPage extends StatefulWidget {
   final Color coverColor;
   final List<HadithItem> allHadiths;
   final int currentIndex;
+  final String jsonPath;
 
   const HadithReadingPage({
     super.key,
@@ -18,6 +20,7 @@ class HadithReadingPage extends StatefulWidget {
     required this.coverColor,
     required this.allHadiths,
     required this.currentIndex,
+    required this.jsonPath,
   });
 
   @override
@@ -29,6 +32,7 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
   late int _currentIndex;
   double _currentFontSize = 18.0; // حجم الخط الحالي
   double _currentLineHeight = 1.6; // التباعد بين الأسطر الحالي
+  Set<int> _bookmarkedHadiths = <int>{};
 
   @override
   void initState() {
@@ -36,6 +40,43 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
     _currentIndex = widget.currentIndex;
     _pageController = PageController(initialPage: _currentIndex);
     _loadSettings();
+    _loadBookmarks();
+  }
+
+  /// تحميل العلامات المرجعية المحفوظة
+  Future<void> _loadBookmarks() async {
+    final bookmarks = await BookmarkService.getBookmarks(widget.jsonPath);
+    setState(() {
+      _bookmarkedHadiths = bookmarks;
+    });
+  }
+
+  /// تبديل حالة العلامة المرجعية للحديث الحالي
+  Future<void> _toggleBookmark() async {
+    final currentHadithNumber = _currentIndex + 1;
+    final isBookmarked = await BookmarkService.toggleBookmark(widget.jsonPath, currentHadithNumber);
+    
+    setState(() {
+      if (isBookmarked) {
+        _bookmarkedHadiths.add(currentHadithNumber);
+      } else {
+        _bookmarkedHadiths.remove(currentHadithNumber);
+      }
+    });
+
+    // عرض رسالة تأكيد
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isBookmarked ? 'تمت إضافة الحديث إلى العلامات المرجعية' : 'تمت إزالة الحديث من العلامات المرجعية',
+            style: GoogleFonts.tajawal(),
+          ),
+          backgroundColor: isBookmarked ? Colors.green : Colors.orange,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   /// تحميل إعدادات الخط والتباعد المحفوظة
@@ -91,10 +132,13 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
               tooltip: 'حجم الخط',
             ),
             IconButton(
-              icon: const Icon(Icons.bookmark_border_rounded, color: Colors.white),
-              onPressed: () {
-                // Future bookmark implementation
-              },
+              icon: Icon(
+                _bookmarkedHadiths.contains(_currentIndex + 1) 
+                    ? Icons.bookmark_rounded 
+                    : Icons.bookmark_border_rounded, 
+                color: Colors.white,
+              ),
+              onPressed: () => _toggleBookmark(),
             ),
             IconButton(
               icon: const Icon(Icons.share_rounded, color: Colors.white),

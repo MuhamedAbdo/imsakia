@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import '../models/bukhari_model.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
-import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 class BukhariProvider extends ChangeNotifier {
-  Database? _db;
   List<BukhariHadith> _searchResults = [];
   List<Map<String, dynamic>> _sections = [];
+  List<Map<String, dynamic>> _hadiths = [];
   bool _isLoading = false;
 
   List<BukhariHadith> get searchResults => _searchResults;
@@ -43,38 +42,56 @@ class BukhariProvider extends ChangeNotifier {
     return _arabicSections[id] ?? fallback;
   }
 
-  Future<void> initDb() async {
-    if (_db != null) return;
-    var databasesPath = await getDatabasesPath();
-    var path = join(databasesPath, "ara-bukhari.sqlite");
-
-    if (!await File(path).exists()) {
-      ByteData data = await rootBundle.load(join("assets/data", "ara-bukhari.sqlite"));
-      List<int> bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-      await File(path).writeAsBytes(bytes);
+  Future<void> initialize() async {
+    if (_hadiths.isNotEmpty) return;
+    
+    _isLoading = true;
+    notifyListeners();
+    
+    try {
+      final jsonString = await rootBundle.loadString('assets/data/bukhari.json');
+      final jsonData = json.decode(jsonString);
+      
+      if (jsonData is List) {
+        _hadiths = List<Map<String, dynamic>>.from(jsonData);
+      } else if (jsonData is Map && jsonData['hadiths'] != null) {
+        _hadiths = List<Map<String, dynamic>>.from(jsonData['hadiths']);
+      }
+      
+      // إنشاء الأبواب الافتراضية
+      _sections = _arabicSections.entries.map((entry) {
+        return {
+          'id': entry.key,
+          'section_name': entry.value,
+        };
+      }).toList();
+      
+    } catch (e) {
+      debugPrint("Error loading Bukhari data: $e");
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-    _db = await openDatabase(path);
   }
 
   Future<void> fetchAllSections() async {
-    if (_db == null) await initDb();
-    _isLoading = true;
-    notifyListeners();
-    _sections = await _db!.query('sections');
-    _isLoading = false;
-    notifyListeners();
+    await initialize();
   }
 
   Future<List<BukhariHadith>> fetchHadithsBySection(int sectionId) async {
-    final List<Map<String, dynamic>> maps = await _db!.query(
-      'hadiths',
-      where: 'section_id = ?',
-      whereArgs: [sectionId],
-    );
-    return maps.map((m) => BukhariHadith.fromMap(m)).toList();
+    await initialize();
+    
+    // تصفية الأحاديث حسب الباب (إذا كان هناك حقل section_id)
+    final sectionHadiths = _hadiths.where((hadith) {
+      return hadith['section_id'] == sectionId || 
+             hadith['book'] == sectionId.toString() ||
+             (hadith['number'] != null && (hadith['number'] as int) ~/ 100 + 1 == sectionId);
+    }).toList();
+    
+    return sectionHadiths.map((m) => BukhariHadith.fromMap(m)).toList();
   }
 
-  /// دالة البحث المطورة لحل مشكلة "نوى" والتشكيل
+  /// دالة البحث المطورة لحل مشكلة "نوى" والتشكيل والبحث الدقيق بالرقم
   Future<void> searchHadith(String query) async {
     if (query.trim().isEmpty) {
       _searchResults = [];
@@ -85,32 +102,44 @@ class BukhariProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    // 1. تنظيف نص البحث القادم من المستخدم من التشكيل والألفات
-    String cleanQuery = query
-        .replaceAll(RegExp(r'[\u064B-\u0652]'), '') // إزالة التشكيل
-        .replaceAll('إ', 'ا')
-        .replaceAll('أ', 'ا')
-        .replaceAll('آ', 'ا')
-        .replaceAll('ى', 'ي'); // توحيد الياء والألف المقصورة للبحث
-
     try {
-      // 2. استعلام SQL يقوم بتجريد النص المخزن من التشكيل أثناء المقارنة
-      // نستخدم REPLACE لإزالة حركات التشكيل الثمانية
-      final List<Map<String, dynamic>> maps = await _db!.rawQuery('''
-        SELECT h.id, h.text, h.section_id, s.section_name
-        FROM hadiths h
-        LEFT JOIN sections s ON h.section_id = s.id
-        WHERE 
-          (
-            REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(h.text, 
-            'َ', ''), 'ُ', ''), 'ِ', ''), 'ّ', ''), 'ً', ''), 'ٌ', ''), 'ٍ', ''), 'ْ', ''), 'ى', 'ي') 
-            LIKE ?
-          )
-          OR h.id = ?
-        LIMIT 100
-      ''', ['%$cleanQuery%', query]);
+      await initialize();
+      
+      // 1. التحقق إذا كان البحث بالرقم
+      final int? numericQuery = int.tryParse(query.trim());
 
-      _searchResults = maps.map((m) => BukhariHadith.fromMap(m)).toList();
+      if (numericQuery != null) {
+        // بحث دقيق بالرقم
+        final results = _hadiths.where((hadith) {
+          final hadithNumber = hadith['number'] ?? hadith['id'];
+          return hadithNumber.toString() == numericQuery.toString();
+        }).toList();
+        
+        _searchResults = results.map((m) => BukhariHadith.fromMap(m)).toList();
+      } else {
+        // 2. تنظيف نص البحث القادم من المستخدم من التشكيل والألفات
+        String cleanQuery = query
+            .replaceAll(RegExp(r'[\u064B-\u0652]'), '') // إزالة التشكيل
+            .replaceAll('إ', 'ا')
+            .replaceAll('أ', 'ا')
+            .replaceAll('آ', 'ا')
+            .replaceAll('ى', 'ي'); // توحيد الياء والألف المقصورة للبحث
+
+        // 3. البحث في النصوص مع إزالة التشكيل
+        final results = _hadiths.where((hadith) {
+          final text = hadith['hadith'] ?? hadith['text'] ?? '';
+          final cleanText = text
+              .replaceAll(RegExp(r'[\u064B-\u0652]'), '')
+              .replaceAll('إ', 'ا')
+              .replaceAll('أ', 'ا')
+              .replaceAll('آ', 'ا')
+              .replaceAll('ى', 'ي');
+          
+          return cleanText.contains(cleanQuery);
+        }).toList();
+
+        _searchResults = results.map((m) => BukhariHadith.fromMap(m)).toList();
+      }
     } catch (e) {
       debugPrint("Search Error: $e");
     }
