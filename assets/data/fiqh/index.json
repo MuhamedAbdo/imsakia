@@ -1,0 +1,163 @@
+[
+    {
+        "id": 1,
+        "title": "الطهارة",
+        "file_name": "tahara.json",
+        "icon": "opacity",
+        "color": "#4CAF50"
+    },
+    {
+        "id": 2,
+        "title": "الصلاة",
+        "file_name": "prayer.json",
+        "icon": "bolt",
+        "color": "#2196F3"
+    },
+    {
+        "id": 3,
+        "title": "الجنائز",
+        "file_name": "funerals.json",
+        "icon": "celebration",
+        "color": "#607D8B"
+    },
+    {
+        "id": 4,
+        "title": "الزكاة",
+        "file_name": "zakat.json",
+        "icon": "attach_money",
+        "color": "#8BC34A"
+    },
+    {
+        "id": 5,
+        "title": "الصيام",
+        "file_name": "fasting.json",
+        "icon": "brightness_3",
+        "color": "#FF9800"
+    },
+    {
+        "id": 6,
+        "title": "الحج والعمرة",
+        "file_name": "hajj.json",
+        "icon": "location_on",
+        "color": "#9C27B0"
+    },
+    {
+        "id": 7,
+        "title": "النكاح",
+        "file_name": "marriage.json",
+        "icon": "favorite",
+        "color": "#E91E63"
+    },
+    {
+        "id": 8,
+        "title": "الطلاق",
+        "file_name": "divorce.json",
+        "icon": "close",
+        "color": "#F44336"
+    },
+    {
+        "id": 9,
+        "title": "النفقات والرضاع",
+        "file_name": "expenses.json",
+        "icon": "family_restroom",
+        "color": "#795548"
+    },
+    {
+        "id": 10,
+        "title": "فقه النساء",
+        "file_name": "women.json",
+        "icon": "female",
+        "color": "#FF4081"
+    },
+    {
+        "id": 11,
+        "title": "البيوع والتجارة",
+        "file_name": "trading.json",
+        "icon": "storefront",
+        "color": "#009688"
+    },
+    {
+        "id": 12,
+        "title": "الربا والبنوك",
+        "file_name": "banking.json",
+        "icon": "account_balance",
+        "color": "#3F51B5"
+    },
+    {
+        "id": 13,
+        "title": "الإجارة والعمل",
+        "file_name": "labor.json",
+        "icon": "work",
+        "color": "#795548"
+    },
+    {
+        "id": 14,
+        "title": "القروض والديون",
+        "file_name": "debts.json",
+        "icon": "request_quote",
+        "color": "#FF5722"
+    },
+    {
+        "id": 15,
+        "title": "الأطعمة والأشربة",
+        "file_name": "food.json",
+        "icon": "restaurant",
+        "color": "#FFB300"
+    },
+    {
+        "id": 16,
+        "title": "الأضاحي والذبائح",
+        "file_name": "sacrifices.json",
+        "icon": "spa",
+        "color": "#FFC107"
+    },
+    {
+        "id": 17,
+        "title": "المواريث",
+        "file_name": "inheritance.json",
+        "icon": "account_tree",
+        "color": "#673AB7"
+    },
+    {
+        "id": 18,
+        "title": "الوصية والأوقاف",
+        "file_name": "wills.json",
+        "icon": "gavel",
+        "color": "#795548"
+    },
+    {
+        "id": 19,
+        "title": "الأيمان والنذور",
+        "file_name": "oaths.json",
+        "icon": "verified_user",
+        "color": "#607D8B"
+    },
+    {
+        "id": 20,
+        "title": "اللباس والزينة",
+        "file_name": "clothing.json",
+        "icon": "style",
+        "color": "#9E9E9E"
+    },
+    {
+        "id": 21,
+        "title": "التكنولوجيا والطب",
+        "file_name": "modern_issues.json",
+        "icon": "devices",
+        "color": "#000000"
+    },
+    {
+        "id": 22,
+        "title": "فقه الأقليات",
+        "file_name": "minorities.json",
+        "icon": "group_work",
+        "color": "#3E2723"
+    },
+    {
+        "id": 23,
+        "title": "الجرائم والحدود",
+        "file_name": "crimes_and_punishments.json",
+        "icon": "gavel",
+        "color": "#D32F2F"
+    }
+]

@@ -127,6 +127,7 @@ flutter:
     - assets/audio/
     - assets/fonts/
     - assets/images/needle.svg
+    - assets/data/fiqh/
 
   fonts:
     - family: HafsSmart

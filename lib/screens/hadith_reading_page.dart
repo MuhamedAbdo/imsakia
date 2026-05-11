@@ -147,9 +147,13 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
                 color: Colors.white,
               ),
               onPressed: () {
+                final currentContext = context;
                 _toggleBookmark().then((result) {
                   if (result && mounted) {
-                    Navigator.pop(context, true); // Return true to parent
+                    Navigator.pop(
+                      currentContext,
+                      true,
+                    ); // Return true to parent
                   }
                 });
               },
@@ -374,11 +378,16 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
     }
 
     // إنشاء نص المشاركة مع التحقق من الطول
-    String shareText = '📖 ${currentHadith.hadith.trim()}\n\n';
-    shareText += '📚 الكتاب: ${widget.bookTitle.trim()}\n';
-    shareText += '🔢 رقم الحديث: ${currentHadith.number}\n\n';
-    shareText += '_________________________\n';
-    shareText += 'تمت المشاركة من تطبيق زاد';
+    var shareText =
+        '''
+📖 ${currentHadith.hadith.trim()}
+
+📚 الكتاب: ${widget.bookTitle.trim()}
+🔢 رقم الحديث: ${currentHadith.number}
+
+_________________________
+تمت المشاركة من تطبيق زاد
+    ''';
 
     // التحقق من طول النص (بعض التطبيقات لها حدود)
     if (shareText.length > 8000) {
@@ -451,7 +460,7 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
         } else {
           // عرض الخطأ الأصلي للتشخيص
           errorMessage =
-              'خطأ: ${e.toString().length > 50 ? e.toString().substring(0, 50) + "..." : e.toString()}';
+              'خطأ: ${e.toString().length > 50 ? '${e.toString().substring(0, 50)}...' : e.toString()}';
         }
 
         _showErrorSnackBar(errorMessage);

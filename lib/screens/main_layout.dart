@@ -25,6 +25,7 @@ import 'allah_names_page.dart';
 import 'radio_page.dart';
 import 'calendar_page.dart';
 import 'hadith_library_page.dart';
+import 'fiqh_library_page.dart';
 import '../features/quran_madinah/ui/index_screen.dart';
 import 'qibla_compass_screen.dart';
 import 'settings_screen.dart';
@@ -1049,6 +1050,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'onTap': () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AudioRecitersScreen()),
+        ),
+      },
+      {
+        'title': 'الفقه الإسلامي',
+        'icon': Icons.gavel,
+        'onTap': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const FiqhLibraryPage()),
         ),
       },
     ];

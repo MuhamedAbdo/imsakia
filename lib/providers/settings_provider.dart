@@ -19,6 +19,8 @@ class SettingsProvider extends ChangeNotifier {
   bool _isFirstLaunch = true;
   int _hijriAdjustment = 0;
   bool _autoHijriAdjustment = true;
+  double _fontSize = 16.0;
+  Set<String> _fiqhBookmarks = {};
 
   bool _fajrAthanEnabled = true;
   bool _dhuhrAthanEnabled = true;
@@ -44,6 +46,8 @@ class SettingsProvider extends ChangeNotifier {
   bool get asrAthanEnabled => _asrAthanEnabled;
   bool get maghribAthanEnabled => _maghribAthanEnabled;
   bool get ishaAthanEnabled => _ishaAthanEnabled;
+  double get fontSize => _fontSize;
+  Set<String> get fiqhBookmarks => _fiqhBookmarks;
 
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -59,8 +63,11 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   Future<void> _loadSettings() async {
-    _selectedCity = _prefs?.getString(AppConstants.selectedCityKey) ?? AppConstants.defaultCity;
-    _selectedCityName = _prefs?.getString('selected_city_name') ?? "القاهرة، مصر";
+    _selectedCity =
+        _prefs?.getString(AppConstants.selectedCityKey) ??
+        AppConstants.defaultCity;
+    _selectedCityName =
+        _prefs?.getString('selected_city_name') ?? "القاهرة، مصر";
 
     final savedTheme = _prefs?.getString(AppConstants.themeModeKey) ?? 'dark';
     _themeMode = AppThemeMode.values.firstWhere(
@@ -68,13 +75,19 @@ class SettingsProvider extends ChangeNotifier {
       orElse: () => AppThemeMode.dark,
     );
 
-    _selectedCalculationMethod = _prefs?.getString(AppConstants.calculationMethodKey) ?? AppConstants.defaultCalculationMethod;
-    _selectedMadhab = _prefs?.getString(AppConstants.madhabKey) ?? AppConstants.defaultMadhab;
-    _dstEnabled = _prefs?.getBool(AppConstants.dstKey) ?? AppConstants.defaultDST;
-    _notificationsEnabled = _prefs?.getBool(AppConstants.notificationsKey) ?? true;
+    _selectedCalculationMethod =
+        _prefs?.getString(AppConstants.calculationMethodKey) ??
+        AppConstants.defaultCalculationMethod;
+    _selectedMadhab =
+        _prefs?.getString(AppConstants.madhabKey) ?? AppConstants.defaultMadhab;
+    _dstEnabled =
+        _prefs?.getBool(AppConstants.dstKey) ?? AppConstants.defaultDST;
+    _notificationsEnabled =
+        _prefs?.getBool(AppConstants.notificationsKey) ?? true;
 
     _hijriAdjustment = _prefs?.getInt(AppConstants.hijriAdjustmentKey) ?? 0;
-    _autoHijriAdjustment = _prefs?.getBool('auto_hijri_adjustment') ?? (_hijriAdjustment == 0);
+    _autoHijriAdjustment =
+        _prefs?.getBool('auto_hijri_adjustment') ?? (_hijriAdjustment == 0);
 
     _isFirstLaunch = _prefs?.getBool(AppConstants.isFirstLaunchKey) ?? true;
 
@@ -83,13 +96,17 @@ class SettingsProvider extends ChangeNotifier {
     _asrAthanEnabled = _prefs?.getBool('asr_athan_enabled') ?? true;
     _maghribAthanEnabled = _prefs?.getBool('maghrib_athan_enabled') ?? true;
     _ishaAthanEnabled = _prefs?.getBool('isha_athan_enabled') ?? true;
+
+    _fontSize = _prefs?.getDouble('fiqh_font_size') ?? 16.0;
+    final bookmarksList = _prefs?.getStringList('fiqh_bookmarks') ?? [];
+    _fiqhBookmarks = bookmarksList.toSet();
   }
 
   // التعديل التراكمي: يجمع التعديل الجديد مع المخزن مسبقاً
   Future<void> updateHijriAdjustment(int additionalAdjustment) async {
     int currentStored = _prefs?.getInt(AppConstants.hijriAdjustmentKey) ?? 0;
     _hijriAdjustment = currentStored + additionalAdjustment;
-    
+
     _autoHijriAdjustment = (_hijriAdjustment == 0);
 
     await _prefs?.setInt(AppConstants.hijriAdjustmentKey, _hijriAdjustment);
@@ -103,10 +120,10 @@ class SettingsProvider extends ChangeNotifier {
     _selectedCityName = cityId;
     await _prefs?.setString(AppConstants.selectedCityKey, cityId);
     await _prefs?.setString('selected_city_name', cityId);
-    
+
     // 🔥 تحديث بيانات الويدجت فوراً عند تغيير المدينة
     PrayerTimesService.instance.updateWidgetData();
-    
+
     notifyListeners();
   }
 
@@ -130,20 +147,33 @@ class SettingsProvider extends ChangeNotifier {
 
   Future<void> setThemeMode(AppThemeMode mode) async {
     _themeMode = mode;
-    await _prefs?.setString(AppConstants.themeModeKey, mode.toString().split('.').last);
+    await _prefs?.setString(
+      AppConstants.themeModeKey,
+      mode.toString().split('.').last,
+    );
     notifyListeners();
   }
 
   Future<void> setPrayerAthanEnabled(String prayerKey, bool enabled) async {
     switch (prayerKey) {
-      case 'fajr': _fajrAthanEnabled = enabled; break;
-      case 'dhuhr': _dhuhrAthanEnabled = enabled; break;
-      case 'asr': _asrAthanEnabled = enabled; break;
-      case 'maghrib': _maghribAthanEnabled = enabled; break;
-      case 'isha': _ishaAthanEnabled = enabled; break;
+      case 'fajr':
+        _fajrAthanEnabled = enabled;
+        break;
+      case 'dhuhr':
+        _dhuhrAthanEnabled = enabled;
+        break;
+      case 'asr':
+        _asrAthanEnabled = enabled;
+        break;
+      case 'maghrib':
+        _maghribAthanEnabled = enabled;
+        break;
+      case 'isha':
+        _ishaAthanEnabled = enabled;
+        break;
     }
     await _prefs?.setBool('${prayerKey}_athan_enabled', enabled);
-    
+
     // إعادة جدولة المنبهات عند تغيير حالة الأذان لأي صلاة
     PrayerTimesService.instance.scheduleAllPrayers();
     notifyListeners();
@@ -161,5 +191,27 @@ class SettingsProvider extends ChangeNotifier {
     _themeMode = AppThemeMode.dark;
     _hijriAdjustment = 0;
     _autoHijriAdjustment = true;
+    _fontSize = 16.0;
+    _fiqhBookmarks = {};
+  }
+
+  // Font Size Methods
+  Future<void> setFontSize(double size) async {
+    _fontSize = size;
+    await _prefs?.setDouble('fiqh_font_size', size);
+    notifyListeners();
+  }
+
+  // Fiqh Bookmarks Methods
+  Future<void> addFiqhBookmark(String bookmarkKey) async {
+    _fiqhBookmarks.add(bookmarkKey);
+    await _prefs?.setStringList('fiqh_bookmarks', _fiqhBookmarks.toList());
+    notifyListeners();
+  }
+
+  Future<void> removeFiqhBookmark(String bookmarkKey) async {
+    _fiqhBookmarks.remove(bookmarkKey);
+    await _prefs?.setStringList('fiqh_bookmarks', _fiqhBookmarks.toList());
+    notifyListeners();
   }
 }
