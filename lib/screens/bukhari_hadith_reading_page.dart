@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/bukhari_model.dart';
 import '../providers/quran_provider.dart';
 import 'package:provider/provider.dart';
@@ -15,6 +16,66 @@ class BukhariHadithReadingPage extends StatelessWidget {
     required this.bookTitle,
   });
 
+  /// مشاركة الحديث كنص منسق
+  Future<void> _shareHadith(BuildContext context) async {
+    final shareText =
+        '''
+📖 ${hadith.text}
+
+📚 الكتاب: $bookTitle
+🔢 رقم الحديث: ${hadith.id}
+
+_________________________
+تمت المشاركة من تطبيق زاد
+    ''';
+
+    try {
+      final result = await Share.share(
+        shareText,
+        subject: 'حديث من $bookTitle - رقم ${hadith.id}',
+      );
+
+      // التحقق من نتيجة المشاركة
+      if (result.status == ShareResultStatus.success) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم مشاركة الحديث بنجاح'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        String errorMessage = 'حدث خطأ أثناء المشاركة';
+
+        // تحديد نوع الخطأ بدقة أكبر
+        if (e.toString().contains('PlatformException')) {
+          errorMessage = 'لا يوجد تطبيقات مشاركة متاحة';
+        } else if (e.toString().contains('Timeout')) {
+          errorMessage = 'انتهت مهلة المشاركة، حاول مرة أخرى';
+        } else if (e.toString().contains('Permission')) {
+          errorMessage = 'يجب السماح بالوصول لتطبيقات المشاركة';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'حاول مرة أخرى',
+              textColor: Colors.white,
+              onPressed: () => _shareHadith(context),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -25,7 +86,9 @@ class BukhariHadithReadingPage extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF5F5F0),
+        backgroundColor: isDarkMode
+            ? const Color(0xFF121212)
+            : const Color(0xFFF5F5F0),
         appBar: AppBar(
           backgroundColor: appBarColor,
           elevation: 2,
@@ -40,6 +103,10 @@ class BukhariHadithReadingPage extends StatelessWidget {
           centerTitle: true,
           iconTheme: const IconThemeData(color: appBarContentColor),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.share_rounded, color: appBarContentColor),
+              onPressed: () => _shareHadith(context),
+            ),
             IconButton(
               icon: const Icon(Icons.copy_rounded, color: appBarContentColor),
               onPressed: () async {
@@ -74,11 +141,16 @@ class BukhariHadithReadingPage extends StatelessWidget {
               children: [
                 // Header with hadith number
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.blue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: Colors.blue.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Text(
                     'حديث رقم: ${hadith.id}',

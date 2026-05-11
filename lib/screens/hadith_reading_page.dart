@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/hadith_item.dart';
 import '../services/bookmark_service.dart';
@@ -155,9 +156,7 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
             ),
             IconButton(
               icon: const Icon(Icons.share_rounded, color: Colors.white),
-              onPressed: () {
-                // Future share implementation
-              },
+              onPressed: () => _shareHadith(),
             ),
             const SizedBox(width: 8),
           ],
@@ -359,6 +358,117 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
               const SizedBox(height: 20),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// مشاركة الحديث كنص منسق
+  Future<void> _shareHadith() async {
+    final currentHadith = widget.allHadiths[_currentIndex];
+
+    // التحقق من صحة البيانات قبل المشاركة
+    if (currentHadith.hadith.isEmpty) {
+      _showErrorSnackBar('نص الحديث فارغ');
+      return;
+    }
+
+    // إنشاء نص المشاركة مع التحقق من الطول
+    String shareText = '📖 ${currentHadith.hadith.trim()}\n\n';
+    shareText += '📚 الكتاب: ${widget.bookTitle.trim()}\n';
+    shareText += '🔢 رقم الحديث: ${currentHadith.number}\n\n';
+    shareText += '_________________________\n';
+    shareText += 'تمت المشاركة من تطبيق زاد';
+
+    // التحقق من طول النص (بعض التطبيقات لها حدود)
+    if (shareText.length > 8000) {
+      shareText = shareText.substring(0, 7900) + '...';
+    }
+
+    try {
+      debugPrint('=== Attempting to share ===');
+      debugPrint('Text length: ${shareText.length}');
+      debugPrint(
+        'Subject: حديث من ${widget.bookTitle} - رقم ${currentHadith.number}',
+      );
+
+      final result = await Share.share(
+        shareText,
+        subject: 'حديث من ${widget.bookTitle} - رقم ${currentHadith.number}',
+      );
+
+      debugPrint('Share result: ${result.status}');
+
+      // التحقق من نتيجة المشاركة
+      if (result.status == ShareResultStatus.success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'تم مشاركة الحديث بنجاح',
+                style: GoogleFonts.tajawal(),
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } else if (result.status == ShareResultStatus.dismissed) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('تم إلغاء المشاركة', style: GoogleFonts.tajawal()),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        // طباعة الخطأ في الـ console للتشخيص
+        debugPrint('=== Share Error Details ===');
+        debugPrint('Error type: ${e.runtimeType}');
+        debugPrint('Error message: ${e.toString()}');
+        debugPrint('Error stack trace: ${StackTrace.current}');
+
+        String errorMessage = 'حدث خطأ أثناء المشاركة';
+
+        // تحديد نوع الخطأ بدقة أكبر
+        final errorString = e.toString().toLowerCase();
+        if (errorString.contains('platform') ||
+            errorString.contains('activitynotfound')) {
+          errorMessage = 'لا يوجد تطبيقات مشاركة متاحة على الجهاز';
+        } else if (errorString.contains('timeout') ||
+            errorString.contains('cancelled')) {
+          errorMessage = 'تم إلغاء المشاركة أو انتهت المهلة';
+        } else if (errorString.contains('permission') ||
+            errorString.contains('access')) {
+          errorMessage = 'يجب السماح بالوصول لتطبيقات المشاركة';
+        } else if (errorString.contains('argument') ||
+            errorString.contains('null')) {
+          errorMessage = 'خطأ في بيانات المشاركة، يرجى المحاولة مرة أخرى';
+        } else {
+          // عرض الخطأ الأصلي للتشخيص
+          errorMessage =
+              'خطأ: ${e.toString().length > 50 ? e.toString().substring(0, 50) + "..." : e.toString()}';
+        }
+
+        _showErrorSnackBar(errorMessage);
+      }
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: GoogleFonts.tajawal()),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'حاول مرة أخرى',
+          textColor: Colors.white,
+          onPressed: () => _shareHadith(),
         ),
       ),
     );
