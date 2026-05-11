@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/fiqh_model.dart';
-import '../providers/settings_provider.dart';
 import '../services/bookmark_service.dart';
 
 class FiqhReadingPage extends StatefulWidget {
@@ -29,21 +29,30 @@ class FiqhReadingPage extends StatefulWidget {
 }
 
 class _FiqhReadingPageState extends State<FiqhReadingPage> {
-  double _fontSize = 16.0;
+  double _currentFontSize = 18.0; // حجم الخط الحالي
+  double _currentLineHeight = 1.6; // التباعد بين الأسطر الحالي
   bool _isBookmarked = false;
 
   @override
   void initState() {
     super.initState();
-    _loadFontSize();
+    _loadSettings();
     _checkBookmarkStatus();
   }
 
-  Future<void> _loadFontSize() async {
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _fontSize = settings.fontSize;
+      _currentFontSize = prefs.getDouble('fiqh_font_size') ?? 18.0;
+      _currentLineHeight = prefs.getDouble('fiqh_line_height') ?? 1.6;
     });
+  }
+
+  /// حفظ إعدادات الخط والتباعد
+  Future<void> _saveSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('fiqh_font_size', _currentFontSize);
+    await prefs.setDouble('fiqh_line_height', _currentLineHeight);
   }
 
   Future<void> _checkBookmarkStatus() async {
@@ -114,27 +123,118 @@ class _FiqhReadingPageState extends State<FiqhReadingPage> {
     }
   }
 
-  void _increaseFontSize() {
-    if (_fontSize < 24.0) {
-      setState(() {
-        _fontSize += 2.0;
-      });
-      _saveFontSize();
-    }
-  }
+  void _showFontSettings() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-  void _decreaseFontSize() {
-    if (_fontSize > 12.0) {
-      setState(() {
-        _fontSize -= 2.0;
-      });
-      _saveFontSize();
-    }
-  }
-
-  Future<void> _saveFontSize() async {
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
-    await settings.setFontSize(_fontSize);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.4,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(25),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'إعدادات الخط',
+                    style: GoogleFonts.tajawal(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            // Content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    // Font size slider
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'حجم الخط',
+                          style: GoogleFonts.tajawal(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Slider(
+                          value: _currentFontSize,
+                          min: 12,
+                          max: 24,
+                          divisions: 12,
+                          label: _currentFontSize.round().toString(),
+                          onChanged: (value) {
+                            setState(() {
+                              _currentFontSize = value;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    // Line height slider
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'التباعد بين الأسطر',
+                          style: GoogleFonts.tajawal(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Slider(
+                          value: _currentLineHeight,
+                          min: 1.0,
+                          max: 2.0,
+                          divisions: 10,
+                          label: _currentLineHeight.toStringAsFixed(1),
+                          onChanged: (value) {
+                            setState(() {
+                              _currentLineHeight = value;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Bottom padding
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    ).then((_) {
+      // حفظ الإعدادات عند الإغلاق
+      _saveSettings();
+    });
   }
 
   void _navigateToQuestion(int index) {
@@ -185,6 +285,15 @@ class _FiqhReadingPageState extends State<FiqhReadingPage> {
             onPressed: () => Navigator.pop(context),
           ),
           actions: [
+            // Font Settings Button
+            IconButton(
+              icon: Icon(
+                Icons.text_fields,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+              onPressed: _showFontSettings,
+              tooltip: 'إعدادات الخط',
+            ),
             // Bookmark Button
             IconButton(
               icon: Icon(
@@ -205,79 +314,6 @@ class _FiqhReadingPageState extends State<FiqhReadingPage> {
         ),
         body: Column(
           children: [
-            // Font Size Controls
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E2428) : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.1)
-                      : Colors.black.withValues(alpha: 0.1),
-                  width: 0.8,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'حجم الخط:',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 14,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  IconButton(
-                    onPressed: _decreaseFontSize,
-                    icon: Icon(
-                      Icons.remove,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                      size: 20,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '${_fontSize.toInt()}',
-                      style: GoogleFonts.tajawal(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: _increaseFontSize,
-                    icon: Icon(
-                      Icons.add,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                      size: 20,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
             // Question and Answer Content
             Expanded(
               child: SingleChildScrollView(
@@ -358,10 +394,10 @@ class _FiqhReadingPageState extends State<FiqhReadingPage> {
                           Text(
                             widget.question.question,
                             style: GoogleFonts.tajawal(
-                              fontSize: _fontSize,
+                              fontSize: _currentFontSize,
                               fontWeight: FontWeight.w600,
                               color: isDark ? Colors.white : Colors.black87,
-                              height: 1.5,
+                              height: _currentLineHeight,
                             ),
                           ),
                         ],
@@ -418,9 +454,9 @@ class _FiqhReadingPageState extends State<FiqhReadingPage> {
                           Text(
                             widget.question.answer,
                             style: GoogleFonts.tajawal(
-                              fontSize: _fontSize,
+                              fontSize: _currentFontSize,
                               color: isDark ? Colors.white : Colors.black87,
-                              height: 1.6,
+                              height: _currentLineHeight,
                             ),
                           ),
                         ],
@@ -484,10 +520,10 @@ class _FiqhReadingPageState extends State<FiqhReadingPage> {
                               widget.question.evidence!,
                               style: GoogleFonts.amiri(
                                 fontSize:
-                                    _fontSize -
+                                    _currentFontSize -
                                     1, // Slightly smaller than answer
                                 color: isDark ? Colors.white70 : Colors.black87,
-                                height: 1.6,
+                                height: _currentLineHeight,
                               ),
                             ),
                           ],
