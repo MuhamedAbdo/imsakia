@@ -1,23 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 import '../models/fiqh_model.dart';
 import '../providers/settings_provider.dart';
+import '../services/bookmark_service.dart';
 
 class FiqhReadingPage extends StatefulWidget {
   final FiqhQuestion question;
   final String bookTitle;
+  final String jsonPath;
   final List<FiqhQuestion> allQuestions;
   final int currentIndex;
+  final VoidCallback? onBookmarkChanged;
 
   const FiqhReadingPage({
     super.key,
     required this.question,
     required this.bookTitle,
+    required this.jsonPath,
     required this.allQuestions,
     required this.currentIndex,
+    this.onBookmarkChanged,
   });
 
   @override
@@ -43,39 +47,43 @@ class _FiqhReadingPageState extends State<FiqhReadingPage> {
   }
 
   Future<void> _checkBookmarkStatus() async {
-    // TODO: Implement bookmark checking logic
-    // For now, we'll use a simple implementation
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final bookmarks = settings.fiqhBookmarks;
+    final isBookmarked = await BookmarkService.isBookmarked(
+      widget.jsonPath,
+      widget.question.id,
+    );
+
     setState(() {
-      _isBookmarked = bookmarks.contains('${widget.bookTitle}_${widget.question.id}');
+      _isBookmarked = isBookmarked;
     });
   }
 
   Future<void> _toggleBookmark() async {
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final bookmarkKey = '${widget.bookTitle}_${widget.question.id}';
-    
+    final isBookmarked = await BookmarkService.toggleBookmark(
+      widget.jsonPath,
+      widget.question.id,
+    );
+
     setState(() {
-      _isBookmarked = !_isBookmarked;
+      _isBookmarked = isBookmarked;
     });
 
-    if (_isBookmarked) {
-      await settings.addFiqhBookmark(bookmarkKey);
-      _showSnackBar('تمت الإضافة إلى العلامات المرجعية');
-    } else {
-      await settings.removeFiqhBookmark(bookmarkKey);
-      _showSnackBar('تمت الإزالة من العلامات المرجعية');
-    }
+    // Notify parent to refresh bookmark dashboard
+    widget.onBookmarkChanged?.call();
+
+    _showSnackBar(
+      isBookmarked
+          ? 'تمت الإضافة إلى العلامات المرجعية'
+          : 'تمت الإزالة من العلامات المرجعية',
+    );
   }
 
   void _showSnackBar(String message) {
+    // Hide any current snackbars before showing a new one
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          message,
-          style: GoogleFonts.tajawal(),
-        ),
+        content: Text(message, style: GoogleFonts.tajawal()),
         backgroundColor: Theme.of(context).colorScheme.primary,
         duration: const Duration(seconds: 2),
       ),
@@ -83,7 +91,8 @@ class _FiqhReadingPageState extends State<FiqhReadingPage> {
   }
 
   Future<void> _shareContent() async {
-    final String content = '''
+    final String content =
+        '''
 📚 ${widget.bookTitle}
 
 ❓ السؤال:
@@ -98,10 +107,7 @@ ${widget.question.answer}
     ''';
 
     try {
-      await Share.share(
-        content,
-        subject: 'سؤال وجواب من ${widget.bookTitle}',
-      );
+      await Share.share(content, subject: 'سؤال وجواب من ${widget.bookTitle}');
     } catch (e) {
       _showSnackBar('حدث خطأ أثناء المشاركة');
     }
@@ -136,12 +142,14 @@ ${widget.question.answer}
         context,
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 300),
-          pageBuilder: (context, animation, secondaryAnimation) => FiqhReadingPage(
-            question: widget.allQuestions[index],
-            bookTitle: widget.bookTitle,
-            allQuestions: widget.allQuestions,
-            currentIndex: index,
-          ),
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              FiqhReadingPage(
+                question: widget.allQuestions[index],
+                bookTitle: widget.bookTitle,
+                jsonPath: widget.jsonPath,
+                allQuestions: widget.allQuestions,
+                currentIndex: index,
+              ),
         ),
       );
     }
@@ -154,7 +162,9 @@ ${widget.question.answer}
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF7F8FA),
+        backgroundColor: isDark
+            ? const Color(0xFF121212)
+            : const Color(0xFFF7F8FA),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -167,7 +177,10 @@ ${widget.question.answer}
           ),
           centerTitle: true,
           leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new, color: isDark ? Colors.white : Colors.black87),
+            icon: Icon(
+              Icons.arrow_back_ios_new,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
           actions: [
@@ -223,12 +236,20 @@ ${widget.question.answer}
                       color: isDark ? Colors.white70 : Colors.black54,
                       size: 20,
                     ),
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -247,7 +268,10 @@ ${widget.question.answer}
                       color: isDark ? Colors.white70 : Colors.black54,
                       size: 20,
                     ),
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                   ),
                 ],
               ),
@@ -256,13 +280,19 @@ ${widget.question.answer}
             // Question and Answer Content
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Question Number
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.primary,
                         borderRadius: BorderRadius.circular(8),
@@ -293,7 +323,9 @@ ${widget.question.answer}
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.06),
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.22 : 0.06,
+                            ),
                             blurRadius: 15,
                             spreadRadius: 1,
                             offset: const Offset(0, 4),
@@ -351,7 +383,9 @@ ${widget.question.answer}
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.06),
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.22 : 0.06,
+                            ),
                             blurRadius: 15,
                             spreadRadius: 1,
                             offset: const Offset(0, 4),
@@ -409,12 +443,19 @@ ${widget.question.answer}
                         runSpacing: 8,
                         children: widget.question.tags.map((tag) {
                           return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.3),
                               ),
                             ),
                             child: Text(
@@ -429,7 +470,9 @@ ${widget.question.answer}
                         }).toList(),
                       ),
                     ],
-                    const SizedBox(height: 100), // Extra space for navigation buttons
+                    const SizedBox(
+                      height: 100,
+                    ), // Extra space for navigation buttons
                   ],
                 ),
               ),
@@ -478,9 +521,14 @@ ${widget.question.answer}
                 const SizedBox(width: 12),
                 // Question Counter
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.black.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -496,7 +544,8 @@ ${widget.question.answer}
                 // Next Button
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: widget.currentIndex < widget.allQuestions.length - 1
+                    onPressed:
+                        widget.currentIndex < widget.allQuestions.length - 1
                         ? () => _navigateToQuestion(widget.currentIndex + 1)
                         : null,
                     icon: const Icon(Icons.arrow_forward),

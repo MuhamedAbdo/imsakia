@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart' as rootBundle;
 import 'package:google_fonts/google_fonts.dart';
 import '../models/fiqh_model.dart';
+import '../services/bookmark_service.dart';
+import '../widgets/bookmark_dashboard.dart';
 import 'fiqh_reading_page.dart';
 
 class FiqhBookDetailPage extends StatefulWidget {
@@ -17,8 +18,10 @@ class FiqhBookDetailPage extends StatefulWidget {
 class _FiqhBookDetailPageState extends State<FiqhBookDetailPage> {
   List<FiqhQuestion> questions = [];
   List<FiqhQuestion> filteredQuestions = [];
+  List<FiqhQuestion> bookmarkedQuestions = [];
   bool isLoading = true;
   TextEditingController searchController = TextEditingController();
+  int _bookmarkCount = 0;
 
   @override
   void initState() {
@@ -36,20 +39,36 @@ class _FiqhBookDetailPageState extends State<FiqhBookDetailPage> {
 
   Future<void> _loadQuestions() async {
     try {
-      final String response = await rootBundle.rootBundle.loadString('assets/data/fiqh/${widget.book.fileName}');
+      final String response = await rootBundle.rootBundle.loadString(
+        'assets/data/fiqh/${widget.book.fileName}',
+      );
       final Map<String, dynamic> data = json.decode(response);
       final FiqhBookData bookData = FiqhBookData.fromJson(data);
-      
+
       setState(() {
         questions = bookData.data;
         filteredQuestions = questions;
         isLoading = false;
       });
+      _loadBookmarkedQuestions();
     } catch (e) {
       setState(() {
         isLoading = false;
       });
     }
+  }
+
+  Future<void> _loadBookmarkedQuestions() async {
+    final bookmarkedIds = await BookmarkService.getBookmarks(
+      widget.book.jsonPath,
+    );
+
+    setState(() {
+      bookmarkedQuestions = questions
+          .where((q) => bookmarkedIds.contains(q.id))
+          .toList();
+      _bookmarkCount = bookmarkedIds.length;
+    });
   }
 
   void _filterQuestions() {
@@ -60,11 +79,62 @@ class _FiqhBookDetailPageState extends State<FiqhBookDetailPage> {
       } else {
         filteredQuestions = questions.where((question) {
           return question.question.toLowerCase().contains(query) ||
-                 question.answer.toLowerCase().contains(query) ||
-                 question.tags.any((tag) => tag.toLowerCase().contains(query));
+              question.answer.toLowerCase().contains(query) ||
+              question.tags.any((tag) => tag.toLowerCase().contains(query));
         }).toList();
       }
     });
+  }
+
+  // Update bookmark count without blocking UI
+  void _updateBookmarkCount() {
+    BookmarkService.getBookmarksCount(widget.book.jsonPath).then((count) {
+      if (mounted) {
+        setState(() {
+          _bookmarkCount = count;
+        });
+      }
+    });
+  }
+
+  void _showBookmarkDashboard() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => BookmarkDashboard(
+        book: widget.book,
+        bookmarkedQuestions: bookmarkedQuestions,
+        onQuestionTap: (question) {
+          Navigator.pop(context);
+          final index = questions.indexWhere((q) => q.id == question.id);
+          if (index != -1) {
+            Navigator.push(
+              context,
+              PageRouteBuilder(
+                transitionDuration: const Duration(milliseconds: 400),
+                pageBuilder: (context, animation, secondaryAnimation) =>
+                    FiqhReadingPage(
+                      question: question,
+                      bookTitle: widget.book.title,
+                      jsonPath: widget.book.jsonPath,
+                      allQuestions: questions,
+                      currentIndex: index,
+                      onBookmarkChanged: () {
+                        _loadBookmarkedQuestions();
+                        _updateBookmarkCount();
+                      },
+                    ),
+              ),
+            );
+          }
+        },
+        onBookmarkRemoved: () {
+          _loadBookmarkedQuestions();
+          _updateBookmarkCount();
+        },
+      ),
+    );
   }
 
   @override
@@ -74,7 +144,9 @@ class _FiqhBookDetailPageState extends State<FiqhBookDetailPage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF7F8FA),
+        backgroundColor: isDark
+            ? const Color(0xFF121212)
+            : const Color(0xFFF7F8FA),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -87,9 +159,50 @@ class _FiqhBookDetailPageState extends State<FiqhBookDetailPage> {
           ),
           centerTitle: true,
           leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new, color: isDark ? Colors.white : Colors.black87),
+            icon: Icon(
+              Icons.arrow_back_ios_new,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
+          actions: [
+            Stack(
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.bookmark,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                  onPressed: _showBookmarkDashboard,
+                ),
+                if (_bookmarkCount > 0)
+                  Positioned(
+                    left: 8,
+                    top: 8,
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: Text(
+                          _bookmarkCount > 99 ? '99+' : '$_bookmarkCount',
+                          style: GoogleFonts.tajawal(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
         ),
         body: Column(
           children: [
@@ -108,7 +221,9 @@ class _FiqhBookDetailPageState extends State<FiqhBookDetailPage> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.06),
+                      color: Colors.black.withValues(
+                        alpha: isDark ? 0.22 : 0.06,
+                      ),
                       blurRadius: 15,
                       spreadRadius: 1,
                       offset: const Offset(0, 4),
@@ -131,7 +246,9 @@ class _FiqhBookDetailPageState extends State<FiqhBookDetailPage> {
                         ? IconButton(
                             icon: Icon(
                               Icons.clear,
-                              color: isDark ? Colors.grey[400] : Colors.grey[600],
+                              color: isDark
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600],
                             ),
                             onPressed: () {
                               searchController.clear();
@@ -150,11 +267,14 @@ class _FiqhBookDetailPageState extends State<FiqhBookDetailPage> {
                 ),
               ),
             ),
-            
+
             // Results Count
             if (filteredQuestions.length != questions.length)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 child: Row(
                   children: [
                     Text(
@@ -167,58 +287,71 @@ class _FiqhBookDetailPageState extends State<FiqhBookDetailPage> {
                   ],
                 ),
               ),
-            
+
             // Questions List
             Expanded(
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : filteredQuestions.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.search_off_rounded,
-                                size: 64,
-                                color: isDark ? Colors.grey[600] : Colors.grey[400],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'لا توجد نتائج للبحث',
-                                style: GoogleFonts.tajawal(
-                                  fontSize: 18,
-                                  color: isDark ? Colors.grey[400] : Colors.grey[600],
-                                ),
-                              ),
-                            ],
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.search_off_rounded,
+                            size: 64,
+                            color: isDark ? Colors.grey[600] : Colors.grey[400],
                           ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          itemCount: filteredQuestions.length,
-                          itemBuilder: (context, index) {
-                            final question = filteredQuestions[index];
-                            return QuestionCard(
-                              question: question,
-                              book: widget.book,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  PageRouteBuilder(
-                                    transitionDuration: const Duration(milliseconds: 400),
-                                    pageBuilder: (context, animation, secondaryAnimation) =>
+                          const SizedBox(height: 16),
+                          Text(
+                            'لا توجد نتائج للبحث',
+                            style: GoogleFonts.tajawal(
+                              fontSize: 18,
+                              color: isDark
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      itemCount: filteredQuestions.length,
+                      itemBuilder: (context, index) {
+                        final question = filteredQuestions[index];
+                        return QuestionCard(
+                          question: question,
+                          book: widget.book,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              PageRouteBuilder(
+                                transitionDuration: const Duration(
+                                  milliseconds: 400,
+                                ),
+                                pageBuilder:
+                                    (context, animation, secondaryAnimation) =>
                                         FiqhReadingPage(
                                           question: question,
                                           bookTitle: widget.book.title,
+                                          jsonPath: widget.book.jsonPath,
                                           allQuestions: filteredQuestions,
                                           currentIndex: index,
+                                          onBookmarkChanged: () {
+                                            _loadBookmarkedQuestions();
+                                            _updateBookmarkCount();
+                                          },
                                         ),
-                                  ),
-                                );
-                              },
+                              ),
                             );
                           },
-                        ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -308,7 +441,10 @@ class QuestionCard extends StatelessWidget {
                     runSpacing: 4,
                     children: question.tags.take(3).map((tag) {
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: book.coverColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),

@@ -6,6 +6,7 @@ class FiqhBook {
   final String fileName;
   final String icon;
   final String color;
+  late final String jsonPath; // Added for consistency with HadithBook
 
   FiqhBook({
     required this.id,
@@ -13,7 +14,9 @@ class FiqhBook {
     required this.fileName,
     required this.icon,
     required this.color,
-  });
+  }) {
+    jsonPath = 'assets/data/fiqh/$fileName';
+  }
 
   factory FiqhBook.fromJson(Map<String, dynamic> json) {
     return FiqhBook(

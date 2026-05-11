@@ -391,7 +391,7 @@ _________________________
 
     // التحقق من طول النص (بعض التطبيقات لها حدود)
     if (shareText.length > 8000) {
-      shareText = shareText.substring(0, 7900) + '...';
+      shareText = '${shareText.substring(0, 7900)}...';
     }
 
     try {
