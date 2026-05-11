@@ -146,16 +146,11 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
                     : Icons.bookmark_border_rounded,
                 color: Colors.white,
               ),
-              onPressed: () {
-                final currentContext = context;
-                _toggleBookmark().then((result) {
-                  if (result && mounted) {
-                    Navigator.pop(
-                      currentContext,
-                      true,
-                    ); // Return true to parent
-                  }
-                });
+              onPressed: () async {
+                final result = await _toggleBookmark();
+                if (result && context.mounted) {
+                  Navigator.pop(context, true); // Return true to parent
+                }
               },
             ),
             IconButton(

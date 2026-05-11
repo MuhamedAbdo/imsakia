@@ -58,12 +58,14 @@ class FiqhQuestion {
   final int id;
   final String question;
   final String answer;
+  final String? evidence;
   final List<String> tags;
 
   FiqhQuestion({
     required this.id,
     required this.question,
     required this.answer,
+    this.evidence,
     required this.tags,
   });
 
@@ -72,6 +74,7 @@ class FiqhQuestion {
       id: json['id'] as int,
       question: json['question'] as String,
       answer: json['answer'] as String,
+      evidence: json['evidence'] as String?,
       tags: List<String>.from(json['tags'] as List? ?? []),
     );
   }

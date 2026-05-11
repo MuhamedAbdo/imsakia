@@ -205,6 +205,8 @@ class _BookmarkDashboardState extends State<BookmarkDashboard> {
       // Update the database in background
       await BookmarkService.toggleBookmark(widget.book.jsonPath, question.id);
 
+      if (!mounted) return;
+
       // Notify parent to update the counter in AppBar
       widget.onBookmarkRemoved();
 
@@ -227,6 +229,8 @@ class _BookmarkDashboardState extends State<BookmarkDashboard> {
         _localBookmarkedQuestions.add(question);
         _localBookmarkedQuestions.sort((a, b) => a.id.compareTo(b.id));
       });
+
+      if (!mounted) return;
 
       // Hide any current snackbars before showing error message
       ScaffoldMessenger.of(context).hideCurrentSnackBar();

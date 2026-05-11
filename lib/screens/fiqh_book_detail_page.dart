@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'package:flutter/services.dart' as rootBundle;
+import 'package:flutter/services.dart' as root_bundle;
 import 'package:google_fonts/google_fonts.dart';
 import '../models/fiqh_model.dart';
 import '../services/bookmark_service.dart';
@@ -39,7 +39,7 @@ class _FiqhBookDetailPageState extends State<FiqhBookDetailPage> {
 
   Future<void> _loadQuestions() async {
     try {
-      final String response = await rootBundle.rootBundle.loadString(
+      final String response = await root_bundle.rootBundle.loadString(
         'assets/data/fiqh/${widget.book.fileName}',
       );
       final Map<String, dynamic> data = json.decode(response);

@@ -91,11 +91,16 @@ class _FiqhReadingPageState extends State<FiqhReadingPage> {
   }
 
   Future<void> _shareContent() async {
+    final String evidence =
+        widget.question.evidence != null && widget.question.evidence!.isNotEmpty
+        ? '\n\n📖 الدليل الشرعي: ${widget.question.evidence}'
+        : '';
+
     final String content =
         '''
 ❓ السؤال: ${widget.question.question}
 
-✅ الإجابة: ${widget.question.answer}
+✅ الإجابة: ${widget.question.answer}$evidence
 
 📚 المصدر: ${widget.bookTitle}
 
@@ -422,6 +427,74 @@ class _FiqhReadingPageState extends State<FiqhReadingPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
+
+                    // Evidence Section
+                    if (widget.question.evidence != null &&
+                        widget.question.evidence!.isNotEmpty) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF1A2F1A) // Dark green background
+                              : const Color(
+                                  0xFFF0F7F0,
+                                ), // Light green background
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.green.withValues(alpha: 0.3)
+                                : Colors.green.withValues(alpha: 0.2),
+                            width: 0.8,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.green.withValues(
+                                alpha: isDark ? 0.15 : 0.08,
+                              ),
+                              blurRadius: 12,
+                              spreadRadius: 1,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.menu_book_outlined,
+                                  color: Colors.green[700],
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'الدليل الشرعي:',
+                                  style: GoogleFonts.amiri(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green[700],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              widget.question.evidence!,
+                              style: GoogleFonts.amiri(
+                                fontSize:
+                                    _fontSize -
+                                    1, // Slightly smaller than answer
+                                color: isDark ? Colors.white70 : Colors.black87,
+                                height: 1.6,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
 
                     // Tags
                     if (widget.question.tags.isNotEmpty) ...[
