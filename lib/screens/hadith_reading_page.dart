@@ -52,10 +52,13 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
   }
 
   /// تبديل حالة العلامة المرجعية للحديث الحالي
-  Future<void> _toggleBookmark() async {
+  Future<bool> _toggleBookmark() async {
     final currentHadithNumber = _currentIndex + 1;
-    final isBookmarked = await BookmarkService.toggleBookmark(widget.jsonPath, currentHadithNumber);
-    
+    final isBookmarked = await BookmarkService.toggleBookmark(
+      widget.jsonPath,
+      currentHadithNumber,
+    );
+
     setState(() {
       if (isBookmarked) {
         _bookmarkedHadiths.add(currentHadithNumber);
@@ -69,7 +72,9 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isBookmarked ? 'تمت إضافة الحديث إلى العلامات المرجعية' : 'تمت إزالة الحديث من العلامات المرجعية',
+            isBookmarked
+                ? 'تمت إضافة الحديث إلى العلامات المرجعية'
+                : 'تمت إزالة الحديث من العلامات المرجعية',
             style: GoogleFonts.tajawal(),
           ),
           backgroundColor: isBookmarked ? Colors.green : Colors.orange,
@@ -77,6 +82,8 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
         ),
       );
     }
+
+    return true; // Return true to indicate bookmark was toggled
   }
 
   /// تحميل إعدادات الخط والتباعد المحفوظة
@@ -105,7 +112,7 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -133,12 +140,18 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
             ),
             IconButton(
               icon: Icon(
-                _bookmarkedHadiths.contains(_currentIndex + 1) 
-                    ? Icons.bookmark_rounded 
-                    : Icons.bookmark_border_rounded, 
+                _bookmarkedHadiths.contains(_currentIndex + 1)
+                    ? Icons.bookmark_rounded
+                    : Icons.bookmark_border_rounded,
                 color: Colors.white,
               ),
-              onPressed: () => _toggleBookmark(),
+              onPressed: () {
+                _toggleBookmark().then((result) {
+                  if (result && mounted) {
+                    Navigator.pop(context, true); // Return true to parent
+                  }
+                });
+              },
             ),
             IconButton(
               icon: const Icon(Icons.share_rounded, color: Colors.white),
@@ -152,7 +165,8 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
         ),
         body: PageView.builder(
           controller: _pageController,
-          reverse: true, // السحب من اليمين لليسار للحديث التالي (الاتجاه العربي)
+          reverse:
+              true, // السحب من اليمين لليسار للحديث التالي (الاتجاه العربي)
           onPageChanged: (index) {
             setState(() {
               _currentIndex = index;
@@ -172,7 +186,7 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
   void _showExplanationSheet(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final currentHadith = widget.allHadiths[_currentIndex];
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -181,9 +195,7 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
         builder: (_, _) => Container(
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(25),
-            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -250,9 +262,7 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
         builder: (_, _) => Container(
           decoration: BoxDecoration(
             color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(25),
-            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -380,9 +390,9 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // نص الحديث
           Container(
             width: double.infinity,
@@ -411,9 +421,9 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
               ],
             ),
           ),
-          
+
           const SizedBox(height: 30),
-          
+
           // زر شرح الحديث
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -422,23 +432,24 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
               icon: const Icon(Icons.lightbulb_outline_rounded),
               label: Text(
                 'شرح الحديث',
-                style: GoogleFonts.tajawal(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: widget.coverColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(25),
                 ),
               ),
             ),
           ),
-          
+
           const SizedBox(height: 40),
-          
+
           // أزرار المشاركة والحفظ
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -465,7 +476,10 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: widget.coverColor,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(25),
                   ),
@@ -474,7 +488,8 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
               ElevatedButton.icon(
                 onPressed: () {
                   // Copy hadith with explanation to clipboard
-                  final fullText = '${hadith.hadith}\n\n--- شرح الحديث ---\n${hadith.description}';
+                  final fullText =
+                      '${hadith.hadith}\n\n--- شرح الحديث ---\n${hadith.description}';
                   Clipboard.setData(ClipboardData(text: fullText));
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -494,7 +509,10 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: widget.coverColor.withValues(alpha: 0.8),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(25),
                   ),
@@ -502,7 +520,7 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 20),
         ],
       ),

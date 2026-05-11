@@ -23,11 +23,23 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
   List<HadithItem> _hadiths = [];
   List<HadithItem> _filteredHadiths = [];
   final TextEditingController _searchController = TextEditingController();
+  int _bookmarkCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadBookContent();
+    _loadBookmarkCount();
+  }
+
+  /// تحميل عدد العلامات المرجعية
+  Future<void> _loadBookmarkCount() async {
+    final count = await BookmarkService.getBookmarksCount(widget.book.jsonPath);
+    if (mounted) {
+      setState(() {
+        _bookmarkCount = count;
+      });
+    }
   }
 
   Future<void> _loadBookContent() async {
@@ -351,9 +363,9 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(15),
-          onTap: () {
+          onTap: () async {
             Navigator.pop(context); // Close the bookmarks sheet
-            Navigator.push(
+            await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => HadithReadingPage(
@@ -366,6 +378,11 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                 ),
               ),
             );
+
+            // Refresh bookmark count when returning from reading page
+            if (mounted) {
+              _loadBookmarkCount();
+            }
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -516,7 +533,12 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                   jsonPath: widget.book.jsonPath,
                 ),
               ),
-            );
+            ).then((_) {
+              // Refresh bookmark count when returning from reading page
+              if (mounted) {
+                _loadBookmarkCount();
+              }
+            });
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -621,48 +643,39 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
             onPressed: () => Navigator.pop(context),
           ),
           actions: [
-            FutureBuilder<int>(
-              future: BookmarkService.getBookmarksCount(widget.book.jsonPath),
-              builder: (context, snapshot) {
-                final bookmarkCount = snapshot.data ?? 0;
-                return Stack(
-                  children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.bookmark_rounded,
-                        color: Colors.white,
+            Stack(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.bookmark_rounded, color: Colors.white),
+                  onPressed: () => _showBookmarksSheet(context),
+                  tooltip: 'العلامات المرجعية',
+                ),
+                if (_bookmarkCount > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      onPressed: () => _showBookmarksSheet(context),
-                      tooltip: 'العلامات المرجعية',
-                    ),
-                    if (bookmarkCount > 0)
-                      Positioned(
-                        right: 8,
-                        top: 8,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 16,
-                            minHeight: 16,
-                          ),
-                          child: Text(
-                            bookmarkCount > 99 ? '99+' : '$bookmarkCount',
-                            style: GoogleFonts.tajawal(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        _bookmarkCount > 99 ? '99+' : '$_bookmarkCount',
+                        style: GoogleFonts.tajawal(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
                         ),
+                        textAlign: TextAlign.center,
                       ),
-                  ],
-                );
-              },
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(width: 8), // مسافة بادئة من اليمين
           ],
