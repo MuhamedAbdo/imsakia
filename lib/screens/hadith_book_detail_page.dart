@@ -59,7 +59,13 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
     }
   }
 
-  // البحث عن الأحاديث
+  /// الحصول على معاينة مختصرة من نص الحديث (أول 150 حرف)
+  String _getPreviewText(String text) {
+    if (text.length <= 150) return text;
+    return '${text.substring(0, 150)}...';
+  }
+
+  // البحث عن الأحاديث مع تحسين الأولوية وإزالة التشكيل
   Future<void> _searchHadiths(String query) async {
     if (query.isEmpty) {
       setState(() {
@@ -68,7 +74,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
       return;
     }
 
-    final results = await HadithComputeService.searchHadiths(_hadiths, query);
+    final results = await HadithComputeService.searchHadithsWithSmartFilter(_hadiths, query);
     if (mounted) {
       setState(() {
         _filteredHadiths = results;
@@ -96,25 +102,40 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                   ? const Center(child: CircularProgressIndicator())
                   : _filteredHadiths.isEmpty
                       ? Center(
-                          child: Text(
-                            'لا يوجد أحاديث متاحة',
-                            style: GoogleFonts.tajawal(
-                              color: isDark ? Colors.white70 : Colors.black54,
-                            ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.search_off_rounded,
+                                size: 64,
+                                color: isDark ? Colors.white38 : Colors.black38,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'عذراً، لم يتم العثور على أحاديث تطابق بحثك',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.tajawal(
+                                  fontSize: 16,
+                                  color: isDark ? Colors.white70 : Colors.black54,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'جرب كلمات مفتاحية أخرى أو رقم حديث مختلف',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.tajawal(
+                                  fontSize: 14,
+                                  color: isDark ? Colors.white54 : Colors.black38,
+                                ),
+                              ),
+                            ],
                           ),
                         )
                       : Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const SizedBox(height: 20),
-                            Text(
-                              'أحاديث ${widget.book.title}',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: widget.book.coverColor,
-                              ),
-                            ),
                             const SizedBox(height: 15),
                             // شريط البحث
                             Padding(
@@ -183,7 +204,59 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
       },
     );
   }
+  /// تظليل نص البحث داخل النص المعروض
+  Widget _highlightText(String text, String query, TextStyle style) {
+    if (query.isEmpty) return Text(text, style: style);
+    
+    final List<TextSpan> spans = [];
+    final lowerText = text.toLowerCase();
+    final lowerQuery = query.toLowerCase();
+    int start = 0;
+    
+    while (true) {
+      final index = lowerText.indexOf(lowerQuery, start);
+      if (index == -1) break;
+      
+      // النص قبل التظليل
+      if (index > start) {
+        spans.add(TextSpan(
+          text: text.substring(start, index),
+          style: style,
+        ));
+      }
+      
+      // النص المظلل
+      spans.add(TextSpan(
+        text: text.substring(index, index + query.length),
+        style: style.copyWith(
+          backgroundColor: const Color(0xFFFFD700).withValues(alpha: 0.3),
+          color: Colors.black87,
+          fontWeight: FontWeight.bold,
+        ),
+      ));
+      
+      start = index + query.length;
+    }
+    
+    // النص المتبقي
+    if (start < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(start),
+        style: style,
+      ));
+    }
+    
+    return RichText(
+      text: TextSpan(children: spans),
+      textAlign: TextAlign.right,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
   Widget _buildHadithCard(HadithItem hadith, bool isDark) {
+    final searchQuery = _searchController.text.trim();
+    
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Card(
@@ -217,31 +290,42 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // CircleAvatar لرقم الحديث
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: widget.book.coverColor,
-                  child: Text(
-                    '${hadith.number}',
-                    style: GoogleFonts.tajawal(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                // CircleAvatar لرقم الحديث مع تظليل إذا تطابق
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: searchQuery == hadith.number.toString() 
+                        ? const Color(0xFFFFD700).withValues(alpha: 0.3)
+                        : widget.book.coverColor,
+                    borderRadius: BorderRadius.circular(22),
+                    border: searchQuery == hadith.number.toString()
+                        ? Border.all(color: const Color(0xFFFFD700), width: 2)
+                        : null,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${hadith.number}',
+                      style: GoogleFonts.tajawal(
+                        color: searchQuery == hadith.number.toString() 
+                            ? Colors.black87 
+                            : Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
-                // نص الحديث
+                // نص الحديث مع التظليل
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
-                        hadith.preview,
-                        textAlign: TextAlign.right,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.amiri(
+                      _highlightText(
+                        _getPreviewText(hadith.hadith),
+                        searchQuery,
+                        GoogleFonts.amiri(
                           fontSize: 16,
                           height: 1.4,
                           color: isDark ? Colors.white : Colors.black87,
@@ -290,7 +374,15 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          // تعديل اتجاه AppBar للاتجاه العربي
+          title: Text(
+            'فهرس ${widget.book.title}',
+            style: GoogleFonts.tajawal(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          centerTitle: true,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
             onPressed: () => Navigator.pop(context),
