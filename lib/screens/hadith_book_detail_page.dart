@@ -480,40 +480,40 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                           ),
                           // المحتوى (الأيقونة والنصوص) - محاذاة صريحة لليسار
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(25, 40, 60, 40),
+                            padding: const EdgeInsets.fromLTRB(15, 20, 40, 20),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Align(
                                   alignment: Alignment.centerLeft,
-                                  child: Icon(Icons.auto_stories_rounded, color: Color(0xFFFFD700), size: 70),
+                                  child: Icon(Icons.auto_stories_rounded, color: Color(0xFFFFD700), size: 50),
                                 ),
-                                const SizedBox(height: 40),
+                                const SizedBox(height: 20),
                                 SizedBox(
                                   width: double.infinity,
                                   child: Text(
                                     widget.book.title,
                                     textAlign: TextAlign.left,
-                                    style: GoogleFonts.amiri(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white, height: 1.3),
+                                    style: GoogleFonts.amiri(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white, height: 1.3),
                                   ),
                                 ),
-                                const SizedBox(height: 20),
+                                const SizedBox(height: 15),
                                 Align(
                                   alignment: Alignment.centerLeft,
                                   child: Container(
-                                    width: 60,
+                                    width: 50,
                                     height: 2,
                                     color: Colors.white.withValues(alpha: 0.5),
                                   ),
                                 ),
-                                const SizedBox(height: 20),
+                                const SizedBox(height: 15),
                                 SizedBox(
                                   width: double.infinity,
                                   child: Text(
                                     widget.book.author,
                                     textAlign: TextAlign.left,
-                                    style: GoogleFonts.tajawal(fontSize: 14, color: Colors.white70, fontWeight: FontWeight.w500),
+                                    style: GoogleFonts.tajawal(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.w500),
                                   ),
                                 ),
                               ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/hadith_item.dart';
 
 class HadithReadingPage extends StatefulWidget {
@@ -26,17 +27,37 @@ class HadithReadingPage extends StatefulWidget {
 class _HadithReadingPageState extends State<HadithReadingPage> {
   late PageController _pageController;
   late int _currentIndex;
+  double _currentFontSize = 18.0; // حجم الخط الحالي
+  double _currentLineHeight = 1.6; // التباعد بين الأسطر الحالي
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.currentIndex;
     _pageController = PageController(initialPage: _currentIndex);
+    _loadSettings();
+  }
+
+  /// تحميل إعدادات الخط والتباعد المحفوظة
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _currentFontSize = prefs.getDouble('hadith_font_size') ?? 18.0;
+      _currentLineHeight = prefs.getDouble('hadith_line_height') ?? 1.6;
+    });
+  }
+
+  /// حفظ إعدادات الخط والتباعد
+  Future<void> _saveSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('hadith_font_size', _currentFontSize);
+    await prefs.setDouble('hadith_line_height', _currentLineHeight);
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _saveSettings(); // حفظ الإعدادات عند الخروج
     super.dispose();
   }
 
@@ -63,8 +84,12 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          centerTitle: true,
           actions: [
+            IconButton(
+              icon: const Icon(Icons.text_fields, color: Colors.white),
+              onPressed: () => _showFontSettingsSheet(context),
+              tooltip: 'حجم الخط',
+            ),
             IconButton(
               icon: const Icon(Icons.bookmark_border_rounded, color: Colors.white),
               onPressed: () {
@@ -79,6 +104,7 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
             ),
             const SizedBox(width: 8),
           ],
+          centerTitle: true,
         ),
         body: PageView.builder(
           controller: _pageController,
@@ -93,6 +119,192 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
             final currentHadith = widget.allHadiths[index];
             return _buildHadithContent(currentHadith, isDark);
           },
+        ),
+      ),
+    );
+  }
+
+  /// عرض صفحة الشرح كـ BottomSheet
+  void _showExplanationSheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final currentHadith = widget.allHadiths[_currentIndex];
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        builder: (_, _) => Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(25),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: widget.coverColor,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(25),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'شرح الحديث رقم ${currentHadith.number}',
+                      style: GoogleFonts.tajawal(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+              // Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(
+                    currentHadith.description,
+                    textAlign: TextAlign.right,
+                    style: GoogleFonts.amiri(
+                      fontSize: 18,
+                      height: 1.6,
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ),
+              // Bottom padding
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showFontSettingsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        builder: (_, _) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(25),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: widget.coverColor,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(25),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'إعدادات الخط',
+                      style: GoogleFonts.tajawal(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+              // Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      // Font size slider
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'حجم الخط',
+                            style: GoogleFonts.tajawal(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Slider(
+                            value: _currentFontSize,
+                            min: 12,
+                            max: 24,
+                            divisions: 12,
+                            label: _currentFontSize.round().toString(),
+                            onChanged: (value) {
+                              setState(() {
+                                _currentFontSize = value;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      // Line height slider
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'التباعد بين الأسطر',
+                            style: GoogleFonts.tajawal(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Slider(
+                            value: _currentLineHeight,
+                            min: 1.0,
+                            max: 2.0,
+                            divisions: 10,
+                            label: _currentLineHeight.toStringAsFixed(1),
+                            onChanged: (value) {
+                              setState(() {
+                                _currentLineHeight = value;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Bottom padding
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
@@ -146,8 +358,8 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
                   hadith.hadith,
                   textAlign: TextAlign.right,
                   style: GoogleFonts.amiri(
-                    fontSize: 18,
-                    height: 1.6,
+                    fontSize: _currentFontSize,
+                    height: _currentLineHeight,
                     color: isDark ? Colors.white : Colors.black87,
                     fontWeight: FontWeight.w600,
                   ),
@@ -158,68 +370,25 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
           
           const SizedBox(height: 30),
           
-          // عنوان الشرح
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: widget.coverColor,
-              borderRadius: const BorderRadius.only(
-                topRight: Radius.circular(15),
-                topLeft: Radius.circular(15),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(
-                  'شرح الحديث',
-                  style: GoogleFonts.tajawal(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+          // زر شرح الحديث
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: ElevatedButton.icon(
+              onPressed: () => _showExplanationSheet(context),
+              icon: const Icon(Icons.lightbulb_outline_rounded),
+              label: Text(
+                'شرح الحديث',
+                style: GoogleFonts.tajawal(
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(width: 8),
-                const Icon(
-                  Icons.lightbulb_outline_rounded,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ],
-            ),
-          ),
-          
-          // نص الشرح
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.grey[900] : Colors.white,
-              borderRadius: const BorderRadius.only(
-                bottomRight: Radius.circular(15),
-                bottomLeft: Radius.circular(15),
               ),
-              border: Border.all(
-                color: widget.coverColor.withValues(alpha: 0.2),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: widget.coverColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25),
                 ),
-              ],
-            ),
-            child: Text(
-              hadith.description,
-              textAlign: TextAlign.right,
-              style: GoogleFonts.amiri(
-                fontSize: 16,
-                height: 1.6,
-                color: isDark ? Colors.white70 : Colors.black87,
-                fontWeight: FontWeight.w400,
               ),
             ),
           ),
