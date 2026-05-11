@@ -124,7 +124,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                                   color: isDark ? Colors.grey[800] : Colors.grey[100],
                                   borderRadius: BorderRadius.circular(25),
                                   border: Border.all(
-                                    color: widget.book.coverColor.withValues(alpha: 0.3),
+                                    color: widget.book.coverColor.withAlpha(32),
                                   ),
                                 ),
                                 child: TextField(
@@ -206,6 +206,8 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                   hadith: hadith,
                   bookTitle: widget.book.title,
                   coverColor: widget.book.coverColor,
+                  allHadiths: _hadiths,
+                  currentIndex: _filteredHadiths.indexOf(hadith),
                 ),
               ),
             );
@@ -288,18 +290,13 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
+          // تعديل اتجاه AppBar للاتجاه العربي
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
             onPressed: () => Navigator.pop(context),
           ),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.search_rounded, color: Colors.white, size: 28),
-              onPressed: () {
-                // Future search implementation
-              },
-            ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 8), // مسافة بادئة من اليمين
           ],
         ),
         body: Stack(
@@ -321,103 +318,122 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
             ),
 
             // Animated Book Cover (الغلاف المتحرك)
+            // تعديل الأنميشن لفتح الكتاب من جهة اليمين (كعب الكتاب العربي)
             AnimatedPositioned(
               duration: const Duration(milliseconds: 1000),
               curve: Curves.easeInOutQuart,
               top: _isCoverOpen ? -MediaQuery.of(context).size.height : 20,
-              left: 0,
-              right: 0,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 600),
-                opacity: _isCoverOpen ? 0.0 : 1.0,
-                child: Center(
-                  child: Hero(
-                    tag: widget.book.jsonPath,
-                    child: Container(
-                      width: MediaQuery.of(context).size.width * 0.75,
-                      height: (MediaQuery.of(context).size.width * 0.75) * (3 / 2),
-                      decoration: BoxDecoration(
-                        color: widget.book.coverColor,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(10),
-                          bottomLeft: Radius.circular(10),
-                          topRight: Radius.circular(30),
-                          bottomRight: Radius.circular(30),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.4),
-                            blurRadius: 30,
-                            spreadRadius: 5,
-                            offset: const Offset(-10, 15),
+              left: _isCoverOpen ? 0 : 0,
+              right: _isCoverOpen ? 0 : 0,
+              child: AnimatedRotation(
+                turns: _isCoverOpen ? -0.05 : 0.0, // دوران خفيف لمحاكاة فتح الكتاب من اليمين
+                duration: const Duration(milliseconds: 1000),
+                curve: Curves.easeInOutQuart,
+                alignment: Alignment.centerRight, // محور الدوران من جهة اليمين
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 600),
+                  opacity: _isCoverOpen ? 0.0 : 1.0,
+                  child: Center(
+                    child: Hero(
+                      tag: widget.book.jsonPath,
+                      child: Container(
+                        width: MediaQuery.of(context).size.width * 0.75,
+                        height: (MediaQuery.of(context).size.width * 0.75) * (3 / 2),
+                        decoration: BoxDecoration(
+                          color: widget.book.coverColor,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(20),
+                            bottomLeft: Radius.circular(20),
+                            topRight: Radius.circular(6),
+                            bottomRight: Radius.circular(6),
                           ),
-                        ],
-                      ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.4),
+                              blurRadius: 30,
+                              spreadRadius: 5,
+                              offset: const Offset(4, 15),
+                            ),
+                          ],
+                        ),
                       child: Stack(
                         children: [
-                          // Spine shadow
+                          // كعب الكتاب (Spine) - اليمين
                           Positioned(
-                            left: 0,
+                            right: 0,
                             top: 0,
                             bottom: 0,
                             width: 40,
                             child: Container(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                  colors: [
-                                    Colors.black.withValues(alpha: 0.3),
-                                    Colors.transparent,
-                                  ],
+                                  begin: Alignment.centerRight,
+                                  end: Alignment.centerLeft,
+                                  colors: [Colors.black.withValues(alpha: 0.35), Colors.transparent],
                                 ),
                                 borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(10),
-                                  bottomLeft: Radius.circular(10),
+                                  topRight: Radius.circular(6),
+                                  bottomRight: Radius.circular(6),
                                 ),
                               ),
                             ),
                           ),
-                          // Content
+                          // الخط الفاصل الذهبي
+                          Positioned(
+                            right: 37,
+                            top: 0,
+                            bottom: 0,
+                            width: 2,
+                            child: Container(color: Colors.white.withValues(alpha: 0.15)),
+                          ),
+                          // المحتوى (الأيقونة والنصوص) - محاذاة صريحة لليسار
                           Padding(
-                            padding: const EdgeInsets.all(30.0),
+                            padding: const EdgeInsets.fromLTRB(25, 40, 60, 40),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(
-                                  Icons.auto_stories_rounded,
-                                  color: Color(0xFFFFD700),
-                                  size: 80,
+                                const Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Icon(Icons.auto_stories_rounded, color: Color(0xFFFFD700), size: 70),
                                 ),
                                 const SizedBox(height: 40),
-                                Text(
-                                  widget.book.title,
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.amiri(
-                                    fontSize: 36,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    height: 1.4,
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: Text(
+                                    widget.book.title,
+                                    textAlign: TextAlign.left,
+                                    style: GoogleFonts.amiri(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white, height: 1.3),
                                   ),
                                 ),
                                 const SizedBox(height: 20),
-                                Container(
-                                  width: 60,
-                                  height: 2,
-                                  color: Colors.white.withValues(alpha: 0.5),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Container(
+                                    width: 60,
+                                    height: 2,
+                                    color: Colors.white.withValues(alpha: 0.5),
+                                  ),
                                 ),
                                 const SizedBox(height: 20),
-                                Text(
-                                  widget.book.author,
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.tajawal(
-                                    fontSize: 16,
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: 0.5,
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: Text(
+                                    widget.book.author,
+                                    textAlign: TextAlign.left,
+                                    style: GoogleFonts.tajawal(fontSize: 14, color: Colors.white70, fontWeight: FontWeight.w500),
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+                          // أيقونة التزيين
+                          Positioned(
+                            right: 12,
+                            top: 15,
+                            child: Opacity(
+                              opacity: 0.3,
+                              child: Icon(Icons.star_border_rounded, color: Colors.white, size: 20),
                             ),
                           ),
                         ],
@@ -427,7 +443,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                 ),
               ),
             ),
-          ],
+        ),],
         ),
       ),
     );

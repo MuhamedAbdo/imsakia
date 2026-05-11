@@ -117,6 +117,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       const HomeScreen(),
       const QiblaCompassScreen(),
       const TasbihScreen(),
+      const HadithLibraryPage(),
       SettingsScreen(
         onSettingsSaved: () {
           if (mounted) {

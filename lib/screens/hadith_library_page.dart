@@ -107,7 +107,6 @@ class HadithLibraryPage extends StatelessWidget {
 
 class BookCard extends StatelessWidget {
   final HadithBook book;
-
   const BookCard({super.key, required this.book});
 
   @override
@@ -131,103 +130,88 @@ class BookCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: book.coverColor,
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(8),
-                bottomLeft: Radius.circular(8),
-                topRight: Radius.circular(20),
-                bottomRight: Radius.circular(20),
+                topLeft: Radius.circular(20),
+                bottomLeft: Radius.circular(20),
+                topRight: Radius.circular(6),
+                bottomRight: Radius.circular(6),
               ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 12,
-                  offset: const Offset(-4, 6), // Light shadow to the left for 3D effect
+                  offset: const Offset(4, 6),
                 ),
               ],
             ),
             child: Stack(
               children: [
-                // Book Spine Gradient
+                // 1. كعب الكتاب (Spine) - اليمين
                 Positioned(
-                  left: 0,
+                  right: 0,
                   top: 0,
                   bottom: 0,
                   width: 25,
                   child: Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.3),
-                          Colors.transparent,
-                        ],
+                        begin: Alignment.centerRight,
+                        end: Alignment.centerLeft,
+                        colors: [Colors.black.withValues(alpha: 0.35), Colors.transparent],
                       ),
                       borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(8),
-                        bottomLeft: Radius.circular(8),
+                        topRight: Radius.circular(6),
+                        bottomRight: Radius.circular(6),
                       ),
                     ),
                   ),
                 ),
-                // Gold decoration line
+                // 2. الخط الفاصل الذهبي
                 Positioned(
-                  left: 28,
+                  right: 22,
                   top: 0,
                   bottom: 0,
-                  width: 1,
-                  child: Container(
-                    color: Colors.white.withValues(alpha: 0.15),
-                  ),
+                  width: 1.5,
+                  child: Container(color: Colors.white.withValues(alpha: 0.15)),
                 ),
-                // Content
+                // 3. المحتوى (الأيقونة والنصوص) - محاذاة صريحة لليسار
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 20, 20, 20),
+                  padding: const EdgeInsets.fromLTRB(15, 25, 40, 25),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.auto_stories_rounded,
-                        color: Color(0xFFFFD700), // Gold
-                        size: 32,
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Icon(Icons.auto_stories_rounded, color: Color(0xFFFFD700), size: 28),
                       ),
                       const SizedBox(height: 20),
-                      Text(
-                        book.title,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.amiri(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          height: 1.4,
+                      SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          book.title,
+                          textAlign: TextAlign.left,
+                          style: GoogleFonts.amiri(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white, height: 1.3),
                         ),
                       ),
                       const Spacer(),
-                      Text(
-                        book.author,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.tajawal(
-                          fontSize: 11,
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.3,
+                      SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          book.author,
+                          textAlign: TextAlign.left,
+                          style: GoogleFonts.tajawal(fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w500),
                         ),
                       ),
                     ],
                   ),
                 ),
-                // Corner decoration (Premium feel)
+                // 4. أيقونة التزيين
                 Positioned(
-                  right: 10,
-                  top: 10,
+                  right: 8,
+                  top: 12,
                   child: Opacity(
-                    opacity: 0.2,
-                    child: Icon(
-                      Icons.star_border_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                    opacity: 0.3,
+                    child: Icon(Icons.star_border_rounded, color: Colors.white, size: 16),
                   ),
                 ),
               ],
