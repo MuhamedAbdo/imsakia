@@ -1,0 +1,239 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../models/hadith_book.dart';
+import 'hadith_book_detail_page.dart';
+
+class HadithLibraryPage extends StatelessWidget {
+  const HadithLibraryPage({super.key});
+
+  static const List<HadithBook> books = [
+    HadithBook(
+      title: 'صحيح البخاري',
+      jsonPath: 'assets/data/bukhari.json',
+      coverColor: Color(0xFF1B5E20), // Deep Green
+      author: 'الإمام البخاري',
+    ),
+    HadithBook(
+      title: 'صحيح مسلم',
+      jsonPath: 'assets/data/muslim.json',
+      coverColor: Color(0xFF0D47A1), // Deep Blue
+      author: 'الإمام مسلم',
+    ),
+    HadithBook(
+      title: 'سنن أبي داود',
+      jsonPath: 'assets/data/abi_daud.json',
+      coverColor: Color(0xFF4E342E), // Brown
+      author: 'الإمام أبو داود',
+    ),
+    HadithBook(
+      title: 'مسند أحمد',
+      jsonPath: 'assets/data/ahmed.json',
+      coverColor: Color(0xFF37474F), // Blue Grey
+      author: 'الإمام أحمد بن حنبل',
+    ),
+    HadithBook(
+      title: 'سنن الدارمي',
+      jsonPath: 'assets/data/darimi.json',
+      coverColor: Color(0xFF004D40), // Teal
+      author: 'الإمام الدارمي',
+    ),
+    HadithBook(
+      title: 'سنن ابن ماجه',
+      jsonPath: 'assets/data/ibn_maja.json',
+      coverColor: Color(0xFFBF360C), // Deep Orange
+      author: 'الإمام ابن ماجه',
+    ),
+    HadithBook(
+      title: 'موطأ مالك',
+      jsonPath: 'assets/data/malik.json',
+      coverColor: Color(0xFF311B92), // Deep Purple
+      author: 'الإمام مالك بن أنس',
+    ),
+    HadithBook(
+      title: 'سنن النسائي',
+      jsonPath: 'assets/data/nasai.json',
+      coverColor: Color(0xFF880E4F), // Maroon
+      author: 'الإمام النسائي',
+    ),
+    HadithBook(
+      title: 'جامع الترمذي',
+      jsonPath: 'assets/data/trmizi.json',
+      coverColor: Color(0xFFE65100), // Orange
+      author: 'الإمام الترمذي',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF7F8FA),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: Text(
+            'مكتبة الحديث الشريف',
+            style: GoogleFonts.tajawal(
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : const Color(0xFF263238),
+            ),
+          ),
+          centerTitle: true,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_ios_new, color: isDark ? Colors.white : Colors.black87),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        body: GridView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 20,
+            mainAxisSpacing: 25,
+            childAspectRatio: 2 / 3,
+          ),
+          itemCount: books.length,
+          itemBuilder: (context, index) {
+            return BookCard(book: books[index]);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class BookCard extends StatelessWidget {
+  final HadithBook book;
+
+  const BookCard({super.key, required this.book});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          PageRouteBuilder(
+            transitionDuration: const Duration(milliseconds: 600),
+            reverseTransitionDuration: const Duration(milliseconds: 600),
+            pageBuilder: (context, animation, secondaryAnimation) => HadithBookDetailPage(book: book),
+          ),
+        );
+      },
+      child: Hero(
+        tag: book.jsonPath,
+        child: AspectRatio(
+          aspectRatio: 2 / 3,
+          child: Container(
+            decoration: BoxDecoration(
+              color: book.coverColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(8),
+                bottomLeft: Radius.circular(8),
+                topRight: Radius.circular(20),
+                bottomRight: Radius.circular(20),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  offset: const Offset(-4, 6), // Light shadow to the left for 3D effect
+                ),
+              ],
+            ),
+            child: Stack(
+              children: [
+                // Book Spine Gradient
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 25,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.3),
+                          Colors.transparent,
+                        ],
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(8),
+                        bottomLeft: Radius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+                // Gold decoration line
+                Positioned(
+                  left: 28,
+                  top: 0,
+                  bottom: 0,
+                  width: 1,
+                  child: Container(
+                    color: Colors.white.withValues(alpha: 0.15),
+                  ),
+                ),
+                // Content
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 20, 20, 20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.auto_stories_rounded,
+                        color: Color(0xFFFFD700), // Gold
+                        size: 32,
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        book.title,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.amiri(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          height: 1.4,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        book.author,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.tajawal(
+                          fontSize: 10,
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Corner decoration (Premium feel)
+                Positioned(
+                  right: 10,
+                  top: 10,
+                  child: Opacity(
+                    opacity: 0.2,
+                    child: Icon(
+                      Icons.star_border_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
