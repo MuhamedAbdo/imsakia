@@ -208,9 +208,10 @@ class BookCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.tajawal(
-                          fontSize: 10,
+                          fontSize: 11,
                           color: Colors.white70,
                           fontWeight: FontWeight.w500,
+                          letterSpacing: 0.3,
                         ),
                       ),
                     ],
