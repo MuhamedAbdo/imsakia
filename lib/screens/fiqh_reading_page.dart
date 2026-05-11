@@ -33,26 +33,32 @@ class _FiqhReadingPageState extends State<FiqhReadingPage> {
   double _currentLineHeight = 1.6; // التباعد بين الأسطر الحالي
   bool _isBookmarked = false;
 
+  // ValueNotifier for reactive state management
+  late final ValueNotifier<double> _fontSizeNotifier;
+  late final ValueNotifier<double> _lineHeightNotifier;
+
   @override
   void initState() {
     super.initState();
+    _fontSizeNotifier = ValueNotifier<double>(_currentFontSize);
+    _lineHeightNotifier = ValueNotifier<double>(_currentLineHeight);
     _loadSettings();
     _checkBookmarkStatus();
   }
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _currentFontSize = prefs.getDouble('fiqh_font_size') ?? 18.0;
-      _currentLineHeight = prefs.getDouble('fiqh_line_height') ?? 1.6;
-    });
+    _currentFontSize = prefs.getDouble('fiqh_font_size') ?? 18.0;
+    _currentLineHeight = prefs.getDouble('fiqh_line_height') ?? 1.6;
+    _fontSizeNotifier.value = _currentFontSize;
+    _lineHeightNotifier.value = _currentLineHeight;
   }
 
   /// حفظ إعدادات الخط والتباعد
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('fiqh_font_size', _currentFontSize);
-    await prefs.setDouble('fiqh_line_height', _currentLineHeight);
+    await prefs.setDouble('fiqh_font_size', _fontSizeNotifier.value);
+    await prefs.setDouble('fiqh_line_height', _lineHeightNotifier.value);
   }
 
   Future<void> _checkBookmarkStatus() async {
@@ -173,54 +179,66 @@ class _FiqhReadingPageState extends State<FiqhReadingPage> {
                 child: Column(
                   children: [
                     // Font size slider
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'حجم الخط',
-                          style: GoogleFonts.tajawal(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Slider(
-                          value: _currentFontSize,
-                          min: 12,
-                          max: 24,
-                          divisions: 12,
-                          label: _currentFontSize.round().toString(),
-                          onChanged: (value) {
-                            setState(() {
-                              _currentFontSize = value;
-                            });
-                          },
-                        ),
-                      ],
+                    ValueListenableBuilder<double>(
+                      valueListenable: _fontSizeNotifier,
+                      builder: (context, fontSize, child) {
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'حجم الخط',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Slider(
+                              value: fontSize,
+                              min: 12,
+                              max: 24,
+                              divisions: 12,
+                              label: fontSize.round().toString(),
+                              onChanged: (value) {
+                                _fontSizeNotifier.value = value;
+                              },
+                              onChangeEnd: (value) {
+                                _saveSettings();
+                              },
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     // Line height slider
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'التباعد بين الأسطر',
-                          style: GoogleFonts.tajawal(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Slider(
-                          value: _currentLineHeight,
-                          min: 1.0,
-                          max: 2.0,
-                          divisions: 10,
-                          label: _currentLineHeight.toStringAsFixed(1),
-                          onChanged: (value) {
-                            setState(() {
-                              _currentLineHeight = value;
-                            });
-                          },
-                        ),
-                      ],
+                    ValueListenableBuilder<double>(
+                      valueListenable: _lineHeightNotifier,
+                      builder: (context, lineHeight, child) {
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'التباعد بين الأسطر',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Slider(
+                              value: lineHeight,
+                              min: 1.0,
+                              max: 2.0,
+                              divisions: 10,
+                              label: lineHeight.toStringAsFixed(1),
+                              onChanged: (value) {
+                                _lineHeightNotifier.value = value;
+                              },
+                              onChangeEnd: (value) {
+                                _saveSettings();
+                              },
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -451,13 +469,26 @@ class _FiqhReadingPageState extends State<FiqhReadingPage> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          Text(
-                            widget.question.answer,
-                            style: GoogleFonts.tajawal(
-                              fontSize: _currentFontSize,
-                              color: isDark ? Colors.white : Colors.black87,
-                              height: _currentLineHeight,
-                            ),
+                          // Answer text with reactive font settings
+                          ValueListenableBuilder<double>(
+                            valueListenable: _fontSizeNotifier,
+                            builder: (context, fontSize, child) {
+                              return ValueListenableBuilder<double>(
+                                valueListenable: _lineHeightNotifier,
+                                builder: (context, lineHeight, child) {
+                                  return Text(
+                                    widget.question.answer,
+                                    style: GoogleFonts.tajawal(
+                                      fontSize: fontSize,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Colors.black87,
+                                      height: lineHeight,
+                                    ),
+                                  );
+                                },
+                              );
+                            },
                           ),
                         ],
                       ),

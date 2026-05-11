@@ -36,6 +36,10 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
   double _currentLineHeight = 1.6; // التباعد بين الأسطر الحالي
   final Set<int> _bookmarkedHadiths = <int>{};
 
+  // ValueNotifier for font settings to ensure proper state propagation
+  final _fontSizeNotifier = ValueNotifier<double>(18.0);
+  final _lineHeightNotifier = ValueNotifier<double>(1.6);
+
   @override
   void initState() {
     super.initState();
@@ -57,14 +61,16 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
     setState(() {
       _currentFontSize = prefs.getDouble('hadith_font_size') ?? 18.0;
       _currentLineHeight = prefs.getDouble('hadith_line_height') ?? 1.6;
+      _fontSizeNotifier.value = _currentFontSize;
+      _lineHeightNotifier.value = _currentLineHeight;
     });
   }
 
   /// حفظ إعدادات الخط والتباعد
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('hadith_font_size', _currentFontSize);
-    await prefs.setDouble('hadith_line_height', _currentLineHeight);
+    await prefs.setDouble('hadith_font_size', _fontSizeNotifier.value);
+    await prefs.setDouble('hadith_line_height', _lineHeightNotifier.value);
   }
 
   Future<void> _toggleBookmark() async {
@@ -147,70 +153,75 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
                 child: Column(
                   children: [
                     // Font size slider
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'حجم الخط',
-                          style: GoogleFonts.tajawal(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Slider(
-                          value: _currentFontSize,
-                          min: 12,
-                          max: 24,
-                          divisions: 12,
-                          label: _currentFontSize.round().toString(),
-                          onChanged: (value) {
-                            setState(() {
-                              _currentFontSize = value;
-                            });
-                            _saveSettings(); // حفظ فوراً عند التغيير
-                          },
-                        ),
-                      ],
+                    ValueListenableBuilder<double>(
+                      valueListenable: _fontSizeNotifier,
+                      builder: (context, fontSize, child) {
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'حجم الخط',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Slider(
+                              value: fontSize,
+                              min: 12,
+                              max: 24,
+                              divisions: 12,
+                              label: fontSize.round().toString(),
+                              onChanged: (value) {
+                                _fontSizeNotifier.value = value;
+                              },
+                              onChangeEnd: (value) {
+                                _saveSettings();
+                              },
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     // Line height slider
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'التباعد بين الأسطر',
-                          style: GoogleFonts.tajawal(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Slider(
-                          value: _currentLineHeight,
-                          min: 1.0,
-                          max: 2.0,
-                          divisions: 10,
-                          label: _currentLineHeight.toStringAsFixed(1),
-                          onChanged: (value) {
-                            setState(() {
-                              _currentLineHeight = value;
-                            });
-                            _saveSettings(); // حفظ فوراً عند التغيير
-                          },
-                        ),
-                      ],
+                    ValueListenableBuilder<double>(
+                      valueListenable: _lineHeightNotifier,
+                      builder: (context, lineHeight, child) {
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'التباعد بين الأسطر',
+                              style: GoogleFonts.tajawal(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Slider(
+                              value: lineHeight,
+                              min: 1.0,
+                              max: 2.0,
+                              divisions: 10,
+                              label: lineHeight.toStringAsFixed(1),
+                              onChanged: (value) {
+                                _lineHeightNotifier.value = value;
+                              },
+                              onChangeEnd: (value) {
+                                _saveSettings();
+                              },
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
               ),
             ),
-            // Bottom padding
-            const SizedBox(height: 20),
           ],
         ),
       ),
-    ).then((_) {
-      // حفظ الإعدادات عند الإغلاق
-      _saveSettings();
-    });
+    );
   }
 
   void _shareHadith() async {
@@ -298,15 +309,25 @@ ${currentHadith.description}
               const SizedBox(height: 16),
 
               // Hadith text
-              Text(
-                hadith.hadith,
-                textAlign: TextAlign.right,
-                style: GoogleFonts.amiri(
-                  fontSize: _currentFontSize,
-                  height: _currentLineHeight,
-                  color: isDark ? Colors.white : Colors.black87,
-                  fontWeight: FontWeight.w400,
-                ),
+              ValueListenableBuilder<double>(
+                valueListenable: _fontSizeNotifier,
+                builder: (context, fontSize, child) {
+                  return ValueListenableBuilder<double>(
+                    valueListenable: _lineHeightNotifier,
+                    builder: (context, lineHeight, child) {
+                      return Text(
+                        hadith.hadith,
+                        textAlign: TextAlign.right,
+                        style: GoogleFonts.amiri(
+                          fontSize: fontSize,
+                          height: lineHeight,
+                          color: isDark ? Colors.white : Colors.black87,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
               const SizedBox(height: 20),
 
