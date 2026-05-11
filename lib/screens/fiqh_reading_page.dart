@@ -93,21 +93,17 @@ class _FiqhReadingPageState extends State<FiqhReadingPage> {
   Future<void> _shareContent() async {
     final String content =
         '''
-📚 ${widget.bookTitle}
+❓ السؤال: ${widget.question.question}
 
-❓ السؤال:
-${widget.question}
+✅ الإجابة: ${widget.question.answer}
 
-💡 الإجابة:
-${widget.question.answer}
+📚 المصدر: ${widget.bookTitle}
 
-🔖 ${widget.question.tags.join(' • ')}
-
-📱 تمت المشاركة من تطبيق إمساكية
+📱 تمت المشاركة من تطبيق زاد
     ''';
 
     try {
-      await Share.share(content, subject: 'سؤال وجواب من ${widget.bookTitle}');
+      await Share.share(content);
     } catch (e) {
       _showSnackBar('حدث خطأ أثناء المشاركة');
     }
