@@ -123,6 +123,9 @@ flutter:
     - assets/images/maghrib_sunset.png
     - assets/images/isha_night.png
     - assets/images/bg_v2.png
+    - assets/images/body_wooden.png
+    - assets/images/main_button_wooden.png
+    - assets/images/reset_button_wooden.png
     - assets/images/events/
     - assets/audio/
     - assets/fonts/

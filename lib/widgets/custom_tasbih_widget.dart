@@ -2,92 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'dart:math' as math;
 import 'neumorphic_box.dart';
-
-class WoodGrainPainter extends CustomPainter {
-  final bool isDark;
-
-  WoodGrainPainter({required this.isDark});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Main wood grain lines
-    final mainPaint = Paint()
-      ..color = isDark
-          ? const Color(0xFF2C1810).withValues(alpha: 0.15) // تحديث هنا
-          : const Color(0xFF8B4513).withValues(alpha: 0.2) // تحديث هنا
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-
-    // Fine wood grain detail
-    final detailPaint = Paint()
-      ..color = isDark
-          ? const Color(0xFF1A0E08).withValues(alpha: 0.08) // تحديث هنا
-          : const Color(0xFFD2691E).withValues(alpha: 0.1) // تحديث هنا
-      ..strokeWidth = 0.3
-      ..style = PaintingStyle.stroke;
-
-    // Draw main wood grain lines
-    for (int i = 0; i < 25; i++) {
-      final y = (size.height / 25) * i;
-      const startX = 0.0;
-      final endX = size.width;
-
-      final path = Path();
-      path.moveTo(startX, y);
-
-      for (double x = startX; x <= endX; x += 8) {
-        final wave = math.sin(x * 0.02) * 2;
-        final offsetY = y + wave + (i % 3 == 0 ? 1 : -1) * 2;
-        path.lineTo(x, offsetY);
-      }
-
-      canvas.drawPath(path, mainPaint);
-    }
-
-    // Draw fine wood grain details
-    for (int i = 0; i < 40; i++) {
-      final y = (size.height / 40) * i + 5;
-      const startX = 10.0;
-      final endX = size.width - 10;
-
-      final path = Path();
-      path.moveTo(startX, y);
-
-      for (double x = startX; x <= endX; x += 15) {
-        final wave = math.sin(x * 0.05) * 1;
-        final offsetY = y + wave;
-        path.lineTo(x, offsetY);
-      }
-
-      canvas.drawPath(path, detailPaint);
-    }
-
-    // Add wood knots
-    final knotPaint = Paint()
-      ..color = isDark
-          ? const Color(0xFF1A0E08).withValues(alpha: 0.3) // تحديث هنا
-          : const Color(0xFF8B4513).withValues(alpha: 0.4) // تحديث هنا
-      ..style = PaintingStyle.fill;
-
-    final knots = [
-      Offset(size.width * 0.3, size.height * 0.2),
-      Offset(size.width * 0.7, size.height * 0.4),
-      Offset(size.width * 0.5, size.height * 0.7),
-    ];
-
-    for (final knot in knots) {
-      canvas.drawOval(
-        Rect.fromCenter(center: knot, width: 8, height: 4),
-        knotPaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
 
 class CustomTasbih extends StatefulWidget {
   const CustomTasbih({super.key});
@@ -96,45 +11,26 @@ class CustomTasbih extends StatefulWidget {
   State<CustomTasbih> createState() => _CustomTasbihState();
 }
 
-class _CustomTasbihState extends State<CustomTasbih>
-    with TickerProviderStateMixin {
+class _CustomTasbihState extends State<CustomTasbih> {
   int _count = 0;
   int _dailyCount = 0;
-  late AnimationController _largeButtonController;
-  late AnimationController _smallButtonController;
-  late Animation<double> _largeButtonScale;
-  late Animation<double> _smallButtonScale;
+  bool _isMainPressed = false;
+  bool _isResetPressed = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
+    // تجهيز الصوت مسبقاً في الذاكرة (Preloading) لضمان استجابة لحظية بدون تأخير
+    _audioPlayer.setSource(AssetSource('sounds/click.mp3'));
+    _audioPlayer.setReleaseMode(ReleaseMode.stop);
+    
     _loadCount();
     _loadDailyCount();
-
-    _largeButtonController = AnimationController(
-      duration: const Duration(milliseconds: 120),
-      vsync: this,
-    );
-
-    _smallButtonController = AnimationController(
-      duration: const Duration(milliseconds: 120),
-      vsync: this,
-    );
-
-    _largeButtonScale = Tween<double>(begin: 1.0, end: 0.88).animate(
-      CurvedAnimation(parent: _largeButtonController, curve: Curves.elasticOut),
-    );
-
-    _smallButtonScale = Tween<double>(begin: 1.0, end: 0.88).animate(
-      CurvedAnimation(parent: _smallButtonController, curve: Curves.elasticOut),
-    );
   }
 
   @override
   void dispose() {
-    _largeButtonController.dispose();
-    _smallButtonController.dispose();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -180,7 +76,9 @@ class _CustomTasbihState extends State<CustomTasbih>
 
   Future<void> _playClickSound() async {
     try {
-      await _audioPlayer.play(AssetSource('sounds/click.mp3'));
+      // تصفير مؤشر الصوت وإعادة التشغيل فوراً للتعامل مع التسبيح السريع جداً
+      await _audioPlayer.seek(Duration.zero);
+      await _audioPlayer.resume();
     } catch (e) {
       // ignore
     }
@@ -189,9 +87,6 @@ class _CustomTasbihState extends State<CustomTasbih>
   Future<void> _incrementCount() async {
     HapticFeedback.heavyImpact();
     _playClickSound();
-    _largeButtonController.forward().then(
-      (_) => _largeButtonController.reverse(),
-    );
     setState(() {
       _count++;
       _dailyCount++;
@@ -203,9 +98,6 @@ class _CustomTasbihState extends State<CustomTasbih>
   Future<void> _resetCount() async {
     HapticFeedback.mediumImpact();
     _playClickSound();
-    _smallButtonController.forward().then(
-      (_) => _smallButtonController.reverse(),
-    );
     setState(() {
       _count = 0;
     });
@@ -226,240 +118,138 @@ class _CustomTasbihState extends State<CustomTasbih>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-              Text(
-                'تسبيحات اليوم',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : Colors.black87,
-                  fontFamily: 'Cairo',
-                  shadows: [
-                    Shadow(
-                      color: isDark
-                          ? Colors.black.withValues(alpha: 0.3)
-                          : Colors.white.withValues(alpha: 0.3),
-                      blurRadius: 2,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
+                Text(
+                  'تسبيحات اليوم',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : Colors.black87,
+                    fontFamily: 'Cairo',
+                    shadows: [
+                      Shadow(
+                        color: isDark
+                            ? Colors.black.withValues(alpha: 0.3)
+                            : Colors.white.withValues(alpha: 0.3),
+                        blurRadius: 2,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '$_dailyCount',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  color: isDark ? Colors.white : Colors.black87,
-                  fontFamily: 'Cairo',
-                  shadows: [
-                    Shadow(
-                      color: isDark
-                          ? Colors.black.withValues(alpha: 0.3)
-                          : Colors.white.withValues(alpha: 0.3),
-                      blurRadius: 2,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
+                const SizedBox(height: 8),
+                Text(
+                  '$_dailyCount',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : Colors.black87,
+                    fontFamily: 'Cairo',
+                    shadows: [
+                      Shadow(
+                        color: isDark
+                            ? Colors.black.withValues(alpha: 0.3)
+                            : Colors.white.withValues(alpha: 0.3),
+                        blurRadius: 2,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-      const SizedBox(height: 25),
-        Container(
-          width: 280,
-          height: 450,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(60),
-            gradient: RadialGradient(
-              center: const Alignment(0.2, -0.3),
-              radius: 1.8,
-              colors: isDark
-                  ? [
-                      const Color(0xFF3E2723),
-                      const Color(0xFF2C1810),
-                      const Color(0xFF1A0E08),
-                    ]
-                  : [
-                      const Color(0xFFD2691E),
-                      const Color(0xFFB8956A),
-                      const Color(0xFF8B4513),
-                    ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
-                blurRadius: 25,
-                offset: const Offset(0, 12),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 40,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(60),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  isDark
-                      ? Colors.black.withValues(alpha: 0.1)
-                      : Colors.brown.withValues(alpha: 0.05),
-                ],
-                stops: const [0.7, 1.0],
-              ),
-            ),
-            child: CustomPaint(
-              painter: WoodGrainPainter(isDark: isDark),
-              child: Stack(
-                children: [
-                  Positioned(
-                    top: 60,
-                    left: 40,
-                    right: 40,
-                    height: 85,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0A0A0A),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.black.withValues(alpha: 0.8),
-                          width: 8,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.9),
-                            blurRadius: 15,
-                            spreadRadius: -5,
-                            offset: const Offset(0, 6),
-                            blurStyle: BlurStyle.inner,
-                          ),
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.6),
-                            blurRadius: 8,
-                            spreadRadius: -3,
-                            offset: const Offset(0, 3),
-                            blurStyle: BlurStyle.inner,
-                          ),
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+        const SizedBox(height: 23), // تم تقليل المسافة لرفع جسم المسبحة 2 بكسل
+        FittedBox(
+          fit: BoxFit
+              .scaleDown, // تضمن تصغير المسبحة إذا كانت الشاشة صغيرة مع الحفاظ على التناسب
+          child: SizedBox(
+            width: 280,
+            height:
+                378, // تقليل الارتفاع ليصبح التصميم متناسقاً وغير ممطوط عمودياً
+            // تم إزالة BoxDecoration لإلغاء البرواز والظل الأسود وجعل الخلفية شفافة
+            child: Stack(
+              children: [
+                // 1. زر التصفير (Reset Button - في الخلف)
+                Positioned(
+                  bottom:
+                      150, // تنزيل الزر للحفاظ على موقعه بعد رفع جسم المسبحة
+                  right: 58, // تعديل الموضع لليسار بناء على طلب المستخدم
+                  child: GestureDetector(
+                    onTapDown: (_) => setState(() => _isResetPressed = true),
+                    onTapUp: (_) => setState(() => _isResetPressed = false),
+                    onTapCancel: () => setState(() => _isResetPressed = false),
+                    onTap: _resetCount,
+                    child: AnimatedScale(
+                      scale: _isResetPressed ? 0.86 : 1.0, // زيادة تأثير الضغط
+                      duration: const Duration(milliseconds: 100),
+                      child: Image.asset(
+                        'assets/images/reset_button_wooden.png',
+                        width: 24,
+                        height: 24,
                       ),
-                      child: Container(
-                        margin: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A1A),
-                          borderRadius: BorderRadius.circular(8),
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFF222222),
-                              Color(0xFF1A1A1A),
-                              Color(0xFF151515),
-                            ],
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            _count.toString(),
-                            style: const TextStyle(
-                              fontSize: 42,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF00FF41),
-                              fontFamily: 'Courier New',
-                              letterSpacing: 8,
-                              height: 1.0,
-                            ),
-                          ),
+                    ),
+                  ),
+                ),
+                // 2. الزر الرئيسي (Main Button - في الخلف)
+                Positioned(
+                  bottom: 46, // تنزيل الزر للحفاظ على موقعه بعد رفع جسم المسبحة
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: GestureDetector(
+                      onTapDown: (_) => setState(() => _isMainPressed = true),
+                      onTapUp: (_) => setState(() => _isMainPressed = false),
+                      onTapCancel: () => setState(() => _isMainPressed = false),
+                      onTap: _incrementCount,
+                      child: AnimatedScale(
+                        scale: _isMainPressed ? 0.93 : 1.0, // زيادة تأثير الضغط
+                        duration: const Duration(milliseconds: 100),
+                        child: Image.asset(
+                          'assets/images/main_button_wooden.png',
+                          width: 97, // تم تكبير الحجم لتصبح 97
+                          height: 97,
                         ),
                       ),
                     ),
                   ),
-                  Positioned(
-                    bottom: 70,
-                    left: 50,
-                    right: 50,
-                    height: 120,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildButton(_resetCount, 50, _smallButtonScale),
-                        _buildButton(_incrementCount, 85, _largeButtonScale),
-                      ],
+                ),
+                // 3. صورة الخشب (توضع لتغطي حواف الأزرار فقط)
+                IgnorePointer(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage('assets/images/body_wooden.png'),
+                        fit: BoxFit.fill,
+                      ),
                     ),
                   ),
-                ],
-              ),
+                ),
+                // 4. رقم العداد (بدون خلفية، وبمساحة أكبر ليتوسط الشاشة الرمادية)
+                Positioned(
+                  top: 75, // رفع الرقم للأعلى بمقدار 2 بكسل
+                  left: 40,
+                  right: 40,
+                  height: 85,
+                  child: Center(
+                    child: Text(
+                      _count.toString(),
+                      style: const TextStyle(
+                        fontSize: 42,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.black87, // تم تغيير اللون إلى الأسود
+                        fontFamily: 'Courier New',
+                        letterSpacing: 4,
+                        height: 1.0,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       ],
-    );
-  }
-
-  // دالة مساعدة لتجنب تكرار كود الأزرار
-  Widget _buildButton(
-    VoidCallback onTap,
-    double size,
-    Animation<double> animation,
-  ) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: animation.value,
-          child: GestureDetector(
-            onTap: onTap,
-            child: Container(
-              width: size,
-              height: size,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const RadialGradient(
-                  center: Alignment(-0.3, -0.3),
-                  radius: 1.5,
-                  colors: [
-                    Color(0xFFF8F8F8),
-                    Color(0xFFE8E8E8),
-                    Color(0xFFD0D0D0),
-                    Color(0xFFB8B8B8),
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    blurRadius: 8,
-                    spreadRadius: -2,
-                    offset: const Offset(-5, -5),
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    blurRadius: 12,
-                    spreadRadius: 1,
-                    offset: const Offset(5, 5),
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }
