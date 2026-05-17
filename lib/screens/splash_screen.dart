@@ -48,26 +48,21 @@ class _SplashScreenState extends State<SplashScreen>
     }
 
     if (!MyApp.isAthanShowing) {
-      bool navigated = false;
-
-      _navigationTimer = Timer(const Duration(milliseconds: 3000), () {
-        if (mounted && !navigated) {
-          navigated = true;
-          _navigateToMainApp();
-        }
-      });
-
-      _initializeServicesInBackground().then((_) {
-        if (mounted && !navigated) {
-          navigated = true;
-          _navigationTimer?.cancel();
+      // ⏳ جعل التطبيق ينتظر تحميل الخدمات ومرور الـ 3 ثوانٍ معاً بشكل متزامن
+      Future.wait([
+        _initializeServicesInBackground(),
+        Future.delayed(
+          const Duration(seconds: 4),
+        ), // رفعنا الوقت لـ 4 ثوانٍ ليعطي هيبة وظهور مريح للإهداء
+      ]).then((_) {
+        if (mounted) {
           _navigateToMainApp();
         }
       });
     } else {
       // ✅ صمام الأمان: إذا انتهى الأذان وظل المستخدم عالقاً هنا
       // نقوم بنقله للتطبيق تلقائياً بعد مهلة كافية
-      Timer(const Duration(seconds: 3), () {
+      _navigationTimer = Timer(const Duration(seconds: 4), () {
         if (mounted && !MyApp.isAthanShowing) {
           _navigateToMainApp();
         }
