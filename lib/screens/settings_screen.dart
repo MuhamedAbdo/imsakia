@@ -291,7 +291,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ],
               ),
               const SizedBox(height: 15),
-              _buildSection(
+              _buildExpandableSection(
                 title: 'الحساب الفقهي والوقت',
                 icon: Icons.settings_outlined,
                 children: [
@@ -305,7 +305,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               const SizedBox(height: 15),
               _buildAthanSection(isDark),
               const SizedBox(height: 15),
-              _buildSection(
+              _buildExpandableSection(
                 title: 'التقويم والمظهر',
                 icon: Icons.palette_outlined,
                 children: [
@@ -518,6 +518,38 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
+  Widget _buildExpandableSection({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return NeumorphicBox(
+      borderRadius: 20,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+          iconColor: Colors.green,
+          collapsedIconColor: Colors.green,
+          title: Row(
+            children: [
+              Icon(icon, color: Colors.green, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+              ),
+            ],
+          ),
+          children: children,
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeader() {
     return Column(
       children: [
@@ -540,7 +572,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   Widget _buildAthanSection(bool isDark) {
     return Consumer<AthanProvider>(
       builder: (context, provider, child) {
-        return _buildSection(
+        return _buildExpandableSection(
           title: 'إعدادات الأذان (الآذان متوفر بعد اختيار الموقع)',
           icon: Icons.notifications_active_outlined,
           children: [
