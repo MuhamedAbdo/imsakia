@@ -107,7 +107,6 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _currentIndex = 0;
   bool _batteryBannerDismissed = false;
-  bool _wasPaused = false;
 
   late final List<Widget> _screens;
 
@@ -143,20 +142,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      _wasPaused = true;
-    } else if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed) {
       if (!_batteryBannerDismissed) _checkBatteryAndHideBanner();
-      if (_wasPaused) {
-        _wasPaused = false;
-        _navigateToSplash();
-      }
     }
-  }
-
-  void _navigateToSplash() {
-    if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
   }
 
   Future<void> _checkBatteryAndHideBanner() async {

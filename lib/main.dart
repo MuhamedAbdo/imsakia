@@ -52,7 +52,15 @@ void main() async {
 
   // 🛡️ SOVEREIGN PROTOCOL: Emergency Athan Mode Check
   const channel = MethodChannel('imsakia/notifications');
-  final bool isEmergencyAthan = await channel.invokeMethod<bool>('isEmergencyAthanMode') ?? false;
+  bool isEmergencyAthan = false;
+  try {
+    isEmergencyAthan = await channel.invokeMethod<bool>('isEmergencyAthanMode') ?? false;
+  } on MissingPluginException {
+    // الـ method مش موجودة على الجانب الـ native — نتعامل كحالة طبيعية
+    isEmergencyAthan = false;
+  } catch (_) {
+    isEmergencyAthan = false;
+  }
 
   if (isEmergencyAthan) {
     MyApp.isAthanShowing = true;
@@ -177,6 +185,11 @@ class _MyAppState extends State<MyApp> {
   static const platform = MethodChannel('imsakia/notifications');
   String? _currentAthanOverlay;
   bool _isColdStartForAthan = false;
+
+  // 🛡️ حارس الجلسة: static يعيش طول عمر الـ process
+  // يمنع ظهور Splash عند إعادة إنشاء الـ Activity (قفل الشاشة / مقاطعة اتصال)
+  // لكن يتصفر عند إغلاق التطبيق فعلاً وإعادة فتحه (process death)
+  static bool _sessionSplashShown = false;
 
   @override
   void initState() {
@@ -361,16 +374,24 @@ class _MyAppState extends State<MyApp> {
     // 1️⃣ الأولوية القصوى والمباشرة: الأذان
     if (widget.initialOverlay != null) {
       MyApp.isAthanShowing = true;
-      // نعود بشاشة الأذان فوراً، وهذا سيجعلها تظهر بدلاً من أي شيء آخر
       return widget.initialOverlay!;
     }
-    
-    // 2️⃣ إكمال الإعدادات
+
+    // 2️⃣ إكمال الإعدادات لأول مرة
     if (widget.showPermissionsGate) {
       return const SequentialPermissionsScreen();
     }
-    
-    // 3️⃣ الحالة الطبيعية فقط هي من ترى الـ Splash
+
+    // 3️⃣ 🛡️ حماية الجلسة: لو التطبيق لسا شغال (نفس الـ process)
+    // ومش أول مرة يُبنى فيها هذا الـ widget، نتجه مباشرةً للواجهة الرئيسية
+    // هذا يمنع الـ Splash من الظهور عند: قفل الشاشة، مقاطعة اتصال،
+    // أو أي إعادة إنشاء للـ Activity بدون إغلاق العملية فعلاً.
+    if (_sessionSplashShown) {
+      return const MainLayout();
+    }
+
+    // 4️⃣ أول مرة حقيقية في هذه الجلسة → نضع العلم ونفتح الـ Splash
+    _sessionSplashShown = true;
     return const SplashScreen();
   }
 
