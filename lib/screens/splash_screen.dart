@@ -41,7 +41,9 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _checkGracefulExit() async {
     // ✅ نظام الخروج الصامت: تحقق من العلم قبل أي شيء
     final shouldExit = await AthanManager.getShouldExitFlag();
-    if (shouldExit && mounted) {
+    if (!mounted) return;
+
+    if (shouldExit) {
       await AthanManager.clearShouldExitFlag();
       await AthanManager.forceExit();
       return;
@@ -110,7 +112,8 @@ class _SplashScreenState extends State<SplashScreen>
   void _navigateToMainApp() {
     // 🔥 Guard: If Athan Overlay is currently showing, CANCEL everything.
     // This prevents SplashScreen from "pushReplacement" which would kill the Athan Overlay.
-    if (context.mounted && (MyApp.isAthanShowing)) {
+    if (!mounted) return;
+    if (MyApp.isAthanShowing) {
       _navigationTimer?.cancel();
       _navigationTimer = null;
       return;
@@ -120,6 +123,8 @@ class _SplashScreenState extends State<SplashScreen>
       context,
       listen: false,
     );
+
+    MyApp.sessionSplashShown = true;
 
     if (settingsProvider.isFirstLaunch) {
       Navigator.of(context).pushReplacement(

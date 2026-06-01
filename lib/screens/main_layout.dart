@@ -20,6 +20,7 @@ import '../services/hijri_date_service.dart';
 import '../services/hadith_service.dart';
 import '../services/bukhari_json_service.dart';
 import '../services/permissions_service.dart';
+import '../main.dart';
 import 'azkar_screen.dart';
 import 'allah_names_page.dart';
 import 'radio_page.dart';
@@ -113,6 +114,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    // ✅ تأكيد أن الـ Splash تم عرضه لهذه الجلسة بما أننا وصلنا للشاشة الرئيسية
+    MyApp.sessionSplashShown = true;
     _screens = [
       const HomeScreen(),
       const QiblaCompassScreen(),

@@ -171,6 +171,7 @@ class MyApp extends StatefulWidget {
   final bool showPermissionsGate;
 
   static bool isAthanShowing = false;
+  static bool sessionSplashShown = false;
   MyApp({super.key, required this.settingsProvider, required this.prefs, this.initialOverlay, this.showPermissionsGate = false}) {
     if (initialOverlay != null) {
       isAthanShowing = true;
@@ -185,11 +186,6 @@ class _MyAppState extends State<MyApp> {
   static const platform = MethodChannel('imsakia/notifications');
   String? _currentAthanOverlay;
   bool _isColdStartForAthan = false;
-
-  // 🛡️ حارس الجلسة: static يعيش طول عمر الـ process
-  // يمنع ظهور Splash عند إعادة إنشاء الـ Activity (قفل الشاشة / مقاطعة اتصال)
-  // لكن يتصفر عند إغلاق التطبيق فعلاً وإعادة فتحه (process death)
-  static bool _sessionSplashShown = false;
 
   @override
   void initState() {
@@ -386,12 +382,11 @@ class _MyAppState extends State<MyApp> {
     // ومش أول مرة يُبنى فيها هذا الـ widget، نتجه مباشرةً للواجهة الرئيسية
     // هذا يمنع الـ Splash من الظهور عند: قفل الشاشة، مقاطعة اتصال،
     // أو أي إعادة إنشاء للـ Activity بدون إغلاق العملية فعلاً.
-    if (_sessionSplashShown) {
+    if (MyApp.sessionSplashShown) {
       return const MainLayout();
     }
 
-    // 4️⃣ أول مرة حقيقية في هذه الجلسة → نضع العلم ونفتح الـ Splash
-    _sessionSplashShown = true;
+    // 4️⃣ أول مرة حقيقية في هذه الجلسة → نفتح الـ Splash
     return const SplashScreen();
   }
 

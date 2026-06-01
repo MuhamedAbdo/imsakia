@@ -22,7 +22,10 @@ class _CustomTasbihState extends State<CustomTasbih> {
   void initState() {
     super.initState();
     // تجهيز الصوت مسبقاً في الذاكرة (Preloading) لضمان استجابة لحظية بدون تأخير
-    _audioPlayer.setSource(AssetSource('sounds/click.mp3'));
+    _audioPlayer.setSource(AssetSource('audio/click.mp3')).catchError((e) {
+      // تم إمساك الاستثناء وتجاهله لتجنب انهيار التطبيق في حال عدم وجود ملف الصوت
+      debugPrint("Tasbih: click.mp3 sound asset not found, running silently: $e");
+    });
     _audioPlayer.setReleaseMode(ReleaseMode.stop);
     
     _loadCount();
