@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "imsakia",
+      "request": "launch",
+      "type": "flutter",
+      "program": "lib/main.dart"
+    }
+  ]
+}
