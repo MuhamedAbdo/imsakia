@@ -29,6 +29,8 @@ class AthanProvider with ChangeNotifier {
     Muezzin(id: "makkah", name: "أذان مكة", path: "assets/audio/athan_makkah.mp3"),
     Muezzin(id: "mishary", name: "مشاري العفاسي", path: "assets/audio/athan_mishari.mp3"),
     Muezzin(id: "rifaat", name: "محمد رفعت", path: "assets/audio/athan_rifaat.mp3"),
+    Muezzin(id: "elbna", name: "محمود علي البنا", path: "assets/audio/elbna.mp3"),
+    Muezzin(id: "aboelenin", name: "أبو العينين شعيشع", path: "assets/audio/aboelenin.mp3"),
   ];
 
   final List<Muezzin> _fajrMuezzins = [
@@ -71,16 +73,19 @@ class AthanProvider with ChangeNotifier {
     _isUnifiedMuezzin = prefs.getBool(_prefUnified) ?? true;
     
     _prayerPaths['fajr'] = prefs.getString('athan_path_fajr') ?? "assets/audio/fajr_makkah.mp3";
-    _prayerPaths['dhuhr'] = prefs.getString('athan_path_dhuhr') ?? "assets/audio/athan_mishari.mp3";
-    _prayerPaths['asr'] = prefs.getString('athan_path_asr') ?? "assets/audio/athan_mishari.mp3";
-    _prayerPaths['maghrib'] = prefs.getString('athan_path_maghrib') ?? "assets/audio/athan_mishari.mp3";
-    _prayerPaths['isha'] = prefs.getString('athan_path_isha') ?? "assets/audio/athan_mishari.mp3";
+    _prayerPaths['dhuhr'] = prefs.getString('athan_path_dhuhr') ?? "assets/audio/athan_makkah.mp3";
+    _prayerPaths['asr'] = prefs.getString('athan_path_asr') ?? "assets/audio/athan_makkah.mp3";
+    _prayerPaths['maghrib'] = prefs.getString('athan_path_maghrib') ?? "assets/audio/athan_makkah.mp3";
+    _prayerPaths['isha'] = prefs.getString('athan_path_isha') ?? "assets/audio/athan_makkah.mp3";
 
     notifyListeners();
   }
 
   String getPathForPrayer(String prayerKey) {
-    return _prayerPaths[prayerKey] ?? "assets/audio/athan_mishari.mp3";
+    if (prayerKey == 'fajr') {
+      return _prayerPaths[prayerKey] ?? "assets/audio/fajr_makkah.mp3";
+    }
+    return _prayerPaths[prayerKey] ?? "assets/audio/athan_makkah.mp3";
   }
 
   Future<void> setAthanEnabled(bool value) async {
@@ -112,11 +117,12 @@ class AthanProvider with ChangeNotifier {
     await prefs.setBool(_prefUnified, value);
     
     if (value) {
-      await setPrayerMuezzin('fajr', "assets/audio/fajr_makkah.mp3");
-      final dhuhrPath = _prayerPaths['dhuhr'] ?? "assets/audio/athan_mishari.mp3";
+      // ⚡ توحيد الصلوات الأربع العادية فقط - الفجر مستثنى تماماً ولا يتأثر
+      final dhuhrPath = _prayerPaths['dhuhr'] ?? "assets/audio/athan_makkah.mp3";
       await setPrayerMuezzin('asr', dhuhrPath);
       await setPrayerMuezzin('maghrib', dhuhrPath);
       await setPrayerMuezzin('isha', dhuhrPath);
+      // 🔒 الفجر محصّن: لا نلمسه هنا أبداً
     }
     
     notifyListeners();

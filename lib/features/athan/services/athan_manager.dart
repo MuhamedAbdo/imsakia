@@ -244,9 +244,10 @@ Future<void> athanAlarmCallback(int alarmId) async {
   }
 
   final prayerName = prefs.getString('prayerName_$alarmId') ?? "الصلاة";
-  final pathToPlay =
-      prefs.getString('athan_path_$prayerKey') ??
-      "assets/audio/athan_mishari.mp3";
+  final pathToPlay = prefs.getString('athan_path_$prayerKey') ??
+      (prayerKey == 'fajr'
+          ? "assets/audio/fajr_makkah.mp3"
+          : "assets/audio/athan_makkah.mp3");
 
   if (audioHandler == null) {
     await initAudioService();
