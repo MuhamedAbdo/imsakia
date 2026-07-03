@@ -43,6 +43,7 @@ dependencies:
   sqlite3: ^2.4.0
   path_provider: ^2.1.5
   path: ^1.9.1
+  brotli: ^0.6.0   # Pure-Dart Brotli decompression for bundled .svg.br assets
   
   # Background Tasks & Audio
   workmanager: ^0.9.0+3
@@ -128,6 +129,11 @@ flutter:
     - assets/fonts/
     - assets/images/needle.svg
     - assets/data/fiqh/
+    # ── Quran SVG (KFQC / Hafs) ──────────────────────────────────────────
+    # JSON polygon files for all 604 pages (hit-test data, ~3 MB total)
+    - assets/quran_svg/hafs/kfqc/json/
+    # Brotli-compressed SVG pages, all 722 pages bundled (~71 MB)
+    - assets/quran_svg/hafs/kfqc/svg-br/
 
   fonts:
     - family: HafsSmart

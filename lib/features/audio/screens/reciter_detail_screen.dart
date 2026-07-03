@@ -308,7 +308,6 @@ class _ReciterDetailScreenState extends State<ReciterDetailScreen> {
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: isPlayingHere
                 ? Border.all(color: Colors.blue, width: 1.5)
@@ -321,7 +320,11 @@ class _ReciterDetailScreenState extends State<ReciterDetailScreen> {
               ),
             ],
           ),
-          child: ListTile(
+          child: Material(
+            color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
             leading: CircleAvatar(
               backgroundColor: isPlayingHere
                   ? Colors.blue
@@ -460,6 +463,7 @@ class _ReciterDetailScreenState extends State<ReciterDetailScreen> {
                 ),
               ],
             ),
+          ),
           ),
         );
       },

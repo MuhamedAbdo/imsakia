@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:imsakia/features/quran_madinah/providers/quran_provider.dart';
-import 'package:imsakia/features/quran_madinah/ui/widgets/mushaf_page_builder.dart';
+import 'package:imsakia/features/quran_madinah/ui/widgets/mushaf_svg_page_widget.dart';
 import 'package:imsakia/features/quran_madinah/services/madinah_db_helper.dart';
 import 'package:imsakia/features/quran_madinah/utils/madinah_quran_utils.dart';
 
@@ -75,13 +75,9 @@ class _MushafScreenState extends State<MushafScreen> {
         onPageChanged: (index) => _onPageChanged(index, quranProvider),
         itemBuilder: (context, index) {
           final quranPageNumber = index + 1;
-          return MushafPageBuilder(
-            key: ValueKey(
-              'page_${quranPageNumber}_${Theme.of(context).brightness == Brightness.dark}',
-            ),
+          return MushafSvgPageWidget(
+            key: ValueKey('svg_page_$quranPageNumber'),
             pageNumber: quranPageNumber,
-            searchQuery: widget.searchQuery,
-            targetAyaId: widget.targetAyaId,
           );
         },
       ),
@@ -123,10 +119,6 @@ class _MushafScreenState extends State<MushafScreen> {
         ],
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.format_size),
-          onPressed: () => _showFontSizeSlider(context),
-        ),
         Consumer<QuranProvider>(
           builder: (context, provider, child) {
             return IconButton(
@@ -143,55 +135,6 @@ class _MushafScreenState extends State<MushafScreen> {
     );
   }
 
-  void _showFontSizeSlider(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Consumer<QuranProvider>(
-          builder: (context, provider, child) {
-            return Container(
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-              height: 180,
-              child: Column(
-                children: [
-                  const Text(
-                    "حجم الخط",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      const Icon(Icons.text_fields, size: 16),
-                      Expanded(
-                        child: Slider(
-                          value: provider.currentFontSize,
-                          min: 16,
-                          max: 42,
-                          divisions: 13,
-                          label: provider.currentFontSize.round().toString(),
-                          onChanged: (value) {
-                            provider.setFontSize(value);
-                          },
-                        ),
-                      ),
-                      const Icon(Icons.text_fields, size: 28),
-                    ],
-                  ),
-                  Text(
-                    "الحجم الحالي: ${provider.currentFontSize.round()}",
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
 
   Widget _buildPageNumberIndicator(BuildContext context) {
     return GestureDetector(

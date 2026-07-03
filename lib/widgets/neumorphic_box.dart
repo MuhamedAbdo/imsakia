@@ -32,7 +32,6 @@ class NeumorphicBox extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: finalColor,
         borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(
@@ -47,7 +46,12 @@ class NeumorphicBox extends StatelessWidget {
           ),
         ],
       ),
-      child: child,
+      child: Material(
+        color: finalColor,
+        borderRadius: BorderRadius.circular(borderRadius),
+        clipBehavior: Clip.antiAlias,
+        child: child,
+      ),
     );
   }
 }

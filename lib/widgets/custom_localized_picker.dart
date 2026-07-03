@@ -180,11 +180,14 @@ class _CustomLocalizedPickerState extends State<CustomLocalizedPicker> {
 
           return Container(
             height: MediaQuery.of(context).size.height * 0.85,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+            ),
+            child: Material(
               color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-            ),
-            child: Column(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
               children: [
                 const SizedBox(height: 12),
                 Container(
@@ -262,6 +265,7 @@ class _CustomLocalizedPickerState extends State<CustomLocalizedPicker> {
                   ),
                 ),
               ],
+            ),
             ),
           );
         },
