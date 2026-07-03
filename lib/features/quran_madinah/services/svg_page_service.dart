@@ -5,6 +5,8 @@ import 'package:brotli/brotli.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
 import 'package:imsakia/features/quran_madinah/models/ayah_polygon.dart';
+import 'package:imsakia/features/quran_madinah/models/surah_header_location.dart';
+
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Isolate entry-points (top-level — required by Isolate.run)
@@ -105,6 +107,36 @@ class SvgPageService {
 
   // ── Pending-future deduplication ─────────────────────────────────────────
   static final Map<int, Future<_PageData?>> _pending = {};
+
+  // ── Surah Headers location cache ──────────────────────────────────────────
+  static List<SurahHeaderLocation>? _surahHeaders;
+
+  /// Loads and caches all surah headers from surah.json.
+  static Future<List<SurahHeaderLocation>> getSurahHeaders() async {
+    if (_surahHeaders != null) return _surahHeaders!;
+    try {
+      final jsonString = await rootBundle.loadString(
+        'assets/quran_svg/hafs/kfqc/json/surah.json',
+      );
+      final List<dynamic> list = json.decode(jsonString);
+      _surahHeaders = list
+          .map((item) => SurahHeaderLocation.fromJson(item as Map<String, dynamic>))
+          .toList();
+      return _surahHeaders!;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Returns the surah headers starting on [pageNumber].
+  /// We only return headers for pageNumber >= 3 to avoid pages 1 & 2
+  /// where the frames are pre-drawn in the gold layout.
+  static Future<List<SurahHeaderLocation>> getSurahHeadersForPage(int pageNumber) async {
+    if (pageNumber < 3) return [];
+    final headers = await getSurahHeaders();
+    return headers.where((h) => h.pageNumber == pageNumber).toList();
+  }
+
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // Primary API

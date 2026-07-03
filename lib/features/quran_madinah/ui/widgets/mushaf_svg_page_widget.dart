@@ -11,6 +11,8 @@ import 'package:imsakia/features/quran_madinah/services/madinah_db_helper.dart';
 import 'package:imsakia/features/quran_madinah/services/svg_page_service.dart';
 import 'package:imsakia/features/quran_madinah/utils/polygon_hit_test.dart';
 import 'package:imsakia/widgets/tafsir_bottom_sheet.dart';
+import 'package:imsakia/features/quran_madinah/models/surah_header_location.dart';
+
 
 // ─── SVG original viewBox dimensions ────────────────────────────────────────
 // Pages 1-2 (Fatiha / start of Baqarah) use a square 235×235 canvas.
@@ -53,6 +55,8 @@ class _MushafSvgPageWidgetState extends State<MushafSvgPageWidget> {
   String? _svgContent;
   List<AyahPolygon> _polygons = [];
   List<Aya> _ayahs = [];          // DB rows – needed for the ayah text in tafsir
+  List<SurahHeaderLocation> _headers = []; // Surah header position data
+
 
   // Visual feedback
   AyahPolygon? _lastTapped;
@@ -83,14 +87,16 @@ class _MushafSvgPageWidgetState extends State<MushafSvgPageWidget> {
       _svgContent = null;
       _polygons = [];
       _ayahs = [];
+      _headers = [];
       _lastTapped = null;
     });
 
-    // Parallel: SVG decompress (Isolate) + polygon parse (Isolate) + DB query
+    // Parallel: SVG decompress (Isolate) + polygon parse (Isolate) + DB query + surah headers
     final results = await Future.wait([
       SvgPageService.loadSvgContent(widget.pageNumber),
       SvgPageService.loadPolygons(widget.pageNumber),
       DbHelper.getAyahsByPage(widget.pageNumber),
+      SvgPageService.getSurahHeadersForPage(widget.pageNumber),
     ]);
 
     if (!mounted) return;
@@ -104,6 +110,7 @@ class _MushafSvgPageWidgetState extends State<MushafSvgPageWidget> {
         _svgContent = svg;
         _polygons = results[1] as List<AyahPolygon>;
         _ayahs = results[2] as List<Aya>;
+        _headers = results[3] as List<SurahHeaderLocation>;
       }
     });
 
@@ -210,8 +217,12 @@ class _MushafSvgPageWidgetState extends State<MushafSvgPageWidget> {
             child: Stack(
               fit: StackFit.expand,
               children: [
+                // ── Layer 0: Surah Headers (underneath) ───────────────────
+                _buildHeadersLayer(scale, ox, oy, isDark),
+
                 // ── Layer 1: SVG page ──────────────────────────────────────
                 _buildSvgLayer(isDark),
+
 
                 // ── Layer 2: Tap-highlight overlay ─────────────────────────
                 if (_lastTapped != null)
@@ -243,6 +254,43 @@ class _MushafSvgPageWidgetState extends State<MushafSvgPageWidget> {
       child: svg,
     );
   }
+
+  Widget _buildHeadersLayer(
+      double scale, double ox, double oy, bool isDark) {
+    if (_headers.isEmpty) return const SizedBox.shrink();
+
+    final headerImage = Image.asset(
+      'assets/images/sura_hedder.png',
+      fit: BoxFit.fill,
+    );
+
+    final decoration = isDark
+        ? ColorFiltered(
+            colorFilter: const ColorFilter.matrix(_kInvertMatrix),
+            child: headerImage,
+          )
+        : headerImage;
+
+    return Stack(
+      children: _headers.map((h) {
+        final double left = ox + 5.0 * scale;
+        // Shift the header frame up by 18 units (half of height 36) to center the text inside it
+        final double top = oy + (h.headerPosition - 18.0) * scale;
+        final double width = 335.0 * scale;
+        final double height = 36.0 * scale;
+
+
+        return Positioned(
+          left: left,
+          top: top,
+          width: width,
+          height: height,
+          child: decoration,
+        );
+      }).toList(),
+    );
+  }
+
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // Loading shimmer
