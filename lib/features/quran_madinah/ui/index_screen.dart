@@ -345,40 +345,121 @@ class IndexScreen extends StatelessWidget {
   }
 
   Widget _buildDrawer(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return Drawer(
       child: Consumer<QuranProvider>(
         builder: (context, quranProvider, child) {
           final bookmarks = quranProvider.bookmarks;
+          final surahs = quranProvider.surahs;
+
+          // Build page→surahName lookup from the loaded surahs list
+          // Each entry has start_page and sura_name_ar; we pick the last surah whose
+          // start_page ≤ the target page.
+          String surahNameForPage(int page) {
+            String name = '';
+            for (final s in surahs) {
+              final sp = s['start_page'] as int;
+              if (sp <= page) {
+                name = s['sura_name_ar'] as String;
+              } else {
+                break;
+              }
+            }
+            return name.isNotEmpty ? name : '—';
+          }
 
           return Column(
             children: [
-              DrawerHeader(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
+              // ── Drawer Header ──────────────────────────────────────────────
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.only(
+                  top: MediaQuery.of(context).padding.top + 20,
+                  bottom: 20,
+                  left: 20,
+                  right: 20,
                 ),
-                child: const Center(
-                  child: Text(
-                    'العلامات المرجعية (Bookmarks)',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      primaryColor,
+                      primaryColor.withValues(alpha: 0.75),
+                    ],
                   ),
                 ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.bookmark_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'الوقفات المحفوظة',
+                            style: TextStyle(
+                              fontFamily: 'Tajawal',
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${bookmarks.length} علامة مرجعية',
+                            style: TextStyle(
+                              fontFamily: 'Tajawal',
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
+
+              // ── Content ────────────────────────────────────────────────────
               Expanded(
                 child: bookmarks.isEmpty
-                    ? const Center(child: Text('لا توجد علامات مرجعية'))
-                    : ListView.builder(
+                    ? _buildEmptyBookmarks(isDark, primaryColor)
+                    : ListView.separated(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
                         itemCount: bookmarks.length,
+                        separatorBuilder: (_, _) =>
+                            const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           final page = bookmarks[index];
-                          return ListTile(
-                            leading: const Icon(Icons.bookmark),
-                            title: Text('الصفحة $page'),
+                          final surahName = surahNameForPage(page);
+                          final juz = QuranUtils.getJuzNumber(page);
+
+                          return _buildBookmarkCard(
+                            context: context,
+                            page: page,
+                            surahName: surahName,
+                            juz: juz,
+                            isDark: isDark,
+                            primaryColor: primaryColor,
                             onTap: () {
-                              Navigator.pop(context); // Close Drawer
+                              Navigator.pop(context);
                               Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (context) =>
@@ -386,17 +467,11 @@ class IndexScreen extends StatelessWidget {
                                 ),
                               );
                             },
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () {
-                                quranProvider.toggleBookmark(page);
-                              },
-                            ),
+                            onDelete: () => quranProvider.toggleBookmark(page),
                           );
                         },
                       ),
               ),
-              const SizedBox(height: 16),
             ],
           );
         },
@@ -404,4 +479,134 @@ class IndexScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildEmptyBookmarks(bool isDark, Color primaryColor) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.bookmark_border_rounded,
+              size: 64,
+              color: primaryColor.withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'لا توجد وقفات محفوظة',
+              style: TextStyle(
+                fontFamily: 'Tajawal',
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'اضغط على أيقونة العلامة\nأثناء قراءة المصحف لحفظ موضعك',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Tajawal',
+                fontSize: 13,
+                color: isDark ? Colors.white38 : Colors.black38,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBookmarkCard({
+    required BuildContext context,
+    required int page,
+    required String surahName,
+    required int juz,
+    required bool isDark,
+    required Color primaryColor,
+    required VoidCallback onTap,
+    required VoidCallback onDelete,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? Colors.black38
+                    : Colors.black.withValues(alpha: 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+            border: Border.all(
+              color: isDark ? Colors.white10 : Colors.grey.shade200,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Bookmark icon badge
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.bookmark_rounded,
+                  color: primaryColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Surah + Juz + Page info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'سورة $surahName',
+                      style: TextStyle(
+                        fontFamily: 'Tajawal',
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'الجزء $juz  •  الصفحة $page',
+                      style: TextStyle(
+                        fontFamily: 'Tajawal',
+                        fontSize: 13,
+                        color: isDark ? Colors.white54 : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Delete button
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded,
+                    color: Colors.redAccent, size: 20),
+                tooltip: 'إزالة العلامة',
+                onPressed: onDelete,
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

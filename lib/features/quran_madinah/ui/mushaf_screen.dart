@@ -121,13 +121,59 @@ class _MushafScreenState extends State<MushafScreen> {
       actions: [
         Consumer<QuranProvider>(
           builder: (context, provider, child) {
+            final alreadyBookmarked = provider.isBookmarked(_currentPage);
             return IconButton(
-              icon: Icon(
-                provider.isBookmarked(_currentPage)
-                    ? Icons.bookmark
-                    : Icons.bookmark_border,
+              icon: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (child, anim) =>
+                    ScaleTransition(scale: anim, child: child),
+                child: Icon(
+                  alreadyBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                  key: ValueKey(alreadyBookmarked),
+                ),
               ),
-              onPressed: () => provider.toggleBookmark(_currentPage),
+              tooltip: alreadyBookmarked ? 'إزالة العلامة' : 'حفظ الصفحة',
+              onPressed: () {
+                final willAdd = !provider.isBookmarked(_currentPage);
+                provider.toggleBookmark(_currentPage);
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 2),
+                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    backgroundColor: willAdd
+                        ? const Color(0xFF2E7D32)
+                        : const Color(0xFF5D4037),
+                    content: Row(
+                      children: [
+                        Icon(
+                          willAdd
+                              ? Icons.bookmark_added_rounded
+                              : Icons.bookmark_remove_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          willAdd
+                              ? 'تم حفظ الصفحة بنجاح'
+                              : 'تم إزالة العلامة المرجعية',
+                          style: const TextStyle(
+                            fontFamily: 'Tajawal',
+                            fontSize: 14,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             );
           },
         ),
