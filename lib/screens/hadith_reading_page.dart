@@ -43,7 +43,17 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.currentIndex ?? 0;
+    int idx = widget.currentIndex ?? 0;
+    if (widget.hadith != null && widget.allHadiths.isNotEmpty) {
+      final foundIdx = widget.allHadiths.indexWhere((h) => h.number == widget.hadith!.number);
+      if (foundIdx != -1) {
+        idx = foundIdx;
+      }
+    }
+    if (idx < 0 || idx >= widget.allHadiths.length) {
+      idx = 0;
+    }
+    _currentIndex = idx;
     _pageController = PageController(initialPage: _currentIndex);
     _loadSettings();
     _loadBookmarks();

@@ -35,4 +35,16 @@ class HadithItem {
     if (lines.length <= 2) return hadith;
     return '${lines[0]}\n${lines[1]}...';
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HadithItem &&
+          runtimeType == other.runtimeType &&
+          number == other.number &&
+          hadith == other.hadith;
+
+  @override
+  int get hashCode => number.hashCode ^ hadith.hashCode;
 }
+

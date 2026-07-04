@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -75,6 +76,15 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
     return '${text.substring(0, 150)}...';
   }
 
+  Timer? _debounce;
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      _searchHadiths(query);
+    });
+  }
+
   // البحث عن الأحاديث عبر قاعدة البيانات SQLite
   Future<void> _searchHadiths(String query) async {
     if (query.isEmpty) {
@@ -95,23 +105,75 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
     }
   }
 
+  int _findHadithIndex(HadithItem target) {
+    final idx = _hadiths.indexWhere((h) => h.number == target.number);
+    return idx != -1 ? idx : 0;
+  }
+
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
   // بناء المحتوى الرئيسي مع معالجة الـ Overflow
   Widget _buildContent(bool isDark) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: IntrinsicHeight(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _filteredHadiths.isEmpty
+    return Column(
+      children: [
+        const SizedBox(height: 15),
+        // شريط البحث
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey[800] : Colors.grey[100],
+              borderRadius: BorderRadius.circular(25),
+              border: Border.all(
+                color: widget.book.coverColor.withAlpha(32),
+              ),
+            ),
+            child: TextField(
+              controller: _searchController,
+              textAlign: TextAlign.right,
+              style: GoogleFonts.amiri(
+                fontSize: 16,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+              decoration: InputDecoration(
+                hintText: 'ابحث في الأحاديث...',
+                hintStyle: GoogleFonts.tajawal(
+                  color: isDark ? Colors.white54 : Colors.black54,
+                ),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: widget.book.coverColor,
+                ),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          _onSearchChanged('');
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+              ),
+              onChanged: _onSearchChanged,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // قائمة الأحاديث
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _filteredHadiths.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -143,85 +205,19 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                         ],
                       ),
                     )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(height: 20),
-                        const SizedBox(height: 15),
-                        // شريط البحث
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.grey[800]
-                                  : Colors.grey[100],
-                              borderRadius: BorderRadius.circular(25),
-                              border: Border.all(
-                                color: widget.book.coverColor.withAlpha(32),
-                              ),
-                            ),
-                            child: TextField(
-                              controller: _searchController,
-                              textAlign: TextAlign.right,
-                              style: GoogleFonts.amiri(
-                                fontSize: 16,
-                                color: isDark ? Colors.white : Colors.black87,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: 'ابحث في الأحاديث...',
-                                hintStyle: GoogleFonts.tajawal(
-                                  color: isDark
-                                      ? Colors.white54
-                                      : Colors.black54,
-                                ),
-                                prefixIcon: Icon(
-                                  Icons.search_rounded,
-                                  color: widget.book.coverColor,
-                                ),
-                                suffixIcon: _searchController.text.isNotEmpty
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear),
-                                        onPressed: () {
-                                          _searchController.clear();
-                                          _searchHadiths('');
-                                        },
-                                      )
-                                    : null,
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
-                                ),
-                              ),
-                              onChanged: _searchHadiths,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        // قائمة الأحاديث
-                        SizedBox(
-                          height:
-                              constraints.maxHeight -
-                              150, // حساب الارتفاع المتاح
-                          child: ListView.builder(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 5,
-                            ),
-                            itemCount: _filteredHadiths.length,
-                            itemBuilder: (context, index) {
-                              final hadith = _filteredHadiths[index];
-                              return _buildHadithCard(hadith, isDark);
-                            },
-                          ),
-                        ),
-                      ],
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      itemCount: _filteredHadiths.length,
+                      itemBuilder: (context, index) {
+                        final hadith = _filteredHadiths[index];
+                        return _buildHadithCard(hadith, isDark);
+                      },
                     ),
-            ),
-          ),
-        );
-      },
+        ),
+      ],
     );
   }
 
@@ -368,7 +364,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                   bookTitle: widget.book.title,
                   coverColor: widget.book.coverColor,
                   allHadiths: _hadiths,
-                  currentIndex: _hadiths.indexOf(hadith),
+                  currentIndex: _findHadithIndex(hadith),
                   bookKey: widget.book.bookKey,
                 ),
               ),
@@ -524,7 +520,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                   bookTitle: widget.book.title,
                   coverColor: widget.book.coverColor,
                   allHadiths: _hadiths,
-                  currentIndex: _hadiths.indexOf(hadith),
+                  currentIndex: _findHadithIndex(hadith),
                   bookKey: widget.book.bookKey,
                 ),
               ),
