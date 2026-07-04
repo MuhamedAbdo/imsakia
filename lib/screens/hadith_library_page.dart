@@ -9,55 +9,55 @@ class HadithLibraryPage extends StatelessWidget {
   static const List<HadithBook> books = [
     HadithBook(
       title: 'صحيح البخاري',
-      jsonPath: 'assets/data/bukhari.json',
+      bookKey: 'bukhari',
       coverColor: Color(0xFF1B5E20), // Deep Green
       author: 'الإمام البخاري',
     ),
     HadithBook(
       title: 'صحيح مسلم',
-      jsonPath: 'assets/data/muslim.json',
+      bookKey: 'muslim',
       coverColor: Color(0xFF0D47A1), // Deep Blue
       author: 'الإمام مسلم',
     ),
     HadithBook(
       title: 'سنن أبي داود',
-      jsonPath: 'assets/data/abi_daud.json',
+      bookKey: 'abi_daud',
       coverColor: Color(0xFF4E342E), // Brown
       author: 'الإمام أبو داود',
     ),
     HadithBook(
       title: 'مسند أحمد',
-      jsonPath: 'assets/data/ahmed.json',
+      bookKey: 'ahmed',
       coverColor: Color(0xFF37474F), // Blue Grey
       author: 'الإمام أحمد بن حنبل',
     ),
     HadithBook(
       title: 'سنن الدارمي',
-      jsonPath: 'assets/data/darimi.json',
+      bookKey: 'darimi',
       coverColor: Color(0xFF004D40), // Teal
       author: 'الإمام الدارمي',
     ),
     HadithBook(
       title: 'سنن ابن ماجه',
-      jsonPath: 'assets/data/ibn_maja.json',
+      bookKey: 'ibn_maja',
       coverColor: Color(0xFFBF360C), // Deep Orange
       author: 'الإمام ابن ماجه',
     ),
     HadithBook(
       title: 'موطأ مالك',
-      jsonPath: 'assets/data/malik.json',
+      bookKey: 'malik',
       coverColor: Color(0xFF311B92), // Deep Purple
       author: 'الإمام مالك بن أنس',
     ),
     HadithBook(
       title: 'سنن النسائي',
-      jsonPath: 'assets/data/nasai.json',
+      bookKey: 'nasai',
       coverColor: Color(0xFF880E4F), // Maroon
       author: 'الإمام النسائي',
     ),
     HadithBook(
       title: 'جامع الترمذي',
-      jsonPath: 'assets/data/trmizi.json',
+      bookKey: 'trmizi',
       coverColor: Color(0xFFE65100), // Orange
       author: 'الإمام الترمذي',
     ),
@@ -123,7 +123,7 @@ class BookCard extends StatelessWidget {
         );
       },
       child: Hero(
-        tag: book.jsonPath,
+        tag: book.bookKey,
         child: AspectRatio(
           aspectRatio: 2 / 3,
           child: Container(

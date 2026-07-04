@@ -1,10 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/hadith_book.dart';
 import '../models/hadith_item.dart';
-import '../services/hadith_compute_service.dart';
+import '../services/hadith_database_service.dart';
 import '../services/bookmark_service.dart';
 import 'hadith_reading_page.dart';
 
@@ -34,7 +33,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
 
   /// تحميل عدد العلامات المرجعية
   Future<void> _loadBookmarkCount() async {
-    final count = await BookmarkService.getBookmarksCount(widget.book.jsonPath);
+    final count = await BookmarkService.getBookmarksCount(widget.book.bookKey);
     if (mounted) {
       setState(() {
         _bookmarkCount = count;
@@ -44,13 +43,9 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
 
   Future<void> _loadBookContent() async {
     try {
-      // تحميل الملف كـ String
-      final jsonString = await rootBundle.loadString(widget.book.jsonPath);
-
-      // معالجة البيانات في الخلفية لتجنب تجميد الواجهة
-      final hadiths = await HadithComputeService.parseHadithsFromJson(
-        jsonString,
-      );
+      // جلب الأحاديث من قاعدة البيانات SQLite
+      final hadiths = await HadithDatabaseService.instance
+          .getHadiths(widget.book.bookKey);
 
       if (mounted) {
         setState(() {
@@ -59,7 +54,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
           _isLoading = false;
         });
 
-        // تشغيل أنيميشن فتح الغلاف بعد تحميل البيانات بفترة وجيزة
+        // تشغيل أنيميشن فتح الغلاف بعد تحميل البيانات
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) {
             setState(() => _isCoverOpen = true);
@@ -67,7 +62,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
         });
       }
     } catch (e) {
-      if (kDebugMode) print('Error loading book: $e');
+      if (kDebugMode) print('Error loading book from DB: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -80,7 +75,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
     return '${text.substring(0, 150)}...';
   }
 
-  // البحث عن الأحاديث مع تحسين الأولوية وإزالة التشكيل
+  // البحث عن الأحاديث عبر قاعدة البيانات SQLite
   Future<void> _searchHadiths(String query) async {
     if (query.isEmpty) {
       setState(() {
@@ -89,13 +84,13 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
       return;
     }
 
-    final results = await HadithComputeService.searchHadithsWithSmartFilter(
-      _hadiths,
-      query,
-    );
+    setState(() => _isLoading = true);
+    final results = await HadithDatabaseService.instance
+        .searchHadiths(widget.book.bookKey, query);
     if (mounted) {
       setState(() {
         _filteredHadiths = results;
+        _isLoading = false;
       });
     }
   }
@@ -263,7 +258,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'العلامات المرجعية',
+                      'الأحاديث المحفوظة',
                       style: GoogleFonts.tajawal(
                         color: Colors.white,
                         fontSize: 18,
@@ -281,7 +276,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
               Expanded(
                 child: FutureBuilder<List<int>>(
                   future: BookmarkService.getBookmarkedHadithNumbers(
-                    widget.book.jsonPath,
+                    widget.book.bookKey,
                   ),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
@@ -302,7 +297,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'لا توجد علامات مرجعية بعد',
+                              'لا توجد أحاديث محفوظة بعد',
                               style: GoogleFonts.tajawal(
                                 fontSize: 16,
                                 color: isDark ? Colors.white70 : Colors.black54,
@@ -374,7 +369,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                   coverColor: widget.book.coverColor,
                   allHadiths: _hadiths,
                   currentIndex: _hadiths.indexOf(hadith),
-                  jsonPath: widget.book.jsonPath,
+                  bookKey: widget.book.bookKey,
                 ),
               ),
             );
@@ -530,7 +525,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                   coverColor: widget.book.coverColor,
                   allHadiths: _hadiths,
                   currentIndex: _hadiths.indexOf(hadith),
-                  jsonPath: widget.book.jsonPath,
+                  bookKey: widget.book.bookKey,
                 ),
               ),
             ).then((_) {
@@ -643,39 +638,42 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
             onPressed: () => Navigator.pop(context),
           ),
           actions: [
-            Stack(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.bookmark_rounded, color: Colors.white),
-                  onPressed: () => _showBookmarksSheet(context),
-                  tooltip: 'العلامات المرجعية',
-                ),
-                if (_bookmarkCount > 0)
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
-                      child: Text(
-                        _bookmarkCount > 99 ? '99+' : '$_bookmarkCount',
-                        style: GoogleFonts.tajawal(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+            IconButton(
+              onPressed: () => _showBookmarksSheet(context),
+              tooltip: 'الأحاديث المحفوظة',
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.bookmark_rounded, color: Colors.white),
+                  if (_bookmarkCount > 0)
+                    Positioned(
+                      right: -4,
+                      top: -4,
+                      child: IgnorePointer(
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            _bookmarkCount > 99 ? '99+' : '$_bookmarkCount',
+                            style: GoogleFonts.tajawal(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
                         ),
-                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(width: 8), // مسافة بادئة من اليمين
           ],
@@ -720,7 +718,7 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
                   opacity: _isCoverOpen ? 0.0 : 1.0,
                   child: Center(
                     child: Hero(
-                      tag: widget.book.jsonPath,
+                      tag: widget.book.bookKey,
                       child: Container(
                         width: MediaQuery.of(context).size.width * 0.75,
                         height:

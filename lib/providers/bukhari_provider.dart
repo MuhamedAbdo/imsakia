@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/bukhari_model.dart';
-import 'dart:convert';
-import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
+import '../services/hadith_database_service.dart';
 
 class BukhariProvider extends ChangeNotifier {
   List<BukhariHadith> _searchResults = [];
@@ -44,20 +42,18 @@ class BukhariProvider extends ChangeNotifier {
 
   Future<void> initialize() async {
     if (_hadiths.isNotEmpty) return;
-    
+
     _isLoading = true;
     notifyListeners();
-    
+
     try {
-      final jsonString = await rootBundle.loadString('assets/data/bukhari.json');
-      final jsonData = json.decode(jsonString);
-      
-      if (jsonData is List) {
-        _hadiths = List<Map<String, dynamic>>.from(jsonData);
-      } else if (jsonData is Map && jsonData['hadiths'] != null) {
-        _hadiths = List<Map<String, dynamic>>.from(jsonData['hadiths']);
-      }
-      
+      final items = await HadithDatabaseService.instance.getHadiths('bukhari');
+      _hadiths = items.map((item) => {
+        'number': item.number,
+        'hadith': item.hadith,
+        'description': item.description,
+      }).toList();
+
       // إنشاء الأبواب الافتراضية
       _sections = _arabicSections.entries.map((entry) {
         return {
@@ -65,9 +61,8 @@ class BukhariProvider extends ChangeNotifier {
           'section_name': entry.value,
         };
       }).toList();
-      
     } catch (e) {
-      debugPrint("Error loading Bukhari data: $e");
+      debugPrint("Error loading Bukhari data from DB: $e");
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -80,18 +75,17 @@ class BukhariProvider extends ChangeNotifier {
 
   Future<List<BukhariHadith>> fetchHadithsBySection(int sectionId) async {
     await initialize();
-    
-    // تصفية الأحاديث حسب الباب (إذا كان هناك حقل section_id)
+
     final sectionHadiths = _hadiths.where((hadith) {
-      return hadith['section_id'] == sectionId || 
+      return hadith['section_id'] == sectionId ||
              hadith['book'] == sectionId.toString() ||
              (hadith['number'] != null && (hadith['number'] as int) ~/ 100 + 1 == sectionId);
     }).toList();
-    
+
     return sectionHadiths.map((m) => BukhariHadith.fromMap(m)).toList();
   }
 
-  /// دالة البحث المطورة لحل مشكلة "نوى" والتشكيل والبحث الدقيق بالرقم
+  /// دالة البحث المطورة عبر SQLite
   Future<void> searchHadith(String query) async {
     if (query.trim().isEmpty) {
       _searchResults = [];
@@ -103,43 +97,13 @@ class BukhariProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await initialize();
-      
-      // 1. التحقق إذا كان البحث بالرقم
-      final int? numericQuery = int.tryParse(query.trim());
+      final items = await HadithDatabaseService.instance
+          .searchHadiths('bukhari', query.trim());
 
-      if (numericQuery != null) {
-        // بحث دقيق بالرقم
-        final results = _hadiths.where((hadith) {
-          final hadithNumber = hadith['number'] ?? hadith['id'];
-          return hadithNumber.toString() == numericQuery.toString();
-        }).toList();
-        
-        _searchResults = results.map((m) => BukhariHadith.fromMap(m)).toList();
-      } else {
-        // 2. تنظيف نص البحث القادم من المستخدم من التشكيل والألفات
-        String cleanQuery = query
-            .replaceAll(RegExp(r'[\u064B-\u0652]'), '') // إزالة التشكيل
-            .replaceAll('إ', 'ا')
-            .replaceAll('أ', 'ا')
-            .replaceAll('آ', 'ا')
-            .replaceAll('ى', 'ي'); // توحيد الياء والألف المقصورة للبحث
-
-        // 3. البحث في النصوص مع إزالة التشكيل
-        final results = _hadiths.where((hadith) {
-          final text = hadith['hadith'] ?? hadith['text'] ?? '';
-          final cleanText = text
-              .replaceAll(RegExp(r'[\u064B-\u0652]'), '')
-              .replaceAll('إ', 'ا')
-              .replaceAll('أ', 'ا')
-              .replaceAll('آ', 'ا')
-              .replaceAll('ى', 'ي');
-          
-          return cleanText.contains(cleanQuery);
-        }).toList();
-
-        _searchResults = results.map((m) => BukhariHadith.fromMap(m)).toList();
-      }
+      _searchResults = items.map((item) => BukhariHadith(
+        id: item.number,
+        text: item.hadith,
+      )).toList();
     } catch (e) {
       debugPrint("Search Error: $e");
     }

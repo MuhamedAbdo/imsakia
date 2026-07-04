@@ -26,6 +26,7 @@ import 'utils/app_constants.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'services/prayer_times_service.dart';
 import 'services/home_events_service.dart';
+import 'services/bookmark_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
@@ -141,6 +142,9 @@ void main() async {
 
   final settingsProvider = SettingsProvider();
   await settingsProvider.initialize();
+
+  // 🔄 Migration خفية: نقل الـ Bookmarks القديمة من مسارات JSON إلى bookKey الجديد
+  await BookmarkService.migrateIfNeeded();
 
   final prefs = await SharedPreferences.getInstance();
   await prefs.reload();

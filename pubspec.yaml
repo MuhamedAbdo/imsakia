@@ -101,7 +101,10 @@ flutter:
 
   assets:
     - assets/quran.db
-    - assets/data/
+    # Hadith SQLite database (replaces 9 JSON files ~221MB → ~32MB GZip compressed)
+    - assets/hadith_database.db.gz
+    - assets/data/hadiths.json
+    - assets/data/fiqh/
     - assets/images/app_icon.png
     - assets/images/duas.png
     - assets/images/muhammed.png

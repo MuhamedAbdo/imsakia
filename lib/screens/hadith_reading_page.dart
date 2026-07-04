@@ -13,7 +13,7 @@ class HadithReadingPage extends StatefulWidget {
   final Color coverColor;
   final HadithItem? hadith;
   final int? currentIndex;
-  final String? jsonPath;
+  final String? bookKey;
 
   const HadithReadingPage({
     super.key,
@@ -22,7 +22,7 @@ class HadithReadingPage extends StatefulWidget {
     required this.coverColor,
     this.hadith,
     this.currentIndex,
-    this.jsonPath,
+    this.bookKey,
   });
 
   @override
@@ -46,6 +46,25 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
     _currentIndex = widget.currentIndex ?? 0;
     _pageController = PageController(initialPage: _currentIndex);
     _loadSettings();
+    _loadBookmarks();
+  }
+
+  int get _currentHadithNumber {
+    if (widget.allHadiths.isNotEmpty && _currentIndex >= 0 && _currentIndex < widget.allHadiths.length) {
+      return widget.allHadiths[_currentIndex].number;
+    }
+    return widget.hadith?.number ?? (_currentIndex + 1);
+  }
+
+  Future<void> _loadBookmarks() async {
+    final bookKey = widget.bookKey ?? 'hadith_bookmarks';
+    final bookmarks = await BookmarkService.getBookmarks(bookKey);
+    if (mounted) {
+      setState(() {
+        _bookmarkedHadiths.clear();
+        _bookmarkedHadiths.addAll(bookmarks);
+      });
+    }
   }
 
   @override
@@ -74,26 +93,28 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
   }
 
   Future<void> _toggleBookmark() async {
-    final hadithNumber = _currentIndex + 1;
-    final isBookmarked = _bookmarkedHadiths.contains(hadithNumber);
+    final hadithNumber = _currentHadithNumber;
+    final bookKey = widget.bookKey ?? 'hadith_bookmarks';
 
-    if (isBookmarked) {
-      _bookmarkedHadiths.remove(hadithNumber);
-    } else {
-      _bookmarkedHadiths.add(hadithNumber);
-    }
+    await BookmarkService.toggleBookmark(bookKey, hadithNumber);
 
-    // Save to persistent storage
-    await BookmarkService.toggleBookmark('hadith_bookmarks', hadithNumber);
-
-    // Show feedback
     if (mounted) {
+      setState(() {
+        if (_bookmarkedHadiths.contains(hadithNumber)) {
+          _bookmarkedHadiths.remove(hadithNumber);
+        } else {
+          _bookmarkedHadiths.add(hadithNumber);
+        }
+      });
+
+      final isNowBookmarked = _bookmarkedHadiths.contains(hadithNumber);
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isBookmarked
-                ? 'تمت الإضافة إلى العلامات المرجعية'
-                : 'تمت الإزالة من العلامات المرجعية',
+            isNowBookmarked
+                ? 'تمت الإضافة إلى الأحاديث المحفوظة'
+                : 'تمت الإزالة من الأحاديث المحفوظة',
             style: GoogleFonts.tajawal(),
           ),
           backgroundColor: widget.coverColor,
@@ -562,7 +583,7 @@ ${currentHadith.description}
             ),
             IconButton(
               icon: Icon(
-                _bookmarkedHadiths.contains(_currentIndex + 1)
+                _bookmarkedHadiths.contains(_currentHadithNumber)
                     ? Icons.bookmark_rounded
                     : Icons.bookmark_border_rounded,
                 color: Colors.white,

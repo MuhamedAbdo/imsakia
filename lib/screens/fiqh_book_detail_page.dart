@@ -651,39 +651,42 @@ class _FiqhBookDetailPageState extends State<FiqhBookDetailPage> {
             onPressed: () => Navigator.pop(context),
           ),
           actions: [
-            Stack(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.bookmark_rounded, color: Colors.white),
-                  onPressed: _showBookmarkDashboard,
-                  tooltip: 'العلامات المرجعية',
-                ),
-                if (_bookmarkCount > 0)
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
-                      child: Text(
-                        _bookmarkCount > 99 ? '99+' : '$_bookmarkCount',
-                        style: GoogleFonts.tajawal(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+            IconButton(
+              onPressed: _showBookmarkDashboard,
+              tooltip: 'العلامات المرجعية',
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.bookmark_rounded, color: Colors.white),
+                  if (_bookmarkCount > 0)
+                    Positioned(
+                      right: -4,
+                      top: -4,
+                      child: IgnorePointer(
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            _bookmarkCount > 99 ? '99+' : '$_bookmarkCount',
+                            style: GoogleFonts.tajawal(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
                         ),
-                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(width: 8),
           ],
