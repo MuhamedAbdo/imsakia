@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:imsakia/features/quran_madinah/models/aya.dart';
 import 'package:imsakia/features/quran_madinah/services/madinah_db_helper.dart';
@@ -59,8 +60,8 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
-  void _navigateToPage(Aya aya) {
-    Navigator.of(context).pushReplacement(
+  void _navigateToPage(Aya aya) async {
+    await Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => MushafScreen(
           initialPage: aya.page,
@@ -69,6 +70,11 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       ),
     );
+    if (mounted) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+      ]);
+    }
   }
 
   @override

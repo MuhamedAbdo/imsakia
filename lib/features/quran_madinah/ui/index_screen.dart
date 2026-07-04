@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:imsakia/features/quran_madinah/providers/quran_provider.dart';
 import 'package:imsakia/features/quran_madinah/ui/mushaf_screen.dart';
@@ -7,6 +8,19 @@ import 'package:imsakia/features/quran_madinah/utils/madinah_quran_utils.dart';
 
 class IndexScreen extends StatelessWidget {
   const IndexScreen({super.key});
+
+  Future<void> _openMushaf(BuildContext context, int initialPage) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => MushafScreen(initialPage: initialPage),
+      ),
+    );
+    if (context.mounted) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+      ]);
+    }
+  }
 
   String _toArabicNumbers(int number) {
     const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
@@ -153,13 +167,7 @@ class IndexScreen extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => MushafScreen(initialPage: startPage),
-              ),
-            );
-          },
+          onTap: () => _openMushaf(context, startPage),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
@@ -251,13 +259,7 @@ class IndexScreen extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => MushafScreen(initialPage: startPage),
-              ),
-            );
-          },
+          onTap: () => _openMushaf(context, startPage),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
@@ -460,12 +462,7 @@ class IndexScreen extends StatelessWidget {
                             primaryColor: primaryColor,
                             onTap: () {
                               Navigator.pop(context);
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      MushafScreen(initialPage: page),
-                                ),
-                              );
+                              _openMushaf(context, page);
                             },
                             onDelete: () => quranProvider.toggleBookmark(page),
                           );

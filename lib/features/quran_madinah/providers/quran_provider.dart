@@ -83,6 +83,14 @@ class QuranProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  double getPageOffset(int page) {
+    return _prefs.getDouble('page_offset_$page') ?? 0.0;
+  }
+
+  Future<void> setPageOffset(int page, double fraction) async {
+    await _prefs.setDouble('page_offset_$page', fraction);
+  }
+
   // Helper method to determine revelation type based on widely accepted scholars
   static bool isMadani(int suraNumber) {
     const madaniSurahs = [

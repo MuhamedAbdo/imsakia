@@ -156,6 +156,10 @@ void main() async {
 
   final hasCompletedSetup = prefs.getBool('setup_completed') ?? false;
   
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
+
   runApp(MyApp(
     settingsProvider: settingsProvider, 
     prefs: prefs, 
@@ -350,9 +354,6 @@ class _MyAppState extends State<MyApp> {
                   // 🔥 تحميل الصور مسبقاً في الذاكرة لضمان ظهور شاشة الأذان في جزء من الثانية (Pre-cache)
                   _precacheAthanImages(context);
                   
-                  SystemChrome.setPreferredOrientations([
-                    DeviceOrientation.portraitUp,
-                  ]);
                   return MediaQuery(
                     data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
                     child: child!,
