@@ -18,39 +18,51 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Aya> _searchResults = [];
   List<List<ParsedSpanData>> _parsedSearchResults = [];
   bool _isSearching = false;
+  String? _errorMessage;
 
   void _performSearch(String query) async {
     if (query.trim().isEmpty) {
       setState(() {
         _searchResults = [];
         _isSearching = false;
+        _errorMessage = null;
       });
       return;
     }
 
     setState(() {
       _isSearching = true;
+      _errorMessage = null;
     });
 
-    final results = await DbHelper.searchAyahs(query.trim());
+    try {
+      final results = await DbHelper.searchAyahs(query.trim());
 
-    // Pre-parse the results so the main thread doesn't jank on scroll
-    final parsed = results
-        .map(
-          (aya) => QuranUtils.parseVerse(
-            aya.ayaText,
-            aya.ayaTextEmlaey,
-            query.trim(),
-          ),
-        )
-        .toList();
+      // Pre-parse the results so the main thread doesn't jank on scroll
+      final parsed = results
+          .map(
+            (aya) => QuranUtils.parseVerse(
+              aya.ayaText,
+              aya.ayaTextEmlaey,
+              query.trim(),
+            ),
+          )
+          .toList();
 
-    if (mounted) {
-      setState(() {
-        _searchResults = results;
-        _parsedSearchResults = parsed;
-        _isSearching = false;
-      });
+      if (mounted) {
+        setState(() {
+          _searchResults = results;
+          _parsedSearchResults = parsed;
+          _isSearching = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isSearching = false;
+        });
+      }
     }
   }
 
@@ -117,6 +129,19 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _buildBody() {
     if (_isSearching) {
       return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text(
+            _errorMessage!,
+            style: const TextStyle(color: Colors.redAccent, fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
     }
 
     if (_searchController.text.isNotEmpty && _searchResults.isEmpty) {

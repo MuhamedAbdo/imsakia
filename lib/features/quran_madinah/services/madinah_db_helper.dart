@@ -14,11 +14,20 @@ class DbHelper {
   static const String _tableName = 'ayahs';
 
   static Database? _database;
+  static Future<Database>? _dbFuture;
+  static Future<void>? _populateFuture;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDatabase();
-    return _database!;
+    if (_dbFuture != null) return _dbFuture!;
+    _dbFuture = _initDatabase();
+    try {
+      _database = await _dbFuture!;
+      return _database!;
+    } catch (e) {
+      _dbFuture = null;
+      rethrow;
+    }
   }
 
   static Future<Database> _initDatabase() async {
@@ -54,9 +63,22 @@ class DbHelper {
 
   /// Initializes the database with JSON data if it's empty
   static Future<void> populateDatabaseIfEmpty() async {
+    if (_populateFuture != null) {
+      return _populateFuture!;
+    }
+    _populateFuture = _populateDatabaseInternal();
+    try {
+      await _populateFuture!;
+    } catch (e) {
+      _populateFuture = null;
+      rethrow;
+    }
+  }
+
+  static Future<void> _populateDatabaseInternal() async {
     final db = await database;
     final countSq = await db.rawQuery('SELECT COUNT(*) FROM $_tableName');
-    final count = Sqflite.firstIntValue(countSq);
+    final count = Sqflite.firstIntValue(countSq) ?? 0;
 
     if (count == 0) {
       // Database is empty, read from JSON and populate
@@ -65,16 +87,19 @@ class DbHelper {
       );
       final List<dynamic> jsonList = json.decode(jsonString);
 
-      Batch batch = db.batch();
-      for (var jsonMap in jsonList) {
-        batch.insert(_tableName, jsonMap);
-      }
-      await batch.commit(noResult: true);
+      await db.transaction((txn) async {
+        Batch batch = txn.batch();
+        for (var jsonMap in jsonList) {
+          batch.insert(_tableName, jsonMap);
+        }
+        await batch.commit(noResult: true);
+      });
     }
   }
 
   /// Fetch all Ayahs for a specific page
   static Future<List<Aya>> getAyahsByPage(int page) async {
+    await populateDatabaseIfEmpty();
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       _tableName,
@@ -89,6 +114,7 @@ class DbHelper {
 
   /// Fetch a distinct list of Surahs (for the Index page)
   static Future<List<Map<String, dynamic>>> getAllSurahs() async {
+    await populateDatabaseIfEmpty();
     final db = await database;
     // We can get details by grouping by sura_no
     final List<Map<String, dynamic>> maps = await db.rawQuery('''
@@ -107,6 +133,7 @@ class DbHelper {
 
   /// Search ayahs using the Emlaey string (without diacritics)
   static Future<List<Aya>> searchAyahs(String query) async {
+    await populateDatabaseIfEmpty();
     final db = await database;
 
     // Using LIKE to find substrings

@@ -10,6 +10,9 @@ class QuranProvider extends ChangeNotifier {
   bool _isLoading = true;
   bool get isLoading => _isLoading;
 
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
+
   int _currentPage = 1;
   int get currentPage => _currentPage;
 
@@ -28,28 +31,40 @@ class QuranProvider extends ChangeNotifier {
 
   Future<void> _init() async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
-    // Ensure database is populated (this takes time only on first launch)
-    await DbHelper.populateDatabaseIfEmpty();
+    try {
+      // Ensure database is populated (this takes time only on first launch)
+      await DbHelper.populateDatabaseIfEmpty();
 
-    // Load last read page
-    _currentPage = _prefs.getInt(_lastPageKey) ?? 1;
+      // Load last read page
+      _currentPage = _prefs.getInt(_lastPageKey) ?? 1;
 
-    // Load font size
-    _currentFontSize = _prefs.getDouble(_fontSizeKey) ?? 24.0;
+      // Load font size
+      _currentFontSize = _prefs.getDouble(_fontSizeKey) ?? 24.0;
 
-    // Load bookmarks (stored as list of strings format in prefs)
-    final savedBookmarks = _prefs.getStringList('bookmarks');
-    if (savedBookmarks != null) {
-      _bookmarks = savedBookmarks.map((e) => int.parse(e)).toList();
+      // Load bookmarks (stored as list of strings format in prefs)
+      final savedBookmarks = _prefs.getStringList('bookmarks');
+      if (savedBookmarks != null) {
+        _bookmarks = savedBookmarks.map((e) => int.parse(e)).toList();
+      }
+
+      // Load Surah Index
+      _surahs = await DbHelper.getAllSurahs();
+
+      _isLoading = false;
+      notifyListeners();
+    } catch (e, stackTrace) {
+      debugPrint("QuranProvider initialization error: $e\n$stackTrace");
+      _errorMessage = "حدث خطأ أثناء تحميل الفهرس:\n$e";
+      _isLoading = false;
+      notifyListeners();
     }
+  }
 
-    // Load Surah Index
-    _surahs = await DbHelper.getAllSurahs();
-
-    _isLoading = false;
-    notifyListeners();
+  Future<void> retryInit() async {
+    await _init();
   }
 
   Future<void> setPage(int page) async {

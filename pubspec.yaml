@@ -104,6 +104,7 @@ flutter:
     # Hadith SQLite database (replaces 9 JSON files ~221MB → ~32MB GZip compressed)
     - assets/hadith_database.db.gz
     - assets/data/hadiths.json
+    - assets/data/hafs_smart_v8.json
     - assets/data/fiqh/
     - assets/images/app_icon.png
     - assets/images/duas.png

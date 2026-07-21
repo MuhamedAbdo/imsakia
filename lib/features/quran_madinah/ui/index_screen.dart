@@ -70,6 +70,40 @@ class IndexScreen extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
 
+              if (quranProvider.errorMessage != null) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.redAccent,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          quranProvider.errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.redAccent,
+                            fontFamily: 'Tajawal',
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: () => quranProvider.retryInit(),
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('إعادة المحاولة'),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
               final surahs = quranProvider.surahs;
 
               return ListView.separated(
