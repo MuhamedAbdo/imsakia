@@ -99,6 +99,17 @@
             </intent-filter>
         </receiver>
 
+        <!-- Midnight Rollover Receiver -->
+        <receiver
+            android:name=".MidnightReceiver"
+            android:exported="false"
+            android:enabled="true"
+            android:directBootAware="true">
+            <intent-filter>
+                <action android:name="com.muhamed.imsakia.MIDNIGHT_ROLLOVER" />
+            </intent-filter>
+        </receiver>
+
         <!-- Prayer Widget -->
         <receiver android:name=".PrayerWidget" android:exported="true" android:label="زاد - مواقيت الصلاة">
             <intent-filter>

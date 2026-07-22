@@ -77,6 +77,9 @@ class MainActivity : AudioServiceActivity() {
         // ✅ 2. super.onCreate
         super.onCreate(savedInstanceState)
         
+        // Schedule Midnight Rollover Alarm
+        MidnightReceiver.scheduleMidnightAlarm(this)
+
         // Track state for Smart Exit
         val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         wasLockedOnStart = keyguardManager.isKeyguardLocked
@@ -375,6 +378,9 @@ class MainActivity : AudioServiceActivity() {
                 .putLong(id.toString(), timeInMillis)
                 .putString("${id}_data", "$prayerName|$prayerKey|$isSilent")
                 .commit()
+
+            // Ensure Midnight Rollover is always scheduled when alarms are updated
+            MidnightReceiver.scheduleMidnightAlarm(this)
 
             // 1. Intent for BroadcastReceiver (Actual Alarm Action)
             val broadcastIntent = Intent(this, AthanReceiver::class.java).apply {

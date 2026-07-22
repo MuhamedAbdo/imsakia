@@ -88,19 +88,12 @@ class BootReceiver : BroadcastReceiver() {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
 
-                if (!isSilent) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                        val clockInfo = AlarmManager.AlarmClockInfo(timeInMillis, uiPendingIntent)
-                        alarmManager.setAlarmClock(clockInfo, alarmPendingIntent)
-                    } else {
-                        alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
-                    }
+                // ترقية جميع الإشعارات (المسموعة والصامتة والشروق) لـ AlarmClock لكسر قيود Doze Mode في شاومي
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    val clockInfo = AlarmManager.AlarmClockInfo(timeInMillis, uiPendingIntent)
+                    alarmManager.setAlarmClock(clockInfo, alarmPendingIntent)
                 } else {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
-                    } else {
-                        alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
-                    }
+                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
                 }
             } else {
                 // Cleanup past alarms
@@ -109,7 +102,10 @@ class BootReceiver : BroadcastReceiver() {
             }
         }
 
-        // 3. Force widget update to clear 00:00
+        // 3. Schedule Midnight Rollover Alarm
+        MidnightReceiver.scheduleMidnightAlarm(context)
+
+        // 4. Force widget update to clear 00:00
         try {
             val widgetIntent = Intent(context, PrayerWidget::class.java).apply {
                 action = AppWidgetManager.ACTION_APPWIDGET_UPDATE

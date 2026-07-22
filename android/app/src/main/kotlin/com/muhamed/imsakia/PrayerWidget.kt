@@ -95,9 +95,9 @@ class PrayerWidget : HomeWidgetProvider() {
             // 3. Schedule Reliable NEXT Alarm (StabilityChain)
             scheduleExactAlarm(context, nextTimestamp, appWidgetIds)
         } else {
-            // Ultimate Fallback: If no future prayer is found even after local search
+            // Ultimate Fallback & UI Protection: Stop countdown immediately to prevent negative numbers
             views.setChronometer(R.id.countdown_text, android.os.SystemClock.elapsedRealtime(), null, false)
-            views.setTextViewText(R.id.countdown_text, "جاري التحديث...")
+            views.setTextViewText(R.id.countdown_text, "00:00")
             
             // 🔥 Force a heartbeat update via WorkManager if we are stuck
             val widgetUpdateIntent = Intent(context, MainActivity::class.java).apply {
@@ -218,14 +218,14 @@ class PrayerWidget : HomeWidgetProvider() {
     }
 
     private fun adjustHijriDateManually(fullDate: String): String {
-        val daysOfWeek = listOf("الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت")
+        val daysOfWeek = listOf("الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الإثنين")
+        val nextDays = listOf("الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد", "الثلاثاء")
         var updatedDate = fullDate
 
         // 1. تحديث اسم اليوم (مثلاً: الأربعاء -> الخميس)
         for (i in daysOfWeek.indices) {
             if (fullDate.contains(daysOfWeek[i])) {
-                val nextDay = daysOfWeek[(i + 1) % 7]
-                updatedDate = updatedDate.replace(daysOfWeek[i], nextDay)
+                updatedDate = updatedDate.replace(daysOfWeek[i], nextDays[i])
                 break
             }
         }
@@ -289,7 +289,19 @@ class PrayerWidget : HomeWidgetProvider() {
         )
 
         try {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                val activityIntent = Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                }
+                val uiPendingIntent = PendingIntent.getActivity(
+                    context,
+                    2001,
+                    activityIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                val clockInfo = android.app.AlarmManager.AlarmClockInfo(triggerTime, uiPendingIntent)
+                alarmManager.setAlarmClock(clockInfo, pendingIntent)
+            } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                 alarmManager.setExactAndAllowWhileIdle(
                     android.app.AlarmManager.RTC_WAKEUP,
                     triggerTime,

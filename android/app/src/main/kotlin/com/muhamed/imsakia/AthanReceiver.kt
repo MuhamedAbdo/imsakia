@@ -1,6 +1,8 @@
 package com.muhamed.imsakia
 
+import android.appwidget.AppWidgetManager
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -32,21 +34,30 @@ class AthanReceiver : BroadcastReceiver() {
             android.util.Log.e("ZadAthan", "FAILED to acquire immediate WakeLock: ${e.message}")
         }
 
-        // 2. Expedited Widget Update
+        val rawPrayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
+        val prayerName = rawPrayerName.replace("صلاة الشروق", "شروق الشمس")
+        val prayerKey = intent.getStringExtra("prayer_key") ?: "dhuhr"
+        val isSilent = intent.getBooleanExtra("is_silent", false)
+
+        // 2. Expedited & Direct Immediate Widget Update
         try {
+            val widgetIntent = Intent(context, PrayerWidget::class.java).apply {
+                action = "com.muhamed.imsakia.UPDATE_COUNTDOWN"
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                val ids = appWidgetManager.getAppWidgetIds(ComponentName(context, PrayerWidget::class.java))
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+                putExtra("triggered_prayer_name", prayerName)
+            }
+            context.sendBroadcast(widgetIntent)
+            android.util.Log.i("ZadAthan", "--- Immediate Direct Widget Sync Broadcast Sent ($prayerName) ---")
+
             val workRequest = androidx.work.OneTimeWorkRequestBuilder<WidgetUpdateWorker>()
                 .setExpedited(androidx.work.OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
             androidx.work.WorkManager.getInstance(context).enqueue(workRequest)
         } catch (e: Exception) {
-            android.util.Log.e("ZadAthan", "Failed to enqueue widget update: ${e.message}")
+            android.util.Log.e("ZadAthan", "Failed to enqueue/broadcast widget update: ${e.message}")
         }
-
-        val rawPrayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
-        val prayerName = rawPrayerName.replace("صلاة الشروق", "شروق الشمس")
-        val prayerKey = intent.getStringExtra("prayer_key") ?: "dhuhr"
-        // alarmId already declared above (line 13) - reuse it here
-        val isSilent = intent.getBooleanExtra("is_silent", false)
 
 
         if (isSilent) {
