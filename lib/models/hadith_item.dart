@@ -3,12 +3,14 @@ class HadithItem {
   final String hadith;
   final String description;
   final String searchTerm;
+  final String? bookKey;
 
   const HadithItem({
     required this.number,
     required this.hadith,
     required this.description,
     required this.searchTerm,
+    this.bookKey,
   });
 
   factory HadithItem.fromJson(Map<String, dynamic> json) {
@@ -17,6 +19,7 @@ class HadithItem {
       hadith: json['hadith'] as String,
       description: json['description'] as String,
       searchTerm: json['searchTerm'] as String,
+      bookKey: json['bookKey'] as String?,
     );
   }
 
@@ -26,6 +29,7 @@ class HadithItem {
       'hadith': hadith,
       'description': description,
       'searchTerm': searchTerm,
+      'bookKey': bookKey,
     };
   }
 

@@ -79,6 +79,49 @@ class HadithDatabaseService {
     return matchedIds.map((id) => idToHadith[id]!).toList();
   }
 
+  /// بحث عام في جميع كتب الحديث.
+  /// يستخدم عمود clean_hadith للبحث المباشر في قاعدة البيانات بأداء عالي.
+  Future<List<HadithItem>> searchAllHadiths(String query, {int limit = 100}) async {
+    final q = query.trim();
+    if (q.isEmpty) return [];
+
+    final cleanQuery = _removeDiacritics(q)
+        .replaceAll('إ', 'ا')
+        .replaceAll('أ', 'ا')
+        .replaceAll('آ', 'ا')
+        .replaceAll('ى', 'ي')
+        .replaceAll('ؤ', 'و')
+        .replaceAll('ئ', 'ي')
+        .replaceAll('ة', 'ه');
+
+    final db = await _getDatabase();
+    
+    // Check if numeric for exact number match across all books
+    final numericId = int.tryParse(q);
+    
+    List<Map<String, Object?>> rows;
+    
+    if (numericId != null) {
+      rows = await db.query(
+        _table,
+        columns: ['book_key', 'number', 'hadith', 'description'],
+        where: 'number = ?',
+        whereArgs: [numericId],
+        limit: limit,
+      );
+    } else {
+      rows = await db.query(
+        _table,
+        columns: ['book_key', 'number', 'hadith', 'description'],
+        where: 'clean_hadith LIKE ?',
+        whereArgs: ['%$cleanQuery%'],
+        limit: limit,
+      );
+    }
+
+    return rows.map(_rowToItem).toList();
+  }
+
   /// جلب حديث واحد برقمه.
   Future<HadithItem?> getHadithByNumber(String bookKey, int number) async {
     final db = await _getDatabase();
@@ -127,14 +170,30 @@ class HadithDatabaseService {
     final docsDir = await getApplicationDocumentsDirectory();
     final dbPath  = join(docsDir.path, _dbFileName);
 
-    // فك ضغط ونسخ الـ DB من assets إلى التخزين المحلي (عند أول تشغيل فقط)
-    if (!File(dbPath).existsSync()) {
-      debugPrint('HadithDB: فك ضغط ونسخ قاعدة البيانات من assets ...');
+    bool needsCopy = !File(dbPath).existsSync();
+
+    if (!needsCopy) {
+      // Check if it's the old version without clean_hadith
+      final tempDb = await openDatabase(dbPath, readOnly: true);
+      try {
+        await tempDb.rawQuery('SELECT clean_hadith FROM $_table LIMIT 1');
+      } catch (e) {
+        needsCopy = true; // Column doesn't exist, need to update
+      } finally {
+        await tempDb.close();
+      }
+    }
+
+    if (needsCopy) {
+      debugPrint('HadithDB: تحديث قاعدة البيانات من assets ...');
+      if (File(dbPath).existsSync()) {
+        File(dbPath).deleteSync();
+      }
       final data  = await rootBundle.load(_dbAssetPath);
       final compressedBytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
       final decompressedBytes = gzip.decode(compressedBytes);
       await File(dbPath).writeAsBytes(decompressedBytes, flush: true);
-      debugPrint('HadithDB: تم فك الضغط والنسخ بنجاح.');
+      debugPrint('HadithDB: تم التحديث بنجاح.');
     }
 
     return openDatabase(
@@ -149,6 +208,7 @@ class HadithDatabaseService {
       hadith:      (row['hadith']      as String?) ?? '',
       description: (row['description'] as String?) ?? '',
       searchTerm:  '', // عمود search_term غير موجود في DB — نُرجع نصاً فارغاً
+      bookKey:     (row['book_key']    as String?),
     );
   }
 

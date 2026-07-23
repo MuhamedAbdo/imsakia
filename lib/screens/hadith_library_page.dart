@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/hadith_book.dart';
 import 'hadith_book_detail_page.dart';
+import 'global_hadith_search_page.dart';
 
 class HadithLibraryPage extends StatelessWidget {
   const HadithLibraryPage({super.key});
@@ -86,6 +87,20 @@ class HadithLibraryPage extends StatelessWidget {
             icon: Icon(Icons.arrow_back_ios_new, color: isDark ? Colors.white : Colors.black87),
             onPressed: () => Navigator.pop(context),
           ),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.search_rounded, color: isDark ? Colors.white : Colors.black87),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const GlobalHadithSearchPage(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(width: 8),
+          ],
         ),
         body: GridView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
