@@ -25,11 +25,17 @@ class HadithDatabaseService {
 
   Database? _db;
   bool _isInitializing = false;
+  
+  // Cache for loaded books to avoid repeated DB queries
+  final Map<String, List<HadithItem>> _bookCache = {};
 
   // ── Public API ───────────────────────────────────────────────
 
   /// جلب جميع أحاديث كتاب معين، مُرتَّبة حسب رقم الحديث.
   Future<List<HadithItem>> getHadiths(String bookKey) async {
+    if (_bookCache.containsKey(bookKey)) {
+      return _bookCache[bookKey]!;
+    }
     final db = await _getDatabase();
     final rows = await db.query(
       _table,
@@ -38,7 +44,9 @@ class HadithDatabaseService {
       whereArgs: [bookKey],
       orderBy:  'number ASC',
     );
-    return rows.map(_rowToItem).toList();
+    final result = rows.map(_rowToItem).toList();
+    _bookCache[bookKey] = result;
+    return result;
   }
 
   /// بحث في أحاديث كتاب معين.
@@ -47,23 +55,28 @@ class HadithDatabaseService {
     final q = query.trim();
     if (q.isEmpty) return getHadiths(bookKey);
 
-    final db = await _getDatabase();
+    // Get from cache or DB
+    final allHadiths = await getHadiths(bookKey);
 
     // بحث بالرقم
     final numericId = int.tryParse(q);
     if (numericId != null) {
-      final rows = await db.query(
-        _table,
-        columns:   ['number', 'hadith', 'description'],
-        where:     'book_key = ? AND number = ?',
-        whereArgs: [bookKey, numericId],
-      );
-      if (rows.isNotEmpty) return rows.map(_rowToItem).toList();
+      final matches = allHadiths.where((h) => h.number == numericId).toList();
+      if (matches.isNotEmpty) return matches;
+    }
+
+    // Prepare optimized map for Isolate (only IDs and text)
+    final Map<int, String> searchMap = {};
+    for (final h in allHadiths) {
+      searchMap[h.number] = h.hadith;
     }
 
     // بحث نصي ذكي — يعمل في Isolate لتجنب تجميد الـ UI
-    final allHadiths = await getHadiths(bookKey);
-    return compute(_searchIsolate, {'hadiths': allHadiths.map((h) => h.toJson()).toList(), 'query': q});
+    final matchedIds = await compute(_searchIsolateOptimized, {'map': searchMap, 'query': q});
+
+    // Reconstruct list from main memory cache while preserving order
+    final idToHadith = {for (var h in allHadiths) h.number: h};
+    return matchedIds.map((id) => idToHadith[id]!).toList();
   }
 
   /// جلب حديث واحد برقمه.
@@ -141,8 +154,8 @@ class HadithDatabaseService {
 
   // ── Isolate search function ──────────────────────────────────
 
-  static List<HadithItem> _searchIsolate(Map<String, dynamic> params) {
-    final List<dynamic> hadithsJson = params['hadiths'];
+  static List<int> _searchIsolateOptimized(Map<String, dynamic> params) {
+    final Map<int, String> searchMap = params['map'] as Map<int, String>;
     final String query = params['query'].toString().toLowerCase();
 
     final cleanQuery = _removeDiacritics(query)
@@ -153,36 +166,33 @@ class HadithDatabaseService {
 
     final isNumeric = RegExp(r'^\d+$').hasMatch(query.trim());
 
-    final List<HadithItem> exact   = [];
-    final List<HadithItem> partial = [];
+    final List<int> exact   = [];
+    final List<int> partial = [];
 
-    for (final raw in hadithsJson) {
-      final hadith = HadithItem.fromJson(raw as Map<String, dynamic>);
+    for (final entry in searchMap.entries) {
+      final id = entry.key;
+      final text = entry.value;
 
-      if (isNumeric && hadith.number.toString() == query.trim()) {
-        exact.add(hadith);
+      if (isNumeric && id.toString() == query.trim()) {
+        exact.add(id);
         continue;
       }
 
-      final cleanHadith  = _removeDiacritics(hadith.hadith.toLowerCase())
+      final cleanHadith  = _removeDiacritics(text.toLowerCase())
           .replaceAll('إ', 'ا').replaceAll('أ', 'ا')
           .replaceAll('آ', 'ا').replaceAll('ى', 'ي');
-      final cleanSearch  = _removeDiacritics(hadith.searchTerm.toLowerCase());
-      final cleanDesc    = _removeDiacritics(hadith.description.toLowerCase());
 
-      if (cleanHadith.contains(cleanQuery) ||
-          cleanSearch.contains(cleanQuery)  ||
-          cleanDesc.contains(cleanQuery)) {
-        if (isNumeric && hadith.number.toString().contains(query.trim())) {
-          exact.add(hadith);
+      if (cleanHadith.contains(cleanQuery)) {
+        if (isNumeric && id.toString().contains(query.trim())) {
+          exact.add(id);
         } else {
-          partial.add(hadith);
+          partial.add(id);
         }
       }
     }
 
-    exact.sort((a, b)   => a.number.compareTo(b.number));
-    partial.sort((a, b) => a.number.compareTo(b.number));
+    exact.sort();
+    partial.sort();
     return [...exact, ...partial];
   }
 

@@ -80,6 +80,12 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
 
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
+    
+    setState(() {
+      _isLoading = true;
+      _filteredHadiths = [];
+    });
+
     _debounce = Timer(const Duration(milliseconds: 300), () {
       _searchHadiths(query);
     });
@@ -90,11 +96,11 @@ class _HadithBookDetailPageState extends State<HadithBookDetailPage> {
     if (query.isEmpty) {
       setState(() {
         _filteredHadiths = _hadiths;
+        _isLoading = false;
       });
       return;
     }
 
-    setState(() => _isLoading = true);
     final results = await HadithDatabaseService.instance
         .searchHadiths(widget.book.bookKey, query);
     if (mounted) {
