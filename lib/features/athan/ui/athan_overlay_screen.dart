@@ -59,7 +59,13 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
         widget.prayerName == "الصلاة" ||
         widget.prayerName.toLowerCase() == "null") {
       Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) Navigator.of(context).pop();
+        if (mounted) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            SystemNavigator.pop();
+          }
+        }
       });
       return;
     }
@@ -170,7 +176,11 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
 
   void _handleNavigation() {
     if (mounted) {
-      Navigator.of(context).pop();
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else {
+        SystemNavigator.pop();
+      }
       // ✅ استدعاء الميثود المنقذة لضمان الخروج التام في حالة الـ Cold Start
       AthanManager.finalizeAthanSession();
     }

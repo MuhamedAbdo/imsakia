@@ -44,9 +44,6 @@ class PrayerTimesService {
     final madhab =
         _sharedPreferences!.getString(AppConstants.madhabKey) ??
         AppConstants.defaultMadhab;
-    final dstEnabled =
-        _sharedPreferences!.getBool(AppConstants.dstKey) ??
-        AppConstants.defaultDST;
 
     final now = DateTime.now();
     final date = DateComponents(now.year, now.month, now.day);
@@ -88,42 +85,16 @@ class PrayerTimesService {
     params.madhab = madhab == 'hanafi' ? Madhab.hanafi : Madhab.shafi;
     final prayerTimes = PrayerTimes(coordinates, date, params);
 
-    final deviceOffsetHours = now.timeZoneOffset.inHours;
-    int targetOffsetHours = deviceOffsetHours;
-    String country = location.country.toLowerCase();
-
-    // تصحيح فوارق التوقيت للدول
-    if (country.contains("turkey")) {
-      targetOffsetHours = 3;
-    } else if (country.contains("algeria") || country.contains("morocco")) {
-      targetOffsetHours = 1;
-    } else if (country.contains("egypt")) {
-      targetOffsetHours = 2;
-    } else if (country.contains("saudi") ||
-        country.contains("qatar") ||
-        country.contains("kuwait")) {
-      targetOffsetHours = 3;
-    } else if (country.contains("united arab emirates") ||
-        country.contains("emirates") ||
-        country.contains("uae")) {
-      targetOffsetHours = 4;
-    }
-
-    final timezoneCorrection = Duration(
-      hours: targetOffsetHours - deviceOffsetHours,
-    );
-    final totalOffset =
-        timezoneCorrection +
-        (dstEnabled ? const Duration(hours: 1) : Duration.zero);
-
-    _currentPrayerTimes = {
-      'fajr': prayerTimes.fajr.add(totalOffset),
-      'sunrise': prayerTimes.sunrise.add(totalOffset),
-      'dhuhr': prayerTimes.dhuhr.add(totalOffset),
-      'asr': prayerTimes.asr.add(totalOffset),
-      'maghrib': prayerTimes.maghrib.add(totalOffset),
-      'isha': prayerTimes.isha.add(totalOffset),
+    final Map<String, DateTime> times = {
+      'fajr': prayerTimes.fajr,
+      'sunrise': prayerTimes.sunrise,
+      'dhuhr': prayerTimes.dhuhr,
+      'asr': prayerTimes.asr,
+      'maghrib': prayerTimes.maghrib,
+      'isha': prayerTimes.isha,
     };
+
+    _currentPrayerTimes = times;
 
     _scheduleAthanAlarmsIfNeeded(_currentPrayerTimes!);
 
@@ -306,24 +277,12 @@ class PrayerTimesService {
       final madhab =
           _sharedPreferences!.getString(AppConstants.madhabKey) ??
           AppConstants.defaultMadhab;
-      final dstEnabled =
-          _sharedPreferences!.getBool(AppConstants.dstKey) ??
-          AppConstants.defaultDST;
 
       final now = DateTime.now();
       final coordinates = Coordinates(location.latitude, location.longitude);
 
       CalculationParameters params = _getParams(calculationMethod);
       params.madhab = madhab == 'hanafi' ? Madhab.hanafi : Madhab.shafi;
-
-      final deviceOffsetHours = now.timeZoneOffset.inHours;
-      int targetOffsetHours = _getTargetOffset(
-        location.country.toLowerCase(),
-        deviceOffsetHours,
-      );
-      final totalOffset =
-          Duration(hours: targetOffsetHours - deviceOffsetHours) +
-          (dstEnabled ? const Duration(hours: 1) : Duration.zero);
 
       // --- Schedule Today and Tomorrow ---
       for (int dayOffset = 0; dayOffset <= 1; dayOffset++) {
@@ -336,12 +295,12 @@ class PrayerTimesService {
         final prayerTimes = PrayerTimes(coordinates, dateComponents, params);
 
         final Map<String, DateTime> times = {
-          'fajr': prayerTimes.fajr.add(totalOffset),
-          'sunrise': prayerTimes.sunrise.add(totalOffset),
-          'dhuhr': prayerTimes.dhuhr.add(totalOffset),
-          'asr': prayerTimes.asr.add(totalOffset),
-          'maghrib': prayerTimes.maghrib.add(totalOffset),
-          'isha': prayerTimes.isha.add(totalOffset),
+          'fajr': prayerTimes.fajr,
+          'sunrise': prayerTimes.sunrise,
+          'dhuhr': prayerTimes.dhuhr,
+          'asr': prayerTimes.asr,
+          'maghrib': prayerTimes.maghrib,
+          'isha': prayerTimes.isha,
         };
 
         final idOffset = dayOffset * 10; // Today: 0, Tomorrow: 10
@@ -390,29 +349,6 @@ class PrayerTimesService {
       default:
         return CalculationMethod.egyptian.getParameters();
     }
-  }
-
-  int _getTargetOffset(String country, int deviceOffset) {
-    if (country.contains("turkey")) {
-      return 3;
-    }
-    if (country.contains("algeria") || country.contains("morocco")) {
-      return 1;
-    }
-    if (country.contains("egypt")) {
-      return 2;
-    }
-    if (country.contains("saudi") ||
-        country.contains("qatar") ||
-        country.contains("kuwait")) {
-      return 3;
-    }
-    if (country.contains("united arab emirates") ||
-        country.contains("emirates") ||
-        country.contains("uae")) {
-      return 4;
-    }
-    return deviceOffset;
   }
 
   int _getPrayerId(String name) {
