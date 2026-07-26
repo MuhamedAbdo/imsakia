@@ -284,8 +284,8 @@ class PrayerTimesService {
       CalculationParameters params = _getParams(calculationMethod);
       params.madhab = madhab == 'hanafi' ? Madhab.hanafi : Madhab.shafi;
 
-      // --- Schedule Today and Tomorrow ---
-      for (int dayOffset = 0; dayOffset <= 1; dayOffset++) {
+      // --- Schedule for next 14 days to prevent widget stopping in background ---
+      for (int dayOffset = 0; dayOffset <= 14; dayOffset++) {
         final targetDate = now.add(Duration(days: dayOffset));
         final dateComponents = DateComponents(
           targetDate.year,

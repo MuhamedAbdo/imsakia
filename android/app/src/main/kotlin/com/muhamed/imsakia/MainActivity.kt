@@ -641,7 +641,7 @@ class MainActivity : AudioServiceActivity() {
     private fun forceClearSystemAlarms() {
         try {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-            for (id in 100..120) {
+            for (id in 100..400) {
                 // 1. Cancel Broadcast Intent
                 val bIntent = Intent(this, AthanReceiver::class.java)
                 val pbIntent = android.app.PendingIntent.getBroadcast(
