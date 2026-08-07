@@ -76,7 +76,9 @@ android {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
-    implementation(project(":home_widget"))
+    // Note: home_widget (and all other Flutter plugins) are registered automatically
+    // by the flutter-plugin-loader Gradle plugin via .flutter-plugins-dependencies.
+    // Do NOT add them manually with implementation(project(":home_widget")).
 }
 
 flutter {

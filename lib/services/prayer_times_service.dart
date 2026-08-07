@@ -22,6 +22,7 @@ class PrayerTimesService {
   Timer? _updateTimer;
   SharedPreferences? _sharedPreferences;
   bool _isScheduling = false; // 🔥 لمنع تداخل عمليات الجدولة
+  bool _isWidgetUpdating = false; // ✅ FIX: منع تداخل تحديثات الويدجت
   DateTime?
   _lastWidgetUpdateTime; // 🔥 لمنع استهلاك المعالج بتحديثات الويدجت المتكررة
 
@@ -112,12 +113,19 @@ class PrayerTimesService {
       Logger.info("Skipping widget update (Athan is playing)");
       return;
     }
-    
+
+    // ✅ FIX: منع التداخل — إذا كان تحديث سابق جارٍ، نتجاهل الطلب الجديد
+    if (_isWidgetUpdating && !force) return;
+    _isWidgetUpdating = true;
+
     try {
+      // ✅ FIX: رُفعت المهلة من 5s إلى 20s.
+      // السبب: HomeWidget.saveWidgetData() يُنفّذ fsync على القرص لكل قيمة (9 استدعاءات).
+      // كل fsync قد يستغرق 500ms-1024ms على أجهزة بطيئة → المجموع يتجاوز 5 ثوانٍ بسهولة.
       await Future.any([
         _performWidgetUpdate(force),
-        Future.delayed(const Duration(seconds: 5), () {
-          throw TimeoutException("Widget update timed out");
+        Future.delayed(const Duration(seconds: 20), () {
+          throw TimeoutException("Widget update timed out after 20s");
         })
       ]);
     } catch (e) {
@@ -131,6 +139,8 @@ class PrayerTimesService {
         await HomeWidget.saveWidgetData<String>('flutter.countdown_text', countdownText);
         await HomeWidget.updateWidget(name: 'PrayerWidget', androidName: 'PrayerWidget');
       } catch (_) {}
+    } finally {
+      _isWidgetUpdating = false;
     }
   }
 

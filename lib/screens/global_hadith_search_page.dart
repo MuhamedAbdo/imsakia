@@ -162,10 +162,10 @@ class _GlobalHadithSearchPageState extends State<GlobalHadithSearchPage> {
             final bookHadiths = await HadithDatabaseService.instance.getHadiths(bookInfo.bookKey);
             final idx = bookHadiths.indexWhere((h) => h.number == hadith.number);
             
-            if (context.mounted) {
-              Navigator.pop(context); // close dialog
-              Navigator.push(
-                context,
+            if (mounted) {
+              final nav = Navigator.of(context);
+              nav.pop(); // close dialog
+              nav.push(
                 MaterialPageRoute(
                   builder: (context) => HadithReadingPage(
                     hadith: hadith,
