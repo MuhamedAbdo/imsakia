@@ -61,19 +61,21 @@ class BootReceiver : BroadcastReceiver() {
 
             if (timeInMillis > currentTime) {
                 android.util.Log.d("ZadBoot", ">>> Rescheduling ID=$id: $prayerName at $timeInMillis (Silent=$isSilent)")
-                
+
                 // 1. AthanReceiver Broadcast Intent
+                // ✅ يحمل scheduled_time ليستخدمه AthanReceiver في Stale Guard
                 val broadcastIntent = Intent(context, AthanReceiver::class.java).apply {
                     putExtra("prayer_name", prayerName)
                     putExtra("prayer_key", prayerKey)
                     putExtra("alarm_id", id)
                     putExtra("is_silent", isSilent)
+                    putExtra("scheduled_time", timeInMillis) // ← للـ Stale Guard
                 }
-                
+
                 val alarmPendingIntent = PendingIntent.getBroadcast(
-                    context, 
-                    id, 
-                    broadcastIntent, 
+                    context,
+                    id,
+                    broadcastIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
 
@@ -82,22 +84,61 @@ class BootReceiver : BroadcastReceiver() {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 }
                 val uiPendingIntent = PendingIntent.getActivity(
-                    context, 
-                    id + 500, 
-                    activityIntent, 
+                    context,
+                    id + 500,
+                    activityIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
 
-                // ترقية جميع الإشعارات (المسموعة والصامتة والشروق) لـ AlarmClock لكسر قيود Doze Mode في شاومي
+                // ترقية جميع الإشعارات لـ AlarmClock لكسر قيود Doze Mode في شاومي
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                     val clockInfo = AlarmManager.AlarmClockInfo(timeInMillis, uiPendingIntent)
                     alarmManager.setAlarmClock(clockInfo, alarmPendingIntent)
                 } else {
                     alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
                 }
+
+                // ════════════════════════════════════════════════════════════════
+                // 3. جدولة منبه PreWarm استباقي قبل 3 دقائق
+                // ════════════════════════════════════════════════════════════════
+                val preWarmTime = timeInMillis - (3 * 60 * 1000L)
+                if (preWarmTime > currentTime) {
+                    val preWarmIntent = Intent(context, PreWarmReceiver::class.java).apply {
+                        putExtra("prayer_name", prayerName)
+                        putExtra("prayer_key", prayerKey)
+                        putExtra("alarm_id", id)
+                        putExtra("is_silent", isSilent)
+                        putExtra("scheduled_time", timeInMillis) // ← وقت الصلاة الفعلي
+                    }
+                    val preWarmPI = PendingIntent.getBroadcast(
+                        context,
+                        id + 10000,
+                        preWarmIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        val preWarmClockInfo = AlarmManager.AlarmClockInfo(preWarmTime, uiPendingIntent)
+                        alarmManager.setAlarmClock(preWarmClockInfo, preWarmPI)
+                    } else {
+                        alarmManager.setExact(AlarmManager.RTC_WAKEUP, preWarmTime, preWarmPI)
+                    }
+                    android.util.Log.d("ZadBoot", ">>> PreWarm Rescheduled ID=${id + 10000}: $prayerName at $preWarmTime (3min early)")
+                }
+
             } else {
                 // Cleanup past alarms
                 android.util.Log.d("ZadBoot", "--- Cleaning up expired alarm ID=$id")
+                // إلغاء المنبه الاستباقي أيضاً عند التنظيف
+                try {
+                    val expiredPreWarmIntent = Intent(context, PreWarmReceiver::class.java)
+                    val expiredPreWarmPI = PendingIntent.getBroadcast(
+                        context,
+                        id + 10000,
+                        expiredPreWarmIntent,
+                        PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    if (expiredPreWarmPI != null) alarmManager.cancel(expiredPreWarmPI)
+                } catch (e: Exception) {}
                 prefs.edit().remove(idStr).remove("${id}_data").commit()
             }
         }

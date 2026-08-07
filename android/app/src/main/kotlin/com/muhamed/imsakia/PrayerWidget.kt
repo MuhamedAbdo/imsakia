@@ -85,24 +85,31 @@ class PrayerWidget : HomeWidgetProvider() {
         if (nextTimestamp > now) {
             val remainingMs = nextTimestamp - now
             val baseTime = android.os.SystemClock.elapsedRealtime() + remainingMs
-            
-            // Update Chronometer
+
+            // Update Chronometer (countdown mode)
             views.setChronometer(R.id.countdown_text, baseTime, null, true)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
                 views.setChronometerCountDown(R.id.countdown_text, true)
             }
-            
-            // 3. Schedule Reliable NEXT Alarm (StabilityChain)
+
+            // ✅ Schedule Reliable NEXT Alarm (StabilityChain) — carries scheduledTime for stale guard
             scheduleExactAlarm(context, nextTimestamp, appWidgetIds)
         } else {
-            // Ultimate Fallback & UI Protection: Stop countdown immediately to prevent negative numbers
-            views.setChronometer(R.id.countdown_text, android.os.SystemClock.elapsedRealtime(), null, false)
-            views.setTextViewText(R.id.countdown_text, "00:00")
-            
-            // 🔥 Force a heartbeat update via WorkManager if we are stuck
-            val widgetUpdateIntent = Intent(context, MainActivity::class.java).apply {
-                putExtra("force_widget_sync", true)
-            }
+            // ════════════════════════════════════════════════════════════════
+            // ⛔ ZERO-TOLERANCE UI: منع مطلق لأي عد سالب في الويدجت.
+            // بمجرد أن يصل الوقت المتبقي إلى 0 أو أقل:
+            //   1. أوقف الـ Chronometer فوراً.
+            //   2. اعرض نصاً ثابتاً — يُمنع منعاً باتاً تمرير قيمة سالبة.
+            //   حتى لو تأخر MIUI في إطلاق الـ Receiver بساعة كاملة.
+            // ════════════════════════════════════════════════════════════════
+            views.setChronometer(
+                R.id.countdown_text,
+                android.os.SystemClock.elapsedRealtime(), // base = now → لن يتحرك
+                null,
+                false // stopped = لا يعد
+            )
+            views.setTextViewText(R.id.countdown_text, "حان الصلاة")
+            android.util.Log.d("ZadWidget", "⛔ ZERO-TOLERANCE: Chronometer stopped, showing 'حان الصلاة'")
         }
 
         // 4. Interaction: Click to open app
@@ -291,11 +298,13 @@ class PrayerWidget : HomeWidgetProvider() {
 
     private fun scheduleExactAlarm(context: Context, triggerTime: Long, appWidgetIds: IntArray) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+        // ✅ يحمل scheduled_time ليستخدمه AthanReceiver في Stale Guard
         val alarmIntent = Intent(context, PrayerWidget::class.java).apply {
             action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, appWidgetIds)
+            putExtra("scheduled_time", triggerTime)
         }
-        
+
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             1001,
@@ -304,16 +313,17 @@ class PrayerWidget : HomeWidgetProvider() {
         )
 
         try {
+            // setAlarmClock هو الوحيد المضمون اختراق Doze/MIUI
+            val activityIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
+            val uiPendingIntent = PendingIntent.getActivity(
+                context,
+                2001,
+                activityIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-                val activityIntent = Intent(context, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                }
-                val uiPendingIntent = PendingIntent.getActivity(
-                    context,
-                    2001,
-                    activityIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
                 val clockInfo = android.app.AlarmManager.AlarmClockInfo(triggerTime, uiPendingIntent)
                 alarmManager.setAlarmClock(clockInfo, pendingIntent)
             } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {

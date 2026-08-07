@@ -79,6 +79,13 @@
             android:enabled="true"
             android:directBootAware="true" />
 
+        <!-- PreWarmReceiver: يستيقظ قبل 3 دقائق لكسر غفوة MIUI وحماية دقة الأذان -->
+        <receiver
+            android:name=".PreWarmReceiver"
+            android:exported="false"
+            android:enabled="true"
+            android:directBootAware="true" />
+
         <!-- ✅ CRITICAL: AthanService with stopWithTask="false" -->
         <service
             android:name=".AthanService"

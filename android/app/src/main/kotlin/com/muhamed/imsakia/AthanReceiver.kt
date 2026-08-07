@@ -10,30 +10,94 @@ import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 
 class AthanReceiver : BroadcastReceiver() {
+
+    companion object {
+        private const val TAG = "ZadAthan"
+        // الحد الأقصى لتأخر النظام المقبول: 3 دقائق
+        private const val MAX_ACCEPTABLE_DELAY_MS = 3 * 60 * 1000L
+        // مفتاح SharedPreferences لتتبع آخر ID أُطلق من PreWarm لمنع التشغيل المزدوج
+        private const val PREWARM_FIRED_PREF = "prewarm_last_fired_id"
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         // ✅ DIAGNOSTIC: First line - always runs before any logic
         val alarmId = intent.getIntExtra("alarm_id", -1)
-        android.util.Log.d("ZadAthan", "Receiver Awake - ID: $alarmId")
+        android.util.Log.d(TAG, "Receiver Awake - ID: $alarmId")
 
-        // 0. ✅ FIX: Cancel ONLY our previous athan notification (ID 1001).
-        // Using cancelAll() was catastrophic — it killed system notifications and
-        // could force-stop any active ForegroundService, leading to random failures.
+        // ════════════════════════════════════════════════════════════════════
+        // 🛡️ GUARD 1: إسقاط الأذان المتأخر (Drop Stale Alarms)
+        // إذا أخّر MIUI المنبه لأكثر من 3 دقائق، نلغي الأذان ونجدول القادم.
+        // ════════════════════════════════════════════════════════════════════
+        val scheduledTime = intent.getLongExtra("scheduled_time", 0L)
+        val firedFromPrewarm = intent.getBooleanExtra("fired_from_prewarm", false)
+
+        if (scheduledTime > 0L) {
+            val now = System.currentTimeMillis()
+            val delayMs = now - scheduledTime
+
+            if (delayMs > MAX_ACCEPTABLE_DELAY_MS) {
+                android.util.Log.w(
+                    TAG,
+                    "!!! STALE ALARM DROPPED: $delayMs ms late (${delayMs / 1000}s) for alarm ID=$alarmId. " +
+                    "MIUI likely throttled this alarm. Skipping athan, scheduling next prayer. !!!"
+                )
+                // تنظيف الـ prefs وجدولة الصلاة القادمة
+                cleanupExpiredAlarm(context, alarmId)
+                scheduleNextPrayerWidgetUpdate(context)
+                return
+            }
+
+            android.util.Log.d(TAG, "--- Timing OK: delay=${delayMs}ms for $alarmId ---")
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // 🛡️ GUARD 2: منع التشغيل المزدوج (Anti Double-Firing)
+        // إذا أطلق PreWarmReceiver هذا الـ Receiver بالفعل وجاء المنبه النظامي لاحقاً،
+        // نتجاهل النسخة الثانية.
+        // ════════════════════════════════════════════════════════════════════
+        if (!firedFromPrewarm && alarmId >= 0) {
+            val prefs = context.getSharedPreferences("athan_native_prefs", Context.MODE_PRIVATE)
+            val lastPrewarmFiredId = prefs.getInt(PREWARM_FIRED_PREF, -1)
+            if (lastPrewarmFiredId == alarmId) {
+                android.util.Log.i(
+                    TAG,
+                    "--- Anti-Dup: Alarm ID=$alarmId was already fired by PreWarm. " +
+                    "System alarm arrived late — IGNORING to prevent double athan. ---"
+                )
+                // تنظيف العلامة
+                prefs.edit().remove(PREWARM_FIRED_PREF).apply()
+                return
+            }
+        }
+
+        // إذا جاء من PreWarm، سجّل المعرف لمنع النسخة النظامية من التشغيل مرة ثانية
+        if (firedFromPrewarm && alarmId >= 0) {
+            val prefs = context.getSharedPreferences("athan_native_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putInt(PREWARM_FIRED_PREF, alarmId).apply()
+            android.util.Log.d(TAG, "--- Fired from PreWarm: Registered anti-dup marker for ID=$alarmId ---")
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // 0. إلغاء إشعار الأذان القديم (السابق)
+        // ════════════════════════════════════════════════════════════════════
         try {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
             notificationManager.cancel(1001)
         } catch (e: Exception) {}
 
-        // 1. Acquire WakeLock IMMEDIATELY (Partial Wake) - MUST BE FIRST LINE
+        // ════════════════════════════════════════════════════════════════════
+        // 1. استحواذ فوري على WakeLock — أول سطر في المنطق الأساسي
+        // ════════════════════════════════════════════════════════════════════
         try {
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             val wakeLock = powerManager.newWakeLock(
                 PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
                 "Zad:SovereignWakeLock"
             )
-            wakeLock.acquire(30000) // 30 seconds to allow everything to load
-            android.util.Log.d("ZadAthan", "!!! HARDENED: WakeLock Acquired as First Line !!!")
-        } catch (e: Exception) { 
-            android.util.Log.e("ZadAthan", "FAILED to acquire immediate WakeLock: ${e.message}")
+            wakeLock.acquire(30000) // 30 ثانية لإتمام كل العمليات
+            android.util.Log.d(TAG, "!!! HARDENED: WakeLock Acquired as First Line !!!")
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "FAILED to acquire immediate WakeLock: ${e.message}")
         }
 
         val rawPrayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
@@ -41,23 +105,17 @@ class AthanReceiver : BroadcastReceiver() {
         val prayerKey = intent.getStringExtra("prayer_key") ?: "dhuhr"
         val isSilent = intent.getBooleanExtra("is_silent", false)
 
-        // ✅ FIX: Remove this prayer from athan_schedules IMMEDIATELY after it fires.
-        // Without this, the Widget reads the expired timestamp and displays a negative
-        // countdown until the (now-removed) Dart isolate wakes up and corrects it.
+        // ════════════════════════════════════════════════════════════════════
+        // 2. إزالة هذه الصلاة من athan_schedules فوراً بعد انطلاقها
+        // بدون هذا، يقرأ الويدجت الـ timestamp المنتهي ويعرض عداداً سالباً.
+        // ════════════════════════════════════════════════════════════════════
         if (alarmId >= 0) {
-            try {
-                val schedulePrefs = context.getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
-                schedulePrefs.edit()
-                    .remove(alarmId.toString())
-                    .remove("${alarmId}_data")
-                    .apply()
-                android.util.Log.d("ZadAthan", "✅ Prefs cleaned for alarm ID=$alarmId")
-            } catch (e: Exception) {
-                android.util.Log.e("ZadAthan", "Failed to clean prefs for alarm $alarmId: ${e.message}")
-            }
+            cleanupExpiredAlarm(context, alarmId)
         }
 
-        // 2. Expedited & Direct Immediate Widget Update
+        // ════════════════════════════════════════════════════════════════════
+        // 3. تحديث فوري للويدجت + WorkManager
+        // ════════════════════════════════════════════════════════════════════
         try {
             val widgetIntent = Intent(context, PrayerWidget::class.java).apply {
                 action = "com.muhamed.imsakia.UPDATE_COUNTDOWN"
@@ -67,33 +125,32 @@ class AthanReceiver : BroadcastReceiver() {
                 putExtra("triggered_prayer_name", prayerName)
             }
             context.sendBroadcast(widgetIntent)
-            android.util.Log.i("ZadAthan", "--- Immediate Direct Widget Sync Broadcast Sent ($prayerName) ---")
+            android.util.Log.i(TAG, "--- Immediate Direct Widget Sync Broadcast Sent ($prayerName) ---")
 
             val workRequest = androidx.work.OneTimeWorkRequestBuilder<WidgetUpdateWorker>()
                 .setExpedited(androidx.work.OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
             androidx.work.WorkManager.getInstance(context).enqueue(workRequest)
         } catch (e: Exception) {
-            android.util.Log.e("ZadAthan", "Failed to enqueue/broadcast widget update: ${e.message}")
+            android.util.Log.e(TAG, "Failed to enqueue/broadcast widget update: ${e.message}")
         }
-
 
         if (isSilent) {
             showSilentNotification(context, prayerName, alarmId)
             return
         }
 
-        android.util.Log.i("ZadAthan", "!!! HARDENED: Athan Alert Triggered: $prayerName !!!")
+        android.util.Log.i(TAG, "!!! HARDENED: Athan Alert Triggered: $prayerName !!!")
 
         // --- Audible Branch: Full Protocol (Service + Activity) ---
-        
+
         // 1. Start Service
         val serviceIntent = Intent(context, AthanService::class.java).apply {
             putExtra("prayer_name", prayerName)
             putExtra("prayer_key", prayerKey)
             putExtra("alarm_id", alarmId)
         }
-        
+
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent)
@@ -112,8 +169,60 @@ class AthanReceiver : BroadcastReceiver() {
                 putExtra("alarm_id", alarmId)
             }
             context.startActivity(intentToMain)
-            android.util.Log.d("ZadAthan", "--- MainActivity Started ---")
+            android.util.Log.d(TAG, "--- MainActivity Started ---")
         } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    /**
+     * تنظيف المنبه المنتهي من SharedPreferences ومنع الويدجت من قراءة timestamp قديم.
+     */
+    private fun cleanupExpiredAlarm(context: Context, alarmId: Int) {
+        try {
+            val schedulePrefs = context.getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
+            schedulePrefs.edit()
+                .remove(alarmId.toString())
+                .remove("${alarmId}_data")
+                .apply()
+            android.util.Log.d(TAG, "✅ Prefs cleaned for alarm ID=$alarmId")
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to clean prefs for alarm $alarmId: ${e.message}")
+        }
+
+        // تنظيف المنبه الاستباقي (PreWarm) المرتبط بنفس الصلاة
+        try {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            val preWarmIntent = Intent(context, PreWarmReceiver::class.java)
+            val preWarmPI = android.app.PendingIntent.getBroadcast(
+                context,
+                alarmId + 10000, // نفس الـ requestCode المستخدم في الجدولة
+                preWarmIntent,
+                android.app.PendingIntent.FLAG_NO_CREATE or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+            if (preWarmPI != null) {
+                alarmManager.cancel(preWarmPI)
+                android.util.Log.d(TAG, "✅ PreWarm alarm cancelled for ID=$alarmId")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to cancel PreWarm for $alarmId: ${e.message}")
+        }
+    }
+
+    /**
+     * إطلاق تحديث فوري للويدجت ليجلب الصلاة القادمة من athan_schedules.
+     */
+    private fun scheduleNextPrayerWidgetUpdate(context: Context) {
+        try {
+            val widgetIntent = Intent(context, PrayerWidget::class.java).apply {
+                action = "com.muhamed.imsakia.UPDATE_COUNTDOWN"
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                val ids = appWidgetManager.getAppWidgetIds(ComponentName(context, PrayerWidget::class.java))
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+            }
+            context.sendBroadcast(widgetIntent)
+            android.util.Log.i(TAG, "--- Stale: Next prayer widget update broadcast sent ---")
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to broadcast next prayer widget update: ${e.message}")
+        }
     }
 
     private fun showSilentNotification(context: Context, prayerName: String, alarmId: Int) {
