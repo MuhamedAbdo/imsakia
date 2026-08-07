@@ -15,10 +15,12 @@ class AthanReceiver : BroadcastReceiver() {
         val alarmId = intent.getIntExtra("alarm_id", -1)
         android.util.Log.d("ZadAthan", "Receiver Awake - ID: $alarmId")
 
-        // 0. Force cleanup of old notifications
+        // 0. ✅ FIX: Cancel ONLY our previous athan notification (ID 1001).
+        // Using cancelAll() was catastrophic — it killed system notifications and
+        // could force-stop any active ForegroundService, leading to random failures.
         try {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            notificationManager.cancelAll()
+            notificationManager.cancel(1001)
         } catch (e: Exception) {}
 
         // 1. Acquire WakeLock IMMEDIATELY (Partial Wake) - MUST BE FIRST LINE
@@ -38,6 +40,22 @@ class AthanReceiver : BroadcastReceiver() {
         val prayerName = rawPrayerName.replace("صلاة الشروق", "شروق الشمس")
         val prayerKey = intent.getStringExtra("prayer_key") ?: "dhuhr"
         val isSilent = intent.getBooleanExtra("is_silent", false)
+
+        // ✅ FIX: Remove this prayer from athan_schedules IMMEDIATELY after it fires.
+        // Without this, the Widget reads the expired timestamp and displays a negative
+        // countdown until the (now-removed) Dart isolate wakes up and corrects it.
+        if (alarmId >= 0) {
+            try {
+                val schedulePrefs = context.getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
+                schedulePrefs.edit()
+                    .remove(alarmId.toString())
+                    .remove("${alarmId}_data")
+                    .apply()
+                android.util.Log.d("ZadAthan", "✅ Prefs cleaned for alarm ID=$alarmId")
+            } catch (e: Exception) {
+                android.util.Log.e("ZadAthan", "Failed to clean prefs for alarm $alarmId: ${e.message}")
+            }
+        }
 
         // 2. Expedited & Direct Immediate Widget Update
         try {

@@ -5,7 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
+
 import 'package:flutter/services.dart';
 import 'dart:ui';
 
@@ -122,8 +122,6 @@ class AthanService {
         // Silently fail
       }
       
-      // Clean up the 777 test alarm
-      await AndroidAlarmManager.cancel(777);
       await _writeLog(logFile, "Step: Playback finished and cleanup complete.");
     } catch (e) {
       await _writeLog(logFile, "Error in audio playback block: $e");

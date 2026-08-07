@@ -1,11 +1,8 @@
-import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../../services/prayer_times_service.dart';
-import '../../audio/services/audio_handler.dart';
 
 /// The notification ID for the athan full-screen overlay notification.
 const int kAthanNotificationId = 888;
@@ -14,9 +11,9 @@ const int kAthanNotificationId = 888;
 const String kAthanChannelId = 'athan_full_screen';
 
 class AthanManager {
-  static Future<void> initialize() async {
-    await AndroidAlarmManager.initialize();
-  }
+  /// No-op: AndroidAlarmManager removed.
+  /// Scheduling is fully handled by native AlarmManager.setAlarmClock via MethodChannel.
+  static Future<void> initialize() async {}
 
   static Future<void> cancelAthan(int alarmId) async {
     try {
@@ -118,6 +115,9 @@ class AthanManager {
 
     try {
       const channel = MethodChannel('imsakia/notifications');
+      // ✅ SINGLE alarm source: Only native AlarmManager.setAlarmClock is used.
+      // The dual AndroidAlarmManager.oneShotAt() has been removed to prevent
+      // random delayed re-scheduling from the Dart isolate (root cause of timing jitter).
       await channel.invokeMethod('scheduleExactAthan', {
         'timeInMillis': time.millisecondsSinceEpoch,
         'id': alarmId,
@@ -125,19 +125,6 @@ class AthanManager {
         'prayerKey': prayerKey,
         'isSilent': isSilent,
       });
-
-      // 🔥 Sync with AndroidAlarmManager to trigger Dart logic at the same time
-      // This ensures the widget updates and Hijri date syncs even if the app is closed.
-      await AndroidAlarmManager.oneShotAt(
-        time,
-        alarmId,
-        athanAlarmCallback,
-        alarmClock: true,
-        allowWhileIdle: true,
-        exact: true,
-        wakeup: true,
-        rescheduleOnReboot: true,
-      );
     } catch (e) {
       debugPrint(
         "AthanManager: Failed to schedule $prayerName (ID: $alarmId): $e",
@@ -218,89 +205,4 @@ class AthanManager {
       return "فشل الاختبار المباشر: $e";
     }
   }
-}
-
-@pragma('vm:entry-point')
-Future<void> athanAlarmCallback(int alarmId) async {
-  WidgetsFlutterBinding.ensureInitialized(); // ✅ CRITICAL: Must be first - initializes plugin channels
-  DartPluginRegistrant.ensureInitialized();
-
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.reload();
-  await prefs.setBool('needs_sync', true);
-
-  final isEnabled = prefs.getBool('athan_enabled') ?? true;
-  final isFajr = prefs.getBool('isFajr_$alarmId') ?? false;
-  final prayerKey =
-      prefs.getString('prayerKey_$alarmId') ?? (isFajr ? "fajr" : "dhuhr");
-
-  // 🔥 UPDATE WIDGET DATA FIRST (Mandatory)
-  // This ensures the "Next Prayer" updates on the Home Screen immediately.
-  await PrayerTimesService.instance.updateWidgetData(force: true);
-
-  // If Athan is disabled or it's Sunrise, we stop here (widget updated above)
-  if (!isEnabled || prayerKey == "sunrise") {
-    return;
-  }
-
-  final prayerName = prefs.getString('prayerName_$alarmId') ?? "الصلاة";
-  final pathToPlay = prefs.getString('athan_path_$prayerKey') ??
-      (prayerKey == 'fajr'
-          ? "assets/audio/fajr_makkah.mp3"
-          : "assets/audio/athan_makkah.mp3");
-
-  if (audioHandler == null) {
-    await initAudioService();
-  }
-
-  await audioHandler?.customAction('playAthan', {
-    'path': pathToPlay,
-    'prayerName': prayerName,
-    if (alarmId == 999) 'activeTestKey': 'test_athan',
-  });
-
-  await showFullScreenAthan(prayerName, isFajr);
-}
-
-Future<void> showFullScreenAthan(String prayerName, bool isFajr) async {
-  final FlutterLocalNotificationsPlugin plugin =
-      FlutterLocalNotificationsPlugin();
-
-  await plugin.initialize(
-    settings: const InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-    ),
-  );
-
-  const AndroidNotificationAction stopAction = AndroidNotificationAction(
-    'stop_athan_action',
-    'إيقاف الأذان',
-    showsUserInterface: false,
-    cancelNotification: true,
-  );
-
-  final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-    kAthanChannelId,
-    'إشعار الأذان',
-    channelDescription: 'يُعرض عند حلول وقت الصلاة',
-    importance: Importance.max,
-    priority: Priority.max,
-    fullScreenIntent: true,
-    visibility: NotificationVisibility.public,
-    category: AndroidNotificationCategory.alarm,
-    ongoing: true,
-    autoCancel: false,
-    timeoutAfter: 30 * 60 * 1000,
-    showWhen: false,
-    actions: const [stopAction],
-    largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
-  );
-
-  await plugin.show(
-    id: kAthanNotificationId,
-    title: 'حان وقت الصلاة 🕌',
-    body: 'أذان $prayerName',
-    notificationDetails: NotificationDetails(android: androidDetails),
-    payload: 'athan_overlay|$prayerName|$isFajr',
-  );
 }

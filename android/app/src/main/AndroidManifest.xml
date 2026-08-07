@@ -115,7 +115,8 @@
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.muhamed.imsakia.UPDATE_COUNTDOWN" />
-                <action android:name="android.intent.action.TIME_TICK" />
+                <!-- ✅ FIX: TIME_TICK removed — not delivered to manifest receivers in Android 8+.
+                     Widget precision updates are handled by PrayerWidget.scheduleExactAlarm(). -->
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

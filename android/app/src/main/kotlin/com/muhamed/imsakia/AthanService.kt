@@ -120,7 +120,7 @@ class AthanService : Service() {
                 android.util.Log.w("ImsakiaNative", "!!! SERVICE: Audio is DISABLED, service will linger for 5m !!!")
                 Handler(Looper.getMainLooper()).postDelayed({
                     stopSelf()
-                }, 300000) // 5 minutes
+                }, 5000) // ✅ FIX: 5 seconds (was 5 minutes) — enough for foreground notification display.
             }
             
         } catch (e: Exception) {

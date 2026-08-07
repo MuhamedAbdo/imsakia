@@ -152,16 +152,31 @@ class PrayerWidget : HomeWidgetProvider() {
         
         var earliestFutureTimestamp = Long.MAX_VALUE
         var foundData: String? = null
-        
+
+        // ✅ FIX: Collect expired entries to delete them — prevents negative widget countdown
+        val expiredKeys = mutableListOf<String>()
+
         for (entry in schedules.all) {
             val key = entry.key
             if (key.endsWith("_data")) continue
             val timestamp = (entry.value as? Number)?.toLong() ?: continue
-            
+
             if (timestamp > now && timestamp < earliestFutureTimestamp) {
                 earliestFutureTimestamp = timestamp
                 foundData = schedules.getString("${key}_data", null)
+            } else if (timestamp <= now) {
+                expiredKeys.add(key)
             }
+        }
+
+        // Delete all expired alarms in one batch
+        if (expiredKeys.isNotEmpty()) {
+            val editor = schedules.edit()
+            for (key in expiredKeys) {
+                editor.remove(key).remove("${key}_data")
+            }
+            editor.apply()
+            android.util.Log.d("ZadWidget", "✅ Cleaned ${expiredKeys.size} expired alarm(s) from prefs")
         }
         
         return if (foundData != null) {
