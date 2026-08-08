@@ -33,6 +33,7 @@ import 'settings_screen.dart';
 import 'tasbih_screen.dart';
 import '../features/audio/screens/audio_reciters_screen.dart';
 import '../widgets/event_card_widget.dart';
+import '../widgets/oem_restrictions_dialog.dart';
 
 // =============================================================================
 //  UnderDevelopmentPage
@@ -130,7 +131,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     ];
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _checkBatteryOptimization(),
+      (_) {
+        _checkBatteryOptimization().ignore();
+        OemRestrictionsDialog.checkAndShow(context).ignore();
+      }
     );
   }
 
