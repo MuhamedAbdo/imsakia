@@ -45,7 +45,7 @@ class PreWarmReceiver : BroadcastReceiver() {
             return
         }
 
-        // 1. استحواذ فوري على WakeLock قبل أي شيء آخر
+        // 1. استحواذ فوري على WakeLock لمدة 4 دقائق
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
         val wakeLock = powerManager?.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
@@ -53,29 +53,14 @@ class PreWarmReceiver : BroadcastReceiver() {
         )
 
         try {
-            wakeLock?.acquire(WAKELOCK_TIMEOUT_MS)
-            android.util.Log.d(TAG, "--- PreWarm WakeLock Acquired (5 min max) ---")
+            // 4 * 60 * 1000L = 4 دقائق
+            wakeLock?.acquire(4 * 60 * 1000L)
+            android.util.Log.d(TAG, "--- PreWarm WakeLock Acquired (4 min timeout) ---")
         } catch (e: Exception) {
             android.util.Log.e(TAG, "Failed to acquire PreWarm WakeLock: ${e.message}")
         }
 
-        // 2. استخدام goAsync() لتجاوز حد الـ 10 ثوانٍ
-        val pendingResult = goAsync()
-
-        val now = System.currentTimeMillis()
-        val delayUntilPrayer = scheduledTime - now
-
-        android.util.Log.d(TAG, "--- Time until prayer: ${delayUntilPrayer}ms (${delayUntilPrayer / 1000}s) ---")
-
-        // 3. التحقق: هل فات موعد الصلاة بأكثر من الحد المسموح؟
-        if (delayUntilPrayer < -MAX_DELAY_MS) {
-            android.util.Log.w(TAG, "!!! PreWarm: Prayer time is too stale (${-delayUntilPrayer}ms late) — Aborting !!!")
-            try { wakeLock?.release() } catch (e: Exception) {}
-            pendingResult.finish()
-            return
-        }
-
-        // 4. تحديث الويدجت فوراً عند الاستيقاظ الاستباقي (تهيئة مبكرة)
+        // 2. تحديث الويدجت فوراً عند الاستيقاظ الاستباقي (تهيئة مبكرة)
         try {
             val widgetIntent = Intent(context, PrayerWidget::class.java).apply {
                 action = "com.muhamed.imsakia.UPDATE_COUNTDOWN"
@@ -89,37 +74,6 @@ class PreWarmReceiver : BroadcastReceiver() {
             android.util.Log.e(TAG, "Failed to send warm-up widget broadcast: ${e.message}")
         }
 
-        // 5. الانتظار الدقيق حتى الثانية الصفر المطلقة
-        val waitMs = if (delayUntilPrayer > 0L) delayUntilPrayer else 0L
-
-        android.util.Log.i(TAG, "--- PreWarm: Waiting ${waitMs}ms until exact prayer zero-second ---")
-
-        Handler(Looper.getMainLooper()).postDelayed({
-            try {
-                val fireTime = System.currentTimeMillis()
-                val actualDelay = fireTime - scheduledTime
-                android.util.Log.i(TAG, "!!! PreWarm FIRING AthanReceiver — actual delay: ${actualDelay}ms !!!")
-
-                // 6. إطلاق AthanReceiver مباشرةً من الكود (لا عبر النظام)
-                val athanIntent = Intent(context, AthanReceiver::class.java).apply {
-                    putExtra("prayer_name", prayerName)
-                    putExtra("prayer_key", prayerKey)
-                    putExtra("alarm_id", alarmId)
-                    putExtra("is_silent", isSilent)
-                    putExtra("scheduled_time", scheduledTime)
-                    putExtra("fired_from_prewarm", true) // علامة لمنع الـ double-firing
-                }
-                context.sendBroadcast(athanIntent)
-                android.util.Log.i(TAG, "--- PreWarm: AthanReceiver broadcast delivered ---")
-
-            } catch (e: Exception) {
-                android.util.Log.e(TAG, "PreWarm fire error: ${e.message}")
-            } finally {
-                // 7. تحرير WakeLock — سيتم الاستحواذ عليه من جديد داخل AthanReceiver
-                try { wakeLock?.release() } catch (e: Exception) {}
-                pendingResult.finish()
-                android.util.Log.d(TAG, "--- PreWarm: WakeLock released, pendingResult finished ---")
-            }
-        }, waitMs)
+        android.util.Log.i(TAG, "--- PreWarmReceiver finished. System will stay awake for 4 mins to guarantee AthanReceiver fires on time. ---")
     }
 }
