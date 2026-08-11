@@ -9,6 +9,7 @@ import '../features/athan/services/athan_manager.dart';
 import 'package:home_widget/home_widget.dart';
 import 'home_events_service.dart';
 import '../main.dart';
+import 'islamic_occasion_notification_service.dart';
 
 class PrayerTimesService {
   static PrayerTimesService? _instance;
@@ -333,6 +334,8 @@ class PrayerTimesService {
       _isScheduling = false;
       // ✅ عند إعادة الجدولة، نجبر الويدجت على التحديث فوراً
       updateWidgetData(force: true);
+      // 🗓️ جدولة إشعارات المناسبات الإسلامية (مستقلة عن الأذان)
+      IslamicOccasionNotificationService.instance.scheduleOccasionNotifications();
     }
   }
 
