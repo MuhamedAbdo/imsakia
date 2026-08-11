@@ -190,7 +190,7 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   static const platform = MethodChannel('imsakia/notifications');
   String? _currentAthanOverlay;
   bool _isColdStartForAthan = false;
@@ -202,26 +202,44 @@ class _MyAppState extends State<MyApp> {
     _setupMethodChannel();
     // ✅ نظام الخروج الآمن: مسح أي علم سابق عند فتح التطبيق لضمان العمل الطبيعي
     AthanManager.clearShouldExitFlag();
-    // 🔥 جدولة المنبهات وتحديث الويدجت عند فتح التطبيق لأول مرة
+    // 🔄 Self-Healing: سجّل Observer لمراقبة دورة حياة التطبيق (Resume)
+    WidgetsBinding.instance.addObserver(this);
+    // 🔥 جدولة المنبهات وتحديث الويدجت عند فتح التطبيق
     // 🛡️ HARDENED: Skip this if we're showing an overlay to avoid heavy initialization & Geocoding issues
     if (widget.initialOverlay == null) {
-      Future.microtask(() async {
-        debugPrint("!!! HARDENED: Triggering immediate startup synchronization !!!");
-        final needsSync = widget.prefs.getBool('needs_sync') ?? false;
-        
-        if (needsSync) {
-          await widget.prefs.setBool('needs_sync', false);
-          await PrayerTimesService.instance.scheduleAllPrayers();
-        } else {
-          PrayerTimesService.instance.scheduleAllPrayers();
-        }
-        
-        // 🔥 تزامن الدخول: نحدث الويدجت فوراً وبشكل صارم عند فتح التطبيق
-        await PrayerTimesService.instance.updateWidgetData(force: true);
-      });
+      Future.microtask(() => _rescheduleAndSync());
     } else {
       debugPrint("!!! HARDENED: Athan Overlay detected, skipping heavy background scheduling !!!");
     }
+  }
+
+  /// 🔄 Self-Healing: يُعيد جدولة جميع صلوات اليوم ويُحدّث الويدجت.
+  /// يُستدعى عند كل فتح للتطبيق (Launch) أو عودة إليه (Resume).
+  /// هذا يضمن التعافي الفوري في حال مُسحت المنبهات من AlarmManager
+  /// بسبب Force Stop أو ADB Debugging أو أي سبب قسري آخر.
+  Future<void> _rescheduleAndSync() async {
+    debugPrint("!!! SELF-HEALING: Rescheduling all prayers on app launch/resume !!!");
+    // مسح علم needs_sync لأننا نُعيد الجدولة بشكل كامل الآن
+    await widget.prefs.setBool('needs_sync', false);
+    await PrayerTimesService.instance.scheduleAllPrayers();
+    // 🔥 تزامن الدخول: نحدث الويدجت فوراً وبشكل صارم
+    await PrayerTimesService.instance.updateWidgetData(force: true);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 🔄 Self-Healing: عند رجوع المستخدم للتطبيق بعد تشغيله في الخلفية
+    // نُعيد جدولة المنبهات تلقائياً لضمان التعافي من أي مسح قسري
+    if (state == AppLifecycleState.resumed && widget.initialOverlay == null) {
+      debugPrint("!!! SELF-HEALING: App resumed — rescheduling prayers to recover from any alarm wipe !!!");
+      PrayerTimesService.instance.scheduleAllPrayers();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   void _setupMethodChannel() {
