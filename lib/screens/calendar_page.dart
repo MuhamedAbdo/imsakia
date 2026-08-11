@@ -5,6 +5,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:provider/provider.dart';
 import '../services/hijri_date_service.dart';
 import '../providers/settings_provider.dart';
+import '../data/islamic_occasions.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -19,6 +20,9 @@ class _CalendarPageState extends State<CalendarPage>
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
+  // المناسبة المختارة حالياً (null = لا توجد مناسبة لهذا اليوم)
+  String? _selectedOccasion;
+
   @override
   void initState() {
     super.initState();
@@ -32,12 +36,33 @@ class _CalendarPageState extends State<CalendarPage>
     _focusedDay = DateTime(now.year, now.month, now.day);
     _selectedDay = _focusedDay;
     HijriCalendar.setLocal('ar');
+
+    // احسب مناسبة اليوم الحالي عند البداية
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateOccasionForSelectedDay(_selectedDay!);
+    });
   }
 
   @override
   void dispose() {
     _tabController?.dispose();
     super.dispose();
+  }
+
+  /// يحدّث [_selectedOccasion] بناءً على اليوم المختار
+  void _updateOccasionForSelectedDay(DateTime gregorianDay) {
+    final settingsProvider = Provider.of<SettingsProvider>(
+      context,
+      listen: false,
+    );
+    final hijriData = HijriDateService.getHijriDate(
+      gregorianDay,
+      settingsProvider.hijriAdjustment,
+    );
+    final int hMonth = hijriData['monthIndex'];
+    final int hDay = hijriData['dayIndex'] as int;
+    final occasion = IslamicOccasions.getPrimaryOccasion(hMonth, hDay);
+    setState(() => _selectedOccasion = occasion);
   }
 
   void _moveMonth({required bool isNext}) {
@@ -311,21 +336,28 @@ class _CalendarPageState extends State<CalendarPage>
           isSelected = currentGregorian.isAtSameMomentAs(_selectedDay!);
         }
 
+        // فحص وجود مناسبة لهذا اليوم
+        final bool hasOccasion = IslamicOccasions.hasOccasion(hMonth, dayNo);
+
         return GestureDetector(
-          onTap: () => setState(() {
-            // Normalize to prevent time-of-day mismatch
-            _selectedDay = DateTime(
+          onTap: () {
+            final normalizedDay = DateTime(
               currentGregorian.year,
               currentGregorian.month,
               currentGregorian.day,
             );
-            _focusedDay = _selectedDay!;
-          }),
+            setState(() {
+              _selectedDay = normalizedDay;
+              _focusedDay = _selectedDay!;
+            });
+            _updateOccasionForSelectedDay(normalizedDay);
+          },
           child: _customDayItem(
             dayNo.toString(),
             isDarkMode,
             isSelected: isSelected,
             isToday: isToday,
+            hasOccasion: hasOccasion,
           ),
         );
       },
@@ -343,10 +375,13 @@ class _CalendarPageState extends State<CalendarPage>
       daysOfWeekVisible: false,
       calendarFormat: CalendarFormat.month,
       selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-      onDaySelected: (selectedDay, focusedDay) => setState(() {
-        _selectedDay = selectedDay;
-        _focusedDay = focusedDay;
-      }),
+      onDaySelected: (selectedDay, focusedDay) {
+        setState(() {
+          _selectedDay = selectedDay;
+          _focusedDay = focusedDay;
+        });
+        _updateOccasionForSelectedDay(selectedDay);
+      },
       calendarStyle: CalendarStyle(
         outsideDaysVisible: false,
         todayDecoration: BoxDecoration(
@@ -366,9 +401,10 @@ class _CalendarPageState extends State<CalendarPage>
     bool isDarkMode, {
     required bool isSelected,
     required bool isToday,
+    required bool hasOccasion,
   }) {
     return Container(
-      margin: const EdgeInsets.all(4),
+      margin: const EdgeInsets.all(3),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -379,16 +415,36 @@ class _CalendarPageState extends State<CalendarPage>
                   : Colors.transparent),
         border: isToday ? Border.all(color: Colors.blue, width: 1) : null,
       ),
-      child: Text(
-        text,
-        style: GoogleFonts.tajawal(
-          color: isSelected
-              ? Colors.white
-              : (isDarkMode ? Colors.white : Colors.black),
-          fontWeight: isSelected || isToday
-              ? FontWeight.bold
-              : FontWeight.normal,
-        ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            text,
+            style: GoogleFonts.tajawal(
+              fontSize: 13,
+              color: isSelected
+                  ? Colors.white
+                  : (isDarkMode ? Colors.white : Colors.black),
+              fontWeight: isSelected || isToday
+                  ? FontWeight.bold
+                  : FontWeight.normal,
+            ),
+          ),
+          // 🔶 مؤشر المناسبة — نقطة ذهبية صغيرة تحت الرقم
+          if (hasOccasion)
+            Container(
+              width: 5,
+              height: 5,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected
+                    ? Colors.white.withValues(alpha: 0.85)
+                    : const Color(0xFFE8A800), // ذهبي
+              ),
+            )
+          else
+            const SizedBox(height: 5), // مسافة للتوازن البصري
+        ],
       ),
     );
   }
@@ -402,59 +458,133 @@ class _CalendarPageState extends State<CalendarPage>
       date,
       settingsProvider.hijriAdjustment,
     );
+
     return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Container(
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.07),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
-              child: const Icon(
-                Icons.event_available,
-                color: Colors.blue,
-                size: 28,
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // ─── أيقونة التقويم ───
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _selectedOccasion != null
+                      ? const Color(0xFFE8A800).withValues(alpha: 0.12)
+                      : Colors.blue.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _selectedOccasion != null
+                      ? Icons.star_rounded
+                      : Icons.event_available,
+                  color: _selectedOccasion != null
+                      ? const Color(0xFFE8A800)
+                      : Colors.blue,
+                  size: 28,
+                ),
               ),
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    hijriData['formatted'],
-                    style: GoogleFonts.tajawal(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: isDarkMode ? Colors.amber[200] : Colors.blue[900],
+              const SizedBox(width: 14),
+              // ─── نصوص التاريخ والمناسبة ───
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // التاريخ الهجري
+                    Text(
+                      hijriData['formatted'],
+                      style: GoogleFonts.tajawal(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDarkMode ? Colors.amber[200] : Colors.blue[900],
+                      ),
                     ),
-                  ),
-                  Text(
-                    "${_getDayName(date.weekday)}، ${date.day}/${date.month}/${date.year} م",
-                    style: GoogleFonts.tajawal(
-                      fontSize: 13,
-                      color: isDarkMode ? Colors.white70 : Colors.grey[700],
+                    // التاريخ الميلادي
+                    Text(
+                      "${_getDayName(date.weekday)}، ${date.day}/${date.month}/${date.year} م",
+                      style: GoogleFonts.tajawal(
+                        fontSize: 13,
+                        color: isDarkMode ? Colors.white70 : Colors.grey[700],
+                      ),
                     ),
-                  ),
-                ],
+                    // ─── المناسبة (مع أنيميشن FadeIn/Out) ───
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 350),
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: SizeTransition(
+                          sizeFactor: animation,
+                          alignment: AlignmentDirectional.topStart,
+                          child: child,
+                        ),
+                      ),
+                      child: _selectedOccasion != null
+                          ? Padding(
+                              key: ValueKey(_selectedOccasion),
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE8A800)
+                                      .withValues(alpha: 0.13),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFFE8A800)
+                                        .withValues(alpha: 0.4),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.brightness_5_rounded,
+                                      color: Color(0xFFE8A800),
+                                      size: 15,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Flexible(
+                                      child: Text(
+                                        _selectedOccasion!,
+                                        style: GoogleFonts.tajawal(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: isDarkMode
+                                              ? const Color(0xFFFFD54F)
+                                              : const Color(0xFF7A5800),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(key: ValueKey('empty')),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
