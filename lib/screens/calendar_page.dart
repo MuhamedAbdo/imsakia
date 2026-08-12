@@ -21,7 +21,7 @@ class _CalendarPageState extends State<CalendarPage>
   DateTime? _selectedDay;
 
   // المناسبة المختارة حالياً (null = لا توجد مناسبة لهذا اليوم)
-  String? _selectedOccasion;
+  IslamicOccasion? _selectedOccasion;
 
   @override
   void initState() {
@@ -61,7 +61,7 @@ class _CalendarPageState extends State<CalendarPage>
     );
     final int hMonth = hijriData['monthIndex'];
     final int hDay = hijriData['dayIndex'] as int;
-    final occasion = IslamicOccasions.getPrimaryOccasion(hMonth, hDay);
+    final occasion = IslamicOccasions.getOccasion(hMonth, hDay);
     setState(() => _selectedOccasion = occasion);
   }
 
@@ -536,45 +536,58 @@ class _CalendarPageState extends State<CalendarPage>
                       ),
                       child: _selectedOccasion != null
                           ? Padding(
-                              key: ValueKey(_selectedOccasion),
+                              key: ValueKey(_selectedOccasion!.primaryName),
                               padding: const EdgeInsets.only(top: 8),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE8A800)
-                                      .withValues(alpha: 0.13),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(0xFFE8A800)
-                                        .withValues(alpha: 0.4),
-                                    width: 1,
+                              child: GestureDetector(
+                                onTap: () => _showOccasionDialog(_selectedOccasion!),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
                                   ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.brightness_5_rounded,
-                                      color: Color(0xFFE8A800),
-                                      size: 15,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE8A800)
+                                        .withValues(alpha: 0.13),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: const Color(0xFFE8A800)
+                                          .withValues(alpha: 0.4),
+                                      width: 1,
                                     ),
-                                    const SizedBox(width: 6),
-                                    Flexible(
-                                      child: Text(
-                                        _selectedOccasion!,
-                                        style: GoogleFonts.tajawal(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          color: isDarkMode
-                                              ? const Color(0xFFFFD54F)
-                                              : const Color(0xFF7A5800),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.brightness_5_rounded,
+                                        color: Color(0xFFE8A800),
+                                        size: 15,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Flexible(
+                                        child: Text(
+                                          _selectedOccasion!.primaryName,
+                                          style: GoogleFonts.tajawal(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: isDarkMode
+                                                ? const Color(0xFFFFD54F)
+                                                : const Color(0xFF7A5800),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.info_outline_rounded,
+                                        size: 13,
+                                        color: isDarkMode
+                                            ? const Color(0xFFFFD54F)
+                                                .withValues(alpha: 0.7)
+                                            : const Color(0xFF7A5800)
+                                                .withValues(alpha: 0.6),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             )
@@ -601,5 +614,80 @@ class _CalendarPageState extends State<CalendarPage>
       "الأحد",
     ];
     return days[day - 1];
+  }
+
+  /// يعرض نافذة حوار بمعلومات تثقيفية عن المناسبة المختارة.
+  void _showOccasionDialog(IslamicOccasion occasion) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+          contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE8A800),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.star_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  occasion.primaryName,
+                  style: GoogleFonts.tajawal(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode ? Colors.amber[200] : const Color(0xFF7A5800),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            occasion.description,
+            style: GoogleFonts.tajawal(
+              fontSize: 14,
+              height: 1.7,
+              color: isDarkMode ? Colors.white70 : Colors.black87,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFE8A800),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: Color(0xFFE8A800), width: 1),
+                ),
+              ),
+              child: Text(
+                'إغلاق',
+                style: GoogleFonts.tajawal(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
