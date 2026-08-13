@@ -87,13 +87,20 @@ class PrayerTimesService {
     params.madhab = madhab == 'hanafi' ? Madhab.hanafi : Madhab.shafi;
     final prayerTimes = PrayerTimes(coordinates, date, params);
 
+    // ⏰ قراءة حالة التوقيت الصيفي وتطبيقه يدوياً على الأوقات المحسوبة
+    final bool isDst =
+        _sharedPreferences!.getBool(AppConstants.dstKey) ??
+        AppConstants.defaultDST;
+    final Duration dstOffset =
+        isDst ? const Duration(hours: 1) : Duration.zero;
+
     final Map<String, DateTime> times = {
-      'fajr': prayerTimes.fajr,
-      'sunrise': prayerTimes.sunrise,
-      'dhuhr': prayerTimes.dhuhr,
-      'asr': prayerTimes.asr,
-      'maghrib': prayerTimes.maghrib,
-      'isha': prayerTimes.isha,
+      'fajr': prayerTimes.fajr.add(dstOffset),
+      'sunrise': prayerTimes.sunrise.add(dstOffset),
+      'dhuhr': prayerTimes.dhuhr.add(dstOffset),
+      'asr': prayerTimes.asr.add(dstOffset),
+      'maghrib': prayerTimes.maghrib.add(dstOffset),
+      'isha': prayerTimes.isha.add(dstOffset),
     };
 
     _currentPrayerTimes = times;
@@ -295,6 +302,13 @@ class PrayerTimesService {
       CalculationParameters params = _getParams(calculationMethod);
       params.madhab = madhab == 'hanafi' ? Madhab.hanafi : Madhab.shafi;
 
+      // ⏰ قراءة حالة التوقيت الصيفي وتطبيقه يدوياً على أوقات الجدولة
+      final bool isDst =
+          _sharedPreferences!.getBool(AppConstants.dstKey) ??
+          AppConstants.defaultDST;
+      final Duration dstOffset =
+          isDst ? const Duration(hours: 1) : Duration.zero;
+
       // --- Schedule for next 14 days to prevent widget stopping in background ---
       for (int dayOffset = 0; dayOffset <= 14; dayOffset++) {
         final targetDate = now.add(Duration(days: dayOffset));
@@ -306,12 +320,12 @@ class PrayerTimesService {
         final prayerTimes = PrayerTimes(coordinates, dateComponents, params);
 
         final Map<String, DateTime> times = {
-          'fajr': prayerTimes.fajr,
-          'sunrise': prayerTimes.sunrise,
-          'dhuhr': prayerTimes.dhuhr,
-          'asr': prayerTimes.asr,
-          'maghrib': prayerTimes.maghrib,
-          'isha': prayerTimes.isha,
+          'fajr': prayerTimes.fajr.add(dstOffset),
+          'sunrise': prayerTimes.sunrise.add(dstOffset),
+          'dhuhr': prayerTimes.dhuhr.add(dstOffset),
+          'asr': prayerTimes.asr.add(dstOffset),
+          'maghrib': prayerTimes.maghrib.add(dstOffset),
+          'isha': prayerTimes.isha.add(dstOffset),
         };
 
         final idOffset = dayOffset * 10; // Today: 0, Tomorrow: 10
