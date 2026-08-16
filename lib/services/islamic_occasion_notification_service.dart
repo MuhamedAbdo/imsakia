@@ -6,6 +6,7 @@ import 'package:timezone/data/latest.dart' as tz_data;
 import '../data/islamic_occasions.dart';
 import 'hijri_date_service.dart';
 import '../utils/logger.dart';
+import 'custom_occasion_service.dart';
 
 /// خدمة مسؤولة عن جدولة نوعين من الإشعارات:
 ///
@@ -27,6 +28,9 @@ class IslamicOccasionNotificationService {
 
   /// إشعارات التذكير بالصيام (18:00)
   static const int _baseFastingId = 3000; // 3000–3013
+
+  /// إشعارات المناسبات المخصصة الصباحية (10:00 ص)
+  static const int _baseCustomOccasionId = 4000; // 4000–4013
 
   /// أقصى عدد أيام مدرجة في كل حزمة
   static const int _windowDays = 14;
@@ -87,6 +91,9 @@ class IslamicOccasionNotificationService {
       final hijriAdjustment = prefs.getInt('hijri_adjustment') ?? 0;
       int occasionCount = 0;
       int fastingCount = 0;
+      int customOccasionCount = 0;
+
+      final customOccasions = await CustomOccasionService.getOccasions();
 
       // ─── فحص الـ 14 يوماً القادمة ────────────────────────────────────────
       for (int offset = 0; offset < _windowDays; offset++) {
@@ -176,10 +183,57 @@ class IslamicOccasionNotificationService {
         }
       }
 
+      // ─── 3️⃣ فحص المناسبات المخصصة للـ 14 يوماً القادمة ───────────────────
+      for (int offset = 0; offset < _windowDays; offset++) {
+        final targetDate = today.add(Duration(days: offset));
+        final hijriData = HijriDateService.getHijriDate(
+          targetDate,
+          hijriAdjustment,
+        );
+        final int hMonth = hijriData['monthIndex'] as int;
+        final int hDay = hijriData['dayIndex'] as int;
+
+        final matchingCustomOccasions = customOccasions.where((o) {
+          if (o.isHijri) {
+            return o.month == hMonth && o.day == hDay;
+          } else {
+            return o.month == targetDate.month && o.day == targetDate.day;
+          }
+        }).toList();
+
+        for (var customOccasion in matchingCustomOccasions) {
+          final occasionTime = DateTime(
+            targetDate.year,
+            targetDate.month,
+            targetDate.day,
+            _occasionHour,
+            _occasionMinute,
+          );
+
+          if (occasionTime.isAfter(today)) {
+            await _scheduleNotification(
+              plugin: plugin,
+              id: _baseCustomOccasionId + offset + customOccasion.id.hashCode % 100, // لتجنب التعارض في نفس اليوم
+              title: 'مناسبة مخصصة 🌟',
+              body: customOccasion.title,
+              scheduledDateTime: occasionTime,
+              channelId: 'custom_occasions_channel',
+              channelName: 'المناسبات المخصصة',
+              channelDesc: 'تذكير بمناسباتك الخاصة',
+              payload: 'custom_occasion|${customOccasion.title}',
+            );
+            customOccasionCount++;
+            Logger.debug(
+              'OccasionNotif: Custom "${customOccasion.title}" at $occasionTime',
+            );
+          }
+        }
+      }
+
       // حفظ اليوم لمنع إعادة الجدولة
       await prefs.setString(_lastScheduledDayKey, todayKey);
       debugPrint(
-        '!!! OccasionNotif: $occasionCount occasion(s) + $fastingCount fasting reminder(s) scheduled !!!',
+        '!!! OccasionNotif: $occasionCount occasion(s) + $fastingCount fasting reminder(s) + $customOccasionCount custom occasion(s) scheduled !!!',
       );
     } catch (e) {
       Logger.error('IslamicOccasionNotificationService error: $e');
@@ -228,11 +282,18 @@ class IslamicOccasionNotificationService {
     );
   }
 
-  /// يلغي كافة إشعارات المناسبات (2000–2013) وإشعارات الصيام (3000–3013).
+  /// يلغي كافة إشعارات المناسبات (2000–2013) وإشعارات الصيام (3000–3013) والمخصصة (4000+).
   Future<void> _cancelAll(FlutterLocalNotificationsPlugin plugin) async {
     for (int i = 0; i < _windowDays; i++) {
       await plugin.cancel(id: _baseOccasionId + i);
       await plugin.cancel(id: _baseFastingId + i);
+      // We can't easily cancel all possible hash combinations for custom occasions,
+      // so we use cancelAll to be safe, but wait, if we use cancelAll it cancels prayers too!
+      // Actually FlutterLocalNotificationsPlugin doesn't have cancelByChannel easily.
+      // So we will just cancel a range around baseCustomOccasionId for safety.
+      for (int j = 0; j < 100; j++) {
+        await plugin.cancel(id: _baseCustomOccasionId + i + j);
+      }
     }
   }
 

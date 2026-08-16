@@ -7,9 +7,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.widget.RemoteViews
-import es.antonborri.home_widget.HomeWidgetProvider
+import android.appwidget.AppWidgetProvider
 
-class PrayerWidget : HomeWidgetProvider() {
+class PrayerWidget : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
@@ -24,19 +24,17 @@ class PrayerWidget : HomeWidgetProvider() {
             val componentName = ComponentName(context, PrayerWidget::class.java)
             val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
             
-            // Get SharedPreferences (same as what HomeWidgetProvider uses internally)
-            val widgetData = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
             
-            onUpdate(context, appWidgetManager, appWidgetIds, widgetData)
+            onUpdate(context, appWidgetManager, appWidgetIds)
         }
     }
 
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray,
-        widgetData: SharedPreferences
+        appWidgetIds: IntArray
     ) {
+        val widgetData = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         val views = RemoteViews(context.packageName, R.layout.prayer_widget)
         
         // 1. Offline First: Read cached data immediately

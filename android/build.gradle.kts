@@ -14,11 +14,7 @@ rootProject.layout.buildDirectory.value(newBuildDir)
 subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
-    
-    if (project.name == "home_widget") {
-        project.plugins.apply("org.jetbrains.kotlin.android")
-    }
-    
+    // Removed home_widget configuration
     // Register afterEvaluate HERE (before evaluationDependsOn below triggers early
     // evaluation of other subprojects). This ensures the callback is already in place
     // when each subproject finishes its own build.gradle, so it can override compileSdk.
