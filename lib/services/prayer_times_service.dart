@@ -142,11 +142,19 @@ class PrayerTimesService {
       try {
         final nextPrayerDisplay = await HomeWidget.getWidgetData<String>('flutter.next_prayer_display', defaultValue: "--:--");
         final countdownText = await HomeWidget.getWidgetData<String>('flutter.countdown_text', defaultValue: "--:--");
-        
+        final lastPrayerDisplay = await HomeWidget.getWidgetData<String>('flutter.last_prayer_display', defaultValue: "--:--");
+        final hijriDateFull = await HomeWidget.getWidgetData<String>('flutter.hijri_date_full', defaultValue: "");
+
         await HomeWidget.saveWidgetData<String>('flutter.next_prayer_display', nextPrayerDisplay);
         await HomeWidget.saveWidgetData<String>('flutter.countdown_text', countdownText);
+        await HomeWidget.saveWidgetData<String>('flutter.last_prayer_display', lastPrayerDisplay);
+        if (hijriDateFull != null && hijriDateFull.isNotEmpty) {
+          await HomeWidget.saveWidgetData<String>('flutter.hijri_date_full', hijriDateFull);
+        }
         await HomeWidget.updateWidget(name: 'PrayerWidget', androidName: 'PrayerWidget');
-      } catch (_) {}
+      } catch (innerE) {
+        Logger.error("Fatal error in widget catch block: $innerE");
+      }
     } finally {
       _isWidgetUpdating = false;
     }
