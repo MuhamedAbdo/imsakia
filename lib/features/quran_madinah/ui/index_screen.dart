@@ -10,7 +10,7 @@ class IndexScreen extends StatelessWidget {
   const IndexScreen({super.key});
 
   Future<void> _openMushaf(BuildContext context, int initialPage) async {
-    await Navigator.of(context).push(
+    await Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => MushafScreen(initialPage: initialPage),
       ),
@@ -364,11 +364,19 @@ class IndexScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Image.asset(
-                      imageAsset,
-                      width: 24,
-                      height: 24,
-                      color: Theme.of(context).colorScheme.secondary,
+                    // Render the icon with original colors. In dark mode, add a subtle 
+                    // white background glow behind the Makki icon so the black Kaaba is visible.
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withValues(alpha: 0.15) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Image.asset(
+                        imageAsset,
+                        width: 28,
+                        height: 28,
+                      ),
                     ),
                   ],
                 ),
