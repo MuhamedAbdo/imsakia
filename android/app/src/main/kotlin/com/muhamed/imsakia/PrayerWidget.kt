@@ -34,7 +34,7 @@ class PrayerWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        val widgetData = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val widgetData = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
         val views = RemoteViews(context.packageName, R.layout.prayer_widget)
         
         // 1. Offline First: Read cached data immediately
