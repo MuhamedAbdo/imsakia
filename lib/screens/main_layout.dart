@@ -28,6 +28,8 @@ import 'calendar_page.dart';
 import 'hadith_library_page.dart';
 import 'fiqh_library_page.dart';
 import '../features/quran_madinah/ui/index_screen.dart';
+import '../features/quran_madinah/ui/mushaf_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'qibla_compass_screen.dart';
 import 'settings_screen.dart';
 import 'tasbih_screen.dart';
@@ -766,10 +768,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: GestureDetector(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const IndexScreen()),
-        ),
+        onTap: () async {
+          final prefs = await SharedPreferences.getInstance();
+          final lastPage = prefs.getInt('last_read_quran_page');
+          if (context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => lastPage != null
+                    ? MushafScreen(initialPage: lastPage)
+                    : const IndexScreen(),
+              ),
+            );
+          }
+        },
         child: Container(
           height: 110,
           decoration: BoxDecoration(
@@ -982,10 +994,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       {
         'title': 'القرآن الكريم',
         'icon': Icons.menu_book_rounded,
-        'onTap': () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const IndexScreen()),
-        ),
+        'onTap': () async {
+          final prefs = await SharedPreferences.getInstance();
+          final lastPage = prefs.getInt('last_read_quran_page');
+          if (context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => lastPage != null
+                    ? MushafScreen(initialPage: lastPage)
+                    : const IndexScreen(),
+              ),
+            );
+          }
+        },
       },
       {
         'title': 'الأذكار',

@@ -7,6 +7,9 @@ import 'package:imsakia/features/quran_madinah/ui/widgets/vertical_mushaf_view.d
 import 'package:imsakia/features/quran_madinah/services/madinah_db_helper.dart';
 import 'package:imsakia/features/quran_madinah/utils/madinah_quran_utils.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:imsakia/features/quran_madinah/ui/index_screen.dart';
+
 class MushafScreen extends StatefulWidget {
   final int initialPage;
   final String? searchQuery;
@@ -95,6 +98,7 @@ class _MushafScreenState extends State<MushafScreen> {
     setState(() => _currentPage = page);
     provider.setPage(page);
     _updatePageInfo(page);
+    _saveLastReadPage(page);
   }
 
   void _onVerticalPageChanged(int page, QuranProvider provider) {
@@ -103,6 +107,12 @@ class _MushafScreenState extends State<MushafScreen> {
     setState(() => _currentPage = page);
     provider.setPage(page);
     _updatePageInfo(page);
+    _saveLastReadPage(page);
+  }
+
+  Future<void> _saveLastReadPage(int page) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('last_read_quran_page', page);
   }
 
   // ── Mode toggle ────────────────────────────────────────────────────────────
@@ -201,6 +211,18 @@ class _MushafScreenState extends State<MushafScreen> {
         ],
       ),
       actions: [
+        // ── Index Button ─────────────────────────────────────────────────────
+        IconButton(
+          icon: const Icon(Icons.format_list_bulleted_rounded),
+          tooltip: 'فهرس السور',
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const IndexScreen()),
+            );
+          },
+        ),
+
         // ── Bookmark (hidden in landscape mode to avoid confusion) ───────
         if (!isLandscape)
           Consumer<QuranProvider>(

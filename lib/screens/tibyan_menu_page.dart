@@ -11,6 +11,8 @@ import 'bukhari_library_page.dart';
 import 'allah_names_page.dart'; // استيراد صفحة أسماء الله الحسنى
 import 'radio_page.dart'; // استيراد صفحة الراديو
 import '../features/quran_madinah/ui/index_screen.dart'; // استيراد صفحة الفهرس مباشرة بدلاً من صفحة الاختيار
+import '../features/quran_madinah/ui/mushaf_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../features/audio/screens/audio_reciters_screen.dart'; // Audio module
 import 'qibla_compass_screen.dart';
 import '../widgets/neumorphic_box.dart';
@@ -214,13 +216,19 @@ class TibyanMenuPage extends StatelessWidget {
                   borderRadius: 20,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(20),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const IndexScreen(),
-                        ),
-                      );
+                    onTap: () async {
+                      final prefs = await SharedPreferences.getInstance();
+                      final lastPage = prefs.getInt('last_read_quran_page');
+                      if (context.mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => lastPage != null
+                                ? MushafScreen(initialPage: lastPage)
+                                : const IndexScreen(),
+                          ),
+                        );
+                      }
                     },
                     child: SizedBox(
                       height: 115,
