@@ -9,6 +9,7 @@ import 'providers/quran_provider.dart';
 import 'providers/bukhari_provider.dart'; // تأكد من وجود هذا الاستيراد
 import 'screens/splash_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/azkar_detail_screen.dart';
 import 'screens/main_layout.dart';
 import 'screens/sequential_permissions_screen.dart';
 import 'services/hadith_service.dart';
@@ -32,6 +33,21 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+String? pendingAzkarRoutePayload; // المتغير العام لحفظ الحمولة (Payload)
+
+void _routeToAzkar(String payload) {
+  final categoryId = payload == 'azkar_morning' ? 'morning' : 'evening';
+  final category = AzkarService.instance.categories.firstWhere(
+    (c) => c.id == categoryId,
+    orElse: () => AzkarService.instance.categories.first,
+  );
+  
+  navigatorKey.currentState?.push(
+    MaterialPageRoute(
+      builder: (_) => AzkarDetailScreen(category: category),
+    ),
+  );
+}
 
 // Background notification response handler (fires when app is killed)
 // Must be a top-level function annotated with @pragma
@@ -65,6 +81,7 @@ void main() async {
   }
 
   if (isEmergencyAthan) {
+    // We keep this true for now, but will override it below if overlayScreen == null
     MyApp.isAthanShowing = true;
     debugPrint("!!! SOVEREIGN: Emergency Athan Mode Detected - Freezing Widget Sync !!!");
   }
@@ -86,22 +103,28 @@ void main() async {
   await flutterLocalNotificationsPlugin.initialize(
     settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
     onDidReceiveNotificationResponse: (NotificationResponse response) {
-      // Foreground tap: navigate to overlay if it's the Athan notification (ID 888)
-      if (response.id == 888 || (response.payload != null && response.payload!.startsWith('athan_overlay|'))) {
-        String prayerName = "الصلاة";
-        bool isFajr = false;
+      final payload = response.payload;
+      if (payload != null && payload.startsWith('athan_overlay|')) {
+        final parts = payload.split('|');
+        final prayerName = parts.length >= 2 ? parts[1] : 'الصلاة';
+        final isFajr = prayerName == 'الفجر';
         
-        if (response.payload != null && response.payload!.contains('|')) {
-          final parts = response.payload!.split('|');
-          if (parts.length >= 3) {
-            prayerName = parts[1];
-            isFajr = parts[2] == 'true';
-          }
+        if (MyApp.isAthanShowing) {
+          debugPrint("Athan already showing, ignoring notification tap");
+          return;
         }
         
         navigatorKey.currentState?.push(
           MaterialPageRoute(builder: (_) => AthanOverlayScreen(prayerName: prayerName, isFajr: isFajr)),
         );
+      } else if (payload == 'azkar_morning' || payload == 'azkar_evening') {
+        if (MyApp.sessionSplashShown && navigatorKey.currentState != null) {
+          // التوجيه المباشر إذا كان التطبيق مفتوحاً ومتجاوزاً الـ Splash Screen
+          _routeToAzkar(payload!);
+        } else {
+          // التخزين في حال كان التطبيق في مرحلة الإقلاع أو הـ Splash
+          pendingAzkarRoutePayload = payload;
+        }
       }
       // Foreground action button tap: stop athan
       if (response.actionId == 'stop_athan_action') {
@@ -124,10 +147,15 @@ void main() async {
   } else if (notificationAppLaunchDetails?.didNotificationLaunchApp ?? false) {
     // 2. تحقق من Notification Launch (Fallback)
     final payload = notificationAppLaunchDetails?.notificationResponse?.payload;
-    if (payload != null && payload.startsWith('athan_overlay|')) {
-      final parts = payload.split('|');
-      if (parts.length >= 2) {
-        overlayScreen = AthanOverlayScreen(prayerName: parts[1], isColdStart: true);
+    if (payload != null) {
+      if (payload.startsWith('athan_overlay|')) {
+        final parts = payload.split('|');
+        if (parts.length >= 2) {
+          overlayScreen = AthanOverlayScreen(prayerName: parts[1], isColdStart: true);
+        }
+      } else if (payload == 'azkar_morning' || payload == 'azkar_evening') {
+        // 3. التقاط حمولة الأذكار وتخزينها للمرحلة التي تلي SplashScreen
+        pendingAzkarRoutePayload = payload;
       }
     }
   }
@@ -135,7 +163,14 @@ void main() async {
   if (overlayScreen != null) {
     // 🚀 وضع الطوارئ: لا ننتظر الأذكار أو الأحاديث نهائياً
     debugPrint("!!! HARDENED: Athan Mode - Skipping ALL non-essential background tasks !!!");
+    MyApp.isAthanShowing = true;
   } else {
+    // 💡 صمام الأمان (Cold Start Reset): تفريغ الحالة تماماً إذا لم يكن الإقلاع لأجل الأذان
+    if (MyApp.isAthanShowing) {
+      debugPrint("!!! SAFEGUARD: False Athan flag detected on normal launch. Forcing reset. !!!");
+      MyApp.isAthanShowing = false;
+    }
+    
     // الحالة الطبيعية
     HadithService.instance.initialize();
     AzkarService.instance.initialize();

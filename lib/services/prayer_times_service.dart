@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../utils/app_constants.dart';
 import '../utils/logger.dart'; // تأكد من وجود هذا المسار
 import 'hijri_date_service.dart';
+import 'azkar_notification_service.dart';
 import '../features/athan/services/athan_manager.dart';
 import 'package:home_widget/home_widget.dart';
 import 'home_events_service.dart';
@@ -356,6 +357,14 @@ class PrayerTimesService {
             );
           }
         });
+
+        // 📿 جدولة إشعارات أذكار الصباح والمساء لليوم الحالي فقط
+        if (dayOffset == 0) {
+          AzkarNotificationService.instance.scheduleAzkarNotifications(
+            times['fajr']!,
+            times['asr']!,
+          );
+        }
       }
     } catch (e) {
       Logger.error("Failed to schedule prayers: $e");

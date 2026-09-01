@@ -8,6 +8,7 @@ import '../providers/theme_provider.dart';
 import '../screens/settings_screen.dart';
 import '../services/hadith_service.dart';
 import '../services/azkar_service.dart';
+import '../screens/azkar_detail_screen.dart';
 import '../../main.dart';
 import '../../features/athan/services/athan_manager.dart';
 
@@ -29,6 +30,7 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _rotationAnimation;
   late Animation<double> _pulseAnimation;
   Timer? _navigationTimer;
+  Timer? _emergencyTimeoutTimer; // 🛡️ صمام الأمان لمنع التجمد المطلق
 
   @override
   void initState() {
@@ -36,6 +38,16 @@ class _SplashScreenState extends State<SplashScreen>
     _checkGracefulExit();
     _initializeAnimations();
     _startAnimations();
+    
+    // 🛡️ صمام الأمان (Timeout Fallback) لمدة 5 ثوانٍ
+    // إذا لم يتم التوجيه لأي سبب (مثل حالة Athan وهمية)، نفرض الدخول.
+    _emergencyTimeoutTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) {
+        debugPrint("!!! SPLASH TIMEOUT: Forcing route to /main !!!");
+        MyApp.isAthanShowing = false; // فك التعليق
+        _navigateToMainApp(force: true);
+      }
+    });
   }
 
   Future<void> _checkGracefulExit() async {
@@ -109,15 +121,17 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.wait(futures);
   }
 
-  void _navigateToMainApp() {
+  void _navigateToMainApp({bool force = false}) {
     // 🔥 Guard: If Athan Overlay is currently showing, CANCEL everything.
     // This prevents SplashScreen from "pushReplacement" which would kill the Athan Overlay.
     if (!mounted) return;
-    if (MyApp.isAthanShowing) {
+    if (MyApp.isAthanShowing && !force) {
       _navigationTimer?.cancel();
       _navigationTimer = null;
       return;
     }
+    
+    _emergencyTimeoutTimer?.cancel();
 
     final settingsProvider = Provider.of<SettingsProvider>(
       context,
@@ -134,6 +148,27 @@ class _SplashScreenState extends State<SplashScreen>
       );
     } else {
       Navigator.of(context).pushReplacementNamed('/main');
+      
+      // 🚀 التحقق من الإشعار: هل توجد حمولة معلقة لفتح الأذكار؟
+      if (pendingAzkarRoutePayload != null) {
+        final categoryId = pendingAzkarRoutePayload == 'azkar_morning' ? 'morning' : 'evening';
+        final category = AzkarService.instance.categories.firstWhere(
+          (c) => c.id == categoryId,
+          orElse: () => AzkarService.instance.categories.first,
+        );
+        
+        // تفريغ المتغير لمنع الفتح المتكرر
+        pendingAzkarRoutePayload = null;
+
+        // التوجيه لشاشة تفاصيل الأذكار
+        Future.delayed(const Duration(milliseconds: 500), () {
+          navigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (_) => AzkarDetailScreen(category: category),
+            ),
+          );
+        });
+      }
     }
   }
 
@@ -189,6 +224,7 @@ class _SplashScreenState extends State<SplashScreen>
     _rotationController.dispose();
     _pulseController.dispose();
     _navigationTimer?.cancel();
+    _emergencyTimeoutTimer?.cancel();
     super.dispose();
   }
 
