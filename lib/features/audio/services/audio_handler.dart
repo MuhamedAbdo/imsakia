@@ -30,6 +30,7 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
   final AudioPlayer _athanPlayer = AudioPlayer();
   AudioPlayer get player => _player;
   bool _isStopping = false;
+  bool _isPlayingAthan = false; // 🛡️ يمنع تشغيل أذانين في نفس الوقت
 
   void Function()? onNext;
   void Function()? onPrevious;
@@ -160,49 +161,71 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
     }
 
     if (name == 'playAthan' && extras != null) {
-      final String path = extras['path'] as String? ?? '';
-      final String prayerName = extras['prayerName'] as String? ?? "الصلاة";
-      final String title = extras['title'] as String? ?? 'حان الآن موعد أذان $prayerName';
-      final String? activeTestKey = extras['activeTestKey'] as String?;
-
-      // 🛡️ إيقاف كافة المحركات (Stop وليس Pause) لضمان تحرير الموارد في شاومي
-      _athanPlayer.stop();
-      _player.stop();
-
-      // 🚨 Configure session for Alarm (High priority)
-      final session = await AudioSession.instance;
-      await session.configure(const AudioSessionConfiguration(
-        androidAudioAttributes: AndroidAudioAttributes(
-          contentType: AndroidAudioContentType.sonification,
-          usage: AndroidAudioUsage.alarm,
-        ),
-        androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientExclusive,
-        androidWillPauseWhenDucked: true,
-      ));
-
-      WakelockPlus.enable();
-
-      mediaItem.add(MediaItem(
-        id: 'athan_alert',
-        album: "تنبيه الأذان",
-        title: title,
-        artist: "زاد",
-        extras: {'activeTestKey': activeTestKey},
-      ));
-
-      playbackState.add(playbackState.value.copyWith(
-        playing: true,
-        processingState: AudioProcessingState.ready,
-        controls: [MediaControl.stop],
-        systemActions: const {MediaAction.stop},
-      ));
-
-      if (path.startsWith('assets/')) {
-        await _athanPlayer.setAudioSource(AudioSource.asset(path));
-      } else {
-        await _athanPlayer.setAudioSource(AudioSource.file(path));
+      // 🛡️ منع تشغيل أذانين في نفس الوقت
+      if (_isPlayingAthan) {
+        debugPrint('[AudioHandler] ⚠️ playAthan ignored — already playing, skipping duplicate call');
+        return;
       }
-      return await _athanPlayer.play();
+
+      _isPlayingAthan = true;
+      try {
+        final String path = extras['path'] as String? ?? '';
+        final String prayerName = extras['prayerName'] as String? ?? "الصلاة";
+        final String title = extras['title'] as String? ?? 'حان الآن موعد أذان $prayerName';
+        final String? activeTestKey = extras['activeTestKey'] as String?;
+
+        // ✅ Await stop() بدلاً من تركه دون انتظار — هذا كان سبب PlayerInterruptedException
+        await _athanPlayer.stop();
+        await _player.stop();
+
+        // 🚨 Configure session for Alarm (High priority)
+        final session = await AudioSession.instance;
+        await session.configure(const AudioSessionConfiguration(
+          androidAudioAttributes: AndroidAudioAttributes(
+            contentType: AndroidAudioContentType.sonification,
+            usage: AndroidAudioUsage.alarm,
+          ),
+          androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientExclusive,
+          androidWillPauseWhenDucked: true,
+        ));
+
+        WakelockPlus.enable();
+
+        mediaItem.add(MediaItem(
+          id: 'athan_alert',
+          album: "تنبيه الأذان",
+          title: title,
+          artist: "زاد",
+          extras: {'activeTestKey': activeTestKey},
+        ));
+
+        playbackState.add(playbackState.value.copyWith(
+          playing: true,
+          processingState: AudioProcessingState.ready,
+          controls: [MediaControl.stop],
+          systemActions: const {MediaAction.stop},
+        ));
+
+        // ✅ Wrap setAudioSource+play في try-catch لتجنُّب crash من الضغط المزدوج
+        try {
+          if (path.startsWith('assets/')) {
+            await _athanPlayer.setAudioSource(AudioSource.asset(path));
+          } else {
+            await _athanPlayer.setAudioSource(AudioSource.file(path));
+          }
+          await _athanPlayer.play();
+        } on PlayerInterruptedException catch (e) {
+          // يحدث عند الضغط المتكرر أو مقاطعة الأمر — آمن التجاهل
+          debugPrint('[AudioHandler] ⚠️ PlayerInterruptedException ignored: $e');
+        } catch (e) {
+          debugPrint('[AudioHandler] ❌ Unexpected error in playAthan: $e');
+          _isPlayingAthan = false;
+          rethrow;
+        }
+      } finally {
+        _isPlayingAthan = false;
+      }
+      return;
     }
     return super.customAction(name, extras);
   }

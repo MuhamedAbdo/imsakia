@@ -9,6 +9,8 @@ import 'package:audio_service/audio_service.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
 import '../features/athan/providers/athan_provider.dart';
+import '../features/athan_library/providers/athan_library_provider.dart';
+import '../features/athan_library/ui/athan_library_screen.dart';
 import '../services/prayer_times_service.dart';
 import '../widgets/neumorphic_box.dart';
 import '../features/audio/services/audio_handler.dart';
@@ -138,11 +140,13 @@ class _SettingsScreenState extends State<SettingsScreen>
     final state = audioHandler!.playbackState.value;
     final activeKey = audioHandler!.mediaItem.value?.extras?['activeTestKey'];
     final isPlayingThisKey = state.playing && activeKey == prayerKey;
-    final path = provider.getPathForPrayer(prayerKey);
 
     if (isPlayingThisKey) {
       await audioHandler!.stop();
     } else {
+      // ✨ استخدم النسخة Async لتشغيل صوت المكتبة السحابية إن وُجد
+      final path = await provider.getPathForPrayerWithCloudFallback(prayerKey);
+      if (!mounted) return; // guard after await
       await audioHandler!.customAction('playAthan', {
         'path': path,
         'prayerName': 'تجربة',
@@ -543,8 +547,8 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _buildAthanSection(bool isDark) {
-    return Consumer<AthanProvider>(
-      builder: (context, provider, child) {
+    return Consumer2<AthanProvider, AthanLibraryProvider>(
+      builder: (context, provider, libraryProvider, child) {
         return _buildSection(
           title: 'إعدادات الأذان (الآذان متوفر بعد اختيار الموقع)',
           icon: Icons.notifications_active_outlined,
@@ -598,11 +602,15 @@ class _SettingsScreenState extends State<SettingsScreen>
               ),
               const SizedBox(height: 10),
               if (provider.isUnifiedMuezzin) ...[
+                // ─── وضع "موحد": الأذان السحابي يطغى على الاختيار الموحد ───
                 _buildMuezzinDropdown(
                   label: 'صوت المؤذن الموحد',
                   prayerKey: 'dhuhr',
                   muezzins: provider.generalMuezzins,
                   selectedPath: provider.getPathForPrayer('dhuhr'),
+                  // 🔑 إذا يوجد أذان سحابي للصلوات العادية → أقفل القائمة
+                  isCloudOverride: libraryProvider.hasCloudAthan,
+                  cloudOverrideName: libraryProvider.defaultAthanName,
                   onChanged: (path) =>
                       provider.setPrayerMuezzin('dhuhr', path!),
                   onTestPlay: () => _testPlayAthan('dhuhr'),
@@ -630,21 +638,27 @@ class _SettingsScreenState extends State<SettingsScreen>
                         style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                       const SizedBox(height: 10),
+                      // ─── الفجر: يقفل عند وجود أذان فجر سحابي ──────────
                       _buildMuezzinDropdown(
                         label: 'أذان الفجر (الصلاة خير من النوم)',
                         prayerKey: 'fajr',
                         muezzins: provider.fajrMuezzins,
                         selectedPath: provider.getPathForPrayer('fajr'),
+                        isCloudOverride: libraryProvider.hasCloudFajr,
+                        cloudOverrideName: libraryProvider.defaultFajrName,
                         onChanged: (path) =>
                             provider.setPrayerMuezzin('fajr', path!),
                         onTestPlay: () => _testPlayAthan('fajr'),
                       ),
                       const SizedBox(height: 10),
+                      // ─── الصلوات العادية: تقفل عند وجود أذان عادي سحابي ─
                       _buildMuezzinDropdown(
                         label: 'أذان الظهر',
                         prayerKey: 'dhuhr',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('dhuhr'),
+                        isCloudOverride: libraryProvider.hasCloudAthan,
+                        cloudOverrideName: libraryProvider.defaultAthanName,
                         onChanged: (path) =>
                             provider.setPrayerMuezzin('dhuhr', path!),
                         onTestPlay: () => _testPlayAthan('dhuhr'),
@@ -655,6 +669,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                         prayerKey: 'asr',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('asr'),
+                        isCloudOverride: libraryProvider.hasCloudAthan,
+                        cloudOverrideName: libraryProvider.defaultAthanName,
                         onChanged: (path) =>
                             provider.setPrayerMuezzin('asr', path!),
                         onTestPlay: () => _testPlayAthan('asr'),
@@ -665,6 +681,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                         prayerKey: 'maghrib',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('maghrib'),
+                        isCloudOverride: libraryProvider.hasCloudAthan,
+                        cloudOverrideName: libraryProvider.defaultAthanName,
                         onChanged: (path) =>
                             provider.setPrayerMuezzin('maghrib', path!),
                         onTestPlay: () => _testPlayAthan('maghrib'),
@@ -675,6 +693,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                         prayerKey: 'isha',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('isha'),
+                        isCloudOverride: libraryProvider.hasCloudAthan,
+                        cloudOverrideName: libraryProvider.defaultAthanName,
                         onChanged: (path) =>
                             provider.setPrayerMuezzin('isha', path!),
                         onTestPlay: () => _testPlayAthan('isha'),
@@ -682,6 +702,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                     ],
                   ),
                 ),
+
+              // ─── بانر الأذان السحابي النشط + زر المكتبة ────────────────────
+              const SizedBox(height: 8),
+              _buildAthanLibraryBanner(isDark, libraryProvider),
             ],
             const SizedBox(height: 15),
             // Xiaomi & Performance Optimization Buttons
@@ -719,6 +743,167 @@ class _SettingsScreenState extends State<SettingsScreen>
           ],
         );
       },
+    );
+  }
+
+  /// بانر عرض الأذان السحابي النشط + زر فتح مكتبة الأذان
+  Widget _buildAthanLibraryBanner(bool isDark, AthanLibraryProvider libraryProvider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ─── عرض الأذان النشط من المكتبة (إن وُجد) ────────────────────
+        if (libraryProvider.hasCloudAthan || libraryProvider.hasCloudFajr) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.green.withValues(alpha: 0.15)
+                  : Colors.green.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.green.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.cloud_done_rounded, color: Colors.green, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'أذان محمل من المكتبة ☁️',
+                      style: GoogleFonts.tajawal(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                if (libraryProvider.hasCloudAthan)
+                  _buildActiveCloudRow(
+                    label: 'الأذان العادي',
+                    name: libraryProvider.defaultAthanName!,
+                    isDark: isDark,
+                    onClear: () => libraryProvider.clearDefault(isFajr: false),
+                  ),
+                if (libraryProvider.hasCloudAthan && libraryProvider.hasCloudFajr)
+                  const SizedBox(height: 4),
+                if (libraryProvider.hasCloudFajr)
+                  _buildActiveCloudRow(
+                    label: 'أذان الفجر',
+                    name: libraryProvider.defaultFajrName!,
+                    isDark: isDark,
+                    onClear: () => libraryProvider.clearDefault(isFajr: true),
+                  ),
+              ],
+            ),
+          ),
+        ],
+
+        // ─── زر فتح مكتبة الأذان ─────────────────────────────────────
+        InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const AthanLibraryScreen(),
+              ),
+            ).then((_) {
+              // ✨ بعد العودة: مزامنة الحالة من SharedPreferences لتحديث الواجهة تلقائياً
+              if (mounted) {
+                Provider.of<AthanLibraryProvider>(context, listen: false)
+                    .syncFromPrefs();
+              }
+            });
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isDark
+                    ? [const Color(0xFF1B5E20), const Color(0xFF2E7D32)]
+                    : [const Color(0xFF2E7D32), const Color(0xFF388E3C)],
+                begin: Alignment.centerRight,
+                end: Alignment.centerLeft,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.green.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.library_music_rounded, color: Colors.white, size: 22),
+                const SizedBox(width: 10),
+                Text(
+                  'مكتبة الأذان (تحميل المزيد) ☁️',
+                  style: GoogleFonts.tajawal(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.arrow_back_ios_rounded, color: Colors.white70, size: 14),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// صف عرض أذان محمل واحد مع زر المسح
+  Widget _buildActiveCloudRow({
+    required String label,
+    required String name,
+    required bool isDark,
+    required VoidCallback onClear,
+  }) {
+    return Row(
+      children: [
+        Text(
+          '$label: ',
+          style: GoogleFonts.tajawal(
+            fontSize: 12,
+            color: isDark ? Colors.white60 : Colors.black54,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            name,
+            style: GoogleFonts.tajawal(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 4),
+        InkWell(
+          onTap: onClear,
+          borderRadius: BorderRadius.circular(20),
+          child: Tooltip(
+            message: 'العودة للأذان المحلي',
+            child: Icon(
+              Icons.cancel_outlined,
+              size: 16,
+              color: Colors.red.shade400,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -810,8 +995,89 @@ class _SettingsScreenState extends State<SettingsScreen>
     required String selectedPath,
     required void Function(String?) onChanged,
     required VoidCallback onTestPlay,
+    // ─── Cloud Override ────────────────────────────────────────────────────
+    bool isCloudOverride = false,
+    String? cloudOverrideName,
   }) {
-    // العثور على المؤذن بناءً على المسار لضبط القيمة الأولية
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // ══════════════════════════════════════════════════════════════════════
+    // وضع الأذان السحابي: عرض شريحة مقفلة بدلاً من القائمة المنسدلة
+    // ══════════════════════════════════════════════════════════════════════
+    if (isCloudOverride) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.tajawal(
+              fontSize: 12,
+              color: isDark ? Colors.white54 : Colors.black45,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.green.withValues(alpha: 0.12)
+                  : Colors.green.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: Colors.green.withValues(alpha: 0.35),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.cloud_done_rounded,
+                    color: Colors.green, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    cloudOverrideName ?? 'أذان مخصص من المكتبة ☁️',
+                    style: GoogleFonts.tajawal(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // زر المعاينة يعمل حتى في وضع القفل
+                StreamBuilder<PlaybackState>(
+                  stream: audioHandler?.playbackState,
+                  builder: (context, snapshot) {
+                    final isThisPlaying =
+                        snapshot.data?.playing == true &&
+                        audioHandler?.mediaItem.value
+                                ?.extras?['activeTestKey'] ==
+                            prayerKey;
+                    return IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      icon: Icon(
+                        isThisPlaying
+                            ? Icons.stop_circle_outlined
+                            : Icons.play_circle_outline,
+                        color: isThisPlaying ? Colors.red : Colors.green,
+                        size: 28,
+                      ),
+                      tooltip: isThisPlaying ? 'إيقاف التجربة' : 'معاينة الأذان السحابي',
+                      onPressed: onTestPlay,
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // الوضع الاعتيادي: القائمة المنسدلة بالأصوات المحلية
+    // ══════════════════════════════════════════════════════════════════════
     Muezzin? current;
     try {
       current = muezzins.firstWhere((m) => m.path == selectedPath);
@@ -846,7 +1112,6 @@ class _SettingsScreenState extends State<SettingsScreen>
             final state = snapshot.data;
             final isAthanPlaying = state?.playing == true;
 
-            // Check if this specific key is the one playing
             bool isThisTaskPlaying = false;
             if (audioHandler != null && isAthanPlaying) {
               final activeKey =

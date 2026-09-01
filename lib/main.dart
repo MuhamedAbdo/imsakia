@@ -20,6 +20,7 @@ import 'features/audio/providers/audio_player_provider.dart';
 import 'features/audio/providers/download_provider.dart';
 import 'features/audio/services/audio_handler.dart';
 import 'features/athan/providers/athan_provider.dart';
+import 'features/athan_library/providers/athan_library_provider.dart';
 import 'features/athan/services/athan_manager.dart';
 import 'features/athan/ui/athan_overlay_screen.dart';
 import 'utils/app_constants.dart';
@@ -335,6 +336,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
         ChangeNotifierProvider(create: (_) => DownloadProvider()),
         ChangeNotifierProvider<AthanProvider>(create: (_) => AthanProvider()),
+        ChangeNotifierProvider(create: (_) => AthanLibraryProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {

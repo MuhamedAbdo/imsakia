@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter/services.dart';
 import 'dart:ui';
@@ -90,21 +91,43 @@ class AthanService {
       ));
       await session.setActive(true);
 
-      await _writeLog(logFile, "Step: Loading audio source from LOCAL path...");
+      await _writeLog(logFile, "Step: Loading audio source...");
       _player = AudioPlayer();
       await _player!.setVolume(1.0);
       await _player!.setLoopMode(LoopMode.off);
 
-      // Look for the local file copied in main()
+      // 1️⃣ أولاً: تحقق من الأذان المحمل من مكتبة الأذان السحابية
+      final prefs = await SharedPreferences.getInstance();
+      final cloudAthanPath = prefs.getString('athan_library_default_path');
       final directory = await getApplicationDocumentsDirectory();
-      final localPath = '${directory.path}/athan_makkah.mp3';
-      final audioFile = File(localPath);
 
-      if (await audioFile.exists()) {
-        await _writeLog(logFile, "Success: Local audio found at $localPath");
-        await _player!.setAudioSource(AudioSource.file(localPath));
-      } else {
-        await _writeLog(logFile, "Warning: Local audio NOT found. Falling back to asset.");
+      bool audioLoaded = false;
+
+      if (cloudAthanPath != null && cloudAthanPath.isNotEmpty) {
+        final cloudFile = File(cloudAthanPath);
+        if (await cloudFile.exists()) {
+          await _writeLog(logFile, "☁️ Cloud athan found: $cloudAthanPath");
+          await _player!.setAudioSource(AudioSource.file(cloudAthanPath));
+          audioLoaded = true;
+        } else {
+          await _writeLog(logFile, "⚠️ Cloud athan path exists in prefs but file missing: $cloudAthanPath");
+        }
+      }
+
+      // 2️⃣ Fallback: الملف المحلي المنسوخ من الأصول (القديم)
+      if (!audioLoaded) {
+        final localPath = '${directory.path}/athan_makkah.mp3';
+        final audioFile = File(localPath);
+        if (await audioFile.exists()) {
+          await _writeLog(logFile, "Success: Local audio found at $localPath");
+          await _player!.setAudioSource(AudioSource.file(localPath));
+          audioLoaded = true;
+        }
+      }
+
+      // 3️⃣ Fallback نهائي: ملف الأصول المدمج
+      if (!audioLoaded) {
+        await _writeLog(logFile, "Warning: No local audio found. Falling back to bundled asset.");
         await _player!.setAudioSource(
           AudioSource.uri(Uri.parse('asset:///assets/audio/athan_makkah.mp3'))
         );

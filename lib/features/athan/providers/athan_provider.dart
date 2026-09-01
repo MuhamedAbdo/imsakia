@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../services/prayer_times_service.dart';
 import '../services/athan_manager.dart';
+import '../../athan_library/providers/athan_library_provider.dart';
 
 class Muezzin {
   final String id;
@@ -86,6 +87,30 @@ class AthanProvider with ChangeNotifier {
       return _prayerPaths[prayerKey] ?? "assets/audio/fajr_makkah.mp3";
     }
     return _prayerPaths[prayerKey] ?? "assets/audio/athan_makkah.mp3";
+  }
+
+  /// ✨ نسخة Async تتحقق من المكتبة السحابية أولاً ثم تعود للأصول المحلية كـ Fallback.
+  /// يجب استخدام هذه الدالة دائماً عند تشغيل الأذان الفعلي وقت الصلاة.
+  Future<String> getPathForPrayerWithCloudFallback(String prayerKey) async {
+    // 1️⃣ التحقق من المكتبة السحابية — SharedPreferences محايد ولا يحتاج لـ BuildContext
+    final String? cloudPath = prayerKey == 'fajr'
+        ? await AthanLibraryProvider.getDefaultFajrPath()
+        : await AthanLibraryProvider.getDefaultAthanPath();
+
+    if (cloudPath != null && cloudPath.isNotEmpty) {
+      // تحقق أن الملف لا يزال موجوداً (Cloud Download fallback check)
+      final file = File(cloudPath);
+      if (await file.exists()) {
+        debugPrint('[AthanProvider] ☁️ Cloud athan used: $cloudPath');
+        return cloudPath;
+      } else {
+        // الملف اختفى (ربما محذوف) — استخدم الافتراضي
+        debugPrint('[AthanProvider] ⚠️ Cloud file not found, falling back to local asset');
+      }
+    }
+
+    // 2️⃣ Fallback: الأصول المحلية المدمجة
+    return getPathForPrayer(prayerKey);
   }
 
   Future<void> setAthanEnabled(bool value) async {
