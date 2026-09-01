@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../services/prayer_times_service.dart';
 import '../services/athan_manager.dart';
-import '../../athan_library/providers/athan_library_provider.dart';
+
 
 class Muezzin {
   final String id;
@@ -68,6 +68,10 @@ class AthanProvider with ChangeNotifier {
     await _checkPermissions();
   }
 
+  Future<void> syncFromPrefs() async {
+    await _loadSavedSettings();
+  }
+
   Future<void> _loadSavedSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _isAthanEnabled = prefs.getBool(_prefEnabled) ?? true;
@@ -92,25 +96,26 @@ class AthanProvider with ChangeNotifier {
   /// ✨ نسخة Async تتحقق من المكتبة السحابية أولاً ثم تعود للأصول المحلية كـ Fallback.
   /// يجب استخدام هذه الدالة دائماً عند تشغيل الأذان الفعلي وقت الصلاة.
   Future<String> getPathForPrayerWithCloudFallback(String prayerKey) async {
-    // 1️⃣ التحقق من المكتبة السحابية — SharedPreferences محايد ولا يحتاج لـ BuildContext
-    final String? cloudPath = prayerKey == 'fajr'
-        ? await AthanLibraryProvider.getDefaultFajrPath()
-        : await AthanLibraryProvider.getDefaultAthanPath();
+    // 1️⃣ قراءة المسار المحفوظ. (سيكون مسار Asset أو مسار File سحابي)
+    // لتحديث البيانات فوراً، نقرأ من SharedPreferences مباشرة لضمان عدم وجود تأخير
+    final prefs = await SharedPreferences.getInstance();
+    final String? path = prefs.getString('athan_path_$prayerKey');
+    final String resolvedPath = path ?? getPathForPrayer(prayerKey);
 
-    if (cloudPath != null && cloudPath.isNotEmpty) {
-      // تحقق أن الملف لا يزال موجوداً (Cloud Download fallback check)
-      final file = File(cloudPath);
+    // 2️⃣ التحقق إذا كان المسار يشير إلى ملف محلي (يبدأ بـ / أو يحتوي على \)
+    if (resolvedPath.startsWith('/') || resolvedPath.contains('\\')) {
+      final file = File(resolvedPath);
       if (await file.exists()) {
-        debugPrint('[AthanProvider] ☁️ Cloud athan used: $cloudPath');
-        return cloudPath;
+        debugPrint('[AthanProvider] ☁️ Cloud athan used: $resolvedPath');
+        return resolvedPath;
       } else {
-        // الملف اختفى (ربما محذوف) — استخدم الافتراضي
         debugPrint('[AthanProvider] ⚠️ Cloud file not found, falling back to local asset');
+        return prayerKey == 'fajr' ? "assets/audio/fajr_makkah.mp3" : "assets/audio/athan_makkah.mp3";
       }
     }
 
-    // 2️⃣ Fallback: الأصول المحلية المدمجة
-    return getPathForPrayer(prayerKey);
+    // 3️⃣ مسار Asset مدمج
+    return resolvedPath;
   }
 
   Future<void> setAthanEnabled(bool value) async {
@@ -147,6 +152,25 @@ class AthanProvider with ChangeNotifier {
       await setPrayerMuezzin('asr', dhuhrPath);
       await setPrayerMuezzin('maghrib', dhuhrPath);
       await setPrayerMuezzin('isha', dhuhrPath);
+
+      // تعميم التخصيص السحابي الخاص بالظهر على باقي الصلوات العادية
+      final dhuhrId = prefs.getString('athan_library_id_dhuhr');
+      final dhuhrName = prefs.getString('athan_library_name_dhuhr');
+      if (dhuhrId != null && dhuhrName != null) {
+          await prefs.setString('athan_library_id_asr', dhuhrId);
+          await prefs.setString('athan_library_name_asr', dhuhrName);
+          await prefs.setString('athan_library_id_maghrib', dhuhrId);
+          await prefs.setString('athan_library_name_maghrib', dhuhrName);
+          await prefs.setString('athan_library_id_isha', dhuhrId);
+          await prefs.setString('athan_library_name_isha', dhuhrName);
+      } else {
+          await prefs.remove('athan_library_id_asr');
+          await prefs.remove('athan_library_name_asr');
+          await prefs.remove('athan_library_id_maghrib');
+          await prefs.remove('athan_library_name_maghrib');
+          await prefs.remove('athan_library_id_isha');
+          await prefs.remove('athan_library_name_isha');
+      }
       // 🔒 الفجر محصّن: لا نلمسه هنا أبداً
     }
     
@@ -165,6 +189,14 @@ class AthanProvider with ChangeNotifier {
        await prefs.setString('athan_path_asr', path);
        await prefs.setString('athan_path_maghrib', path);
        await prefs.setString('athan_path_isha', path);
+
+       // Clear cloud assignments for asr, maghrib, isha when setting a local asset
+       await prefs.remove('athan_library_id_asr');
+       await prefs.remove('athan_library_name_asr');
+       await prefs.remove('athan_library_id_maghrib');
+       await prefs.remove('athan_library_name_maghrib');
+       await prefs.remove('athan_library_id_isha');
+       await prefs.remove('athan_library_name_isha');
     }
 
     notifyListeners();

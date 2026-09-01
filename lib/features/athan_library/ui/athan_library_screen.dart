@@ -3,6 +3,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 import '../data/models/athan_model.dart';
 import '../providers/athan_library_provider.dart';
+import '../../athan/providers/athan_provider.dart';
 
 /// شاشة مكتبة الأذان الكاملة
 class AthanLibraryScreen extends StatefulWidget {
@@ -72,12 +73,26 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
   }
 
   // ─── Download & Set ───────────────────────────────────────────────────────
-  Future<void> _downloadAndSet(AthanModel athan) async {
+  Future<void> _downloadAndSet(AthanModel athan, {required String prayerKey}) async {
     final provider = context.read<AthanLibraryProvider>();
-    final result = await provider.downloadAndSet(athan);
+    final result = await provider.downloadAndSet(athan, prayerKey: prayerKey);
     if (!mounted) return;
 
     if (result != null) {
+      final String successMessage;
+      if (prayerKey == 'all') {
+        successMessage = 'تم تعيين "${athan.name}" لجميع الصلوات ✓';
+      } else {
+        final prayerNamesAr = {
+          'fajr': 'الفجر',
+          'dhuhr': 'الظهر',
+          'asr': 'العصر',
+          'maghrib': 'المغرب',
+          'isha': 'العشاء',
+        };
+        successMessage = 'تم تعيين "${athan.name}" لصلاة ${prayerNamesAr[prayerKey]} ✓';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -86,7 +101,7 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'تم تعيين "${athan.name}" كأذان افتراضي ✓',
+                  successMessage,
                   style: const TextStyle(fontFamily: 'Tajawal'),
                 ),
               ),
@@ -112,6 +127,89 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
         ),
       );
     }
+  }
+
+  void _onSetAthanPressed(AthanModel athan) {
+    if (athan.isFajr) {
+      _downloadAndSet(athan, prayerKey: 'fajr');
+    } else {
+      final athanProvider = Provider.of<AthanProvider>(context, listen: false);
+      if (athanProvider.isUnifiedMuezzin) {
+        _downloadAndSet(athan, prayerKey: 'all');
+      } else {
+        _showAssignmentDialog(athan);
+      }
+    }
+  }
+
+  void _showAssignmentDialog(AthanModel athan) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'تخصيص الأذان',
+                  style: TextStyle(
+                    fontFamily: 'Tajawal',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.all_inclusive, color: Color(0xFF1B5E20)),
+                title: const Text('تعيين كأذان موحد لجميع الصلوات', style: TextStyle(fontFamily: 'Tajawal')),
+                onTap: () {
+                  Navigator.pop(context);
+                  _downloadAndSet(athan, prayerKey: 'all');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.wb_sunny, color: Colors.orange),
+                title: const Text('صلاة الظهر', style: TextStyle(fontFamily: 'Tajawal')),
+                onTap: () {
+                  Navigator.pop(context);
+                  _downloadAndSet(athan, prayerKey: 'dhuhr');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.wb_twilight, color: Colors.deepOrange),
+                title: const Text('صلاة العصر', style: TextStyle(fontFamily: 'Tajawal')),
+                onTap: () {
+                  Navigator.pop(context);
+                  _downloadAndSet(athan, prayerKey: 'asr');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.nights_stay, color: Colors.indigo),
+                title: const Text('صلاة المغرب', style: TextStyle(fontFamily: 'Tajawal')),
+                onTap: () {
+                  Navigator.pop(context);
+                  _downloadAndSet(athan, prayerKey: 'maghrib');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.star, color: Colors.deepPurple),
+                title: const Text('صلاة العشاء', style: TextStyle(fontFamily: 'Tajawal')),
+                onTap: () {
+                  Navigator.pop(context);
+                  _downloadAndSet(athan, prayerKey: 'isha');
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // ─── Build ────────────────────────────────────────────────────────────────
@@ -235,9 +333,8 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
                 accentColor: accentColor,
                 primaryColor: primaryColor,
                 isDark: isDark,
-                defaultId: provider.defaultAthanId,
                 onPreview: _togglePreview,
-                onDownload: _downloadAndSet,
+                onSetPressed: _onSetAthanPressed,
               ),
               _AthanList(
                 athans: provider.fajrAthans,
@@ -247,9 +344,8 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
                 accentColor: accentColor,
                 primaryColor: primaryColor,
                 isDark: isDark,
-                defaultId: provider.defaultFajrId,
                 onPreview: _togglePreview,
-                onDownload: _downloadAndSet,
+                onSetPressed: _onSetAthanPressed,
               ),
             ],
           );
@@ -268,9 +364,8 @@ class _AthanList extends StatelessWidget {
   final Color accentColor;
   final Color primaryColor;
   final bool isDark;
-  final String? defaultId;
   final Future<void> Function(AthanModel) onPreview;
-  final Future<void> Function(AthanModel) onDownload;
+  final void Function(AthanModel) onSetPressed;
 
   const _AthanList({
     required this.athans,
@@ -280,9 +375,8 @@ class _AthanList extends StatelessWidget {
     required this.accentColor,
     required this.primaryColor,
     required this.isDark,
-    required this.defaultId,
     required this.onPreview,
-    required this.onDownload,
+    required this.onSetPressed,
   });
 
   @override
@@ -306,9 +400,8 @@ class _AthanList extends StatelessWidget {
           accentColor: accentColor,
           primaryColor: primaryColor,
           isDark: isDark,
-          isDefault: defaultId == athan.id,
           onPreview: onPreview,
-          onDownload: onDownload,
+          onSetPressed: onSetPressed,
         );
       },
     );
@@ -324,9 +417,8 @@ class _AthanCard extends StatelessWidget {
   final Color accentColor;
   final Color primaryColor;
   final bool isDark;
-  final bool isDefault;
   final Future<void> Function(AthanModel) onPreview;
-  final Future<void> Function(AthanModel) onDownload;
+  final void Function(AthanModel) onSetPressed;
 
   const _AthanCard({
     required this.athan,
@@ -336,30 +428,53 @@ class _AthanCard extends StatelessWidget {
     required this.accentColor,
     required this.primaryColor,
     required this.isDark,
-    required this.isDefault,
     required this.onPreview,
-    required this.onDownload,
+    required this.onSetPressed,
   });
 
   @override
   Widget build(BuildContext context) {
+    final athanProvider = Provider.of<AthanProvider>(context, listen: true);
     final isPlaying = provider.playingId == athan.id;
     final status = provider.downloadStatusOf(athan.id);
     final progress = provider.downloadProgressOf(athan.id);
     final isDownloaded = provider.isDownloaded(athan.id);
     final isDownloading = status == DownloadStatus.downloading;
 
+    final assignedPrayers = provider.getPrayersAssignedTo(athan.id);
+    String badgeText = '';
+    if (assignedPrayers.isNotEmpty) {
+      if (athanProvider.isUnifiedMuezzin && !athan.isFajr) {
+        if (assignedPrayers.contains('dhuhr')) {
+          badgeText = '✓ الأذان الموحد';
+        }
+      } else if (athan.isFajr) {
+        badgeText = '✓ معين لصلاة الفجر';
+      } else {
+        final Map<String, String> prayerNames = {
+          'fajr': 'الفجر',
+          'dhuhr': 'الظهر',
+          'asr': 'العصر',
+          'maghrib': 'المغرب',
+          'isha': 'العشاء'
+        };
+        final names = assignedPrayers.map((p) => prayerNames[p] ?? p).join('، ');
+        badgeText = '✓ معين: $names';
+      }
+    }
+    final bool isAssigned = badgeText.isNotEmpty;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: isDefault
+        color: isAssigned
             ? (isDark
                 ? const Color(0xFF1B4D20)
                 : const Color(0xFFE8F5E9))
             : cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: isDefault
+        border: isAssigned
             ? Border.all(color: accentColor, width: 1.5)
             : Border.all(
                 color: isDark
@@ -413,7 +528,7 @@ class _AthanCard extends StatelessWidget {
                           color: isDark ? Colors.white : Colors.black87,
                         ),
                       ),
-                      if (isDefault) ...[
+                      if (isAssigned) ...[
                         const SizedBox(height: 3),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -422,9 +537,9 @@ class _AthanCard extends StatelessWidget {
                             color: accentColor,
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Text(
-                            '✓ الأذان الافتراضي',
-                            style: TextStyle(
+                          child: Text(
+                            badgeText,
+                            style: const TextStyle(
                               fontFamily: 'Tajawal',
                               fontSize: 10,
                               color: Colors.white,
@@ -449,10 +564,10 @@ class _AthanCard extends StatelessWidget {
                 _DownloadButton(
                   isDownloaded: isDownloaded,
                   isDownloading: isDownloading,
-                  isDefault: isDefault,
+                  isAssigned: isAssigned,
                   accentColor: accentColor,
                   primaryColor: primaryColor,
-                  onTap: isDownloading ? null : () => onDownload(athan),
+                  onTap: isDownloading ? null : () => onSetPressed(athan),
                 ),
               ],
             ),
@@ -536,7 +651,7 @@ class _PlayButton extends StatelessWidget {
 class _DownloadButton extends StatelessWidget {
   final bool isDownloaded;
   final bool isDownloading;
-  final bool isDefault;
+  final bool isAssigned;
   final Color accentColor;
   final Color primaryColor;
   final VoidCallback? onTap;
@@ -544,7 +659,7 @@ class _DownloadButton extends StatelessWidget {
   const _DownloadButton({
     required this.isDownloaded,
     required this.isDownloading,
-    required this.isDefault,
+    required this.isAssigned,
     required this.accentColor,
     required this.primaryColor,
     required this.onTap,
@@ -563,9 +678,9 @@ class _DownloadButton extends StatelessWidget {
       );
     }
 
-    if (isDefault) {
+    if (isAssigned) {
       return Tooltip(
-        message: 'تم التعيين بالفعل',
+        message: 'تم التعيين',
         child: Icon(Icons.check_circle_rounded,
             color: accentColor, size: 34),
       );

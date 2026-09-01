@@ -11,13 +11,11 @@ enum DownloadStatus { idle, downloading, done, error }
 
 /// Provider لإدارة مكتبة الأذان (جلب البيانات، التشغيل، التحميل، الحفظ)
 class AthanLibraryProvider with ChangeNotifier {
-  // ─── مفاتيح SharedPreferences ──────────────────────────────────────────────
-  static const String _keyDefaultAthan = 'athan_library_default_path';
-  static const String _keyDefaultFajr = 'athan_library_default_fajr_path';
-  static const String _keyDefaultAthanId = 'athan_library_default_id';
-  static const String _keyDefaultFajrId = 'athan_library_default_fajr_id';
-  static const String _keyDefaultAthanName = 'athan_library_default_name';
-  static const String _keyDefaultFajrName = 'athan_library_default_fajr_name';
+  // ─── مفاتيح SharedPreferences للصلوات ──────────────────────────────────────
+  static String _keyIdFor(String prayerKey) => 'athan_library_id_$prayerKey';
+  static String _keyNameFor(String prayerKey) => 'athan_library_name_$prayerKey';
+  // Note: we save the absolute path directly to the key that Native Android uses.
+  static String _keyPathFor(String prayerKey) => 'athan_path_$prayerKey';
 
   // ─── بادئة اسم الملف المحمَّل (ثابتة وفريدة لكل أذان) ────────────────────
   static const String _filePrefix = 'downloaded_athan_';
@@ -48,17 +46,11 @@ class AthanLibraryProvider with ChangeNotifier {
   /// الأذانات المحفوظة محلياً (key = id, value = مسار الملف على القرص)
   final Map<String, String> _localPaths = {};
 
-  /// ID الأذان العادي المختار كافتراضي
-  String? _defaultAthanId;
+  /// المعرفات المحفوظة لكل صلاة (key: prayerKey, value: id)
+  final Map<String, String> _assignedIds = {};
 
-  /// ID أذان الفجر المختار كافتراضي
-  String? _defaultFajrId;
-
-  /// اسم الأذان العادي الافتراضي (للعرض في شاشة الإعدادات)
-  String? _defaultAthanName;
-
-  /// اسم أذان الفجر الافتراضي (للعرض في شاشة الإعدادات)
-  String? _defaultFajrName;
+  /// الأسماء المحفوظة لكل صلاة (key: prayerKey, value: name)
+  final Map<String, String> _assignedNames = {};
 
   // ─── Getters ──────────────────────────────────────────────────────────────
   List<AthanModel> get normalAthans =>
@@ -68,20 +60,26 @@ class AthanLibraryProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   String? get playingId => _playingId;
-  String? get defaultAthanId => _defaultAthanId;
-  String? get defaultFajrId => _defaultFajrId;
 
-  /// اسم الأذان العادي الافتراضي للعرض (null = لم يُختَر أذان من المكتبة)
-  String? get defaultAthanName => _defaultAthanName;
+  /// إرجاع اسم الأذان السحابي المعين لصلاة معينة، أو null إذا لم يكن هناك واحد.
+  String? getAssignedNameFor(String prayerKey) => _assignedNames[prayerKey];
 
-  /// اسم أذان الفجر الافتراضي للعرض (null = لم يُختَر أذان من المكتبة)
-  String? get defaultFajrName => _defaultFajrName;
+  /// إرجاع ID الأذان السحابي المعين لصلاة معينة، أو null إذا لم يكن هناك واحد.
+  String? getAssignedIdFor(String prayerKey) => _assignedIds[prayerKey];
 
-  /// هل يوجد أذان عادي مُعيَّن من المكتبة السحابية؟
-  bool get hasCloudAthan => _defaultAthanId != null && _defaultAthanName != null;
+  /// هل الصلاة المعينة لها أذان سحابي؟
+  bool hasCloudAthanFor(String prayerKey) => _assignedIds.containsKey(prayerKey) && _assignedNames.containsKey(prayerKey);
 
-  /// هل يوجد أذان فجر مُعيَّن من المكتبة السحابية؟
-  bool get hasCloudFajr => _defaultFajrId != null && _defaultFajrName != null;
+  /// هل هذا الأذان معين لأي صلاة؟
+  bool isAssigned(String id) => _assignedIds.containsValue(id);
+
+  /// إرجاع قائمة بالصلوات التي تم تعيين هذا الأذان لها
+  List<String> getPrayersAssignedTo(String id) {
+    return _assignedIds.entries
+        .where((entry) => entry.value == id)
+        .map((entry) => entry.key)
+        .toList();
+  }
 
   DownloadStatus downloadStatusOf(String id) =>
       _downloadStatus[id] ?? DownloadStatus.idle;
@@ -136,10 +134,13 @@ class AthanLibraryProvider with ChangeNotifier {
 
   Future<void> _loadSavedDefaults() async {
     final prefs = await SharedPreferences.getInstance();
-    _defaultAthanId = prefs.getString(_keyDefaultAthanId);
-    _defaultFajrId = prefs.getString(_keyDefaultFajrId);
-    _defaultAthanName = prefs.getString(_keyDefaultAthanName);
-    _defaultFajrName = prefs.getString(_keyDefaultFajrName);
+    final prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    for (var p in prayers) {
+      final id = prefs.getString(_keyIdFor(p));
+      final name = prefs.getString(_keyNameFor(p));
+      if (id != null) _assignedIds[p] = id;
+      if (name != null) _assignedNames[p] = name;
+    }
     notifyListeners();
   }
 
@@ -150,21 +151,29 @@ class AthanLibraryProvider with ChangeNotifier {
 
   /// مسح الأذان الافتراضي من المكتبة السحابية والعودة للأذان المحلي.
   /// ملاحظة: لا يحذف الملف من القرص — يبقى "محمّل" ويمكن تعيينه مرة أخرى بدون إعادة تحميل.
-  Future<void> clearDefault({required bool isFajr}) async {
+  /// مسح الأذان السحابي لصلاة معينة (أو لكل الصلوات إذا كان prayerKey == 'all').
+  Future<void> clearDefault({required String prayerKey}) async {
     final prefs = await SharedPreferences.getInstance();
-    if (isFajr) {
-      _defaultFajrId = null;
-      _defaultFajrName = null;
-      await prefs.remove(_keyDefaultFajrId);
-      await prefs.remove(_keyDefaultFajrName);
-      await prefs.remove(_keyDefaultFajr);
+    
+    if (prayerKey == 'all') {
+      final normalPrayers = ['dhuhr', 'asr', 'maghrib', 'isha'];
+      for (var p in normalPrayers) {
+        _assignedIds.remove(p);
+        _assignedNames.remove(p);
+        await prefs.remove(_keyIdFor(p));
+        await prefs.remove(_keyNameFor(p));
+        // نُعيد المسار الافتراضي لأذان مكة حتى لا يتعطل الناتيف
+        await prefs.setString(_keyPathFor(p), "assets/audio/athan_makkah.mp3");
+      }
     } else {
-      _defaultAthanId = null;
-      _defaultAthanName = null;
-      await prefs.remove(_keyDefaultAthanId);
-      await prefs.remove(_keyDefaultAthanName);
-      await prefs.remove(_keyDefaultAthan);
+      _assignedIds.remove(prayerKey);
+      _assignedNames.remove(prayerKey);
+      await prefs.remove(_keyIdFor(prayerKey));
+      await prefs.remove(_keyNameFor(prayerKey));
+      final fallbackPath = prayerKey == 'fajr' ? "assets/audio/fajr_makkah.mp3" : "assets/audio/athan_makkah.mp3";
+      await prefs.setString(_keyPathFor(prayerKey), fallbackPath);
     }
+    
     notifyListeners();
   }
 
@@ -191,7 +200,7 @@ class AthanLibraryProvider with ChangeNotifier {
   }
 
   // ─── Download & Set ───────────────────────────────────────────────────────
-  Future<String?> downloadAndSet(AthanModel athan) async {
+  Future<String?> downloadAndSet(AthanModel athan, {required String prayerKey}) async {
     final dir = await getApplicationDocumentsDirectory();
     // ✅ اسم فريد ثابت لكل أذان بناءً على ID — لا يتغير بين الجلسات
     final fileName = '$_filePrefix${athan.id}.mp3';
@@ -199,8 +208,8 @@ class AthanLibraryProvider with ChangeNotifier {
 
     // ─── تحقق 1: هل الملف موجود في الذاكرة (نفس الجلسة)؟ ─────────────────
     if (_localPaths.containsKey(athan.id)) {
-      debugPrint('[AthanLibrary] ✅ Cache hit for ${athan.id}, setting as default');
-      await _saveAsDefault(athan, localPath: _localPaths[athan.id]!);
+      debugPrint('[AthanLibrary] ✅ Cache hit for ${athan.id}, setting as default for $prayerKey');
+      await _saveAsDefault(athan, prayerKey: prayerKey, localPath: _localPaths[athan.id]!);
       return _localPaths[athan.id];
     }
 
@@ -211,7 +220,7 @@ class AthanLibraryProvider with ChangeNotifier {
       _localPaths[athan.id] = filePath;
       _downloadStatus[athan.id] = DownloadStatus.done;
       _downloadProgress[athan.id] = 1.0;
-      await _saveAsDefault(athan, localPath: filePath);
+      await _saveAsDefault(athan, prayerKey: prayerKey, localPath: filePath);
       notifyListeners();
       return filePath;
     }
@@ -243,7 +252,7 @@ class AthanLibraryProvider with ChangeNotifier {
       _localPaths[athan.id] = filePath;
       _downloadStatus[athan.id] = DownloadStatus.done;
       _downloadProgress[athan.id] = 1.0;
-      await _saveAsDefault(athan, localPath: filePath);
+      await _saveAsDefault(athan, prayerKey: prayerKey, localPath: filePath);
       debugPrint('[AthanLibrary] ✅ Downloaded: $filePath');
       notifyListeners();
       return filePath;
@@ -255,35 +264,31 @@ class AthanLibraryProvider with ChangeNotifier {
     }
   }
 
-  Future<void> _saveAsDefault(AthanModel athan, {String? localPath}) async {
+  Future<void> _saveAsDefault(AthanModel athan, {required String prayerKey, String? localPath}) async {
     final prefs = await SharedPreferences.getInstance();
     final path = localPath ?? _localPaths[athan.id] ?? '';
 
-    if (athan.isFajr) {
-      _defaultFajrId = athan.id;
-      _defaultFajrName = athan.name;
-      await prefs.setString(_keyDefaultFajrId, athan.id);
-      await prefs.setString(_keyDefaultFajrName, athan.name);
-      if (path.isNotEmpty) await prefs.setString(_keyDefaultFajr, path);
+    if (prayerKey == 'all') {
+      final normalPrayers = ['dhuhr', 'asr', 'maghrib', 'isha'];
+      for (var p in normalPrayers) {
+        _assignedIds[p] = athan.id;
+        _assignedNames[p] = athan.name;
+        await prefs.setString(_keyIdFor(p), athan.id);
+        await prefs.setString(_keyNameFor(p), athan.name);
+        if (path.isNotEmpty) await prefs.setString(_keyPathFor(p), path);
+      }
     } else {
-      _defaultAthanId = athan.id;
-      _defaultAthanName = athan.name;
-      await prefs.setString(_keyDefaultAthanId, athan.id);
-      await prefs.setString(_keyDefaultAthanName, athan.name);
-      if (path.isNotEmpty) await prefs.setString(_keyDefaultAthan, path);
+      _assignedIds[prayerKey] = athan.id;
+      _assignedNames[prayerKey] = athan.name;
+      await prefs.setString(_keyIdFor(prayerKey), athan.id);
+      await prefs.setString(_keyNameFor(prayerKey), athan.name);
+      if (path.isNotEmpty) await prefs.setString(_keyPathFor(prayerKey), path);
     }
+    
     notifyListeners();
   }
 
-  /// يُرجع المسار المحفوظ للأذان العادي الافتراضي
-  static Future<String?> getDefaultAthanPath() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyDefaultAthan);
-  }
-
-  /// يُرجع المسار المحفوظ لأذان الفجر الافتراضي
-  static Future<String?> getDefaultFajrPath() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyDefaultFajr);
-  }
+  // 🛡️ ملاحظة: الدالة getDefaultAthanPath لم تعد مستخدمة عالمياً بنفس الطريقة،
+  // لأن مسار الأذان يتم حفظه الآن مباشرة في مفتاح "athan_path_$prayerKey" الذي يعتمد عليه
+  // التطبيق ونظام الأندرويد الأصلي (Native). تم التخلص من الدالة لعدم الحاجة إليها.
 }

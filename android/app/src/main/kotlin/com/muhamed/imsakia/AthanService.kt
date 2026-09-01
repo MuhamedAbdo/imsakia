@@ -264,11 +264,16 @@ class AthanService : Service() {
 
         mediaPlayer = MediaPlayer().apply {
             try {
-                android.util.Log.d("ImsakiaNative", "!!! HARDENED: Attempting to play asset: $assetPath !!!")
-                val assetDescriptor = assets.openFd("flutter_assets/$assetPath")
-                setDataSource(assetDescriptor.fileDescriptor, assetDescriptor.startOffset, assetDescriptor.length)
+                if (assetPath != null && assetPath.startsWith("/")) {
+                    android.util.Log.d("ImsakiaNative", "!!! HARDENED: Attempting to play absolute path: $assetPath !!!")
+                    setDataSource(assetPath)
+                } else {
+                    android.util.Log.d("ImsakiaNative", "!!! HARDENED: Attempting to play asset: $assetPath !!!")
+                    val assetDescriptor = assets.openFd("flutter_assets/$assetPath")
+                    setDataSource(assetDescriptor.fileDescriptor, assetDescriptor.startOffset, assetDescriptor.length)
+                }
             } catch (e: Exception) {
-                android.util.Log.e("ImsakiaNative", "!!! HARDENED ERROR: Failed to load asset $assetPath: ${e.message} !!!")
+                android.util.Log.e("ImsakiaNative", "!!! HARDENED ERROR: Failed to load $assetPath: ${e.message} !!!")
                 android.util.Log.d("ImsakiaNative", "!!! HARDENED: Falling back to SYSTEM ALARM SOUND (TYPE_ALARM) !!!")
                 val alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                 setDataSource(applicationContext, alert)
