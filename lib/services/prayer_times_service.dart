@@ -180,6 +180,13 @@ class PrayerTimesService {
           return;
         }
       }
+      
+      // 🗓️ التحديث عند منتصف الليل: استدعاء دالة فحص وجدولة مناسبات "اليوم الجديد"
+      if (isNewDay) {
+        // نستخدم future unawaited لعدم تعطيل الويدجت
+        IslamicOccasionNotificationService.instance.scheduleOccasionNotifications();
+      }
+
       _lastWidgetUpdateTime = now;
 
       final nextPrayerKey = getNextPrayer() ?? 'fajr';

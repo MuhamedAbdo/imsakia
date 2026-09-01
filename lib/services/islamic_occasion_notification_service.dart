@@ -24,13 +24,13 @@ class IslamicOccasionNotificationService {
 
   // ─── ثوابت — IDs ────────────────────────────────────────────────────────
   /// إشعارات المناسبات الصباحية (10:00 ص)
-  static const int _baseOccasionId = 2000; // 2000–2013
+  static const int _baseOccasionId = 20000;
 
   /// إشعارات التذكير بالصيام (18:00)
-  static const int _baseFastingId = 3000; // 3000–3013
+  static const int _baseFastingId = 30000;
 
   /// إشعارات المناسبات المخصصة الصباحية (10:00 ص)
-  static const int _baseCustomOccasionId = 4000; // 4000–4013
+  static const int _baseCustomOccasionId = 40000;
 
   /// أقصى عدد أيام مدرجة في كل حزمة
   static const int _windowDays = 14;
@@ -42,8 +42,8 @@ class IslamicOccasionNotificationService {
   static const int _fastingMinute = 0;
 
   // ─── SharedPreferences key ───────────────────────────────────────────────
-  static const String _lastScheduledDayKey =
-      'occasion_notif_last_scheduled_day';
+  // تم تغيير المفتاح ليعتمد على التاريخ لتجنب الاحتفاظ بقيمة قديمة
+  static const String _scheduledFlagPrefix = 'occasion_scheduled_';
 
   bool _tzInitialized = false;
 
@@ -67,14 +67,13 @@ class IslamicOccasionNotificationService {
 
       final prefs = await SharedPreferences.getInstance();
       final today = DateTime.now();
-      final todayKey = '${today.year}-${today.month}-${today.day}';
+      final dateKey = '$_scheduledFlagPrefix${today.year}-${today.month}-${today.day}';
 
       // ✅ ضمان الجدولة مرة واحدة فقط يومياً (ما لم يُطلب Force)
       if (!force) {
-        final lastScheduled = prefs.getString(_lastScheduledDayKey);
-        if (lastScheduled == todayKey) {
-          Logger.debug('OccasionNotif: Already scheduled today, skipping.');
-          return;
+        final isScheduledToday = prefs.getBool(dateKey) ?? false;
+        if (isScheduledToday) {
+          return; // تم الجدولة مسبقاً لهذا اليوم
         }
       }
 
@@ -130,13 +129,6 @@ class IslamicOccasionNotificationService {
             payload: 'islamic_occasion|${occasion.primaryName}',
           );
           occasionCount++;
-          Logger.debug(
-            'OccasionNotif: [${_baseOccasionId + offset}] "${occasion.primaryName}" at $occasionTime',
-          );
-        } else {
-          Logger.debug(
-            'OccasionNotif: Skipping "${occasion.primaryName}" — 10:00 AM passed.',
-          );
         }
 
         // ── 2️⃣ إشعار التذكير بالصيام (18:00) ───────────────────────────
@@ -155,7 +147,6 @@ class IslamicOccasionNotificationService {
           );
 
           if (fastingTime.isAfter(today)) {
-            // نحسب offset للـ ID بناءً على الفرق عن اليوم الحالي
             final fastingOffset =
                 fastingTime.difference(today).inDays.clamp(0, _windowDays - 1);
 
@@ -171,14 +162,6 @@ class IslamicOccasionNotificationService {
               payload: 'fasting_reminder|${occasion.primaryName}',
             );
             fastingCount++;
-            Logger.debug(
-              'FastingNotif: [${_baseFastingId + fastingOffset}] '
-              '"${occasion.fastingReminderTitle}" at $fastingTime',
-            );
-          } else {
-            Logger.debug(
-              'FastingNotif: Skipping "${occasion.fastingReminderTitle}" — 18:00 passed.',
-            );
           }
         }
       }
@@ -213,7 +196,7 @@ class IslamicOccasionNotificationService {
           if (occasionTime.isAfter(today)) {
             await _scheduleNotification(
               plugin: plugin,
-              id: _baseCustomOccasionId + offset + customOccasion.id.hashCode % 100, // لتجنب التعارض في نفس اليوم
+              id: _baseCustomOccasionId + offset + customOccasion.id.hashCode % 1000,
               title: 'مناسبة مخصصة 🌟',
               body: customOccasion.title,
               scheduledDateTime: occasionTime,
@@ -223,17 +206,14 @@ class IslamicOccasionNotificationService {
               payload: 'custom_occasion|${customOccasion.title}',
             );
             customOccasionCount++;
-            Logger.debug(
-              'OccasionNotif: Custom "${customOccasion.title}" at $occasionTime',
-            );
           }
         }
       }
 
-      // حفظ اليوم لمنع إعادة الجدولة
-      await prefs.setString(_lastScheduledDayKey, todayKey);
+      // حفظ تاريخ اليوم في الـ SharedPreferences بقيمة true لمنع إعادة الجدولة
+      await prefs.setBool(dateKey, true);
       debugPrint(
-        '!!! OccasionNotif: $occasionCount occasion(s) + $fastingCount fasting reminder(s) + $customOccasionCount custom occasion(s) scheduled !!!',
+        'OccasionNotif: Scheduled $occasionCount occasions, $fastingCount fasting, $customOccasionCount custom.',
       );
     } catch (e) {
       Logger.error('IslamicOccasionNotificationService error: $e');
@@ -266,8 +246,8 @@ class IslamicOccasionNotificationService {
       priority: Priority.high,
       playSound: true,
       enableVibration: true,
-      icon: '@mipmap/ic_launcher',
-      largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+      icon: 'ic_launcher', // استخدام الصيغة الآمنة لتجنب الأعطال الصامتة
+      largeIcon: const DrawableResourceAndroidBitmap('ic_launcher'),
       styleInformation: BigTextStyleInformation(body),
     );
 
