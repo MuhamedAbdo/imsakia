@@ -621,7 +621,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   onTestPlay: () => _testPlayAthan('dhuhr'),
                   onCloudClear: () async {
                     await libraryProvider.clearDefault(prayerKey: 'dhuhr');
-                    if (mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                    if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
                   },
                 ),
                 const SizedBox(height: 8),
@@ -660,7 +660,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                         onTestPlay: () => _testPlayAthan('fajr'),
                         onCloudClear: () async {
                           await libraryProvider.clearDefault(prayerKey: 'fajr');
-                          if (mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                          if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
                         },
                       ),
                       const SizedBox(height: 10),
@@ -677,7 +677,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                         onTestPlay: () => _testPlayAthan('dhuhr'),
                         onCloudClear: () async {
                           await libraryProvider.clearDefault(prayerKey: 'dhuhr');
-                          if (mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                          if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
                         },
                       ),
                       const SizedBox(height: 10),
@@ -693,7 +693,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                         onTestPlay: () => _testPlayAthan('asr'),
                         onCloudClear: () async {
                           await libraryProvider.clearDefault(prayerKey: 'asr');
-                          if (mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                          if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
                         },
                       ),
                       const SizedBox(height: 10),
@@ -709,7 +709,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                         onTestPlay: () => _testPlayAthan('maghrib'),
                         onCloudClear: () async {
                           await libraryProvider.clearDefault(prayerKey: 'maghrib');
-                          if (mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                          if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
                         },
                       ),
                       const SizedBox(height: 10),
@@ -725,7 +725,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                         onTestPlay: () => _testPlayAthan('isha'),
                         onCloudClear: () async {
                           await libraryProvider.clearDefault(prayerKey: 'isha');
-                          if (mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                          if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
                         },
                       ),
                     ],
@@ -842,49 +842,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  /// صف عرض أذان محمل واحد مع زر المسح
-  Widget _buildActiveCloudRow({
-    required String label,
-    required String name,
-    required bool isDark,
-    required VoidCallback onClear,
-  }) {
-    return Row(
-      children: [
-        Text(
-          '$label: ',
-          style: GoogleFonts.tajawal(
-            fontSize: 12,
-            color: isDark ? Colors.white60 : Colors.black54,
-          ),
-        ),
-        Expanded(
-          child: Text(
-            name,
-            style: GoogleFonts.tajawal(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        const SizedBox(width: 4),
-        InkWell(
-          onTap: onClear,
-          borderRadius: BorderRadius.circular(20),
-          child: Tooltip(
-            message: 'العودة للأذان المحلي',
-            child: Icon(
-              Icons.cancel_outlined,
-              size: 16,
-              color: Colors.red.shade400,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+
 
   Widget _buildActionTile(
     BuildContext context, {
@@ -1030,8 +988,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   builder: (context, snapshot) {
                     final isThisPlaying =
                         snapshot.data?.playing == true &&
-                        audioHandler?.mediaItem.value
-                                ?.extras?['activeTestKey'] ==
+                        audioHandler?.mediaItem.value?.extras?['activeTestKey'] == prayerKey;
                     return Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
