@@ -8,9 +8,8 @@ import '../providers/theme_provider.dart';
 import '../screens/settings_screen.dart';
 import '../services/hadith_service.dart';
 import '../services/azkar_service.dart';
-import '../screens/azkar_detail_screen.dart';
-import '../../main.dart';
-import '../../features/athan/services/athan_manager.dart';
+import '../main.dart';
+import '../features/athan/services/athan_manager.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -148,25 +147,15 @@ class _SplashScreenState extends State<SplashScreen>
       );
     } else {
       Navigator.of(context).pushReplacementNamed('/main');
-      
-      // 🚀 التحقق من الإشعار: هل توجد حمولة معلقة لفتح الأذكار؟
+
+      // 🚀 التحقق من الإشعار: هل توجد حمولة معلقة؟
       if (pendingAzkarRoutePayload != null) {
-        final categoryId = pendingAzkarRoutePayload == 'azkar_morning' ? 'morning' : 'evening';
-        final category = AzkarService.instance.categories.firstWhere(
-          (c) => c.id == categoryId,
-          orElse: () => AzkarService.instance.categories.first,
-        );
-        
+        final payload = pendingAzkarRoutePayload!;
         // تفريغ المتغير لمنع الفتح المتكرر
         pendingAzkarRoutePayload = null;
 
-        // التوجيه لشاشة تفاصيل الأذكار
         Future.delayed(const Duration(milliseconds: 500), () {
-          navigatorKey.currentState?.push(
-            MaterialPageRoute(
-              builder: (_) => AzkarDetailScreen(category: category),
-            ),
-          );
+          handleNotificationPayload(payload);
         });
       }
     }

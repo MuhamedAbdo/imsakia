@@ -35,19 +35,26 @@ import 'dart:io';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 String? pendingAzkarRoutePayload; // المتغير العام لحفظ الحمولة (Payload)
 
-void _routeToAzkar(String payload) {
-  final categoryId = payload == 'azkar_morning' ? 'morning' : 'evening';
-  final category = AzkarService.instance.categories.firstWhere(
-    (c) => c.id == categoryId,
-    orElse: () => AzkarService.instance.categories.first,
-  );
-  
-  navigatorKey.currentState?.push(
-    MaterialPageRoute(
-      builder: (_) => AzkarDetailScreen(category: category),
-    ),
-  );
+void handleNotificationPayload(String payload) {
+  if (payload.startsWith('azkar_')) {
+    final categoryId = payload == 'azkar_morning' ? 'morning' : 'evening';
+    final category = AzkarService.instance.categories.firstWhere(
+      (c) => c.id == categoryId,
+      orElse: () => AzkarService.instance.categories.first,
+    );
+    
+    navigatorKey.currentState?.push(
+      MaterialPageRoute(
+        builder: (_) => AzkarDetailScreen(category: category),
+      ),
+    );
+  } else {
+    // 🔔 For occasion/fasting reminders, opening the app is currently sufficient.
+    // If needed, we can show a dialog or navigate to the calendar screen here.
+    debugPrint('handleNotificationPayload: Handled occasion payload = $payload');
+  }
 }
+
 
 // Background notification response handler (fires when app is killed)
 // Must be a top-level function annotated with @pragma
@@ -86,6 +93,25 @@ void main() async {
     debugPrint("!!! SOVEREIGN: Emergency Athan Mode Detected - Freezing Widget Sync !!!");
   }
 
+  // 🔔 Cold Start: التحقق من فتح التطبيق بالنقر على إشعار أذكار/مناسبة
+  try {
+    final notificationPayload =
+        await channel.invokeMethod<String?>('getInitialNotificationPayload');
+    if (notificationPayload != null && notificationPayload.isNotEmpty) {
+      if (notificationPayload.startsWith('azkar_') ||
+          notificationPayload.startsWith('islamic_occasion') ||
+          notificationPayload.startsWith('fasting_reminder') ||
+          notificationPayload.startsWith('custom_occasion')) {
+        pendingAzkarRoutePayload = notificationPayload;
+        debugPrint('main: notification payload captured on cold start: $notificationPayload');
+      }
+    }
+  } on MissingPluginException {
+    // الـ method غير موجودة بعد — لا بأس
+  } catch (e) {
+    debugPrint('main: getInitialNotificationPayload error: $e');
+  }
+
   // Copy Athan assets to local storage for background isolate access
   await _prepareAthanAssets();
 
@@ -120,7 +146,7 @@ void main() async {
       } else if (payload == 'azkar_morning' || payload == 'azkar_evening') {
         if (MyApp.sessionSplashShown && navigatorKey.currentState != null) {
           // التوجيه المباشر إذا كان التطبيق مفتوحاً ومتجاوزاً الـ Splash Screen
-          _routeToAzkar(payload!);
+          handleNotificationPayload(payload!);
         } else {
           // التخزين في حال كان التطبيق في مرحلة الإقلاع أو הـ Splash
           pendingAzkarRoutePayload = payload;
@@ -349,6 +375,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               _currentAthanOverlay = null;
             });
             await AthanManager.performSmartExit();
+          }
+        }
+      } else if (call.method == "notificationPayloadReceived") {
+        // 🔔 Warm Start: المستخدم نقر على إشعار أذكار/مناسبة والتطبيق مفتوح
+        final payload = call.arguments as String?;
+        if (payload != null && payload.isNotEmpty) {
+          debugPrint('_setupMethodChannel: notificationPayloadReceived = $payload');
+          if (MyApp.sessionSplashShown && navigatorKey.currentState != null) {
+            // التوجيه المباشر إذا كان التطبيق تجاوز شاشة الإقلاع
+            handleNotificationPayload(payload);
+          } else {
+            // التخزين للمرحلة التي تلي الـ SplashScreen
+            pendingAzkarRoutePayload = payload;
           }
         }
       }

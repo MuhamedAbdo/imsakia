@@ -56,6 +56,21 @@ class PermissionsService {
     }
   }
 
+  /// فتح إعدادات المنبهات الدقيقة (Android 12+ فقط).
+  ///
+  /// يُفتح `ACTION_REQUEST_SCHEDULE_EXACT_ALARM` ليمنح المستخدم الصلاحية يدوياً.
+  /// يُستدعى تلقائياً عند استقبال [PlatformException] بكود `EXACT_ALARM_PERMISSION_DENIED`.
+  static Future<void> openExactAlarmSettings() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('openExactAlarmSettings');
+    } catch (e) {
+      debugPrint("Error opening exact alarm settings: $e");
+      await openAppSettings(); // Fallback
+    }
+  }
+
+
   // ✅ فتح الإعدادات الشاملة (Auto-Start) عبر الـ Native لضمان الاستقرار
   static Future<String> openComprehensivePermissions() async {
     if (!Platform.isAndroid) return "unsupported";

@@ -87,6 +87,13 @@
             android:enabled="true"
             android:directBootAware="true" />
 
+        <!-- NotificationReceiver: يستقبل منبهات الإشعارات النصية (الأذكار + المناسبات) -->
+        <receiver
+            android:name=".NotificationReceiver"
+            android:exported="false"
+            android:enabled="true"
+            android:directBootAware="true" />
+
         <!-- ✅ CRITICAL: AthanService with stopWithTask="false" -->
         <service
             android:name=".AthanService"

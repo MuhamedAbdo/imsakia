@@ -94,6 +94,8 @@ class MainActivity : AudioServiceActivity() {
 
         requestNotificationPermission()
         createNotificationChannel()
+        // تهيئة قنوات إشعارات الأذكار والمناسبات
+        NotificationReceiver.createNotificationChannels(this)
         checkAndShowAthanOverlay()
         setupWidgetHeartbeat()
     }
@@ -286,6 +288,116 @@ class MainActivity : AudioServiceActivity() {
                             result.error("BROADCAST_FAILED", e.message, null)
                         }
                     }
+
+                    // ════════════════════════════════════════════════════════════════════
+                    // 🔔 Native Text Notifications (الأذكار + المناسبات)
+                    // ════════════════════════════════════════════════════════════════════
+
+                    "scheduleNativeNotification" -> {
+                        val id = call.argument<Int>("id") ?: run {
+                            result.error("INVALID_ARGS", "id is required", null); return@setMethodCallHandler
+                        }
+                        val timeInMillis = call.argument<Long>("timeInMillis") ?: run {
+                            result.error("INVALID_ARGS", "timeInMillis is required", null); return@setMethodCallHandler
+                        }
+                        val title = call.argument<String>("title") ?: run {
+                            result.error("INVALID_ARGS", "title is required", null); return@setMethodCallHandler
+                        }
+                        val body = call.argument<String>("body") ?: ""
+                        val payload = call.argument<String>("payload") ?: ""
+                        val channelId = call.argument<String>("channelId") ?: NotificationReceiver.CHANNEL_AZKAR
+
+                        // 🛡️ GUARD: فحص صلاحية المنبهات الدقيقة على Android 12+
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                            val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                            if (!alarmManager.canScheduleExactAlarms()) {
+                                android.util.Log.w(TAG, "scheduleNativeNotification: EXACT_ALARM permission denied for ID=$id")
+                                result.error(
+                                    "EXACT_ALARM_PERMISSION_DENIED",
+                                    "صلاحية المنبهات الدقيقة غير مفعّلة. يرجى تفعيلها من الإعدادات.",
+                                    null
+                                )
+                                return@setMethodCallHandler
+                            }
+                        }
+
+                        if (timeInMillis <= System.currentTimeMillis()) {
+                            result.error("INVALID_TIME", "timeInMillis must be in the future", null)
+                            return@setMethodCallHandler
+                        }
+
+                        val success = NotificationReceiver.scheduleNotification(
+                            context = this,
+                            id = id,
+                            timeInMillis = timeInMillis,
+                            title = title,
+                            body = body,
+                            payload = payload,
+                            channelId = channelId
+                        )
+                        result.success(success)
+                    }
+
+                    "cancelNativeNotification" -> {
+                        val id = call.argument<Int>("id") ?: run {
+                            result.error("INVALID_ARGS", "id is required", null); return@setMethodCallHandler
+                        }
+                        NotificationReceiver.cancelNotification(this, id)
+                        result.success(true)
+                    }
+
+                    "cancelNativeNotificationsInRange" -> {
+                        val fromId = call.argument<Int>("fromId") ?: run {
+                            result.error("INVALID_ARGS", "fromId is required", null); return@setMethodCallHandler
+                        }
+                        val toId = call.argument<Int>("toId") ?: run {
+                            result.error("INVALID_ARGS", "toId is required", null); return@setMethodCallHandler
+                        }
+                        NotificationReceiver.cancelNotificationsInRange(this, fromId, toId)
+                        result.success(true)
+                    }
+
+                    "getInitialNotificationPayload" -> {
+                        // يُستدعى عند بدء التطبيق (Cold Start) للتحقق من فتحه عبر إشعار
+                        val payload = intent?.getStringExtra(NotificationReceiver.EXTRA_PAYLOAD)
+                        android.util.Log.d(TAG, "getInitialNotificationPayload: $payload")
+                        // مسح الـ extra لمنع إعادة القراءة عند onNewIntent
+                        if (payload != null) {
+                            intent?.removeExtra(NotificationReceiver.EXTRA_PAYLOAD)
+                        }
+                        result.success(payload)
+                    }
+
+                    "openExactAlarmSettings" -> {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                            try {
+                                val settingsIntent = android.content.Intent(
+                                    android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                    android.net.Uri.parse("package:$packageName")
+                                )
+                                startActivity(settingsIntent)
+                                android.util.Log.d(TAG, "openExactAlarmSettings: opened exact alarm settings")
+                                result.success(true)
+                            } catch (e: Exception) {
+                                android.util.Log.w(TAG, "openExactAlarmSettings: fallback to app details: ${e.message}")
+                                try {
+                                    val fallbackIntent = android.content.Intent(
+                                        android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                                    ).apply {
+                                        data = android.net.Uri.parse("package:$packageName")
+                                    }
+                                    startActivity(fallbackIntent)
+                                } catch (e2: Exception) {
+                                    android.util.Log.e(TAG, "openExactAlarmSettings fallback failed: ${e2.message}")
+                                }
+                                result.success(false)
+                            }
+                        } else {
+                            // أندرويد ≤ 11: لا حاجة للصلاحية
+                            result.success(true)
+                        }
+                    }
+
                     else -> result.notImplemented()
                 }
             }
@@ -311,6 +423,18 @@ class MainActivity : AudioServiceActivity() {
         wasInAppOnStart = true 
         
         checkAndShowAthanOverlay()
+
+        // 🔔 معالجة النقر على إشعار أذكار/مناسبات (Warm Start)
+        val notificationPayload = intent.getStringExtra(NotificationReceiver.EXTRA_PAYLOAD)
+        if (notificationPayload != null && notificationPayload.isNotEmpty() &&
+            !notificationPayload.startsWith("athan")) {
+            android.util.Log.d(TAG, "onNewIntent: notification payload received = $notificationPayload")
+            flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                MethodChannel(messenger, CHANNEL).invokeMethod("notificationPayloadReceived", notificationPayload)
+            }
+            // مسح الـ payload من الـ Intent لمنع إعادة القراءة
+            intent.removeExtra(NotificationReceiver.EXTRA_PAYLOAD)
+        }
     }
 
     private fun checkAndShowAthanOverlay() {

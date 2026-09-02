@@ -1,26 +1,28 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz_data;
 import '../data/islamic_occasions.dart';
 import 'hijri_date_service.dart';
 import '../utils/logger.dart';
 import 'custom_occasion_service.dart';
 
-/// خدمة مسؤولة عن جدولة نوعين من الإشعارات:
+/// خدمة مسؤولة عن جدولة نوعين من الإشعارات عبر AlarmManager النيتف:
 ///
-/// 1️⃣  **إشعارات المناسبات** (IDs: 2000–2013) — الساعة 10:00 صباحاً في يوم المناسبة.
-/// 2️⃣  **إشعارات التذكير بالصيام** (IDs: 3000–3013) — الساعة 18:00 في اليوم المحدد
+/// 1️⃣  **إشعارات المناسبات** (IDs: 20000–20013) — الساعة 10:00 صباحاً في يوم المناسبة.
+/// 2️⃣  **إشعارات التذكير بالصيام** (IDs: 30000–30013) — الساعة 18:00 في اليوم المحدد
 ///      قبل المناسبة بـ [IslamicOccasion.reminderDaysBefore].
+/// 3️⃣  **إشعارات المناسبات المخصصة** (IDs: 40000+) — الساعة 10:00 صباحاً.
 ///
-/// كلا النوعين مستقل تماماً عن نظام الأذان.
+/// كلا النوعين مستقل تماماً عن نظام الأذان ويعتمد على MethodChannel النيتف.
 class IslamicOccasionNotificationService {
   // ─── Singleton ───────────────────────────────────────────────────────────
   static IslamicOccasionNotificationService? _instance;
   static IslamicOccasionNotificationService get instance =>
       _instance ??= IslamicOccasionNotificationService._();
   IslamicOccasionNotificationService._();
+
+  // ─── MethodChannel ───────────────────────────────────────────────────────
+  static const _channel = MethodChannel('imsakia/notifications');
 
   // ─── ثوابت — IDs ────────────────────────────────────────────────────────
   /// إشعارات المناسبات الصباحية (10:00 ص)
@@ -41,18 +43,12 @@ class IslamicOccasionNotificationService {
   static const int _fastingHour = 18;
   static const int _fastingMinute = 0;
 
+  // ─── Channel IDs للـ Kotlin ──────────────────────────────────────────────
+  static const String _occasionChannelId = 'occasion_notifications_v1';
+  static const String _fastingChannelId = 'fasting_notifications_v1';
+
   // ─── SharedPreferences key ───────────────────────────────────────────────
-  // تم تغيير المفتاح ليعتمد على التاريخ لتجنب الاحتفاظ بقيمة قديمة
-  static const String _scheduledFlagPrefix = 'occasion_scheduled_';
-
-  bool _tzInitialized = false;
-
-  // ─── تهيئة المناطق الزمنية ───────────────────────────────────────────────
-  void _ensureTzInitialized() {
-    if (_tzInitialized) return;
-    tz_data.initializeTimeZones();
-    _tzInitialized = true;
-  }
+  static const String _scheduledFlagPrefix = 'occasion_native_scheduled_';
 
   // ═══════════════════════════════════════════════════════════════════════════
   // الدالة الرئيسية
@@ -63,8 +59,6 @@ class IslamicOccasionNotificationService {
   /// يُستدعى تلقائياً من [scheduleAllPrayers] في نهاية كل دورة جدولة.
   Future<void> scheduleOccasionNotifications({bool force = false}) async {
     try {
-      _ensureTzInitialized();
-
       final prefs = await SharedPreferences.getInstance();
       final today = DateTime.now();
       final dateKey = '$_scheduledFlagPrefix${today.year}-${today.month}-${today.day}';
@@ -73,19 +67,13 @@ class IslamicOccasionNotificationService {
       if (!force) {
         final isScheduledToday = prefs.getBool(dateKey) ?? false;
         if (isScheduledToday) {
-          return; // تم الجدولة مسبقاً لهذا اليوم
+          Logger.debug('OccasionNotif [Native]: Already scheduled today, skipping.');
+          return;
         }
       }
 
-      final plugin = FlutterLocalNotificationsPlugin();
-      await plugin.initialize(
-        settings: const InitializationSettings(
-          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-        ),
-      );
-
-      // إلغاء جميع الإشعارات السابقة (مناسبات + صيام)
-      await _cancelAll(plugin);
+      // إلغاء جميع الإشعارات السابقة أولاً
+      await _cancelAll();
 
       final hijriAdjustment = prefs.getInt('hijri_adjustment') ?? 0;
       int occasionCount = 0;
@@ -117,24 +105,19 @@ class IslamicOccasionNotificationService {
         );
 
         if (occasionTime.isAfter(today)) {
-          await _scheduleNotification(
-            plugin: plugin,
+          await _scheduleOne(
             id: _baseOccasionId + offset,
             title: 'حدث في مثل هذا اليوم 🗓️',
             body: occasion.primaryName,
             scheduledDateTime: occasionTime,
-            channelId: 'islamic_occasions_channel',
-            channelName: 'المناسبات الإسلامية',
-            channelDesc: 'تذكير بالمناسبات الدينية والتاريخية الإسلامية',
             payload: 'islamic_occasion|${occasion.primaryName}',
+            channelId: _occasionChannelId,
           );
           occasionCount++;
         }
 
         // ── 2️⃣ إشعار التذكير بالصيام (18:00) ───────────────────────────
-        if (occasion.hasFastingReminder &&
-            occasion.fastingReminderTitle != null) {
-          // تاريخ إرسال إشعار الصيام = targetDate - reminderDaysBefore
+        if (occasion.hasFastingReminder && occasion.fastingReminderTitle != null) {
           final reminderDate = targetDate.subtract(
             Duration(days: occasion.reminderDaysBefore),
           );
@@ -150,23 +133,20 @@ class IslamicOccasionNotificationService {
             final fastingOffset =
                 fastingTime.difference(today).inDays.clamp(0, _windowDays - 1);
 
-            await _scheduleNotification(
-              plugin: plugin,
+            await _scheduleOne(
               id: _baseFastingId + fastingOffset,
               title: occasion.fastingReminderTitle!,
               body: occasion.fastingReminderBody ?? '',
               scheduledDateTime: fastingTime,
-              channelId: 'fasting_reminders_channel',
-              channelName: 'تذكيرات الصيام',
-              channelDesc: 'تذكيرات بسنن الصيام والأيام المستحبة',
               payload: 'fasting_reminder|${occasion.primaryName}',
+              channelId: _fastingChannelId,
             );
             fastingCount++;
           }
         }
       }
 
-      // ─── 3️⃣ فحص المناسبات المخصصة للـ 14 يوماً القادمة ───────────────────
+      // ─── 3️⃣ فحص المناسبات المخصصة للـ 14 يوماً القادمة ──────────────────
       for (int offset = 0; offset < _windowDays; offset++) {
         final targetDate = today.add(Duration(days: offset));
         final hijriData = HijriDateService.getHijriDate(
@@ -194,26 +174,24 @@ class IslamicOccasionNotificationService {
           );
 
           if (occasionTime.isAfter(today)) {
-            await _scheduleNotification(
-              plugin: plugin,
+            await _scheduleOne(
               id: _baseCustomOccasionId + offset + customOccasion.id.hashCode % 1000,
               title: 'مناسبة مخصصة 🌟',
               body: customOccasion.title,
               scheduledDateTime: occasionTime,
-              channelId: 'custom_occasions_channel',
-              channelName: 'المناسبات المخصصة',
-              channelDesc: 'تذكير بمناسباتك الخاصة',
               payload: 'custom_occasion|${customOccasion.title}',
+              channelId: _occasionChannelId,
             );
             customOccasionCount++;
           }
         }
       }
 
-      // حفظ تاريخ اليوم في الـ SharedPreferences بقيمة true لمنع إعادة الجدولة
+      // حفظ تاريخ اليوم لمنع إعادة الجدولة
       await prefs.setBool(dateKey, true);
       debugPrint(
-        'OccasionNotif: Scheduled $occasionCount occasions, $fastingCount fasting, $customOccasionCount custom.',
+        'OccasionNotif [Native]: Scheduled $occasionCount occasions, '
+        '$fastingCount fasting, $customOccasionCount custom.',
       );
     } catch (e) {
       Logger.error('IslamicOccasionNotificationService error: $e');
@@ -224,63 +202,71 @@ class IslamicOccasionNotificationService {
   // دوال مساعدة خاصة
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// جدولة إشعار واحد عبر [zonedSchedule].
-  Future<void> _scheduleNotification({
-    required FlutterLocalNotificationsPlugin plugin,
+  /// جدولة إشعار واحد عبر MethodChannel النيتف.
+  Future<void> _scheduleOne({
     required int id,
     required String title,
     required String body,
     required DateTime scheduledDateTime,
-    required String channelId,
-    required String channelName,
-    required String channelDesc,
     required String payload,
+    required String channelId,
   }) async {
-    final tzScheduled = tz.TZDateTime.from(scheduledDateTime, tz.local);
+    try {
+      final timeInMillis = scheduledDateTime.millisecondsSinceEpoch;
 
-    final androidDetails = AndroidNotificationDetails(
-      channelId,
-      channelName,
-      channelDescription: channelDesc,
-      importance: Importance.high,
-      priority: Priority.high,
-      playSound: true,
-      enableVibration: true,
-      icon: 'ic_launcher', // استخدام الصيغة الآمنة لتجنب الأعطال الصامتة
-      largeIcon: const DrawableResourceAndroidBitmap('ic_launcher'),
-      styleInformation: BigTextStyleInformation(body),
-    );
-
-    await plugin.zonedSchedule(
-      id: id,
-      title: title,
-      body: body,
-      scheduledDate: tzScheduled,
-      notificationDetails: NotificationDetails(android: androidDetails),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      payload: payload,
-    );
+      await _channel.invokeMethod<bool>('scheduleNativeNotification', {
+        'id': id,
+        'timeInMillis': timeInMillis,
+        'title': title,
+        'body': body,
+        'payload': payload,
+        'channelId': channelId,
+      });
+    } on PlatformException catch (e) {
+      if (e.code == 'EXACT_ALARM_PERMISSION_DENIED') {
+        // الجدولة تحدث في الخلفية — نسجل تحذيراً فقط بدون توجيه المستخدم
+        Logger.warning(
+          'OccasionNotif: exact alarm permission missing for ID=$id — skipping. '
+          'User should be directed from settings screen.',
+        );
+      } else {
+        Logger.error('OccasionNotif scheduleNativeNotification[$id] error: ${e.message}');
+      }
+    } catch (e) {
+      Logger.error('OccasionNotif scheduleNativeNotification[$id] unexpected: $e');
+    }
   }
 
-  /// يلغي كافة إشعارات المناسبات (2000–2013) وإشعارات الصيام (3000–3013) والمخصصة (4000+).
-  Future<void> _cancelAll(FlutterLocalNotificationsPlugin plugin) async {
-    for (int i = 0; i < _windowDays; i++) {
-      await plugin.cancel(id: _baseOccasionId + i);
-      await plugin.cancel(id: _baseFastingId + i);
-      // We can't easily cancel all possible hash combinations for custom occasions,
-      // so we use cancelAll to be safe, but wait, if we use cancelAll it cancels prayers too!
-      // Actually FlutterLocalNotificationsPlugin doesn't have cancelByChannel easily.
-      // So we will just cancel a range around baseCustomOccasionId for safety.
-      for (int j = 0; j < 100; j++) {
-        await plugin.cancel(id: _baseCustomOccasionId + i + j);
-      }
+  /// يلغي كافة إشعارات المناسبات والصيام والمخصصة دفعة واحدة.
+  Future<void> _cancelAll() async {
+    try {
+      // إلغاء المناسبات (20000–20013)
+      await _channel.invokeMethod('cancelNativeNotificationsInRange', {
+        'fromId': _baseOccasionId,
+        'toId': _baseOccasionId + _windowDays - 1,
+      });
+
+      // إلغاء تذكيرات الصيام (30000–30013)
+      await _channel.invokeMethod('cancelNativeNotificationsInRange', {
+        'fromId': _baseFastingId,
+        'toId': _baseFastingId + _windowDays - 1,
+      });
+
+      // إلغاء المناسبات المخصصة (40000–41399)
+      await _channel.invokeMethod('cancelNativeNotificationsInRange', {
+        'fromId': _baseCustomOccasionId,
+        'toId': _baseCustomOccasionId + (_windowDays * 100) - 1,
+      });
+
+      Logger.debug('OccasionNotif [Native]: All cancelled.');
+    } catch (e) {
+      Logger.error('OccasionNotif _cancelAll error: $e');
     }
   }
 
   /// إلغاء خارجي عند الحاجة (مثلاً عند تعطيل الإشعارات من الإعدادات).
   Future<void> cancelAll() async {
-    final plugin = FlutterLocalNotificationsPlugin();
-    await _cancelAll(plugin);
-    Logger.debug('OccasionNotif: All occasion & fasting notifications cancelled.');
+    await _cancelAll();
+    Logger.debug('OccasionNotif [Native]: External cancelAll done.');
   }
 }
