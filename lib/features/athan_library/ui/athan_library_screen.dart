@@ -387,11 +387,21 @@ class _AthanList extends StatelessWidget {
             style: TextStyle(fontFamily: 'Tajawal')),
       );
     }
+    
+    // ─── ترتيب الأذانات: المحملة تظهر في الأعلى ────────────────────────────────
+    final sortedAthans = List<AthanModel>.from(athans)..sort((a, b) {
+      final aDownloaded = provider.isDownloaded(a.id);
+      final bDownloaded = provider.isDownloaded(b.id);
+      if (aDownloaded && !bDownloaded) return -1;
+      if (!aDownloaded && bDownloaded) return 1;
+      return 0;
+    });
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      itemCount: athans.length,
+      itemCount: sortedAthans.length,
       itemBuilder: (context, index) {
-        final athan = athans[index];
+        final athan = sortedAthans[index];
         return _AthanCard(
           athan: athan,
           provider: provider,
