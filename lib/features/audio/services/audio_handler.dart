@@ -42,14 +42,15 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
     // Handle Athan Completion
     _athanPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
-        if (mediaItem.value?.id == 'athan_alert') {
-          WakelockPlus.disable();
+        final currentId = mediaItem.value?.id;
+        if (currentId == 'athan_alert' || currentId == 'athan_preview') {
+          if (currentId == 'athan_alert') WakelockPlus.disable();
           playbackState.add(playbackState.value.copyWith(
             playing: false,
             processingState: AudioProcessingState.idle,
           ));
           mediaItem.add(null);
-          PrayerTimesService.instance.updateWidgetData();
+          if (currentId == 'athan_alert') PrayerTimesService.instance.updateWidgetData();
         }
       }
     });
@@ -189,10 +190,12 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
           androidWillPauseWhenDucked: true,
         ));
 
-        WakelockPlus.enable();
+        if (activeTestKey == null) {
+          WakelockPlus.enable();
+        }
 
         mediaItem.add(MediaItem(
-          id: 'athan_alert',
+          id: activeTestKey != null ? 'athan_preview' : 'athan_alert',
           album: "تنبيه الأذان",
           title: title,
           artist: "زاد",
@@ -252,8 +255,9 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
       _player.stop(); // Non-blocking
       _athanPlayer.stop(); // Non-blocking
 
-      if (mediaItem.value?.id == 'athan_alert') {
-        WakelockPlus.disable();
+      final currentId = mediaItem.value?.id;
+      if (currentId == 'athan_alert' || currentId == 'athan_preview') {
+        if (currentId == 'athan_alert') WakelockPlus.disable();
       }
 
       mediaItem.add(null);

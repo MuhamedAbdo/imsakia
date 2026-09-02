@@ -266,7 +266,17 @@ class AthanService : Service() {
             try {
                 if (assetPath != null && assetPath.startsWith("/")) {
                     android.util.Log.d("ImsakiaNative", "!!! HARDENED: Attempting to play absolute path: $assetPath !!!")
-                    setDataSource(assetPath)
+                    try {
+                        val file = java.io.File(assetPath)
+                        val fis = java.io.FileInputStream(file)
+                        setDataSource(fis.fd)
+                        fis.close()
+                    } catch (e: Exception) {
+                        android.util.Log.e("ImsakiaNative", "!!! HARDENED ERROR: Absolute path failed: ${e.message}, falling back to Asset !!!")
+                        val fallbackAsset = if(prayerKey == "fajr") "assets/audio/fajr_makkah.mp3" else "assets/audio/athan_makkah.mp3"
+                        val assetDescriptor = assets.openFd("flutter_assets/$fallbackAsset")
+                        setDataSource(assetDescriptor.fileDescriptor, assetDescriptor.startOffset, assetDescriptor.length)
+                    }
                 } else {
                     android.util.Log.d("ImsakiaNative", "!!! HARDENED: Attempting to play asset: $assetPath !!!")
                     val assetDescriptor = assets.openFd("flutter_assets/$assetPath")
@@ -275,7 +285,7 @@ class AthanService : Service() {
             } catch (e: Exception) {
                 android.util.Log.e("ImsakiaNative", "!!! HARDENED ERROR: Failed to load $assetPath: ${e.message} !!!")
                 android.util.Log.d("ImsakiaNative", "!!! HARDENED: Falling back to SYSTEM ALARM SOUND (TYPE_ALARM) !!!")
-                val alert = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                val alert = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
                 setDataSource(applicationContext, alert)
             }
 
