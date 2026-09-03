@@ -238,11 +238,9 @@ class AthanService : Service() {
 
     private fun playAthanAudio(prayerKey: String) {
         // 1. القراءة من SharedPreferences الخاصة بـ Flutter
-        // ملاحظة: بلجن shared_preferences في فلاتر يضيف بادئة "flutter." لكل المفاتيح
         val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         val assetPath = prefs.getString("flutter.athan_path_$prayerKey", null) 
                         ?: if(prayerKey == "fajr") "assets/audio/fajr_makkah.mp3" else "assets/audio/athan_makkah.mp3"
-
 
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val audioAttributes = AudioAttributes.Builder()
@@ -251,7 +249,7 @@ class AthanService : Service() {
             .build()
 
         // Audio Focus
-        val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             focusRequest = android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                 .setAudioAttributes(audioAttributes)
                 .setOnAudioFocusChangeListener(audioFocusChangeListener)
@@ -262,53 +260,78 @@ class AthanService : Service() {
             audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN)
         }
 
-        mediaPlayer = MediaPlayer().apply {
+        mediaPlayer = MediaPlayer()
+        var success = false
+
+        fun applySettings(mp: MediaPlayer) {
+            mp.setAudioAttributes(audioAttributes)
+            mp.isLooping = false
+            mp.setVolume(1.0f, 1.0f)
+        }
+
+        // Try 1: Absolute Path (Downloaded File)
+        if (assetPath != null && assetPath.startsWith("/")) {
             try {
-                if (assetPath != null && assetPath.startsWith("/")) {
-                    android.util.Log.d("ImsakiaNative", "!!! HARDENED: Attempting to play absolute path: $assetPath !!!")
-                    try {
-                        val file = java.io.File(assetPath)
-                        val fis = java.io.FileInputStream(file)
-                        setDataSource(fis.fd)
-                        fis.close()
-                    } catch (e: Exception) {
-                        android.util.Log.e("ImsakiaNative", "!!! HARDENED ERROR: Absolute path failed: ${e.message}, falling back to Asset !!!")
-                        val fallbackAsset = if(prayerKey == "fajr") "assets/audio/fajr_makkah.mp3" else "assets/audio/athan_makkah.mp3"
-                        val assetDescriptor = assets.openFd("flutter_assets/$fallbackAsset")
-                        setDataSource(assetDescriptor.fileDescriptor, assetDescriptor.startOffset, assetDescriptor.length)
-                    }
-                } else {
-                    android.util.Log.d("ImsakiaNative", "!!! HARDENED: Attempting to play asset: $assetPath !!!")
-                    val assetDescriptor = assets.openFd("flutter_assets/$assetPath")
-                    setDataSource(assetDescriptor.fileDescriptor, assetDescriptor.startOffset, assetDescriptor.length)
+                android.util.Log.d("ImsakiaNative", "!!! HARDENED: Attempting to play absolute path: $assetPath !!!")
+                java.io.FileInputStream(java.io.File(assetPath)).use { fis ->
+                    mediaPlayer?.setDataSource(fis.fd)
+                    applySettings(mediaPlayer!!)
+                    mediaPlayer?.prepare() // Synchronous prepare inside try-catch
                 }
+                success = true
             } catch (e: Exception) {
-                android.util.Log.e("ImsakiaNative", "!!! HARDENED ERROR: Failed to load $assetPath: ${e.message} !!!")
-                android.util.Log.d("ImsakiaNative", "!!! HARDENED: Falling back to SYSTEM ALARM SOUND (TYPE_ALARM) !!!")
+                android.util.Log.e("ImsakiaNative", "!!! HARDENED ERROR: Absolute path failed: ${e.message}, falling back to Asset !!!")
+                mediaPlayer?.reset()
+            }
+        }
+
+        // Try 2: Asset Fallback
+        if (!success) {
+            try {
+                val targetAsset = if (assetPath != null && !assetPath.startsWith("/")) {
+                    assetPath
+                } else {
+                    if (prayerKey == "fajr") "assets/audio/fajr_makkah.mp3" else "assets/audio/athan_makkah.mp3"
+                }
+                android.util.Log.d("ImsakiaNative", "!!! HARDENED: Attempting to play asset: $targetAsset !!!")
+                val assetDescriptor = assets.openFd("flutter_assets/$targetAsset")
+                mediaPlayer?.setDataSource(assetDescriptor.fileDescriptor, assetDescriptor.startOffset, assetDescriptor.length)
+                applySettings(mediaPlayer!!)
+                mediaPlayer?.prepare() // Synchronous prepare
+                success = true
+            } catch (e: Exception) {
+                android.util.Log.e("ImsakiaNative", "!!! HARDENED ERROR: Asset failed: ${e.message}, falling back to default alarm !!!")
+                mediaPlayer?.reset()
+            }
+        }
+
+        // Try 3: System Default Alarm Fallback
+        if (!success) {
+            try {
+                android.util.Log.d("ImsakiaNative", "!!! HARDENED: Attempting to play SYSTEM ALARM SOUND !!!")
                 val alert = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
-                setDataSource(applicationContext, alert)
+                mediaPlayer?.setDataSource(applicationContext, alert)
+                applySettings(mediaPlayer!!)
+                mediaPlayer?.prepare() // Synchronous prepare
+                success = true
+            } catch (e: Exception) {
+                android.util.Log.e("ImsakiaNative", "!!! HARDENED ERROR: Default alarm failed: ${e.message} !!!")
+                mediaPlayer?.reset()
             }
+        }
 
-            setAudioAttributes(audioAttributes)
-            isLooping = false 
-            setVolume(1.0f, 1.0f)
-            
-            setOnPreparedListener { mp ->
-                mp.start()
-            }
-            
-            setOnCompletionListener {
+        if (success) {
+            mediaPlayer?.setOnCompletionListener {
                 val nativePrefs = getSharedPreferences("athan_native_prefs", Context.MODE_PRIVATE)
-                nativePrefs.edit().putBoolean("should_exit_to_background", true).commit()
+                nativePrefs.edit().putBoolean("should_exit_to_background", true).apply()
 
-                // استعادة التركيز الصوتي فوراً
                 try {
-                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+                        focusRequest?.let { am.abandonAudioFocusRequest(it) }
                     } else {
                         @Suppress("DEPRECATION")
-                        audioManager.abandonAudioFocus(audioFocusChangeListener)
+                        am.abandonAudioFocus(audioFocusChangeListener)
                     }
                 } catch (e: Exception) {}
                 
@@ -317,11 +340,17 @@ class AthanService : Service() {
                 stopSelf()
             }
 
-            setOnErrorListener { _, what, extra ->
-                true
+            mediaPlayer?.setOnErrorListener { _, _, _ -> 
+                true // Handled, prevent crash
             }
             
-            prepareAsync() 
+            mediaPlayer?.start()
+        } else {
+            // All attempts failed, notify UI to refresh anyway
+            android.util.Log.e("ImsakiaNative", "!!! CRITICAL: All audio playback methods failed. Broadcasting completion to prevent stuck UI !!!")
+            sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
+            stopForeground(STOP_FOREGROUND_DETACH)
+            stopSelf()
         }
     }
 
