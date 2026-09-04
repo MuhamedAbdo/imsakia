@@ -198,6 +198,30 @@ class QuranAudioProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  /// حذف ملفات السورة المحملة
+  Future<void> deleteSuraAudio(int suraNumber, int totalAyahs) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      String suraStr = suraNumber.toString().padLeft(3, '0');
+      final reciterDir = Directory('${dir.path}/$_currentReciterFolder');
+      
+      if (!await reciterDir.exists()) return;
+
+      for (int i = 1; i <= totalAyahs; i++) {
+        String ayaStr = i.toString().padLeft(3, '0');
+        String fileName = '$suraStr$ayaStr.mp3';
+        String localPath = '${reciterDir.path}/$fileName';
+        final file = File(localPath);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error deleting sura audio: $e");
+    }
+  }
   
   /// الإيقاف المؤقت
   Future<void> pause() async {

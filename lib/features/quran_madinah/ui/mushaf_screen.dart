@@ -255,11 +255,38 @@ class _MushafScreenState extends State<MushafScreen> {
 
                 final isDownloaded = snapshot.data ?? false;
                 if (isDownloaded) {
-                  return IconButton(
-                    icon: const Icon(Icons.cloud_done),
-                    color: Colors.green.shade400,
-                    tooltip: 'السورة محملة (بدون إنترنت)',
-                    onPressed: () {},
+                  return GestureDetector(
+                    onLongPress: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('حذف التلاوة', textAlign: TextAlign.right),
+                          content: const Text(
+                            'هل تريد حذف التلاوة الصوتية لهذه السورة لتوفير المساحة؟',
+                            textAlign: TextAlign.right,
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('إلغاء'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                audioProvider.deleteSuraAudio(_currentMainSuraNumber, totalAyahs);
+                              },
+                              child: const Text('حذف', style: TextStyle(color: Colors.red)),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    child: IconButton(
+                      icon: const Icon(Icons.cloud_done),
+                      color: Colors.green.shade400,
+                      tooltip: 'السورة محملة (اضغط مطولاً للحذف)',
+                      onPressed: () {},
+                    ),
                   );
                 }
 
