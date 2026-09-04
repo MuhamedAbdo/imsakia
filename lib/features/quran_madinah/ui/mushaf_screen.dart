@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:imsakia/features/quran_madinah/providers/quran_provider.dart';
 import 'package:imsakia/features/quran_madinah/ui/widgets/mushaf_svg_page_widget.dart';
 import 'package:imsakia/features/quran_madinah/ui/widgets/vertical_mushaf_view.dart';
+import 'package:imsakia/features/quran_madinah/ui/widgets/reciter_selection_bottom_sheet.dart';
 import 'package:imsakia/features/quran_madinah/services/madinah_db_helper.dart';
 import 'package:imsakia/features/quran_madinah/utils/madinah_quran_utils.dart';
 
@@ -318,6 +319,13 @@ class _MushafScreenState extends State<MushafScreen> {
                       audioProvider.setRepeatMode(LoopMode.one);
                     } else if (value == 'loop_all') {
                       audioProvider.setRepeatMode(LoopMode.all);
+                    } else if (value == 'change_reciter') {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => const ReciterSelectionBottomSheet(),
+                      );
                     }
                   },
                   itemBuilder: (context) {
@@ -362,6 +370,18 @@ class _MushafScreenState extends State<MushafScreen> {
                               const SizedBox(width: 12),
                               const Text('تحميل السورة'),
                             ],
+                          ],
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      // Change Reciter Item
+                      PopupMenuItem(
+                        value: 'change_reciter',
+                        child: Row(
+                          children: [
+                            Icon(Icons.person_outline, color: onSurface),
+                            const SizedBox(width: 12),
+                            const Text('تغيير القارئ'),
                           ],
                         ),
                       ),

@@ -3,9 +3,24 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:audio_service/audio_service.dart';
+import 'package:quran/quran.dart' as quran;
+import 'package:imsakia/features/audio/services/audio_handler.dart';
 
 class QuranAudioProvider extends ChangeNotifier {
-  final AudioPlayer _player = AudioPlayer();
+  final AudioPlayer _fallbackPlayer = AudioPlayer();
+  AudioPlayer get _player => audioHandler?.player ?? _fallbackPlayer;
+
+  // قائمة أشهر القراء
+  static const List<Map<String, String>> reciters = [
+    {'name': 'عبد الباسط عبد الصمد (مرتل)', 'folder': 'Abdul_Basit_Murattal_64kbps'},
+    {'name': 'مشاري راشد العفاسي', 'folder': 'Alafasy_128kbps'},
+    {'name': 'محمود خليل الحصري', 'folder': 'Husary_128kbps'},
+    {'name': 'ماهر المعيقلي', 'folder': 'MaherAlMuaiqly128kbps'},
+    {'name': 'محمد صديق المنشاوي (مرتل)', 'folder': 'Minshawy_Murattal_128kbps'},
+    {'name': 'ياسر الدوسري', 'folder': 'Yaser_Abdullah_Al_Dosari_128kbps'},
+  ];
 
   // المجلد الافتراضي للمقرئ على موقع EveryAyah
   String _currentReciterFolder = 'Abdul_Basit_Murattal_64kbps';
@@ -34,6 +49,8 @@ class QuranAudioProvider extends ChangeNotifier {
   LoopMode get loopMode => _loopMode;
 
   QuranAudioProvider() {
+    _initReciter();
+
     // الاستماع لتغير الآية (Index) في طابور التشغيل
     _player.currentIndexStream.listen((index) {
       if (index != null) {
@@ -43,12 +60,21 @@ class QuranAudioProvider extends ChangeNotifier {
           // Index يبدأ من 0، والآيات تبدأ من 1
           _currentPlayingAyaIndex = index + 1;
         }
+        _updateBackgroundMediaItem();
         notifyListeners();
       } else {
         _currentPlayingAyaIndex = null;
         notifyListeners();
       }
     });
+
+    // ربط أزرار التحكم في شاشة القفل للإنتقال للآية التالية/السابقة
+    audioHandler?.onNext = () {
+      if (_player.hasNext) _player.seekToNext();
+    };
+    audioHandler?.onPrevious = () {
+      if (_player.hasPrevious) _player.seekToPrevious();
+    };
 
     // الاستماع لحالة التشغيل لإعادة التعيين عند الانتهاء
     _player.playerStateStream.listen((state) {
@@ -65,9 +91,47 @@ class QuranAudioProvider extends ChangeNotifier {
     });
   }
 
+  Future<void> _initReciter() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedFolder = prefs.getString('quran_reciter_folder');
+    if (savedFolder != null) {
+      _currentReciterFolder = savedFolder;
+      notifyListeners();
+    }
+  }
+
+  void _updateBackgroundMediaItem() {
+    if (audioHandler == null || _currentSuraNumber == null) return;
+    
+    final reciterName = reciters.firstWhere(
+      (r) => r['folder'] == _currentReciterFolder, 
+      orElse: () => reciters.first
+    )['name'];
+    
+    final suraName = quran.getSurahNameArabic(_currentSuraNumber!);
+    final ayah = _currentPlayingAyaIndex ?? 1;
+
+    audioHandler!.mediaItem.add(MediaItem(
+      id: '${_currentReciterFolder}_${_currentSuraNumber}_$ayah',
+      title: 'سورة $suraName',
+      album: 'القرآن الكريم',
+      artist: reciterName,
+      displayDescription: 'الآية رقم $ayah',
+    ));
+  }
+
   /// تغيير المقرئ
-  void setReciter(String reciterFolder) {
+  Future<void> changeReciter(String reciterFolder) async {
+    if (_currentReciterFolder == reciterFolder) return;
+    
     _currentReciterFolder = reciterFolder;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('quran_reciter_folder', reciterFolder);
+    
+    // إذا كان يعمل حاليا نقوم بالإيقاف (أو يمكن إعادة التحميل هنا)
+    if (_player.playing) {
+      await stop();
+    }
     notifyListeners();
   }
 
@@ -126,6 +190,7 @@ class QuranAudioProvider extends ChangeNotifier {
       } else {
         await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
       }
+      _updateBackgroundMediaItem();
       _player.play();
     } catch (e) {
       debugPrint("Error loading single ayah audio: $e");
