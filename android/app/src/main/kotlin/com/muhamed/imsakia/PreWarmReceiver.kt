@@ -5,30 +5,12 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.os.Handler
-import android.os.Looper
-import android.os.PowerManager
+import androidx.core.content.ContextCompat
 
-/**
- * PreWarmReceiver — الاستيقاظ الاستباقي قبل 3 دقائق من الصلاة.
- *
- * استراتيجية كسر غفوة MIUI:
- * 1. يستيقظ قبل موعد الصلاة بـ 3 دقائق عبر setAlarmClock.
- * 2. يستحوذ فوراً على PARTIAL_WAKE_LOCK لمنع الهاتف من النوم.
- * 3. يحسب الوقت المتبقي بدقة وينتظر عبر Handler.postDelayed.
- * 4. عند الثانية الصفر المطلقة، يُطلق AthanReceiver مباشرةً من الكود.
- * 5. يُحدّث الويدجت في نفس اللحظة.
- *
- * ملاحظة: يستخدم goAsync() لتجاوز حد الـ 10 ثوانٍ للـ BroadcastReceiver.
- */
 class PreWarmReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "ZadPreWarm"
-        // مدة WakeLock الاستباقي: 5 دقائق كحد أقصى (3 دقائق انتظار + 2 دقيقة هامش)
-        private const val WAKELOCK_TIMEOUT_MS = 5 * 60 * 1000L
-        // إذا انقضى هذا الوقت بعد موعد الصلاة، لا تُطلق الأذان (متزامن مع guard في AthanReceiver)
-        private const val MAX_DELAY_MS = 3 * 60 * 1000L
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -45,22 +27,7 @@ class PreWarmReceiver : BroadcastReceiver() {
             return
         }
 
-        // 1. استحواذ فوري على WakeLock لمدة 4 دقائق
-        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-        val wakeLock = powerManager?.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
-            "Zad:PreWarmWakeLock"
-        )
-
-        try {
-            // 4 * 60 * 1000L = 4 دقائق
-            wakeLock?.acquire(4 * 60 * 1000L)
-            android.util.Log.d(TAG, "--- PreWarm WakeLock Acquired (4 min timeout) ---")
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "Failed to acquire PreWarm WakeLock: ${e.message}")
-        }
-
-        // 2. تحديث الويدجت فوراً عند الاستيقاظ الاستباقي (تهيئة مبكرة)
+        // 1. تحديث الويدجت مبكراً
         try {
             val widgetIntent = Intent(context, PrayerWidget::class.java).apply {
                 action = "com.muhamed.imsakia.UPDATE_COUNTDOWN"
@@ -74,6 +41,20 @@ class PreWarmReceiver : BroadcastReceiver() {
             android.util.Log.e(TAG, "Failed to send warm-up widget broadcast: ${e.message}")
         }
 
-        android.util.Log.i(TAG, "--- PreWarmReceiver finished. System will stay awake for 4 mins to guarantee AthanReceiver fires on time. ---")
+        // 2. إطلاق AthanService كخدمة Foreground Service في وضع PreWarm
+        try {
+            val serviceIntent = Intent(context, AthanService::class.java).apply {
+                putExtra("prayer_name", prayerName)
+                putExtra("prayer_key", prayerKey)
+                putExtra("alarm_id", alarmId)
+                putExtra("is_silent", isSilent)
+                putExtra("scheduled_time", scheduledTime)
+                putExtra("is_prewarm", true)
+            }
+            ContextCompat.startForegroundService(context, serviceIntent)
+            android.util.Log.i(TAG, "--- PreWarm: Launched AthanService as Foreground Service ---")
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to launch AthanService in PreWarm: ${e.message}")
+        }
     }
 }

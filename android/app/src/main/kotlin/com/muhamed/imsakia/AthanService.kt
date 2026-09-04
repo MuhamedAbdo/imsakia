@@ -55,19 +55,15 @@ class AthanService : Service() {
         val prayerKey = intent?.getStringExtra("prayer_key") ?: "dhuhr"
         val alarmId = intent?.getIntExtra("alarm_id", 0) ?: 0
         
+        val isPrewarm = intent?.getBooleanExtra("is_prewarm", false) ?: false
+        val scheduledTime = intent?.getLongExtra("scheduled_time", 0L) ?: 0L
+
         currentPrayerName = prayerName
         currentAlarmId = alarmId
 
-        android.util.Log.d("ImsakiaNative", "!!! SERVICE: Started for $prayerName (ID: $alarmId) !!!")
-        android.util.Log.d("ImsakiaNative", "!!! SERVICE: isSilentInIntent = $isSilentInIntent, isAthanEnabled (prefs) = $isAthanEnabled !!!")
-        
-        // 🔥 BYPASS: If intent is NOT silent, we play it even if global toggle is off (for tests)
-        val shouldPlayAudio = !isSilentInIntent && (isAthanEnabled || prayerName.contains("اختبار"))
-        
-        // Removed early stop block for silent intent to allow polite silent notification
+        android.util.Log.d("ImsakiaNative", "!!! SERVICE: Started for $prayerName (ID: $alarmId), isPrewarm=$isPrewarm !!!")
         
         if (intent?.action == ACTION_STOP_ATHAN) {
-            // Stop media player immediately before broadcasting to avoid lingering ring
             mediaPlayer?.let {
                 if (it.isPlaying) it.stop()
                 it.release()
@@ -84,9 +80,8 @@ class AthanService : Service() {
                 }
             } catch (e: Exception) {}
             
-            if (isAthanEnabled) {
+            if (isAthanEnabled && !isPrewarm) {
                 sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
-            } else {
             }
             
             stopForeground(STOP_FOREGROUND_DETACH)
@@ -95,35 +90,64 @@ class AthanService : Service() {
         }
         
         try {
-            // 🔥 منع تداخل الأصوات: أوقف أي ميديا بلاير قديم
+            // 🔥 منع تداخل الأصوات
             mediaPlayer?.let {
                 if (it.isPlaying) it.stop()
                 it.release()
                 mediaPlayer = null
             }
 
-            // 1. Start Foreground immediately (Always show notification)
+            // 1. إظهار إشعار Foreground (يعتمد على ما إذا كان PreWarm أو الأذان الفعلي)
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.cancelAll()
-            startForegroundServiceNotification(prayerName, alarmId, isAthanEnabled, isOngoing = isAthanEnabled)
             
-            // 2. Acquire WakeLock
+            if (isPrewarm) {
+                startPreWarmNotification(prayerName, alarmId)
+                acquireWakeLock()
+                
+                val now = System.currentTimeMillis()
+                var delay = scheduledTime - now
+                if (delay < 0) delay = 0
+                
+                android.util.Log.i("ImsakiaNative", "--- PreWarm Active: Waiting $delay ms before triggering Athan ---")
+                
+                Handler(Looper.getMainLooper()).postDelayed({
+                    android.util.Log.i("ImsakiaNative", "--- PreWarm Timer Finished: Launching AthanReceiver ---")
+                    val athanIntent = Intent(this, AthanReceiver::class.java).apply {
+                        putExtra("alarm_id", alarmId)
+                        putExtra("scheduled_time", scheduledTime)
+                        putExtra("prayer_name", rawPrayerName)
+                        putExtra("prayer_key", prayerKey)
+                        putExtra("is_silent", isSilentInIntent)
+                        putExtra("fired_from_prewarm", true)
+                    }
+                    sendBroadcast(athanIntent)
+                }, delay)
+                
+                return START_NOT_STICKY
+            }
+
+            // ─── مسار الأذان الفعلي ─────────────────────────────────────────
+            
+            startForegroundServiceNotification(prayerName, alarmId, isAthanEnabled, isOngoing = isAthanEnabled)
             acquireWakeLock()
             
-            // 3. Play Audio (Only if enabled or test)
+            val shouldPlayAudio = !isSilentInIntent && (isAthanEnabled || prayerName.contains("اختبار"))
+            
             if (shouldPlayAudio) {
                 android.util.Log.d("ImsakiaNative", "!!! SERVICE: Triggering audio playback !!!")
                 Thread {
                     playAthanAudioWithRetry(prayerKey)
                 }.start()
             } else {
-                android.util.Log.w("ImsakiaNative", "!!! SERVICE: Audio is DISABLED, service will linger for 5m !!!")
+                android.util.Log.w("ImsakiaNative", "!!! SERVICE: Audio is DISABLED, service will linger for 5s !!!")
                 Handler(Looper.getMainLooper()).postDelayed({
                     stopSelf()
-                }, 5000) // ✅ FIX: 5 seconds (was 5 minutes) — enough for foreground notification display.
+                }, 5000)
             }
             
         } catch (e: Exception) {
+            e.printStackTrace()
         }
         
         return START_NOT_STICKY 
@@ -140,6 +164,35 @@ class AthanService : Service() {
                 acquire(120000) // 2 minutes max
             }
         } catch (e: Exception) { e.printStackTrace() }
+    }
+    
+    private fun startPreWarmNotification(prayerName: String, alarmId: Int) {
+        val channelId = "zad_prewarm_v3"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId, "Athan Standby", NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                setSound(null, null)
+                setShowBadge(false)
+                enableVibration(false)
+            }
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        }
+
+        val isShorooq = prayerName.contains("شروق") || prayerName == "الشروق"
+        val titleText = if (isShorooq) "اقترب وقت الشروق..." else "اقترب موعد صلاة $prayerName..."
+        val bodyText = "يرجى الاستعداد..."
+        
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setContentTitle(titleText)
+            .setContentText(bodyText)
+            .setSmallIcon(R.mipmap.ic_launcher) // أو رمز مناسب للصلاة
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setOngoing(true)
+            .build()
+
+        startForeground(SERVICE_NOTIFICATION_ID, notification)
     }
 
     private fun startForegroundServiceNotification(prayerName: String, alarmId: Int, isAthanEnabled: Boolean, isOngoing: Boolean) {
