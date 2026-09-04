@@ -154,7 +154,7 @@ class QuranAudioProvider extends ChangeNotifier {
         String url = 'https://everyayah.com/data/$_currentReciterFolder/$fileName';
         
         if (await File(localPath).exists()) {
-          audioSources.add(AudioSource.uri(Uri.file(localPath)));
+          audioSources.add(AudioSource.file(localPath));
         } else {
           audioSources.add(AudioSource.uri(Uri.parse(url)));
         }
@@ -186,7 +186,7 @@ class QuranAudioProvider extends ChangeNotifier {
       String url = 'https://everyayah.com/data/$_currentReciterFolder/$fileName';
 
       if (await File(localPath).exists()) {
-        await _player.setAudioSource(AudioSource.uri(Uri.file(localPath)));
+        await _player.setAudioSource(AudioSource.file(localPath));
       } else {
         await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
       }

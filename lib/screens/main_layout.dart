@@ -405,11 +405,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
+      
       setState(() {
         _nextPrayer = PrayerTimesService.instance.getNextPrayer();
         _timeUntilNextPrayer = PrayerTimesService.instance
             .getTimeUntilNextPrayer();
       });
+
+      // منع العد التنازلي السالب وتحديث البيانات فوراً
+      if (_timeUntilNextPrayer != null && _timeUntilNextPrayer!.isNegative) {
+        _timeUntilNextPrayer = Duration.zero;
+        PrayerTimesService.instance.updateWidgetData(force: true);
+        _loadPrayerTimes();
+      }
     });
   }
 
