@@ -9,6 +9,8 @@ import 'package:imsakia/features/quran_madinah/utils/madinah_quran_utils.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:imsakia/features/quran_madinah/ui/index_screen.dart';
+import 'package:imsakia/providers/quran_audio_provider.dart';
+import 'package:quran/quran.dart' as quran;
 
 class MushafScreen extends StatefulWidget {
   final int initialPage;
@@ -35,6 +37,8 @@ class _MushafScreenState extends State<MushafScreen> {
   String _pageSurahNames  = '';
   int    _currentJuz      = 1;
   String _hizbInfo        = '';
+  int    _currentMainSuraNumber = 1;
+  int    _currentMainAyaNumber  = 1;
 
   // ── Vertical mode ──────────────────────────────────────────────────────────
   bool _isVerticalMode = false;
@@ -81,6 +85,8 @@ class _MushafScreenState extends State<MushafScreen> {
         _pageSurahNames = surahNames.join(' | ');
         _currentJuz     = QuranUtils.getJuzNumber(page);
         _hizbInfo       = QuranUtils.getHizbInfo(page);
+        _currentMainSuraNumber = ayahs.first.suraNo;
+        _currentMainAyaNumber  = ayahs.first.ayaNo;
       });
     }
   }
@@ -211,7 +217,6 @@ class _MushafScreenState extends State<MushafScreen> {
         ],
       ),
       actions: [
-        // ── Index Button ─────────────────────────────────────────────────────
         IconButton(
           icon: const Icon(Icons.format_list_bulleted_rounded),
           tooltip: 'فهرس السور',
@@ -219,6 +224,86 @@ class _MushafScreenState extends State<MushafScreen> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => const IndexScreen()),
+            );
+          },
+        ),
+
+        // ── Download Button ──────────────────────────────────────────────────
+        Consumer<QuranAudioProvider>(
+          builder: (context, audioProvider, child) {
+            final totalAyahs = quran.getVerseCount(_currentMainSuraNumber);
+            
+            return FutureBuilder<bool>(
+              future: audioProvider.isSuraDownloaded(_currentMainSuraNumber, totalAyahs),
+              builder: (context, snapshot) {
+                if (audioProvider.isDownloading) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          value: audioProvider.downloadProgress > 0 ? audioProvider.downloadProgress : null,
+                          strokeWidth: 2.5,
+                          color: appBarTextColor,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                final isDownloaded = snapshot.data ?? false;
+                if (isDownloaded) {
+                  return IconButton(
+                    icon: const Icon(Icons.cloud_done),
+                    color: Colors.green.shade400,
+                    tooltip: 'السورة محملة (بدون إنترنت)',
+                    onPressed: () {},
+                  );
+                }
+
+                return IconButton(
+                  icon: const Icon(Icons.cloud_download_outlined),
+                  tooltip: 'تحميل السورة',
+                  onPressed: () {
+                    audioProvider.downloadSura(_currentMainSuraNumber, totalAyahs);
+                  },
+                );
+              },
+            );
+          },
+        ),
+
+        // ── Audio Play/Stop Button ───────────────────────────────────────────
+        Consumer<QuranAudioProvider>(
+          builder: (context, audioProvider, child) {
+            final isSameSura = audioProvider.currentSuraNumber == _currentMainSuraNumber;
+            final isPlaying = isSameSura && audioProvider.player.playing;
+
+            return IconButton(
+              icon: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 260),
+                transitionBuilder: (child, anim) =>
+                    ScaleTransition(scale: anim, child: child),
+                child: Icon(
+                  isPlaying ? Icons.pause_circle_outline_rounded : Icons.play_circle_outline_rounded,
+                  key: ValueKey(isPlaying),
+                ),
+              ),
+              tooltip: isPlaying ? 'إيقاف مؤقت' : 'تشغيل تلاوة الصفحة',
+              onPressed: () {
+                if (isSameSura) {
+                  if (audioProvider.player.playing) {
+                    audioProvider.pause();
+                  } else {
+                    audioProvider.player.play();
+                  }
+                } else {
+                  final totalAyahs = quran.getVerseCount(_currentMainSuraNumber);
+                  audioProvider.loadAndPlaySura(_currentMainSuraNumber, totalAyahs, startAyah: _currentMainAyaNumber);
+                }
+              },
             );
           },
         ),

@@ -6,11 +6,13 @@ class AyahPolygon {
   final int ayahNumber;
   final int surahNumber;
   final List<Offset> points;
+  final String pathData;
 
   const AyahPolygon({
     required this.ayahNumber,
     required this.surahNumber,
     required this.points,
+    required this.pathData,
   });
 
   /// Parses a raw polygon string from the JSON file.
@@ -98,6 +100,7 @@ class AyahPolygon {
       ayahNumber: (json['ayahNumber'] as num).toInt(),
       surahNumber: (json['surahNumber'] as num).toInt(),
       points: parsePolygon(rawPolygon),
+      pathData: rawPolygon,
     );
   }
 

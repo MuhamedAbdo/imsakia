@@ -54,6 +54,7 @@ List<AyahPolygon> _parsePolygonsFromSvg(String svgContent) {
         ayahNumber: ayah,
         surahNumber: surah,
         points: points,
+        pathData: dAttr,
       ));
     }
   }
@@ -77,6 +78,7 @@ List<AyahPolygon> _parsePolygonsFromSvg(String svgContent) {
           ayahNumber: ayah,
           surahNumber: surah,
           points: points,
+          pathData: dAttr,
         ));
       }
     }

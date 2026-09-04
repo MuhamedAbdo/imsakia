@@ -6,6 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'providers/theme_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/quran_provider.dart';
+import 'providers/quran_audio_provider.dart';
 import 'providers/bukhari_provider.dart'; // تأكد من وجود هذا الاستيراد
 import 'screens/splash_screen.dart';
 import 'screens/settings_screen.dart';
@@ -402,6 +403,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider.value(value: HadithService.instance),
         ChangeNotifierProvider(create: (_) => QuranProvider()),
+        ChangeNotifierProvider(create: (_) => QuranAudioProvider()),
         ChangeNotifierProvider(create: (_) => HomeEventsService()),
         ChangeNotifierProvider(
           create: (_) => BukhariProvider(),

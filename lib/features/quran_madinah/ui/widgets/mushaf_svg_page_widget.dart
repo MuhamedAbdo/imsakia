@@ -12,6 +12,8 @@ import 'package:imsakia/features/quran_madinah/services/svg_page_service.dart';
 import 'package:imsakia/features/quran_madinah/utils/polygon_hit_test.dart';
 import 'package:imsakia/widgets/tafsir_bottom_sheet.dart';
 import 'package:imsakia/features/quran_madinah/models/surah_header_location.dart';
+import 'package:imsakia/providers/quran_audio_provider.dart';
+import 'package:quran/quran.dart' as quran;
 
 
 // ─── SVG original viewBox dimensions ────────────────────────────────────────
@@ -218,7 +220,7 @@ class _MushafSvgPageWidgetState extends State<MushafSvgPageWidget> {
               fit: StackFit.expand,
               children: [
                 // ── Layer 0: Surah Headers (underneath) ───────────────────
-                _buildHeadersLayer(scale, ox, oy, isDark),
+                _buildHeadersLayer(context, scale, ox, oy, isDark),
 
                 // ── Layer 1: SVG page ──────────────────────────────────────
                 _buildSvgLayer(isDark),
@@ -238,6 +240,31 @@ class _MushafSvgPageWidgetState extends State<MushafSvgPageWidget> {
                           .withValues(alpha: 0.22),
                     ),
                   ),
+
+                // ── Layer 3: Audio highlight overlay ───────────────────────
+                Consumer<QuranAudioProvider>(
+                  builder: (context, audioProvider, child) {
+                    if (audioProvider.currentSuraNumber != null && audioProvider.currentPlayingAyaIndex != null) {
+                      try {
+                        final audioHighlight = _polygons.firstWhere(
+                          (p) => p.surahNumber == audioProvider.currentSuraNumber && p.ayahNumber == audioProvider.currentPlayingAyaIndex,
+                        );
+                        return CustomPaint(
+                          painter: _HighlightPainter(
+                            polygon: audioHighlight,
+                            scale: scale,
+                            offsetX: ox,
+                            offsetY: oy,
+                            color: Colors.amber.withValues(alpha: 0.25),
+                          ),
+                        );
+                      } catch (_) {
+                        return const SizedBox.shrink();
+                      }
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
               ],
             ),
           );
@@ -256,8 +283,10 @@ class _MushafSvgPageWidgetState extends State<MushafSvgPageWidget> {
   }
 
   Widget _buildHeadersLayer(
-      double scale, double ox, double oy, bool isDark) {
+      BuildContext context, double scale, double ox, double oy, bool isDark) {
     if (_headers.isEmpty) return const SizedBox.shrink();
+    
+    final audioProvider = context.read<QuranAudioProvider>();
 
     final headerImage = Image.asset(
       'assets/images/sura_hedder.png',
@@ -285,7 +314,29 @@ class _MushafSvgPageWidgetState extends State<MushafSvgPageWidget> {
           top: top,
           width: width,
           height: height,
-          child: decoration,
+          child: GestureDetector(
+            onTap: () {
+              final totalAyahs = quran.getVerseCount(h.number);
+              audioProvider.loadAndPlaySura(h.number, totalAyahs);
+            },
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                decoration,
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: EdgeInsets.only(left: 16.0 * scale),
+                    child: Icon(
+                      Icons.play_circle_fill,
+                      color: Colors.white.withValues(alpha: 0.4),
+                      size: 20 * scale,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       }).toList(),
     );
@@ -440,20 +491,89 @@ class _HighlightPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (polygon.points.length < 3) return;
+    if (polygon.points.isEmpty && polygon.pathData.isEmpty) return;
+    
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
 
-    final path = Path();
-    final first = _s(polygon.points.first);
-    path.moveTo(first.dx, first.dy);
-    for (final pt in polygon.points.skip(1)) {
-      final s = _s(pt);
-      path.lineTo(s.dx, s.dy);
-    }
-    path.close();
+    final path = _buildPath(polygon.pathData);
     canvas.drawPath(path, paint);
+  }
+
+  Path _buildPath(String raw) {
+    final path = Path();
+    final cleaned = raw.trim();
+    if (cleaned.isEmpty) return path;
+
+    if (cleaned.startsWith('M') || cleaned.startsWith('m')) {
+      final tokens = cleaned
+          .replaceAllMapped(RegExp(r'([MLZmlz])'), (m) => ' ${m.group(0)} ')
+          .split(RegExp(r'[\s,]+'))
+          .where((s) => s.isNotEmpty)
+          .toList();
+
+      int i = 0;
+      while (i < tokens.length) {
+        final cmd = tokens[i];
+        switch (cmd.toUpperCase()) {
+          case 'M':
+            i++;
+            if (i + 1 < tokens.length) {
+              final x = double.tryParse(tokens[i]) ?? 0.0;
+              final y = double.tryParse(tokens[i + 1]) ?? 0.0;
+              final pt = _s(Offset(x, y));
+              path.moveTo(pt.dx, pt.dy);
+              i += 2;
+            }
+            break;
+          case 'L':
+            i++;
+            if (i + 1 < tokens.length) {
+              final x = double.tryParse(tokens[i]) ?? 0.0;
+              final y = double.tryParse(tokens[i + 1]) ?? 0.0;
+              final pt = _s(Offset(x, y));
+              path.lineTo(pt.dx, pt.dy);
+              i += 2;
+            }
+            break;
+          case 'Z':
+            path.close();
+            i++;
+            break;
+          default:
+            if (double.tryParse(cmd) != null && i + 1 < tokens.length) {
+              final x = double.parse(cmd);
+              final y = double.tryParse(tokens[i + 1]) ?? 0.0;
+              final pt = _s(Offset(x, y));
+              path.lineTo(pt.dx, pt.dy);
+              i += 2;
+            } else {
+              i++;
+            }
+        }
+      }
+    } else {
+      bool isFirst = true;
+      for (final pair in cleaned.split(RegExp(r'\s+'))) {
+        final parts = pair.split(',');
+        if (parts.length == 2) {
+          final x = double.tryParse(parts[0].trim());
+          final y = double.tryParse(parts[1].trim());
+          if (x != null && y != null) {
+            final pt = _s(Offset(x, y));
+            if (isFirst) {
+              path.moveTo(pt.dx, pt.dy);
+              isFirst = false;
+            } else {
+              path.lineTo(pt.dx, pt.dy);
+            }
+          }
+        }
+      }
+      path.close();
+    }
+    return path;
   }
 
   Offset _s(Offset svg) => Offset(svg.dx * scale + offsetX, svg.dy * scale + offsetY);

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/db_helper.dart';
+import '../providers/quran_audio_provider.dart';
 
 class TafsirBottomSheet extends StatelessWidget {
   final Map<String, dynamic> ayah;
@@ -62,26 +63,62 @@ class TafsirBottomSheet extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Ayah reference
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isDarkMode ? Colors.white12 : Colors.white24,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            'سورة ${_getSurahName(ayah['surah_id'] ?? 1)} - الآية ${ayah['number_in_surah'] ?? 1}',
-                            style: GoogleFonts.tajawal(
-                              fontSize: 16,
-                              color: isDarkMode
-                                  ? Colors.white
-                                  : const Color(0xFFfef8f0),
-                              fontWeight: FontWeight.bold,
+                        // Ayah reference & Play button
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDarkMode ? Colors.white12 : Colors.white24,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'سورة ${_getSurahName(ayah['surah_id'] ?? 1)} - الآية ${ayah['number_in_surah'] ?? 1}',
+                                style: GoogleFonts.tajawal(
+                                  fontSize: 16,
+                                  color: isDarkMode
+                                      ? Colors.white
+                                      : const Color(0xFFfef8f0),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 8),
+                            // Play/Stop button
+                            Consumer<QuranAudioProvider>(
+                              builder: (context, audioProvider, child) {
+                                final isCurrentAyah = audioProvider.currentSuraNumber == (ayah['surah_id'] ?? 1) && 
+                                                      audioProvider.currentPlayingAyaIndex == (ayah['number_in_surah'] ?? 1);
+
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    color: isDarkMode ? Colors.white12 : Colors.white24,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: IconButton(
+                                    icon: Icon(
+                                      isCurrentAyah ? Icons.stop : Icons.play_arrow,
+                                      color: isDarkMode ? Colors.white : const Color(0xFFfef8f0),
+                                    ),
+                                    onPressed: () {
+                                      if (isCurrentAyah) {
+                                        audioProvider.stop();
+                                      } else {
+                                        audioProvider.playSingleAyah(
+                                          ayah['surah_id'] ?? 1,
+                                          ayah['number_in_surah'] ?? 1,
+                                        );
+                                      }
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
                         ),
 
                         const SizedBox(height: 16),
