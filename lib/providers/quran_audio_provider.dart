@@ -30,6 +30,9 @@ class QuranAudioProvider extends ChangeNotifier {
   bool _isSingleAyah = false;
   int? _singleAyahNumber;
 
+  LoopMode _loopMode = LoopMode.off;
+  LoopMode get loopMode => _loopMode;
+
   QuranAudioProvider() {
     // الاستماع لتغير الآية (Index) في طابور التشغيل
     _player.currentIndexStream.listen((index) {
@@ -226,6 +229,13 @@ class QuranAudioProvider extends ChangeNotifier {
   /// الإيقاف المؤقت
   Future<void> pause() async {
     await _player.pause();
+  }
+
+  /// إعداد وضع التكرار
+  Future<void> setRepeatMode(LoopMode mode) async {
+    _loopMode = mode;
+    await _player.setLoopMode(mode);
+    notifyListeners();
   }
 
   @override
