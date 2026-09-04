@@ -49,6 +49,7 @@ class IslamicOccasionNotificationService {
 
   // ─── SharedPreferences key ───────────────────────────────────────────────
   static const String _scheduledFlagPrefix = 'occasion_native_scheduled_';
+  static const String _activeNativeIdsKey = 'active_native_notification_ids';
 
   // ═══════════════════════════════════════════════════════════════════════════
   // الدالة الرئيسية
@@ -79,6 +80,7 @@ class IslamicOccasionNotificationService {
       int occasionCount = 0;
       int fastingCount = 0;
       int customOccasionCount = 0;
+      List<String> scheduledIds = [];
 
       final customOccasions = await CustomOccasionService.getOccasions();
 
@@ -105,14 +107,16 @@ class IslamicOccasionNotificationService {
         );
 
         if (occasionTime.isAfter(today)) {
+          final id = _baseOccasionId + offset;
           await _scheduleOne(
-            id: _baseOccasionId + offset,
+            id: id,
             title: 'حدث في مثل هذا اليوم 🗓️',
             body: occasion.primaryName,
             scheduledDateTime: occasionTime,
             payload: 'islamic_occasion|${occasion.primaryName}',
             channelId: _occasionChannelId,
           );
+          scheduledIds.add(id.toString());
           occasionCount++;
         }
 
@@ -132,15 +136,17 @@ class IslamicOccasionNotificationService {
           if (fastingTime.isAfter(today)) {
             final fastingOffset =
                 fastingTime.difference(today).inDays.clamp(0, _windowDays - 1);
+            final id = _baseFastingId + fastingOffset;
 
             await _scheduleOne(
-              id: _baseFastingId + fastingOffset,
+              id: id,
               title: occasion.fastingReminderTitle!,
               body: occasion.fastingReminderBody ?? '',
               scheduledDateTime: fastingTime,
               payload: 'fasting_reminder|${occasion.primaryName}',
               channelId: _fastingChannelId,
             );
+            scheduledIds.add(id.toString());
             fastingCount++;
           }
         }
@@ -174,17 +180,24 @@ class IslamicOccasionNotificationService {
           );
 
           if (occasionTime.isAfter(today)) {
+            final id = _baseCustomOccasionId + offset + customOccasion.id.hashCode % 1000;
             await _scheduleOne(
-              id: _baseCustomOccasionId + offset + customOccasion.id.hashCode % 1000,
+              id: id,
               title: 'مناسبة مخصصة 🌟',
               body: customOccasion.title,
               scheduledDateTime: occasionTime,
               payload: 'custom_occasion|${customOccasion.title}',
               channelId: _occasionChannelId,
             );
+            scheduledIds.add(id.toString());
             customOccasionCount++;
           }
         }
+      }
+
+      // حفظ الـ IDs التي تمت جدولتها لاستخدامها عند الإلغاء
+      if (scheduledIds.isNotEmpty) {
+        await prefs.setStringList(_activeNativeIdsKey, scheduledIds);
       }
 
       // حفظ تاريخ اليوم لمنع إعادة الجدولة
@@ -237,28 +250,26 @@ class IslamicOccasionNotificationService {
     }
   }
 
-  /// يلغي كافة إشعارات المناسبات والصيام والمخصصة دفعة واحدة.
+  /// يلغي كافة إشعارات المناسبات والصيام والمخصصة دفعة واحدة بناءً على ما تم حفظه.
   Future<void> _cancelAll() async {
     try {
-      // إلغاء المناسبات (20000–20013)
-      await _channel.invokeMethod('cancelNativeNotificationsInRange', {
-        'fromId': _baseOccasionId,
-        'toId': _baseOccasionId + _windowDays - 1,
-      });
-
-      // إلغاء تذكيرات الصيام (30000–30013)
-      await _channel.invokeMethod('cancelNativeNotificationsInRange', {
-        'fromId': _baseFastingId,
-        'toId': _baseFastingId + _windowDays - 1,
-      });
-
-      // إلغاء المناسبات المخصصة (40000–41399)
-      await _channel.invokeMethod('cancelNativeNotificationsInRange', {
-        'fromId': _baseCustomOccasionId,
-        'toId': _baseCustomOccasionId + (_windowDays * 100) - 1,
-      });
-
-      Logger.debug('OccasionNotif [Native]: All cancelled.');
+      final prefs = await SharedPreferences.getInstance();
+      final activeIds = prefs.getStringList(_activeNativeIdsKey) ?? [];
+      
+      if (activeIds.isNotEmpty) {
+        final idsToCancel = activeIds.map((e) => int.tryParse(e) ?? 0).where((id) => id > 0).toList();
+        await _channel.invokeMethod('cancelSpecificNativeNotifications', {
+          'ids': idsToCancel,
+        });
+        await prefs.remove(_activeNativeIdsKey);
+        Logger.debug('OccasionNotif [Native]: Cancelled ${idsToCancel.length} specific notifications.');
+      } else {
+        // حماية إضافية للرجوع للوراء في حالة الترقية من الإصدار القديم
+        Logger.debug('OccasionNotif [Native]: No active IDs tracked, falling back to range cancelling in background.');
+        await _channel.invokeMethod('cancelNativeNotificationsInRange', {'fromId': _baseOccasionId, 'toId': _baseOccasionId + _windowDays - 1});
+        await _channel.invokeMethod('cancelNativeNotificationsInRange', {'fromId': _baseFastingId, 'toId': _baseFastingId + _windowDays - 1});
+        await _channel.invokeMethod('cancelNativeNotificationsInRange', {'fromId': _baseCustomOccasionId, 'toId': _baseCustomOccasionId + (_windowDays * 100) - 1});
+      }
     } catch (e) {
       Logger.error('OccasionNotif _cancelAll error: $e');
     }

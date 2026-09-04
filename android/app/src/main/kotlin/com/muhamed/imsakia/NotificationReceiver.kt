@@ -201,10 +201,12 @@ class NotificationReceiver : BroadcastReceiver() {
         }
 
         fun cancelNotificationsInRange(context: Context, fromId: Int, toId: Int) {
-            Log.d(TAG, "cancelNotificationsInRange: Cancelling from $fromId to $toId")
-            for (id in fromId..toId) {
-                cancelNotification(context, id)
-            }
+            Log.d(TAG, "cancelNotificationsInRange: Background cancelling from $fromId to $toId")
+            Thread {
+                for (id in fromId..toId) {
+                    cancelNotification(context, id)
+                }
+            }.start()
         }
     }
 }

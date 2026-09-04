@@ -13,8 +13,8 @@ class AthanReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "ZadAthan"
-        // الحد الأقصى لتأخر النظام المقبول: 3 دقائق
-        private const val MAX_ACCEPTABLE_DELAY_MS = 3 * 60 * 1000L
+        // الحد الأقصى لتأخر النظام المقبول: 15 دقيقة
+        private const val MAX_ACCEPTABLE_DELAY_MS = 15 * 60 * 1000L
         // مفتاح SharedPreferences لتتبع آخر ID أُطلق من PreWarm لمنع التشغيل المزدوج
         private const val PREWARM_FIRED_PREF = "prewarm_last_fired_id"
     }
@@ -39,8 +39,15 @@ class AthanReceiver : BroadcastReceiver() {
                 android.util.Log.w(
                     TAG,
                     "!!! STALE ALARM DROPPED: $delayMs ms late (${delayMs / 1000}s) for alarm ID=$alarmId. " +
-                    "MIUI likely throttled this alarm. Skipping athan, scheduling next prayer. !!!"
+                    "MIUI likely throttled this alarm. Showing silent notification instead of skipping completely. !!!"
                 )
+                
+                val rawPrayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
+                val prayerName = rawPrayerName.replace("صلاة الشروق", "شروق الشمس")
+                
+                // إظهار إشعار صامت لإعلام المستخدم
+                showSilentNotification(context, prayerName, alarmId)
+                
                 // تنظيف الـ prefs وجدولة الصلاة القادمة
                 cleanupExpiredAlarm(context, alarmId)
                 scheduleNextPrayerWidgetUpdate(context)
@@ -173,17 +180,24 @@ class AthanReceiver : BroadcastReceiver() {
         } catch (e: Exception) { e.printStackTrace() }
     }
 
-    /**
-     * تنظيف المنبه المنتهي من SharedPreferences ومنع الويدجت من قراءة timestamp قديم.
-     */
     private fun cleanupExpiredAlarm(context: Context, alarmId: Int) {
         try {
             val schedulePrefs = context.getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
-            schedulePrefs.edit()
-                .remove(alarmId.toString())
-                .remove("${alarmId}_data")
-                .apply()
-            android.util.Log.d(TAG, "✅ Prefs cleaned for alarm ID=$alarmId")
+            val now = System.currentTimeMillis()
+            
+            // تنظيف الصلوات القديمة جداً (التي مر عليها أكثر من 12 ساعة) بدلاً من مسح الصلاة الحالية فوراً
+            // هذا يسمح للويدجت بقراءة الصلاة الفائتة بشكل صحيح
+            val editor = schedulePrefs.edit()
+            for (entry in schedulePrefs.all) {
+                if (entry.key.endsWith("_data")) continue
+                val timestamp = entry.value as? Long ?: continue
+                if (timestamp < now - (12 * 60 * 60 * 1000L)) {
+                    editor.remove(entry.key).remove("${entry.key}_data")
+                }
+            }
+            editor.apply()
+            
+            android.util.Log.d(TAG, "✅ Prefs cleaned (kept recent history) for alarm ID=$alarmId")
         } catch (e: Exception) {
             android.util.Log.e(TAG, "Failed to clean prefs for alarm $alarmId: ${e.message}")
         }

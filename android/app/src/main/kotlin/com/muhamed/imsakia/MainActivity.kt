@@ -357,6 +357,18 @@ class MainActivity : AudioServiceActivity() {
                         result.success(true)
                     }
 
+                    "cancelSpecificNativeNotifications" -> {
+                        val ids = call.argument<List<Int>>("ids") ?: run {
+                            result.error("INVALID_ARGS", "ids is required", null); return@setMethodCallHandler
+                        }
+                        Thread {
+                            for (id in ids) {
+                                NotificationReceiver.cancelNotification(this, id)
+                            }
+                        }.start()
+                        result.success(true)
+                    }
+
                     "getInitialNotificationPayload" -> {
                         // يُستدعى عند بدء التطبيق (Cold Start) للتحقق من فتحه عبر إشعار
                         val payload = intent?.getStringExtra(NotificationReceiver.EXTRA_PAYLOAD)
