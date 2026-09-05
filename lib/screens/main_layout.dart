@@ -453,6 +453,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               SliverToBoxAdapter(child: _buildWarningBanner()),
               SliverToBoxAdapter(
                 child: _buildHijriCard(
+                  context,
                   hijriDateMap['formatted'] as String,
                   isDark,
                 ),
@@ -698,12 +699,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // ---------------------------------------------------------------------------
   //  Hijri Date Card
   // ---------------------------------------------------------------------------
-  Widget _buildHijriCard(String formattedDate, bool isDark) {
+  Widget _buildHijriCard(BuildContext context, String formattedDate, bool isDark) {
     final gregorianStr = DateFormat.yMMMMd('ar').format(DateTime.now());
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -724,46 +724,61 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                 ],
         ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFD4AF37).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.calendar_today_outlined,
-                color: Color(0xFFD4AF37),
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CalendarPage()),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
                 children: [
-                  Text(
-                    formattedDate,
-                    style: GoogleFonts.tajawal(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFFD4AF37),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD4AF37).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.calendar_today_outlined,
+                      color: Color(0xFFD4AF37),
+                      size: 20,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    gregorianStr,
-                    style: GoogleFonts.tajawal(
-                      fontSize: 13,
-                      color: isDark ? Colors.white70 : const Color(0xFF546E7A),
-                      fontWeight: FontWeight.w500,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          formattedDate,
+                          style: GoogleFonts.tajawal(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFFD4AF37),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          gregorianStr,
+                          style: GoogleFonts.tajawal(
+                            fontSize: 13,
+                            color: isDark ? Colors.white70 : const Color(0xFF546E7A),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

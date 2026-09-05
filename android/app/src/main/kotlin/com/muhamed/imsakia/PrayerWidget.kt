@@ -106,8 +106,8 @@ class PrayerWidget : AppWidgetProvider() {
                 null,
                 false // stopped = لا يعد
             )
-            views.setTextViewText(R.id.countdown_text, "حان الصلاة")
-            android.util.Log.d("ZadWidget", "⛔ ZERO-TOLERANCE: Chronometer stopped, showing 'حان الصلاة'")
+            views.setTextViewText(R.id.countdown_text, "حان موعد الصلاة")
+            android.util.Log.d("ZadWidget", "⛔ ZERO-TOLERANCE: Chronometer stopped, showing 'حان موعد الصلاة'")
         }
 
         // 4. Interaction: Click to open app

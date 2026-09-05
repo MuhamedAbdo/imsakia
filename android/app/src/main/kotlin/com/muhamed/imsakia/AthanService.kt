@@ -101,32 +101,6 @@ class AthanService : Service() {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.cancelAll()
             
-            if (isPrewarm) {
-                startPreWarmNotification(prayerName, alarmId)
-                acquireWakeLock()
-                
-                val now = System.currentTimeMillis()
-                var delay = scheduledTime - now
-                if (delay < 0) delay = 0
-                
-                android.util.Log.i("ImsakiaNative", "--- PreWarm Active: Waiting $delay ms before triggering Athan ---")
-                
-                Handler(Looper.getMainLooper()).postDelayed({
-                    android.util.Log.i("ImsakiaNative", "--- PreWarm Timer Finished: Launching AthanReceiver ---")
-                    val athanIntent = Intent(this, AthanReceiver::class.java).apply {
-                        putExtra("alarm_id", alarmId)
-                        putExtra("scheduled_time", scheduledTime)
-                        putExtra("prayer_name", rawPrayerName)
-                        putExtra("prayer_key", prayerKey)
-                        putExtra("is_silent", isSilentInIntent)
-                        putExtra("fired_from_prewarm", true)
-                    }
-                    sendBroadcast(athanIntent)
-                }, delay)
-                
-                return START_NOT_STICKY
-            }
-
             // ─── مسار الأذان الفعلي ─────────────────────────────────────────
             
             startForegroundServiceNotification(prayerName, alarmId, isAthanEnabled, isOngoing = isAthanEnabled)
@@ -166,35 +140,6 @@ class AthanService : Service() {
         } catch (e: Exception) { e.printStackTrace() }
     }
     
-    private fun startPreWarmNotification(prayerName: String, alarmId: Int) {
-        val channelId = "zad_prewarm_v3"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId, "Athan Standby", NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                setSound(null, null)
-                setShowBadge(false)
-                enableVibration(false)
-            }
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        }
-
-        val isShorooq = prayerName.contains("شروق") || prayerName == "الشروق"
-        val titleText = if (isShorooq) "اقترب وقت الشروق..." else "اقترب موعد صلاة $prayerName..."
-        val bodyText = "يرجى الاستعداد..."
-        
-        val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle(titleText)
-            .setContentText(bodyText)
-            .setSmallIcon(R.mipmap.ic_launcher) // أو رمز مناسب للصلاة
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setOngoing(true)
-            .build()
-
-        startForeground(SERVICE_NOTIFICATION_ID, notification)
-    }
-
     private fun startForegroundServiceNotification(prayerName: String, alarmId: Int, isAthanEnabled: Boolean, isOngoing: Boolean) {
         val channelId = if (isAthanEnabled) ATHAN_SERVICE_CHANNEL else "zad_silent_v3"
         

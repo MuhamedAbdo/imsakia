@@ -101,7 +101,7 @@ class AthanReceiver : BroadcastReceiver() {
                 PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
                 "Zad:SovereignWakeLock"
             )
-            wakeLock.acquire(30000) // 30 ثانية لإتمام كل العمليات
+            wakeLock.acquire(10000) // 10 ثوانٍ لإتمام العمليات
             android.util.Log.d(TAG, "!!! HARDENED: WakeLock Acquired as First Line !!!")
         } catch (e: Exception) {
             android.util.Log.e(TAG, "FAILED to acquire immediate WakeLock: ${e.message}")
@@ -134,12 +134,8 @@ class AthanReceiver : BroadcastReceiver() {
             context.sendBroadcast(widgetIntent)
             android.util.Log.i(TAG, "--- Immediate Direct Widget Sync Broadcast Sent ($prayerName) ---")
 
-            val workRequest = androidx.work.OneTimeWorkRequestBuilder<WidgetUpdateWorker>()
-                .setExpedited(androidx.work.OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-                .build()
-            androidx.work.WorkManager.getInstance(context).enqueue(workRequest)
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "Failed to enqueue/broadcast widget update: ${e.message}")
+            android.util.Log.e(TAG, "Failed to broadcast widget update: ${e.message}")
         }
 
         if (isSilent) {

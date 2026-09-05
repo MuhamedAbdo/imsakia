@@ -97,20 +97,8 @@ class MainActivity : AudioServiceActivity() {
         // تهيئة قنوات إشعارات الأذكار والمناسبات
         NotificationReceiver.createNotificationChannels(this)
         checkAndShowAthanOverlay()
-        setupWidgetHeartbeat()
     }
 
-    private fun setupWidgetHeartbeat() {
-        val workRequest = PeriodicWorkRequestBuilder<WidgetUpdateWorker>(15, TimeUnit.MINUTES)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.NOT_REQUIRED).build())
-            .build()
-        
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "WidgetHeartbeat",
-            ExistingPeriodicWorkPolicy.KEEP,
-            workRequest
-        )
-    }
 
     override fun onResume() {
         super.onResume()
@@ -551,10 +539,10 @@ class MainActivity : AudioServiceActivity() {
             android.util.Log.d("ImsakiaNative", "!!! NATIVE: Main Athan Alarm Scheduled for $prayerName (ID: $id) at $timeInMillis !!!")
 
             // ════════════════════════════════════════════════════════════════════
-            // ── 4. جدولة المنبه الاستباقي (PreWarm) قبل 3 دقائق ─────────────────
+            // ── 4. جدولة المنبه الاستباقي (PreWarm) قبل 1 دقيقة ─────────────────
             // هدفه: إجبار MIUI على الاستيقاظ مبكراً، والانتظار بدقة حتى الثانية الصفر.
             // ════════════════════════════════════════════════════════════════════
-            val preWarmTime = timeInMillis - (3 * 60 * 1000L) // قبل 3 دقائق
+            val preWarmTime = timeInMillis - (1 * 60 * 1000L) // قبل 1 دقيقة
             if (preWarmTime > System.currentTimeMillis()) {
                 // ✅ يحمل scheduled_time (وقت الصلاة الفعلي) للانتظار الدقيق داخل PreWarmReceiver
                 val preWarmIntent = Intent(this, PreWarmReceiver::class.java).apply {
@@ -581,10 +569,10 @@ class MainActivity : AudioServiceActivity() {
                 }
                 android.util.Log.d(
                     "ImsakiaNative",
-                    "!!! NATIVE: PreWarm Alarm Scheduled for $prayerName (ID: ${id + 10000}) at $preWarmTime (3min early) !!!"
+                    "!!! NATIVE: PreWarm Alarm Scheduled for $prayerName (ID: ${id + 10000}) at $preWarmTime (1min early) !!!"
                 )
             } else {
-                android.util.Log.d("ImsakiaNative", "--- PreWarm skipped: less than 3 min until prayer $prayerName ---")
+                android.util.Log.d("ImsakiaNative", "--- PreWarm skipped: less than 1 min until prayer $prayerName ---")
             }
 
         } catch (e: Exception) {
