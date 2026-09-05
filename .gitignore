@@ -12,6 +12,12 @@
 .swiftpm/
 migrate_working_dir/
 
+# ADB and Test Logs / Dumps
+adb_logcat_dump*.txt
+adb_logs.txt
+azan_test_logs.txt
+flutter_run_log.txt
+
 # IntelliJ related
 *.iml
 *.ipr
@@ -43,7 +49,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-47: 
-48: # SQLite temporary files
-49: *.db-journal
-50: *.db-wal
+
+# SQLite temporary files
+*.db-journal
+*.db-wal
