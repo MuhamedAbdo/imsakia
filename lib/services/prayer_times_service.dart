@@ -112,6 +112,8 @@ class PrayerTimesService {
     updateWidgetData();
 
     _prayerTimesController?.add(_currentPrayerTimes!);
+    
+    // ✅ إعادة تشغيل المؤقت الخفيف
     _startUpdateTimer();
     return _currentPrayerTimes;
   }
@@ -478,11 +480,37 @@ class PrayerTimesService {
     );
   }
 
+  String? _lastNextPrayerKey;
+
   void _startUpdateTimer() {
     _updateTimer?.cancel();
+    // ✅ FIX: مؤقت خفيف يعمل كل دقيقة للتحقق من انتقال الصلاة أو تغير اليوم فقط
+    // بدون استدعاء حسابات فلكية ثقيلة وتحديث الويدجت في كل نبضة.
     _updateTimer = Timer.periodic(
-      AppConstants.countdownUpdateInterval,
-      (timer) => _updatePrayerTimes(),
+      const Duration(minutes: 1),
+      (timer) {
+        if (_currentPrayerTimes == null) return;
+        
+        final now = DateTime.now();
+        bool needsUpdate = false;
+
+        // 1. فحص تغير اليوم (منتصف الليل) لإعادة الحساب
+        if (_lastWidgetUpdateTime != null && _lastWidgetUpdateTime!.day != now.day) {
+          needsUpdate = true;
+        }
+
+        // 2. فحص انتقال الصلاة (مثلاً: دخل وقت الظهر فجأة)
+        final currentNext = getNextPrayer();
+        if (_lastNextPrayerKey != null && _lastNextPrayerKey != currentNext) {
+          needsUpdate = true;
+        }
+        _lastNextPrayerKey = currentNext;
+
+        // تنفيذ التحديث الشامل فقط عند الضرورة
+        if (needsUpdate) {
+          getCurrentPrayerTimes();
+        }
+      },
     );
   }
 

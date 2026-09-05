@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geocoding/geocoding.dart';
@@ -152,6 +153,47 @@ class _SettingsScreenState extends State<SettingsScreen>
         'prayerName': 'تجربة',
         'activeTestKey': prayerKey,
       });
+    }
+  }
+
+  void _testDozeMode() async {
+    final now = DateTime.now();
+    // تغيير لـ 10 ثواني لتسريع عملية الاختبار
+    final triggerTime = now.add(const Duration(seconds: 10));
+    final timeInMillis = triggerTime.millisecondsSinceEpoch;
+
+    try {
+      const platform = MethodChannel('imsakia/notifications');
+      await platform.invokeMethod('scheduleExactAthan', {
+        'timeInMillis': timeInMillis,
+        'id': 999,
+        'prayerName': 'اختبار سريع',
+        'prayerKey': 'test',
+        'isSilent': false,
+      });
+
+      if (mounted) {
+        final timeStr = "${triggerTime.hour}:${triggerTime.minute.toString().padLeft(2, '0')}";
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'تم جدولة اختبار الأذان بنجاح. سيتم الرنين في $timeStr. يرجى إغلاق الشاشة الآن لمراقبة الـ Logs.',
+              style: GoogleFonts.tajawal(),
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل جدولة الاختبار: $e', style: GoogleFonts.tajawal()),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -767,6 +809,15 @@ class _SettingsScreenState extends State<SettingsScreen>
                 icon: Icons.security_rounded,
                 isGranted: _permissionStatuses['system_alert'] ?? false,
                 onTap: () => PermissionsService.openComprehensivePermissions(),
+              ),
+              const SizedBox(height: 10),
+              _buildActionTile(
+                context,
+                title: 'اختبار الأذان (بعد 3 دقائق) - Debug',
+                subtitle: 'يستخدم لاختبار عمل الأذان أثناء إغلاق الشاشة',
+                icon: Icons.bug_report_rounded,
+                isGranted: null,
+                onTap: _testDozeMode,
               ),
             ],
           ],

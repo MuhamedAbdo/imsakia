@@ -76,16 +76,24 @@
         <!-- Receivers -->
         <receiver
             android:name=".AthanReceiver"
-            android:exported="false"
+            android:exported="true"
             android:enabled="true"
-            android:directBootAware="true" />
+            android:directBootAware="true">
+            <intent-filter>
+                <action android:name="com.muhamed.imsakia.ATHAN_ALARM" />
+            </intent-filter>
+        </receiver>
 
         <!-- PreWarmReceiver: يستيقظ قبل 3 دقائق لكسر غفوة MIUI وحماية دقة الأذان -->
         <receiver
             android:name=".PreWarmReceiver"
-            android:exported="false"
+            android:exported="true"
             android:enabled="true"
-            android:directBootAware="true" />
+            android:directBootAware="true">
+            <intent-filter>
+                <action android:name="com.muhamed.imsakia.PREWARM_ALARM" />
+            </intent-filter>
+        </receiver>
 
         <!-- NotificationReceiver: يستقبل منبهات الإشعارات النصية (الأذكار + المناسبات) -->
         <receiver
@@ -117,7 +125,7 @@
         <!-- Midnight Rollover Receiver -->
         <receiver
             android:name=".MidnightReceiver"
-            android:exported="false"
+            android:exported="true"
             android:enabled="true"
             android:directBootAware="true">
             <intent-filter>

@@ -128,7 +128,17 @@ void main() async {
   
   // Initialize the notification plugin with foreground AND background handlers
   await flutterLocalNotificationsPlugin.initialize(
-    settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+    settings: const InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      iOS: DarwinInitializationSettings(),
+      macOS: DarwinInitializationSettings(),
+      linux: LinuxInitializationSettings(defaultActionName: 'Open notification'),
+      windows: WindowsInitializationSettings(
+        appName: 'Imsakia',
+        appUserModelId: 'com.muhamed.imsakia',
+        guid: 'd185bb81-1bf3-4660-84a1-0e3196edc9c6'
+      ),
+    ),
     onDidReceiveNotificationResponse: (NotificationResponse response) {
       final payload = response.payload;
       if (payload != null && payload.startsWith('athan_overlay|')) {
@@ -270,7 +280,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // 🔥 جدولة المنبهات وتحديث الويدجت عند فتح التطبيق
     // 🛡️ HARDENED: Skip this if we're showing an overlay to avoid heavy initialization & Geocoding issues
     if (widget.initialOverlay == null) {
-      Future.microtask(() => _rescheduleAndSync());
+      // Future.microtask(() => _rescheduleAndSync()); // Temporarily disabled for Single Variable Testing
     } else {
       debugPrint("!!! HARDENED: Athan Overlay detected, skipping heavy background scheduling !!!");
     }
@@ -295,7 +305,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // نُعيد جدولة المنبهات تلقائياً لضمان التعافي من أي مسح قسري
     if (state == AppLifecycleState.resumed && widget.initialOverlay == null) {
       debugPrint("!!! SELF-HEALING: App resumed — rescheduling prayers to recover from any alarm wipe !!!");
-      PrayerTimesService.instance.scheduleAllPrayers();
+      // PrayerTimesService.instance.scheduleAllPrayers(); // Temporarily disabled for Single Variable Testing
     }
   }
 

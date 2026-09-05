@@ -15,16 +15,23 @@ class PrayerWidget : AppWidgetProvider() {
         super.onReceive(context, intent)
         val action = intent.action
         
+        android.util.Log.d("ZadWidget", "WIDGET_TRACE: ON_RECEIVE (action=$action)")
+
+        if (action == "com.muhamed.imsakia.WIDGET_REFRESH_TICK") {
+            android.util.Log.d("ZadWidget", "WIDGET_TRACE: REFRESH ALARM RECEIVED")
+        }
+        
         // Handling TIME_TICK (every minute) or custom update actions
         if (action == Intent.ACTION_TIME_TICK || 
             action == "com.muhamed.imsakia.UPDATE_COUNTDOWN" || 
+            action == "com.muhamed.imsakia.WIDGET_REFRESH_TICK" ||
             action == AppWidgetManager.ACTION_APPWIDGET_UPDATE) {
             
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val componentName = ComponentName(context, PrayerWidget::class.java)
             val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
             
-            
+            android.util.Log.d("ZadWidget", "WIDGET_TRACE: UPDATE REQUESTED")
             onUpdate(context, appWidgetManager, appWidgetIds)
         }
     }
@@ -34,6 +41,7 @@ class PrayerWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        android.util.Log.d("ZadWidget", "WIDGET_TRACE: ON_UPDATE")
         val widgetData = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
         val views = RemoteViews(context.packageName, R.layout.prayer_widget)
         
@@ -42,6 +50,9 @@ class PrayerWidget : AppWidgetProvider() {
         val pastDisplay = widgetData.getString("flutter.last_prayer_display", "--:--")
         var nextDisplay = widgetData.getString("flutter.next_prayer_display", "--:--") ?: "--:--"
         var nextTimestamp = widgetData.getLong("flutter.next_prayer_timestamp", 0L)
+        
+        android.util.Log.d("ZadWidget", "WIDGET_TRACE: NEXT PRAYER = $nextDisplay")
+        android.util.Log.d("ZadWidget", "WIDGET_TRACE: NEXT PRAYER TIMESTAMP = $nextTimestamp")
 
         // Immediately show cached text to avoid "Updating..." hang
         views.setTextViewText(R.id.hijri_date, hijri)
@@ -84,6 +95,7 @@ class PrayerWidget : AppWidgetProvider() {
             val remainingMs = nextTimestamp - now
             val baseTime = android.os.SystemClock.elapsedRealtime() + remainingMs
 
+            android.util.Log.d("ZadWidget", "WIDGET_TRACE: CHRONOMETER BASE = $baseTime")
             // Update Chronometer (countdown mode)
             views.setChronometer(R.id.countdown_text, baseTime, null, true)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
@@ -126,6 +138,7 @@ class PrayerWidget : AppWidgetProvider() {
         for (appWidgetId in appWidgetIds) {
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
+        android.util.Log.d("ZadWidget", "WIDGET_TRACE: REMOTE VIEWS UPDATED")
     }
 
     private fun forceRefreshFromLocalDatabase(context: Context, views: RemoteViews, widgetData: SharedPreferences): Map<String, Any>? {
@@ -298,7 +311,7 @@ class PrayerWidget : AppWidgetProvider() {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
         // ✅ يحمل scheduled_time ليستخدمه AthanReceiver في Stale Guard
         val alarmIntent = Intent(context, PrayerWidget::class.java).apply {
-            action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            action = "com.muhamed.imsakia.WIDGET_REFRESH_TICK"
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, appWidgetIds)
             putExtra("scheduled_time", triggerTime)
         }
@@ -337,9 +350,11 @@ class PrayerWidget : AppWidgetProvider() {
                     pendingIntent
                 )
             }
+            android.util.Log.d("ZadWidget", "WIDGET_TRACE: REFRESH ALARM SCHEDULED = $triggerTime")
         } catch (e: Exception) {
             // Fallback for security exceptions on some OEMs
             alarmManager.set(android.app.AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+            android.util.Log.d("ZadWidget", "WIDGET_TRACE: REFRESH ALARM SCHEDULED (Fallback) = $triggerTime")
         }
     }
 }

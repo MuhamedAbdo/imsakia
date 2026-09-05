@@ -21,19 +21,22 @@ class AthanReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         // ✅ DIAGNOSTIC: First line - always runs before any logic
+        val now = System.currentTimeMillis()
+        val scheduledTime = intent.getLongExtra("scheduled_time", 0L)
+        val delayMs = now - scheduledTime
+        val rawPrayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
+        val prayerName = rawPrayerName.replace("صلاة الشروق", "شروق الشمس")
         val alarmId = intent.getIntExtra("alarm_id", -1)
+        android.util.Log.e("AZAN_TRACE", "RECEIVER FIRED\nprayerName=$prayerName\nid=$alarmId\nscheduledTime=$scheduledTime\nnow=$now\ndelayMs=$delayMs")
         android.util.Log.d(TAG, "Receiver Awake - ID: $alarmId")
 
         // ════════════════════════════════════════════════════════════════════
         // 🛡️ GUARD 1: إسقاط الأذان المتأخر (Drop Stale Alarms)
         // إذا أخّر MIUI المنبه لأكثر من 3 دقائق، نلغي الأذان ونجدول القادم.
         // ════════════════════════════════════════════════════════════════════
-        val scheduledTime = intent.getLongExtra("scheduled_time", 0L)
         val firedFromPrewarm = intent.getBooleanExtra("fired_from_prewarm", false)
 
         if (scheduledTime > 0L) {
-            val now = System.currentTimeMillis()
-            val delayMs = now - scheduledTime
 
             if (delayMs > MAX_ACCEPTABLE_DELAY_MS) {
                 android.util.Log.w(
@@ -41,16 +44,7 @@ class AthanReceiver : BroadcastReceiver() {
                     "!!! STALE ALARM DROPPED: $delayMs ms late (${delayMs / 1000}s) for alarm ID=$alarmId. " +
                     "MIUI likely throttled this alarm. Showing silent notification instead of skipping completely. !!!"
                 )
-                
-                val rawPrayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
-                val prayerName = rawPrayerName.replace("صلاة الشروق", "شروق الشمس")
-                
-                // إظهار إشعار صامت لإعلام المستخدم
                 showSilentNotification(context, prayerName, alarmId)
-                
-                // تنظيف الـ prefs وجدولة الصلاة القادمة
-                cleanupExpiredAlarm(context, alarmId)
-                scheduleNextPrayerWidgetUpdate(context)
                 return
             }
 
@@ -107,8 +101,6 @@ class AthanReceiver : BroadcastReceiver() {
             android.util.Log.e(TAG, "FAILED to acquire immediate WakeLock: ${e.message}")
         }
 
-        val rawPrayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
-        val prayerName = rawPrayerName.replace("صلاة الشروق", "شروق الشمس")
         val prayerKey = intent.getStringExtra("prayer_key") ?: "dhuhr"
         val isSilent = intent.getBooleanExtra("is_silent", false)
 
@@ -155,6 +147,8 @@ class AthanReceiver : BroadcastReceiver() {
         }
 
         try {
+            android.util.Log.e("AZAN_TRACE", "SERVICE REQUESTED")
+            android.util.Log.d(TAG, "AZAN_TRACE: FOREGROUND SERVICE REQUESTED = ${System.currentTimeMillis()}")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent)
             } else {

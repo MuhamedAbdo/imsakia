@@ -45,6 +45,8 @@ class AthanService : Service() {
     private var currentAlarmId = 0
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        android.util.Log.e("AZAN_TRACE", "SERVICE STARTED")
+        android.util.Log.d("ImsakiaNative", "AZAN_TRACE: SERVICE STARTED = ${System.currentTimeMillis()}")
         
         val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         val isAthanEnabled = prefs.getBoolean("flutter.athan_enabled", true)
@@ -211,7 +213,10 @@ class AthanService : Service() {
         }
 
         val notification = notificationBuilder.build()
+        android.util.Log.e("AZAN_TRACE", "START_FOREGROUND")
+        android.util.Log.d("ImsakiaNative", "AZAN_TRACE: NOTIFICATION POSTED = ${System.currentTimeMillis()}")
         startForeground(SERVICE_NOTIFICATION_ID, notification)
+        android.util.Log.e("AZAN_TRACE", "NOTIFICATION POSTED")
 
         if (isAthanEnabled) {
             // 🔥 محاولة فتح الأكتيفيتي قسرياً فقط في حالة تفعيل الأذان
@@ -343,6 +348,8 @@ class AthanService : Service() {
             }
             
             mediaPlayer?.start()
+            android.util.Log.e("AZAN_TRACE", "PLAYBACK START")
+            android.util.Log.d("ImsakiaNative", "AZAN_TRACE: PLAYBACK STARTED = ${System.currentTimeMillis()}")
         } else {
             // All attempts failed, notify UI to refresh anyway
             android.util.Log.e("ImsakiaNative", "!!! CRITICAL: All audio playback methods failed. Broadcasting completion to prevent stuck UI !!!")
