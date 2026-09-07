@@ -13,8 +13,8 @@ class AthanReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "ZadAthan"
-        // الحد الأقصى لتأخر النظام المقبول: 15 دقيقة
-        private const val MAX_ACCEPTABLE_DELAY_MS = 15 * 60 * 1000L
+        // الحد الأقصى لتأخر النظام المقبول: 30 دقيقة
+        private const val MAX_ACCEPTABLE_DELAY_MS = 30 * 60 * 1000L
         // مفتاح SharedPreferences لتتبع آخر ID أُطلق من PreWarm لمنع التشغيل المزدوج
         private const val PREWARM_FIRED_PREF = "prewarm_last_fired_id"
     }
@@ -156,18 +156,9 @@ class AthanReceiver : BroadcastReceiver() {
             }
         } catch (e: Exception) { e.printStackTrace() }
 
-        // 2. Start Activity (MainActivity -> Flutter Overlay)
-        try {
-            val intentToMain = Intent(context, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                putExtra("trigger_athan_overlay", true)
-                putExtra("prayer_name", prayerName)
-                putExtra("prayer_key", prayerKey)
-                putExtra("alarm_id", alarmId)
-            }
-            context.startActivity(intentToMain)
-            android.util.Log.d(TAG, "--- MainActivity Started ---")
-        } catch (e: Exception) { e.printStackTrace() }
+        // 2. تم إزالة `startActivity(intentToMain)` لتجنب الـ ANR وتجميد المسار الرئيسي.
+        // سيتم الاعتماد على `fullScreenIntent` الخاص بالإشعار في `AthanService` لفتح واجهة التطبيق
+        // بشكل آمن وبدون مقاطعة مسار الصوت المستقل.
     }
 
     private fun cleanupExpiredAlarm(context: Context, alarmId: Int) {

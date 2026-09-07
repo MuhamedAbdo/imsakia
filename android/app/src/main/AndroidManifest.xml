@@ -108,6 +108,7 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback"
+            android:process=":athan"
             android:stopWithTask="false" />
 
         <receiver
