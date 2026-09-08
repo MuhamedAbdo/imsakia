@@ -102,13 +102,14 @@
             android:enabled="true"
             android:directBootAware="true" />
 
-        <!-- ✅ CRITICAL: AthanService with stopWithTask="false" -->
+        <!-- ✅ CRITICAL: AthanService - NO separate process to prevent MIUI from applying aggressive Doze -->
+        <!-- ⚠️ REMOVED: android:process=":athan" — it was causing a second FlutterEngine + heavy RAM usage,
+             making MIUI freeze alarms by 15+ minutes. Now runs in the main process. -->
         <service
             android:name=".AthanService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback"
-            android:process=":athan"
             android:stopWithTask="false" />
 
         <receiver

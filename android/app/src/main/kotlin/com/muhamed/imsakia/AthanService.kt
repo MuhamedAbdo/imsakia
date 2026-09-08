@@ -100,8 +100,11 @@ class AthanService : Service() {
             }
 
             // 1. إظهار إشعار Foreground (يعتمد على ما إذا كان PreWarm أو الأذان الفعلي)
+            // ✅ FIX: Do NOT cancelAll() here — it causes MIUI to silently swallow the next notification
+            // notificationManager.cancelAll()  // ⚠️ REMOVED: caused silent notification bug
+            // Only cancel the previous ATHAN notification specifically
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.cancelAll()
+            notificationManager.cancel(SERVICE_NOTIFICATION_ID)
             
             // ─── مسار الأذان الفعلي ─────────────────────────────────────────
             

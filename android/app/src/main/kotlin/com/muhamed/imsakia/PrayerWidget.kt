@@ -71,11 +71,16 @@ class PrayerWidget : AppWidgetProvider() {
 
         // 3. Smart Countdown Self-Healing
         val now = System.currentTimeMillis()
+        var noFuturePrayerFound = false
         if (nextTimestamp <= now) {
             val refreshed = forceRefreshFromLocalDatabase(context, views, widgetData)
             if (refreshed != null) {
                 nextTimestamp = refreshed["timestamp"] as Long
                 nextDisplay = refreshed["display"] as String
+            } else {
+                // ✅ FIX: No future prayer found in schedules — prevent negative countdown
+                // This happens when athan_schedules is empty (Flutter hasn't rescheduled yet)
+                noFuturePrayerFound = true
             }
         } else {
             // إذا كانت الصلاة القادمة صحيحة، نتأكد برضه من الربط الصارم للسابقة
@@ -91,7 +96,17 @@ class PrayerWidget : AppWidgetProvider() {
         
         views.setTextViewText(R.id.next_prayer_display, nextDisplay)
 
-        if (nextTimestamp > now) {
+        // ✅ FIX: If no future prayer found, stop chronometer immediately and show static text
+        if (noFuturePrayerFound) {
+            views.setChronometer(
+                R.id.countdown_text,
+                android.os.SystemClock.elapsedRealtime(),
+                null,
+                false
+            )
+            views.setTextViewText(R.id.countdown_text, "جاري التحديث...")
+            android.util.Log.d("ZadWidget", "✅ FIX: No future prayer in schedules — stopped chronometer")
+        } else if (nextTimestamp > now) {
             val remainingMs = nextTimestamp - now
             val baseTime = android.os.SystemClock.elapsedRealtime() + remainingMs
 

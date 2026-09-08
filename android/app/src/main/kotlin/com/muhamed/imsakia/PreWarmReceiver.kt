@@ -26,15 +26,17 @@ class PreWarmReceiver : BroadcastReceiver() {
             return
         }
 
-        // 1. Acquire a very short WakeLock to wake up the CPU (5 seconds)
+        // 1. Acquire WakeLock for 4 minutes (enough to cover the 1-min gap until the real Athan alarm)
+        // ✅ FIX: Previous value was 5000ms (5s) — MIUI was putting CPU back to sleep before the alarm fired,
+        // causing 15+ minute delays. Now we hold the lock for the full pre-warm window.
         try {
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             val wakeLock = powerManager.newWakeLock(
                 PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
                 "Zad:PreWarmWakeLock"
             )
-            wakeLock.acquire(5000)
-            android.util.Log.i(TAG, "--- PreWarm: WakeLock acquired for 5s ---")
+            wakeLock.acquire(240_000L) // 4 minutes — covers the 1-min PreWarm gap + buffer
+            android.util.Log.i(TAG, "--- PreWarm: WakeLock acquired for 4 minutes ---")
         } catch (e: Exception) {
             android.util.Log.e(TAG, "Failed to acquire PreWarm WakeLock: ${e.message}")
         }

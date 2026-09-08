@@ -166,13 +166,14 @@ class AthanReceiver : BroadcastReceiver() {
             val schedulePrefs = context.getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
             val now = System.currentTimeMillis()
             
-            // تنظيف الصلوات القديمة جداً (التي مر عليها أكثر من 12 ساعة) بدلاً من مسح الصلاة الحالية فوراً
-            // هذا يسمح للويدجت بقراءة الصلاة الفائتة بشكل صحيح
+            // ✅ FIX: Keep only alarms from the last 30 minutes (was 12 hours — caused widget confusion)
+            // Holding expired alarms for 12h meant the widget would find stale timestamps
+            // and show negative countdowns when athan_schedules appeared "empty" of future prayers.
             val editor = schedulePrefs.edit()
             for (entry in schedulePrefs.all) {
                 if (entry.key.endsWith("_data")) continue
                 val timestamp = entry.value as? Long ?: continue
-                if (timestamp < now - (12 * 60 * 60 * 1000L)) {
+                if (timestamp < now - (30 * 60 * 1000L)) { // 30 minutes
                     editor.remove(entry.key).remove("${entry.key}_data")
                 }
             }

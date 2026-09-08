@@ -267,6 +267,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   static const platform = MethodChannel('imsakia/notifications');
   String? _currentAthanOverlay;
   bool _isColdStartForAthan = false;
+  // ✅ Throttle: prevents scheduleAllPrayers from running more than once per 30 min on Resume
+  DateTime? _lastRescheduledAt;
 
   @override
   void initState() {
@@ -280,7 +282,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // 🔥 جدولة المنبهات وتحديث الويدجت عند فتح التطبيق
     // 🛡️ HARDENED: Skip this if we're showing an overlay to avoid heavy initialization & Geocoding issues
     if (widget.initialOverlay == null) {
-      // Future.microtask(() => _rescheduleAndSync()); // Temporarily disabled for Single Variable Testing
+      // ✅ CRITICAL FIX: Re-enabled _rescheduleAndSync() — was disabled for "Single Variable Testing"
+      // Without this, alarms are NEVER rescheduled on app launch = alarms degrade over time.
+      Future.microtask(() => _rescheduleAndSync());
     } else {
       debugPrint("!!! HARDENED: Athan Overlay detected, skipping heavy background scheduling !!!");
     }
@@ -304,8 +308,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // 🔄 Self-Healing: عند رجوع المستخدم للتطبيق بعد تشغيله في الخلفية
     // نُعيد جدولة المنبهات تلقائياً لضمان التعافي من أي مسح قسري
     if (state == AppLifecycleState.resumed && widget.initialOverlay == null) {
-      debugPrint("!!! SELF-HEALING: App resumed — rescheduling prayers to recover from any alarm wipe !!!");
-      // PrayerTimesService.instance.scheduleAllPrayers(); // Temporarily disabled for Single Variable Testing
+      final now = DateTime.now();
+      // ✅ Throttle: only reschedule if it's been 30+ minutes since the last reschedule
+      // Prevents unnecessary 84-alarm rescheduling every time user switches apps
+      final shouldReschedule = _lastRescheduledAt == null ||
+          now.difference(_lastRescheduledAt!) > const Duration(minutes: 30);
+      if (shouldReschedule) {
+        _lastRescheduledAt = now;
+        debugPrint("!!! SELF-HEALING: App resumed — rescheduling prayers (throttled: 30min) !!!");
+        PrayerTimesService.instance.scheduleAllPrayers();
+      } else {
+        debugPrint("!!! SELF-HEALING: App resumed — skipping reschedule (throttled, last: $_lastRescheduledAt) !!!");
+        // Still update the widget display even if not fully rescheduling
+        PrayerTimesService.instance.updateWidgetData();
+      }
     }
   }
 
