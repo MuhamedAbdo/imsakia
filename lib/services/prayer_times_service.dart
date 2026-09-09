@@ -514,7 +514,7 @@ class PrayerTimesService {
     );
   }
 
-  Future<void> _updatePrayerTimes() async => await getCurrentPrayerTimes();
+
 
   String? getNextPrayer() {
     if (_currentPrayerTimes == null) return null;

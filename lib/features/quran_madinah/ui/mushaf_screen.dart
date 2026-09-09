@@ -30,7 +30,7 @@ class MushafScreen extends StatefulWidget {
   State<MushafScreen> createState() => _MushafScreenState();
 }
 
-class _MushafScreenState extends State<MushafScreen> {
+class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver {
   // ── Horizontal (PageView) state ────────────────────────────────────────────
   late PageController _pageController;
 
@@ -75,6 +75,7 @@ class _MushafScreenState extends State<MushafScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _updateAllowedOrientations();
     _currentPage    = widget.initialPage;
     _pageController = PageController(initialPage: widget.initialPage - 1);
@@ -121,9 +122,28 @@ class _MushafScreenState extends State<MushafScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _audioProvider.removeListener(_onAudioProviderChanged);
     _pageController.dispose();
+
+    // إيقاف الصوت والتخلص من المشغل لقتل الـ Foreground Service كما طلب المستخدم
+    _audioProvider.stop();
+    _audioProvider.player.stop();
+    _audioProvider.player.dispose();
+
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached || state == AppLifecycleState.paused) {
+      _audioProvider.stop();
+      _audioProvider.player.stop();
+      if (state == AppLifecycleState.detached) {
+        _audioProvider.player.dispose();
+      }
+    }
+    super.didChangeAppLifecycleState(state);
   }
 
   // ── Page-change handlers ───────────────────────────────────────────────────
@@ -261,7 +281,6 @@ class _MushafScreenState extends State<MushafScreen> {
         Consumer<QuranAudioProvider>(
           builder: (context, audioProvider, child) {
             final isSameSura = audioProvider.currentSuraNumber == _currentMainSuraNumber;
-            final isPlaying = isSameSura && audioProvider.player.playing;
             final totalAyahs = quran.getVerseCount(_currentMainSuraNumber);
             
             return FutureBuilder<bool>(
@@ -269,7 +288,6 @@ class _MushafScreenState extends State<MushafScreen> {
               builder: (context, snapshot) {
                 final isDownloaded = snapshot.data ?? false;
                 final isDownloading = audioProvider.isDownloading;
-                final downloadProgress = audioProvider.downloadProgress;
 
                 return PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert),
@@ -336,41 +354,62 @@ class _MushafScreenState extends State<MushafScreen> {
                       // Play/Pause Item
                       PopupMenuItem(
                         value: 'play_pause',
-                        child: Row(
-                          children: [
-                            Icon(isPlaying ? Icons.pause_circle_outline : Icons.play_circle_outline, color: onSurface),
-                            const SizedBox(width: 12),
-                            Text(isPlaying ? 'إيقاف مؤقت' : (isSameSura ? 'استئناف التلاوة' : 'تشغيل السورة')),
-                          ],
+                        child: ListenableBuilder(
+                          listenable: audioProvider,
+                          builder: (context, child) {
+                            final currentIsSameSura = audioProvider.currentSuraNumber == _currentMainSuraNumber;
+                            final currentIsPlaying = currentIsSameSura && audioProvider.player.playing;
+                            return Row(
+                              children: [
+                                Icon(currentIsPlaying ? Icons.pause_circle_outline : Icons.play_circle_outline, color: onSurface),
+                                const SizedBox(width: 12),
+                                Text(currentIsPlaying ? 'إيقاف مؤقت' : (currentIsSameSura ? 'استئناف التلاوة' : 'تشغيل السورة')),
+                              ],
+                            );
+                          },
                         ),
                       ),
                       
                       // Download/Delete Item
                       PopupMenuItem(
                         value: 'download',
-                        child: Row(
-                          children: [
-                            if (isDownloading) ...[
-                              SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  value: downloadProgress > 0 ? downloadProgress : null,
-                                  strokeWidth: 2.0,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              const Text('جاري التحميل...'),
-                            ] else if (isDownloaded) ...[
-                              Icon(Icons.delete_outline, color: Colors.red.shade400),
-                              const SizedBox(width: 12),
-                              const Text('حذف السورة المحملة', style: TextStyle(color: Colors.red)),
-                            ] else ...[
-                              Icon(Icons.cloud_download_outlined, color: onSurface),
-                              const SizedBox(width: 12),
-                              const Text('تحميل السورة'),
-                            ],
-                          ],
+                        child: ListenableBuilder(
+                          listenable: audioProvider,
+                          builder: (context, child) {
+                            return FutureBuilder<bool>(
+                              future: audioProvider.isSuraDownloaded(_currentMainSuraNumber, totalAyahs),
+                              builder: (context, snapshot) {
+                                final currentIsDownloaded = snapshot.data ?? isDownloaded;
+                                final currentIsDownloading = audioProvider.isDownloading;
+                                final currentProgress = audioProvider.downloadProgress;
+                                
+                                return Row(
+                                  children: [
+                                    if (currentIsDownloading) ...[
+                                      SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          value: currentProgress > 0 ? currentProgress : null,
+                                          strokeWidth: 2.0,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      const Text('جاري التحميل...'),
+                                    ] else if (currentIsDownloaded) ...[
+                                      Icon(Icons.delete_outline, color: Colors.red.shade400),
+                                      const SizedBox(width: 12),
+                                      const Text('حذف السورة المحملة', style: TextStyle(color: Colors.red)),
+                                    ] else ...[
+                                      Icon(Icons.cloud_download_outlined, color: onSurface),
+                                      const SizedBox(width: 12),
+                                      const Text('تحميل السورة'),
+                                    ],
+                                  ],
+                                );
+                              },
+                            );
+                          },
                         ),
                       ),
                       const PopupMenuDivider(),
