@@ -6,7 +6,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.widget.Toast
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 
@@ -15,16 +14,11 @@ class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action
-        if (action == Intent.ACTION_BOOT_COMPLETED || 
-            action == Intent.ACTION_TIME_CHANGED || 
-            action == Intent.ACTION_TIMEZONE_CHANGED) {
-            
-            // 1. Show Toast immediately to confirm wake up
-            try {
-                Toast.makeText(context, "زاد: تم تنشيط نظام الأذان", Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {}
+        if (action == Intent.ACTION_BOOT_COMPLETED ||
+            action == Intent.ACTION_MY_PACKAGE_REPLACED) {
 
-            // 2. Use goAsync for background processing
+            // ACTION_BOOT_COMPLETED and ACTION_MY_PACKAGE_REPLACED both clear AlarmManager alarms,
+            // so we must reschedule everything.
             val pendingResult = goAsync()
             Thread {
                 try {
@@ -54,7 +48,7 @@ class BootReceiver : BroadcastReceiver() {
             // Read metadata
             val metadata = prefs.getString("${id}_data", "") ?: ""
             val parts = metadata.split("|")
-            
+
             val prayerName = if (parts.size >= 1) parts[0] else "الصلاة"
             val prayerKey = if (parts.size >= 2) parts[1] else "dhuhr"
             val isSilent = if (parts.size >= 3) parts[2].toBoolean() else false
@@ -62,14 +56,15 @@ class BootReceiver : BroadcastReceiver() {
             if (timeInMillis > currentTime) {
                 android.util.Log.d("ZadBoot", ">>> Rescheduling ID=$id: $prayerName at $timeInMillis (Silent=$isSilent)")
 
-                // 1. AthanReceiver Broadcast Intent
-                // ✅ يحمل scheduled_time ليستخدمه AthanReceiver في Stale Guard
+                // AthanReceiver Broadcast Intent
+                // carries scheduled_time for the stale guard in AthanReceiver
                 val broadcastIntent = Intent(context, AthanReceiver::class.java).apply {
+                    action = "com.muhamed.imsakia.ATHAN_ALARM"
                     putExtra("prayer_name", prayerName)
                     putExtra("prayer_key", prayerKey)
                     putExtra("alarm_id", id)
                     putExtra("is_silent", isSilent)
-                    putExtra("scheduled_time", timeInMillis) // ← للـ Stale Guard
+                    putExtra("scheduled_time", timeInMillis)
                 }
 
                 val alarmPendingIntent = PendingIntent.getBroadcast(
@@ -79,7 +74,7 @@ class BootReceiver : BroadcastReceiver() {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
 
-                // 2. Activity Intent for System Clock Icon
+                // Activity Intent for System Clock Icon
                 val activityIntent = Intent(context, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 }
@@ -90,7 +85,7 @@ class BootReceiver : BroadcastReceiver() {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
 
-                // ترقية جميع الإشعارات لـ AlarmClock لكسر قيود Doze Mode في شاومي
+                // setAlarmClock is the strongest guarantee that penetrates Doze + OEM restrictions
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                     val clockInfo = AlarmManager.AlarmClockInfo(timeInMillis, uiPendingIntent)
                     alarmManager.setAlarmClock(clockInfo, alarmPendingIntent)
@@ -98,55 +93,19 @@ class BootReceiver : BroadcastReceiver() {
                     alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
                 }
 
-                // ════════════════════════════════════════════════════════════════
-                // 3. جدولة منبه PreWarm استباقي قبل 3 دقائق
-                // ════════════════════════════════════════════════════════════════
-                val preWarmTime = timeInMillis - (3 * 60 * 1000L)
-                if (preWarmTime > currentTime) {
-                    val preWarmIntent = Intent(context, PreWarmReceiver::class.java).apply {
-                        putExtra("prayer_name", prayerName)
-                        putExtra("prayer_key", prayerKey)
-                        putExtra("alarm_id", id)
-                        putExtra("is_silent", isSilent)
-                        putExtra("scheduled_time", timeInMillis) // ← وقت الصلاة الفعلي
-                    }
-                    val preWarmPI = PendingIntent.getBroadcast(
-                        context,
-                        id + 10000,
-                        preWarmIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                        val preWarmClockInfo = AlarmManager.AlarmClockInfo(preWarmTime, uiPendingIntent)
-                        alarmManager.setAlarmClock(preWarmClockInfo, preWarmPI)
-                    } else {
-                        alarmManager.setExact(AlarmManager.RTC_WAKEUP, preWarmTime, preWarmPI)
-                    }
-                    android.util.Log.d("ZadBoot", ">>> PreWarm Rescheduled ID=${id + 10000}: $prayerName at $preWarmTime (3min early)")
-                }
+                android.util.Log.d("ZadBoot", ">>> Rescheduled athan alarm ID=$id for $prayerName")
 
             } else {
                 // Cleanup past alarms
                 android.util.Log.d("ZadBoot", "--- Cleaning up expired alarm ID=$id")
-                // إلغاء المنبه الاستباقي أيضاً عند التنظيف
-                try {
-                    val expiredPreWarmIntent = Intent(context, PreWarmReceiver::class.java)
-                    val expiredPreWarmPI = PendingIntent.getBroadcast(
-                        context,
-                        id + 10000,
-                        expiredPreWarmIntent,
-                        PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-                    )
-                    if (expiredPreWarmPI != null) alarmManager.cancel(expiredPreWarmPI)
-                } catch (e: Exception) {}
                 prefs.edit().remove(idStr).remove("${id}_data").commit()
             }
         }
 
-        // 3. Schedule Midnight Rollover Alarm
+        // Schedule Midnight Rollover Alarm
         MidnightReceiver.scheduleMidnightAlarm(context)
 
-        // 4. Force widget update to clear 00:00
+        // Force widget updates to reflect new schedule
         try {
             val widgetIntent = Intent(context, PrayerWidget::class.java).apply {
                 action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
@@ -155,9 +114,22 @@ class BootReceiver : BroadcastReceiver() {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
             }
             context.sendBroadcast(widgetIntent)
-            android.util.Log.i("ZadBoot", "--- Widget Update Broadcast Sent ---")
+            android.util.Log.i("ZadBoot", "--- PrayerWidget Update Broadcast Sent ---")
         } catch (e: Exception) {
-            android.util.Log.e("ZadBoot", "Failed to force widget update: ${e.message}")
+            android.util.Log.e("ZadBoot", "Failed to force PrayerWidget update: ${e.message}")
+        }
+
+        try {
+            val nextWidgetIntent = Intent(context, NextPrayerWidget::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                val ids = appWidgetManager.getAppWidgetIds(ComponentName(context, NextPrayerWidget::class.java))
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+            }
+            context.sendBroadcast(nextWidgetIntent)
+            android.util.Log.i("ZadBoot", "--- NextPrayerWidget Update Broadcast Sent ---")
+        } catch (e: Exception) {
+            android.util.Log.e("ZadBoot", "Failed to force NextPrayerWidget update: ${e.message}")
         }
 
         android.util.Log.i("ZadBoot", "!!! Athan Rescheduling Completed !!!")

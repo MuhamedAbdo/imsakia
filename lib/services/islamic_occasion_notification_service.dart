@@ -265,10 +265,7 @@ class IslamicOccasionNotificationService {
         Logger.debug('OccasionNotif [Native]: Cancelled ${idsToCancel.length} specific notifications.');
       } else {
         // حماية إضافية للرجوع للوراء في حالة الترقية من الإصدار القديم
-        Logger.debug('OccasionNotif [Native]: No active IDs tracked, falling back to range cancelling in background.');
-        await _channel.invokeMethod('cancelNativeNotificationsInRange', {'fromId': _baseOccasionId, 'toId': _baseOccasionId + _windowDays - 1});
-        await _channel.invokeMethod('cancelNativeNotificationsInRange', {'fromId': _baseFastingId, 'toId': _baseFastingId + _windowDays - 1});
-        await _channel.invokeMethod('cancelNativeNotificationsInRange', {'fromId': _baseCustomOccasionId, 'toId': _baseCustomOccasionId + (_windowDays * 100) - 1});
+        Logger.debug('OccasionNotif [Native]: No active IDs tracked. Skipping range cancelling to prevent OOM.');
       }
     } catch (e) {
       Logger.error('OccasionNotif _cancelAll error: $e');

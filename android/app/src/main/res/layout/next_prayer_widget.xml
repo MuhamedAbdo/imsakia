@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  next_prayer_widget.xml
+  1×1 compact widget: prayer name on top, countdown chronometer below.
+  Background uses the same bg_v2 drawable as the main PrayerWidget for visual consistency.
+  Font: sans-serif-medium for readability at small sizes.
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/next_prayer_widget_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg_small"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="6dp">
+
+    <TextView
+        android:id="@+id/next_prayer_name"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:maxLines="1"
+        android:text="--"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:fontFamily="sans-serif-medium" />
+
+    <Chronometer
+        android:id="@+id/next_prayer_countdown"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:maxLines="1"
+        android:countDown="true"
+        android:enabled="false"
+        android:format="%s"
+        android:textColor="#D4AF37"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:fontFamily="monospace" />
+
+</LinearLayout>

@@ -489,10 +489,10 @@ class MainActivity : AudioServiceActivity() {
     private fun scheduleExactAthan(timeInMillis: Long, id: Int, prayerName: String, prayerKey: String, isSilent: Boolean) {
         android.util.Log.d("ImsakiaNative", "!!! NATIVE: Received schedule request for $prayerName (ID: $id) at $timeInMillis !!!")
         try {
-            cancelAthan(id) // منع التداخل: مسح أي منبه قديم يحمل نفس المعرف
+            cancelAthan(id) // prevent overlap: cancel any existing alarm with the same id
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
 
-            // Log permission status
+            // Check exact alarm permission on Android 12+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val canSchedule = alarmManager.canScheduleExactAlarms()
                 android.util.Log.d("ImsakiaNative", "!!! NATIVE: canScheduleExactAlarms = $canSchedule !!!")
@@ -502,7 +502,7 @@ class MainActivity : AudioServiceActivity() {
                 }
             }
 
-            // Persist for Reboot
+            // Persist for Reboot recovery
             val prefs = getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
             prefs.edit()
                 .putLong(id.toString(), timeInMillis)
@@ -516,22 +516,22 @@ class MainActivity : AudioServiceActivity() {
             val delayMs = timeInMillis - now
             android.util.Log.e("AZAN_TRACE", "SCHEDULE REQUEST\nprayerName=$prayerName\nprayerKey=$prayerKey\nid=$id\ntimeInMillis=$timeInMillis\nnow=$now\ndelayMs=$delayMs\nisSilent=$isSilent")
 
-            // ── 1. Intent للـ BroadcastReceiver (الحدث الفعلي) ──────────────────────
-            // ✅ يحمل scheduled_time ليستخدمه AthanReceiver في Stale Guard
+            // ── 1. Broadcast intent for AthanReceiver (the actual alarm event)
+            // carries scheduled_time so AthanReceiver can apply the stale guard
             val broadcastIntent = Intent(this, AthanReceiver::class.java).apply {
                 action = "com.muhamed.imsakia.ATHAN_ALARM"
                 putExtra("prayer_name", prayerName)
                 putExtra("prayer_key", prayerKey)
                 putExtra("alarm_id", id)
                 putExtra("is_silent", isSilent)
-                putExtra("scheduled_time", timeInMillis) // ← للـ Stale Guard
+                putExtra("scheduled_time", timeInMillis)
             }
             val alarmPendingIntent = android.app.PendingIntent.getBroadcast(
                 this, id, broadcastIntent,
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
             )
 
-            // ── 2. Intent لواجهة النظام (فتح التطبيق عند النقر على أيقونة الساعة) ──
+            // ── 2. Activity intent for system clock icon (tap target in status bar)
             val activityIntent = Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             }
@@ -540,7 +540,7 @@ class MainActivity : AudioServiceActivity() {
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
             )
 
-            // ── 3. جدولة المنبه الأصلي بـ setAlarmClock لكسر Doze/MIUI ───────────────
+            // ── 3. setAlarmClock: the strongest guarantee — penetrates Doze and OEM restrictions
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 val clockInfo = android.app.AlarmManager.AlarmClockInfo(timeInMillis, uiPendingIntent)
                 alarmManager.setAlarmClock(clockInfo, alarmPendingIntent)
@@ -548,49 +548,7 @@ class MainActivity : AudioServiceActivity() {
                 alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, timeInMillis, alarmPendingIntent)
             }
             android.util.Log.e("AZAN_TRACE", "ALARM REGISTERED\nprayerName=$prayerName\nid=$id\ntriggerAt=$timeInMillis\nnow=${System.currentTimeMillis()}\ndelayMs=${timeInMillis - System.currentTimeMillis()}")
-            android.util.Log.d("ImsakiaNative", "!!! NATIVE: Main Athan Alarm Scheduled for $prayerName (ID: $id) at $timeInMillis !!!")
-
-            // ════════════════════════════════════════════════════════════════════
-            // ── 4. جدولة المنبه الاستباقي (PreWarm) قبل 1 دقيقة ─────────────────
-            // هدفه: إجبار MIUI على الاستيقاظ مبكراً، والانتظار بدقة حتى الثانية الصفر.
-            // ════════════════════════════════════════════════════════════════════
-            val preWarmTime = timeInMillis - (1 * 60 * 1000L) // قبل 1 دقيقة
-            if (preWarmTime > System.currentTimeMillis()) {
-                // ✅ يحمل scheduled_time (وقت الصلاة الفعلي) للانتظار الدقيق داخل PreWarmReceiver
-                val preWarmIntent = Intent(this, PreWarmReceiver::class.java).apply {
-                    action = "com.muhamed.imsakia.PREWARM_ALARM"
-                    putExtra("prayer_name", prayerName)
-                    putExtra("prayer_key", prayerKey)
-                    putExtra("alarm_id", id)
-                    putExtra("is_silent", isSilent)
-                    putExtra("scheduled_time", timeInMillis) // ← وقت الصلاة الفعلي (لا PreWarm)
-                }
-                // requestCode = id + 10000 لتمييزه عن المنبه الأصلي
-                val preWarmPI = android.app.PendingIntent.getBroadcast(
-                    this,
-                    id + 10000,
-                    preWarmIntent,
-                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-                )
-
-                val preWarmUiPendingIntent = android.app.PendingIntent.getActivity(
-                    this, id + 1500, activityIntent,
-                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-                )
-                // استخدام setAlarmClock للـ PreWarm أيضاً لكسر قيود MIUI
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    val preWarmClockInfo = android.app.AlarmManager.AlarmClockInfo(preWarmTime, preWarmUiPendingIntent)
-                    alarmManager.setAlarmClock(preWarmClockInfo, preWarmPI)
-                } else {
-                    alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, preWarmTime, preWarmPI)
-                }
-                android.util.Log.d(
-                    "ImsakiaNative",
-                    "!!! NATIVE: PreWarm Alarm Scheduled for $prayerName (ID: ${id + 10000}) at $preWarmTime (1min early) !!!"
-                )
-            } else {
-                android.util.Log.d("ImsakiaNative", "--- PreWarm skipped: less than 1 min until prayer $prayerName ---")
-            }
+            android.util.Log.d("ImsakiaNative", "!!! NATIVE: Athan Alarm Scheduled for $prayerName (ID: $id) at $timeInMillis !!!")
 
         } catch (e: Exception) {
             android.util.Log.e("ImsakiaNative", "scheduleExactAthan error: ${e.message}")
@@ -601,7 +559,7 @@ class MainActivity : AudioServiceActivity() {
         try {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
 
-            // إلغاء المنبه الأصلي
+            // Cancel the main alarm
             val intent = Intent(this, AthanReceiver::class.java).apply {
                 action = "com.muhamed.imsakia.ATHAN_ALARM"
             }
@@ -611,23 +569,11 @@ class MainActivity : AudioServiceActivity() {
             )
             alarmManager.cancel(pIntent)
 
-            // ✅ إلغاء المنبه الاستباقي (PreWarm) المرتبط بنفس الصلاة
-            val preWarmIntent = Intent(this, PreWarmReceiver::class.java).apply {
-                action = "com.muhamed.imsakia.PREWARM_ALARM"
-            }
-            val preWarmPIntent = android.app.PendingIntent.getBroadcast(
-                this,
-                id + 10000, // نفس الـ requestCode المستخدم في الجدولة
-                preWarmIntent,
-                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-            )
-            alarmManager.cancel(preWarmPIntent)
-
             // Remove from prefs
             val prefs = getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
             prefs.edit().remove(id.toString()).remove("${id}_data").commit()
 
-            android.util.Log.d("ImsakiaNative", "--- cancelAthan: Cancelled main + PreWarm alarms for ID=$id ---")
+            android.util.Log.d("ImsakiaNative", "--- cancelAthan: Cancelled alarm for ID=$id ---")
         } catch (e: Exception) {
             android.util.Log.e("ImsakiaNative", "cancelAthan error for ID=$id: ${e.message}")
         }
@@ -648,16 +594,6 @@ class MainActivity : AudioServiceActivity() {
                     android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
                 )
                 alarmManager.cancel(pIntent)
-                
-                // 2. Cancel PreWarm Alarm
-                val preWarmIntent = Intent(this, PreWarmReceiver::class.java).apply {
-                    action = "com.muhamed.imsakia.PREWARM_ALARM"
-                }
-                val preWarmPIntent = android.app.PendingIntent.getBroadcast(
-                    this, id + 10000, preWarmIntent,
-                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-                )
-                alarmManager.cancel(preWarmPIntent)
             }
             prefs.edit().clear().commit()
         } catch (e: Exception) {

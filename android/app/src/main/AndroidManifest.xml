@@ -84,17 +84,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- PreWarmReceiver: يستيقظ قبل 3 دقائق لكسر غفوة MIUI وحماية دقة الأذان -->
-        <receiver
-            android:name=".PreWarmReceiver"
-            android:exported="true"
-            android:enabled="true"
-            android:directBootAware="true">
-            <intent-filter>
-                <action android:name="com.muhamed.imsakia.PREWARM_ALARM" />
-            </intent-filter>
-        </receiver>
-
         <!-- NotificationReceiver: يستقبل منبهات الإشعارات النصية (الأذكار + المناسبات) -->
         <receiver
             android:name=".NotificationReceiver"
@@ -119,6 +108,17 @@
             android:directBootAware="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Time Change Receiver -->
+        <receiver
+            android:name=".TimeChangeReceiver"
+            android:exported="true"
+            android:enabled="true"
+            android:directBootAware="true">
+            <intent-filter>
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
             </intent-filter>
@@ -146,6 +146,16 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/prayer_widget_info" />
+        </receiver>
+
+        <!-- Next Prayer Widget -->
+        <receiver android:name=".NextPrayerWidget" android:exported="true" android:label="زاد - الصلاة القادمة">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/next_prayer_widget_info" />
         </receiver>
 
         <!-- Call Recovery Receiver -->

@@ -220,14 +220,8 @@ class AthanService : Service() {
         android.util.Log.d("ImsakiaNative", "AZAN_TRACE: NOTIFICATION POSTED = ${System.currentTimeMillis()}")
         startForeground(SERVICE_NOTIFICATION_ID, notification)
         android.util.Log.e("AZAN_TRACE", "NOTIFICATION POSTED")
-
-        if (isAthanEnabled) {
-            // 🔥 محاولة فتح الأكتيفيتي قسرياً فقط في حالة تفعيل الأذان
-            try {
-                startActivity(mainIntent)
-            } catch (e: Exception) {
-            }
-        }
+        // fullScreenIntent on the notification handles showing the UI over the lock screen.
+        // startActivity() from a background service is unreliable and risks ANR — removed.
     }
 
     private fun playAthanAudioWithRetry(prayerKey: String) {
