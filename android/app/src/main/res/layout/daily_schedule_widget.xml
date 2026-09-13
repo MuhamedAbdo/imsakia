@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/daily_schedule_widget_layout"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/widget_bg"
+    android:gravity="center"
+    android:layoutDirection="rtl"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Header -->
+    <TextView
+        android:id="@+id/daily_schedule_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="مواقيت الصلاة اليوم"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:fontFamily="sans-serif-medium"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Content (Horizontal list of prayers) -->
+    <LinearLayout
+        android:id="@+id/widget_content"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:baselineAligned="false"
+        android:orientation="horizontal">
+
+        <!-- Prayer 1 -->
+        <LinearLayout
+            android:id="@+id/prayer1_layout"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:background="@drawable/widget_bg_small">
+            <TextView
+                android:id="@+id/prayer1_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="الفجر"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/prayer1_time"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="--"
+                android:textColor="#D4AF37"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Prayer 2 -->
+        <LinearLayout
+            android:id="@+id/prayer2_layout"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="2dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:background="@drawable/widget_bg_small">
+            <TextView
+                android:id="@+id/prayer2_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="الشروق"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/prayer2_time"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="--"
+                android:textColor="#D4AF37"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Prayer 3 -->
+        <LinearLayout
+            android:id="@+id/prayer3_layout"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="2dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:background="@drawable/widget_bg_small">
+            <TextView
+                android:id="@+id/prayer3_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="الظهر"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/prayer3_time"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="--"
+                android:textColor="#D4AF37"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Prayer 4 -->
+        <LinearLayout
+            android:id="@+id/prayer4_layout"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="2dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:background="@drawable/widget_bg_small">
+            <TextView
+                android:id="@+id/prayer4_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="العصر"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/prayer4_time"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="--"
+                android:textColor="#D4AF37"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Prayer 5 -->
+        <LinearLayout
+            android:id="@+id/prayer5_layout"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="2dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:background="@drawable/widget_bg_small">
+            <TextView
+                android:id="@+id/prayer5_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="المغرب"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/prayer5_time"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="--"
+                android:textColor="#D4AF37"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Prayer 6 -->
+        <LinearLayout
+            android:id="@+id/prayer6_layout"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="2dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:background="@drawable/widget_bg_small">
+            <TextView
+                android:id="@+id/prayer6_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="العشاء"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/prayer6_time"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="--"
+                android:textColor="#D4AF37"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+    </LinearLayout>
+</LinearLayout>

@@ -41,6 +41,10 @@
         android:textColor="#D4AF37"
         android:textSize="14sp"
         android:textStyle="bold"
-        android:fontFamily="monospace" />
+        android:fontFamily="monospace"
+        android:autoSizeTextType="uniform"
+        android:autoSizeMinTextSize="8sp"
+        android:autoSizeMaxTextSize="14sp"
+        android:autoSizeStepGranularity="1sp" />
 
 </LinearLayout>

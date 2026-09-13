@@ -158,6 +158,16 @@
                 android:resource="@xml/next_prayer_widget_info" />
         </receiver>
 
+        <!-- Daily Schedule Widget -->
+        <receiver android:name=".DailyScheduleWidget" android:exported="true" android:label="زاد - الجدول اليومي">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/daily_schedule_widget_info" />
+        </receiver>
+
         <!-- Call Recovery Receiver -->
         <receiver android:name=".PhoneStateReceiver" android:exported="true">
             <intent-filter>

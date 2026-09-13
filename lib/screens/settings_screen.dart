@@ -386,6 +386,10 @@ class _SettingsScreenState extends State<SettingsScreen>
           'التوقيت الصيفي (+1 ساعة)',
           style: GoogleFonts.tajawal(fontSize: 15),
         ),
+        subtitle: Text(
+          'ملاحظة: فعّل هذا الخيار فقط إذا كانت مواقيت الصلاة متأخرة بساعة في هاتفك. الهواتف الحديثة تضبط الوقت تلقائياً ولا تحتاج لتفعيله.',
+          style: GoogleFonts.tajawal(fontSize: 12, color: Colors.grey),
+        ),
         value: settings.dstEnabled,
         activeThumbColor: Colors.green,
         onChanged: (val) {

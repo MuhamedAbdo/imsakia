@@ -90,6 +90,13 @@ class PrayerWidget : AppWidgetProvider() {
                 val localPast = findLastPrayerByName(context, manualPastName)
                 if (localPast != null) {
                     views.setTextViewText(R.id.past_prayer_display, localPast["display"] as String)
+                } else {
+                    val currentPastDisplay = widgetData.getString("flutter.last_prayer_display", "") ?: ""
+                    if (currentPastDisplay.startsWith(manualPastName)) {
+                        views.setTextViewText(R.id.past_prayer_display, currentPastDisplay)
+                    } else {
+                        views.setTextViewText(R.id.past_prayer_display, manualPastName)
+                    }
                 }
             }
         }
@@ -170,6 +177,14 @@ class PrayerWidget : AppWidgetProvider() {
                 val pastDisplayLocal = localPast["display"] as String
                 views.setTextViewText(R.id.past_prayer_display, pastDisplayLocal)
                 widgetData.edit().putString("flutter.last_prayer_display", pastDisplayLocal).apply()
+            } else {
+                val currentPastDisplay = widgetData.getString("flutter.last_prayer_display", "") ?: ""
+                if (currentPastDisplay.startsWith(manualPastName)) {
+                    views.setTextViewText(R.id.past_prayer_display, currentPastDisplay)
+                } else {
+                    views.setTextViewText(R.id.past_prayer_display, manualPastName)
+                    widgetData.edit().putString("flutter.last_prayer_display", manualPastName).apply()
+                }
             }
 
             // Sync back to prevent repeated searching
@@ -257,7 +272,7 @@ class PrayerWidget : AppWidgetProvider() {
         return when (nextName) {
             "الفجر" -> "العشاء"
             "الشروق" -> "الفجر"
-            "الظهر" -> "الشروق"
+            "الظهر" -> "الفجر"
             "العصر" -> "الظهر"
             "المغرب" -> "العصر"
             "العشاء" -> "المغرب"

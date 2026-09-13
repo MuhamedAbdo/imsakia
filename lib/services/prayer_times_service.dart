@@ -276,10 +276,23 @@ class PrayerTimesService {
         eventTypeName,
       );
 
+      // حفظ أوقات الصلوات الستة للويدجت الخاص بالجدول اليومي
+      final times = _currentPrayerTimes ?? {};
+      await HomeWidget.saveWidgetData<String>('flutter.fajr_time', _formatTimeTo12h(times['fajr']));
+      await HomeWidget.saveWidgetData<String>('flutter.sunrise_time', _formatTimeTo12h(times['sunrise']));
+      await HomeWidget.saveWidgetData<String>('flutter.dhuhr_time', _formatTimeTo12h(times['dhuhr']));
+      await HomeWidget.saveWidgetData<String>('flutter.asr_time', _formatTimeTo12h(times['asr']));
+      await HomeWidget.saveWidgetData<String>('flutter.maghrib_time', _formatTimeTo12h(times['maghrib']));
+      await HomeWidget.saveWidgetData<String>('flutter.isha_time', _formatTimeTo12h(times['isha']));
+
       // طلب تحديث الويدجت من جانب الأندرويد
       await HomeWidget.updateWidget(
         name: 'PrayerWidget',
         androidName: 'PrayerWidget',
+      );
+      await HomeWidget.updateWidget(
+        name: 'DailyScheduleWidget',
+        androidName: 'DailyScheduleWidget',
       );
 
       Logger.info(
