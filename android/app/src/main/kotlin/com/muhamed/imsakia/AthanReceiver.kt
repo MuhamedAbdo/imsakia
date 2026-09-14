@@ -8,6 +8,9 @@ import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class AthanReceiver : BroadcastReceiver() {
 
@@ -18,6 +21,19 @@ class AthanReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.Default).launch {
+            try {
+                handleAlarmAsync(context, intent)
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Error handling athan alarm", e)
+            } finally {
+                pendingResult.finish()
+            }
+        }
+    }
+
+    private fun handleAlarmAsync(context: Context, intent: Intent) {
         val now = System.currentTimeMillis()
         val scheduledTime = intent.getLongExtra("scheduled_time", 0L)
         val delayMs = now - scheduledTime

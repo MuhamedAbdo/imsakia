@@ -264,6 +264,7 @@ class AthanService : Service() {
         var success = false
 
         fun applySettings(mp: MediaPlayer) {
+            mp.setWakeMode(applicationContext, PowerManager.PARTIAL_WAKE_LOCK)
             mp.setAudioAttributes(audioAttributes)
             mp.isLooping = false
             mp.setVolume(1.0f, 1.0f)

@@ -320,7 +320,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       } else {
         debugPrint("!!! SELF-HEALING: App resumed — skipping reschedule (throttled, last: $_lastRescheduledAt) !!!");
         // Still update the widget display even if not fully rescheduling
-        PrayerTimesService.instance.updateWidgetData();
+        // FORCE REDRAW WIDGET TO FIX NEGATIVE COUNTDOWN
+        PrayerTimesService.instance.updateWidgetData(force: true);
       }
     }
   }
