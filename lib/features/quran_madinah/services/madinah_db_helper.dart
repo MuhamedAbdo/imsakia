@@ -131,17 +131,28 @@ class DbHelper {
     return maps;
   }
 
-  /// Search ayahs using the Emlaey string (without diacritics)
+  /// Search ayahs using the Emlaey string, dynamically normalized via SQLite REPLACE.
+  /// Note: The [query] parameter MUST already be normalized by the caller.
   static Future<List<Aya>> searchAyahs(String query) async {
     await populateDatabaseIfEmpty();
     final db = await database;
 
-    // Using LIKE to find substrings
+    // We chain REPLACE to normalize the DB column at query-time:
+    // أ, إ, آ -> ا
+    // ة -> ه
+    // ي -> ى
+    // This ensures 100% match accuracy against the normalized user query.
+    const normalizedColumn = '''
+      REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+        aya_text_emlaey, 
+      'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا'), 'ة', 'ه'), 'ي', 'ى')
+    ''';
+
     final List<Map<String, dynamic>> maps = await db.query(
       _tableName,
-      where: 'aya_text_emlaey LIKE ?',
+      where: '$normalizedColumn LIKE ?',
       whereArgs: ['%$query%'],
-      limit: 100, // Reasonable cap
+      limit: 100,
     );
 
     return List.generate(maps.length, (i) {

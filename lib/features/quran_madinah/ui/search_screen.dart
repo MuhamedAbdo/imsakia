@@ -16,14 +16,40 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<Aya> _searchResults = [];
+  List<Map<String, dynamic>> _surahSearchResults = [];
   List<List<ParsedSpanData>> _parsedSearchResults = [];
   bool _isSearching = false;
   String? _errorMessage;
 
+  final Map<String, String> _surahAliases = {
+    'ياسين': 'يس',
+    'طاهه': 'طه',
+    'طاها': 'طه',
+    'عمه': 'النبأ',
+    'عم': 'النبأ',
+    'تبارك': 'الملك',
+    'القتال': 'محمد',
+    'بني اسرائيل': 'الإسراء',
+  };
+
+  String _normalizeArabicText(String text) {
+    // Remove Tashkeel
+    final tashkeelRegex = RegExp(r'[\u0617-\u061A\u064B-\u0652]');
+    String normalized = text.replaceAll(tashkeelRegex, '');
+    // Normalize Alefs, Taa Marbutah, and Yaa
+    normalized = normalized
+        .replaceAll(RegExp(r'[أإآ]'), 'ا')
+        .replaceAll('ة', 'ه')
+        .replaceAll('ي', 'ى');
+    return normalized;
+  }
+
   void _performSearch(String query) async {
-    if (query.trim().isEmpty) {
+    final rawQuery = query.trim();
+    if (rawQuery.isEmpty) {
       setState(() {
         _searchResults = [];
+        _surahSearchResults = [];
         _isSearching = false;
         _errorMessage = null;
       });
@@ -36,7 +62,31 @@ class _SearchScreenState extends State<SearchScreen> {
     });
 
     try {
-      final results = await DbHelper.searchAyahs(query.trim());
+      // Normalize user query
+      String normalizedQuery = _normalizeArabicText(rawQuery);
+      // Check aliases
+      for (final alias in _surahAliases.keys) {
+        if (normalizedQuery.contains(_normalizeArabicText(alias))) {
+          normalizedQuery = normalizedQuery.replaceAll(
+              _normalizeArabicText(alias), 
+              _normalizeArabicText(_surahAliases[alias]!)
+          );
+        }
+      }
+
+      // We run both searches in parallel
+      final ayahsFuture = DbHelper.searchAyahs(normalizedQuery);
+      final allSurahsFuture = DbHelper.getAllSurahs();
+
+      final futuresResults = await Future.wait([ayahsFuture, allSurahsFuture]);
+      final results = futuresResults[0] as List<Aya>;
+      final allSurahs = futuresResults[1] as List<Map<String, dynamic>>;
+
+      // Filter Surahs in Dart
+      final matchedSurahs = allSurahs.where((s) {
+        final name = s['sura_name_ar'].toString();
+        return _normalizeArabicText(name).contains(normalizedQuery);
+      }).toList();
 
       // Pre-parse the results so the main thread doesn't jank on scroll
       final parsed = results
@@ -44,7 +94,7 @@ class _SearchScreenState extends State<SearchScreen> {
             (aya) => QuranUtils.parseVerse(
               aya.ayaText,
               aya.ayaTextEmlaey,
-              query.trim(),
+              rawQuery,
             ),
           )
           .toList();
@@ -52,6 +102,7 @@ class _SearchScreenState extends State<SearchScreen> {
       if (mounted) {
         setState(() {
           _searchResults = results;
+          _surahSearchResults = matchedSurahs;
           _parsedSearchResults = parsed;
           _isSearching = false;
         });
@@ -144,18 +195,77 @@ class _SearchScreenState extends State<SearchScreen> {
       );
     }
 
-    if (_searchController.text.isNotEmpty && _searchResults.isEmpty) {
+    if (_searchController.text.isNotEmpty && _searchResults.isEmpty && _surahSearchResults.isEmpty) {
       return const Center(
         child: Text("لا توجد نتائج", style: TextStyle(fontSize: 18)),
       );
     }
 
+    final int totalCount = _surahSearchResults.length + _searchResults.length;
+
     return ListView.separated(
-      itemCount: _searchResults.length,
+      itemCount: totalCount,
       separatorBuilder: (context, index) => const Divider(),
       itemBuilder: (context, index) {
-        final aya = _searchResults[index];
         final isDark = Theme.of(context).brightness == Brightness.dark;
+
+        // Render Surahs first
+        if (index < _surahSearchResults.length) {
+          final surah = _surahSearchResults[index];
+          return ListTile(
+            onTap: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => MushafScreen(
+                    initialPage: surah['start_page'] as int,
+                    searchQuery: '',
+                  ),
+                ),
+              );
+              if (mounted) {
+                SystemChrome.setPreferredOrientations([
+                  DeviceOrientation.portraitUp,
+                ]);
+              }
+            },
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(50),
+              child: Text(
+                surah['sura_no'].toString(),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            title: Directionality(
+              textDirection: TextDirection.rtl,
+              child: Text(
+                "سورة ${surah['sura_name_ar']}",
+                style: TextStyle(
+                  fontFamily: 'HafsSmart',
+                  fontSize: 22,
+                  color: isDark ? Colors.white : Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            subtitle: Directionality(
+              textDirection: TextDirection.rtl,
+              child: Text(
+                "${surah['ayah_count']} آية",
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+              ),
+            ),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          );
+        }
+
+        // Render Ayahs
+        final ayahIndex = index - _surahSearchResults.length;
+        final aya = _searchResults[ayahIndex];
 
         return ListTile(
           onTap: () => _navigateToPage(aya),
@@ -169,7 +279,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   color: isDark ? Colors.white : Colors.black,
                 ),
                 children: QuranUtils.buildSpansFromParsed(
-                  _parsedSearchResults[index],
+                  _parsedSearchResults[ayahIndex],
                   context,
                   20,
                 ),
