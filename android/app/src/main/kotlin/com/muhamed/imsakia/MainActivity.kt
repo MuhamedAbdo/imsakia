@@ -80,6 +80,13 @@ class MainActivity : AudioServiceActivity() {
         // Schedule Midnight Rollover Alarm
         MidnightReceiver.scheduleMidnightAlarm(this)
 
+        // 🛡️ Start SwipeDismissGuardService — stays alive to catch Swipe-to-Dismiss
+        try {
+            startService(Intent(this, SwipeDismissGuardService::class.java))
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to start SwipeDismissGuardService: ${e.message}")
+        }
+
         // Track state for Smart Exit
         val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         wasLockedOnStart = keyguardManager.isKeyguardLocked

@@ -26,7 +26,7 @@
 
     <application
         android:label="زاد"
-        android:name="${applicationName}"
+        android:name=".MainApplication"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
         android:allowBackup="true">
@@ -101,6 +101,16 @@
             android:foregroundServiceType="mediaPlayback"
             android:stopWithTask="false" />
 
+        <!-- 🛡️ SwipeDismissGuardService: Sticky background watchdog.
+             Catches onTaskRemoved() the moment the user swipes the app away,
+             then re-registers all future alarms via AlarmRescheduler.
+             stopWithTask=false keeps it alive even after Swipe-to-Dismiss. -->
+        <service
+            android:name=".SwipeDismissGuardService"
+            android:enabled="true"
+            android:exported="false"
+            android:stopWithTask="false" />
+
         <receiver
             android:name=".BootReceiver"
             android:exported="true"
@@ -109,6 +119,18 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 🔑 ExactAlarmPermissionReceiver: Re-registers alarms when the user
+             grants or revokes SCHEDULE_EXACT_ALARM on Android 12+.
+             Ensures alarms always use the highest precision allowed. -->
+        <receiver
+            android:name=".ExactAlarmPermissionReceiver"
+            android:exported="false"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
 
