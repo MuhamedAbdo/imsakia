@@ -88,12 +88,11 @@ class PrayerTimesService {
     params.madhab = madhab == 'hanafi' ? Madhab.hanafi : Madhab.shafi;
     final prayerTimes = PrayerTimes(coordinates, date, params);
 
-    // ⏰ قراءة حالة التوقيت الصيفي وتطبيقه يدوياً على الأوقات المحسوبة
-    final bool isDst =
-        _sharedPreferences!.getBool(AppConstants.dstKey) ??
-        AppConstants.defaultDST;
-    final Duration dstOffset =
-        isDst ? const Duration(hours: 1) : Duration.zero;
+    // ⏰ BUG #1 FIX: مصدر حقيقة واحد للـ DST
+    // adhan_dart يحسب الأوقات بناءً على UTC ثم يُحوِّلها للتوقيت المحلي عبر DateTime.now().
+    // إذا كان النظام يُطبِّق DST تلقائياً (offset يتغير بين الشتاء والصيف)، فلا نُضيف شيئاً.
+    // نُضيف الـ offset اليدوي فقط عندما لا يُطبِّق النظام DST (مناطق UTC ثابتة كـ UTC+3).
+    final Duration dstOffset = _computeDstOffset();
 
     final Map<String, DateTime> times = {
       'fajr': prayerTimes.fajr.add(dstOffset),
@@ -333,12 +332,8 @@ class PrayerTimesService {
       CalculationParameters params = _getParams(calculationMethod);
       params.madhab = madhab == 'hanafi' ? Madhab.hanafi : Madhab.shafi;
 
-      // ⏰ قراءة حالة التوقيت الصيفي وتطبيقه يدوياً على أوقات الجدولة
-      final bool isDst =
-          _sharedPreferences!.getBool(AppConstants.dstKey) ??
-          AppConstants.defaultDST;
-      final Duration dstOffset =
-          isDst ? const Duration(hours: 1) : Duration.zero;
+      // ⏰ BUG #1 FIX: مصدر حقيقة واحد — نفس منطق getCurrentPrayerTimes
+      final Duration dstOffset = _computeDstOffset();
 
       // --- Schedule for next 14 days to prevent widget stopping in background ---
       for (int dayOffset = 0; dayOffset <= 14; dayOffset++) {
@@ -389,6 +384,44 @@ class PrayerTimesService {
       updateWidgetData(force: true);
       // 🗓️ جدولة إشعارات المناسبات الإسلامية (مستقلة عن الأذان)
       IslamicOccasionNotificationService.instance.scheduleOccasionNotifications();
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // BUG #1 FIX: مصدر حقيقة واحد للـ DST
+  //
+  // المنطق:
+  //   • adhan_dart تحسب بالتوقيت المحلي للجهاز (DateTime.now())
+  //   • إذا كانت المنطقة الزمنية للجهاز تطبّق DST أوتوماتيكياً → لا تفعل شيئاً
+  //   • إذا كانت المنطقة ثابتة (UTC+3 مثلاً) والمستخدم فعّل DST يدوياً → أضفه
+  //
+  // كيف يعمل الفحص:
+  //   نقارن offset الجهاز بين يناير (شتاء) ويونيو (صيف).
+  //   إذا كانا متساويين → الجهاز في منطقة DST ويطبّقه أوتوماتيكياً.
+  //   إذا اختلفا → الجهاز في منطقة ثابتة والمستخدم تحكّم يدوياً → طبّق الإعداد.
+  // ════════════════════════════════════════════════════════════════════
+  Duration _computeDstOffset() {
+    _sharedPreferences;
+    final bool isDstEnabled =
+        _sharedPreferences?.getBool(AppConstants.dstKey) ??
+        AppConstants.defaultDST;
+
+    if (!isDstEnabled) return Duration.zero;
+
+    // فحص: هل الجهاز نفسه في منطقة تتبدّل DST أوتوماتيكياً؟
+    // نقارن الـ UTC offset في يناير (شتاء) مقابل يونيو (صيف)
+    final winterOffset = DateTime(DateTime.now().year, 1, 15).timeZoneOffset;
+    final summerOffset = DateTime(DateTime.now().year, 6, 15).timeZoneOffset;
+    final systemAppliesDst = winterOffset != summerOffset;
+
+    if (systemAppliesDst) {
+      // الجهاز يتحكّم في DST بنفسه — لا تُضف شيئاً (BUG #1 FIX)
+      Logger.info('[DST] System timezone handles DST automatically — skipping manual offset.');
+      return Duration.zero;
+    } else {
+      // الجهاز في منطقة ثابتة والمستخدم فعّل التصحيح يدوياً — طبّقه
+      Logger.info('[DST] Fixed timezone — applying manual +1h offset as configured.');
+      return const Duration(hours: 1);
     }
   }
 

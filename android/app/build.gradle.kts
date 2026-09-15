@@ -65,9 +65,15 @@ android {
         release {
             // ربط التوقيع الرسمي
             signingConfig = signingConfigs.getByName("release")
-            
-            isMinifyEnabled = false
-            isShrinkResources = false
+
+            // ✅ تفعيل R8 مع قواعد الحماية الشاملة
+            // proguard-rules.pro يحمي كل الـ Receivers/Services/Widgets من الـ Obfuscation
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }

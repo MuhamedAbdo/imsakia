@@ -22,17 +22,41 @@ class AthanService : Service() {
     private var mediaPlayer: MediaPlayer? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var focusRequest: android.media.AudioFocusRequest? = null
+    // BUG #6 FIX: منع بث ATHAN_COMPLETED مرتين (setOnCompletionListener + onDestroy)
+    private var completionBroadcastSent = false
 
+    // ════════════════════════════════════════════════════════════════════
+    // BUG #5 FIX: إدارة ذكية للـ Audio Focus
+    // الأذان هو الأولى بالمطلق — لا يتوقف إلا بطلب صريح:
+    // • LOSS_TRANSIENT_CAN_DUCK → خفّض الصوت مؤقتاً فقط (لا توقف!)
+    // • LOSS_TRANSIENT       → توقف مؤقت ثم استأنف عند استعادة الفوكس
+    // • AUDIOFOCUS_LOSS      → إيقاف كامل (الحالة الوحيدة التي توقف الأذان)
+    // ════════════════════════════════════════════════════════════════════
     private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         when (focusChange) {
-            AudioManager.AUDIOFOCUS_LOSS,
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                android.util.Log.d("ImsakiaNative", "!!! SERVICE: Audio Focus Lost ($focusChange), stopping Athan !!!")
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                // خسارة دائمة: إيقاف كامل للأذان
+                android.util.Log.w("ImsakiaNative", "!!! SERVICE: AUDIOFOCUS_LOSS (permanent) — stopping Athan !!!")
                 val stopIntent = Intent(this, AthanService::class.java).apply {
                     action = ACTION_STOP_ATHAN
                 }
                 startService(stopIntent)
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                // خسارة مؤقتة: توقف مؤقت (pause) — لا نكسر الجلسة
+                android.util.Log.d("ImsakiaNative", "!!! SERVICE: AUDIOFOCUS_LOSS_TRANSIENT — pausing temporarily !!!")
+                mediaPlayer?.let { if (it.isPlaying) it.pause() }
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                // خفّض الصوت فقط — لا توقف الأذان أبداً!
+                android.util.Log.d("ImsakiaNative", "!!! SERVICE: AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK — ducking volume !!!")
+                mediaPlayer?.setVolume(0.5f, 0.5f)
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                // استعدنا الفوكس: أعد الصوت الكامل واستأنف إن كان متوقفاً
+                android.util.Log.d("ImsakiaNative", "!!! SERVICE: AUDIOFOCUS_GAIN — restoring volume and resuming !!!")
+                mediaPlayer?.setVolume(1.0f, 1.0f)
+                mediaPlayer?.let { if (!it.isPlaying) it.start() }
             }
         }
     }
@@ -323,22 +347,27 @@ class AthanService : Service() {
 
         if (success) {
             mediaPlayer?.setOnCompletionListener {
-                val nativePrefs = getSharedPreferences("athan_native_prefs", Context.MODE_PRIVATE)
-                nativePrefs.edit().putBoolean("should_exit_to_background", true).apply()
+                // BUG #6 FIX: تأمين بث ATHAN_COMPLETED مرة واحدة فقط
+                if (!completionBroadcastSent) {
+                    completionBroadcastSent = true
 
-                try {
-                    val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        focusRequest?.let { am.abandonAudioFocusRequest(it) }
-                    } else {
-                        @Suppress("DEPRECATION")
-                        am.abandonAudioFocus(audioFocusChangeListener)
-                    }
-                } catch (e: Exception) {}
-                
-                sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
-                stopForeground(STOP_FOREGROUND_DETACH)
-                stopSelf()
+                    val nativePrefs = getSharedPreferences("athan_native_prefs", Context.MODE_PRIVATE)
+                    nativePrefs.edit().putBoolean("should_exit_to_background", true).apply()
+
+                    try {
+                        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            focusRequest?.let { am.abandonAudioFocusRequest(it) }
+                        } else {
+                            @Suppress("DEPRECATION")
+                            am.abandonAudioFocus(audioFocusChangeListener)
+                        }
+                    } catch (e: Exception) {}
+
+                    sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
+                    stopForeground(STOP_FOREGROUND_DETACH)
+                    stopSelf()
+                }
             }
 
             mediaPlayer?.setOnErrorListener { _, _, _ -> 
@@ -358,8 +387,13 @@ class AthanService : Service() {
     }
 
     override fun onDestroy() {
+        // BUG #4 FIX: إزالة WakeLock من MediaPlayer قبل release لمنع تسريبها
         mediaPlayer?.let {
             if (it.isPlaying) it.stop()
+            try {
+                // صفّر WakeMode أولاً لتحرير الـ WakeLock الداخلي لـ MediaPlayer
+                it.setWakeMode(applicationContext, 0)
+            } catch (_: Exception) {}
             it.release()
         }
         mediaPlayer = null
@@ -376,9 +410,16 @@ class AthanService : Service() {
             android.util.Log.e("ImsakiaNative", "Error abandoning audio focus: ${e.message}")
         }
         
-        wakeLock?.release()
+        // BUG #4 FIX: تحقق من isHeld قبل release لمنع IllegalArgumentException
+        wakeLock?.let { if (it.isHeld) it.release() }
         stopForeground(STOP_FOREGROUND_DETACH)
-        sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
+
+        // BUG #6 FIX: بث ATHAN_COMPLETED مرة واحدة فقط
+        if (!completionBroadcastSent) {
+            completionBroadcastSent = true
+            sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
+        }
+
         super.onDestroy()
     }
 

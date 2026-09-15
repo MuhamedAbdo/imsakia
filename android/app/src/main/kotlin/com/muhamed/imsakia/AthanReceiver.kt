@@ -11,6 +11,9 @@ import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class AthanReceiver : BroadcastReceiver() {
 
@@ -65,12 +68,18 @@ class AthanReceiver : BroadcastReceiver() {
         val isSilent = intent.getBooleanExtra("is_silent", false)
 
         // ════════════════════════════════════════════════════════════════════
-        // 1. إزالة هذه الصلاة من athan_schedules فوراً بعد انطلاقها
+        // 1. إزالة هذه الصلاة من athan_schedules فوراً بعد انطلاقها (BUG #3 FIX)
+        // نحذف المنبه المُطلَق فوراً + أي منبه منتهٍ، بدلاً من انتظار 30 دقيقة.
         // بدون هذا، يقرأ الويدجت الـ timestamp المنتهي ويعرض عداداً سالباً.
         // ════════════════════════════════════════════════════════════════════
-        if (alarmId >= 0) {
-            cleanupExpiredAlarm(context, alarmId)
-        }
+        cleanupExpiredAlarms(context, firedAlarmId = alarmId)
+
+        // ════════════════════════════════════════════════════════════════════
+        // 1b. BUG #8 FIX: تحديث HomeWidgetPreferences مباشرة من الـ Native
+        // يقطع الاعتماد على Flutter لتحديث الـ timestamp في الخلفية.
+        // الـ home_widget plugin يقرأ من "HomeWidgetPreferences" — نكتب إليه مباشرة.
+        // ════════════════════════════════════════════════════════════════════
+        updateHomeWidgetTimestampFromNative(context)
 
         // ════════════════════════════════════════════════════════════════════
         // 2. إلغاء إشعار الأذان القديم (السابق)
@@ -135,25 +144,92 @@ class AthanReceiver : BroadcastReceiver() {
         } catch (e: Exception) { e.printStackTrace() }
     }
 
-    private fun cleanupExpiredAlarm(context: Context, alarmId: Int) {
+    // ════════════════════════════════════════════════════════════════════
+    // BUG #3 FIX: حذف المنبه المُطلَق فوراً + كل المنبهات المنتهية.
+    // السلوك القديم كان يحتفظ بالمنبه لـ 30 دقيقة — نافذة للعد السالب.
+    // ════════════════════════════════════════════════════════════════════
+    private fun cleanupExpiredAlarms(context: Context, firedAlarmId: Int) {
         try {
             val schedulePrefs = context.getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
             val now = System.currentTimeMillis()
-
-            // Keep only alarms from the last 30 minutes
             val editor = schedulePrefs.edit()
-            for (entry in schedulePrefs.all) {
+
+            // 1. احذف المنبه المُطلَق فوراً (بصرف النظر عن وقته)
+            if (firedAlarmId >= 0) {
+                editor.remove(firedAlarmId.toString()).remove("${firedAlarmId}_data")
+                android.util.Log.d(TAG, "✅ Fired alarm ID=$firedAlarmId removed immediately")
+            }
+
+            // 2. احذف أي منبه منتهٍ آخر
+            for (entry in schedulePrefs.all.toMap()) {
                 if (entry.key.endsWith("_data")) continue
-                val timestamp = entry.value as? Long ?: continue
-                if (timestamp < now - (30 * 60 * 1000L)) {
+                val id = entry.key.toIntOrNull() ?: continue
+                if (id == firedAlarmId) continue // تم حذفه أعلاه
+                val timestamp = (entry.value as? Number)?.toLong() ?: continue
+                if (timestamp <= now) {
                     editor.remove(entry.key).remove("${entry.key}_data")
+                    android.util.Log.d(TAG, "🗑️ Cleaned expired alarm ID=$id")
                 }
             }
             editor.apply()
-
-            android.util.Log.d(TAG, "✅ Prefs cleaned (kept recent history) for alarm ID=$alarmId")
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "Failed to clean prefs for alarm $alarmId: ${e.message}")
+            android.util.Log.e(TAG, "Failed to clean prefs: ${e.message}")
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // BUG #8 FIX: كتابة الـ timestamp للصلاة القادمة مباشرة في
+    // HomeWidgetPreferences — نفس الـ SharedPreferences التي تكتب إليها
+    // مكتبة home_widget في Flutter. هذا يقطع اعتماد الويدجت على Flutter
+    // في الخلفية ويضمن عدم العد السالب حتى مع موت عملية Flutter.
+    // ════════════════════════════════════════════════════════════════════
+    private fun updateHomeWidgetTimestampFromNative(context: Context) {
+        try {
+            val schedules = context.getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
+            val now = System.currentTimeMillis()
+
+            var nextTimestamp = Long.MAX_VALUE
+            var nextName = ""
+            var nextKey = ""
+
+            // البحث عن أقرب منبه مستقبلي في athan_schedules
+            for (entry in schedules.all) {
+                if (entry.key.endsWith("_data")) continue
+                val id = entry.key.toIntOrNull() ?: continue
+                val timestamp = (entry.value as? Number)?.toLong() ?: continue
+                if (timestamp > now && timestamp < nextTimestamp) {
+                    nextTimestamp = timestamp
+                    val data = schedules.getString("${entry.key}_data", "") ?: ""
+                    val parts = data.split("|")
+                    nextName = parts.getOrElse(0) { "الصلاة" }
+                    nextKey  = parts.getOrElse(1) { "dhuhr" }
+                }
+            }
+
+            if (nextTimestamp == Long.MAX_VALUE) {
+                android.util.Log.w(TAG, "updateHomeWidgetTimestamp: no future alarms found in schedules")
+                return
+            }
+
+            // تنسيق وقت العرض (12h عربي) — مثل ما يفعل Flutter
+            val sdf = SimpleDateFormat("h:mm a", Locale("ar"))
+            val timeStr = sdf.format(Date(nextTimestamp))
+            val displayStr = "$nextName $timeStr"
+
+            // الكتابة في نفس مفاتيح home_widget plugin
+            val widgetPrefs = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
+            widgetPrefs.edit()
+                .putLong("flutter.next_prayer_timestamp", nextTimestamp)
+                .putString("flutter.next_prayer_name", nextName)
+                .putString("flutter.next_prayer_display", displayStr)
+                .apply()
+
+            android.util.Log.i(
+                TAG,
+                "✅ BUG#8 FIX: HomeWidgetPreferences updated natively → $nextName at $timeStr (ts=$nextTimestamp)"
+            )
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "updateHomeWidgetTimestampFromNative failed: ${e.message}")
         }
     }
 
