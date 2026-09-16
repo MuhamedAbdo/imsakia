@@ -110,9 +110,50 @@ class _MushafSvgPageWidgetState extends State<MushafSvgPageWidget> {
         _svgError = true;
       } else {
         _svgContent = svg;
-        _polygons = results[1] as List<AyahPolygon>;
+        _polygons = List<AyahPolygon>.from(results[1] as List<AyahPolygon>);
         _ayahs = results[2] as List<Aya>;
         _headers = results[3] as List<SurahHeaderLocation>;
+
+        // ── Fix: Add fallback polygons for Ayahs missing in KFQC SVGs ──
+        // (KFQC SVGs often lack polygons for the first ayah(s) beneath headers)
+        for (final header in _headers) {
+          final surah = header.number;
+          final ayahsForSurah = _ayahs.where((a) => a.suraNo == surah).toList();
+          if (ayahsForSurah.isEmpty) continue;
+
+          final firstAyahOnPage = ayahsForSurah.first.ayaNo;
+          final existingPolys = _polygons.where((p) => p.surahNumber == surah).toList();
+          existingPolys.sort((a, b) => a.ayahNumber.compareTo(b.ayahNumber));
+
+          final firstExistingAyah = existingPolys.isNotEmpty
+              ? existingPolys.first.ayahNumber
+              : (ayahsForSurah.last.ayaNo + 1);
+
+          if (firstAyahOnPage < firstExistingAyah) {
+            double startY = header.headerPosition + 18.0;
+            double endY = 550.0;
+            if (existingPolys.isNotEmpty) {
+              final firstPolyPoints = existingPolys.first.points;
+              if (firstPolyPoints.isNotEmpty) {
+                endY = firstPolyPoints.map((p) => p.dy).reduce(min);
+              }
+            }
+            
+            for (int missingAyah = firstAyahOnPage; missingAyah < firstExistingAyah; missingAyah++) {
+              _polygons.add(AyahPolygon(
+                ayahNumber: missingAyah,
+                surahNumber: surah,
+                points: [
+                  Offset(10, startY),
+                  Offset(335, startY),
+                  Offset(335, endY),
+                  Offset(10, endY),
+                ],
+                pathData: 'synthetic_fallback',
+              ));
+            }
+          }
+        }
       }
     });
 

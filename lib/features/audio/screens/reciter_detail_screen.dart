@@ -148,16 +148,16 @@ class _ReciterDetailScreenState extends State<ReciterDetailScreen> {
   }
 
   void _initSurahs() {
-    _allSurahs = List.generate(114, (index) {
-      final surahId = index + 1;
+    _allSurahs = widget.reciter.availableSurahs.map((surahId) {
       final audioUrl = _formatUrl(widget.reciter.serverUrl, surahId);
+      final index = surahId - 1; // 0-based for _surahNames
       return SurahAudio(
         id: surahId,
         name: _surahNames[index],
         reciterId: widget.reciter.id,
         audioUrl: audioUrl,
       );
-    });
+    }).toList();
   }
 
   Future<void> _checkFavorite() async {
@@ -264,7 +264,7 @@ class _ReciterDetailScreenState extends State<ReciterDetailScreen> {
               padding: const EdgeInsets.only(
                 bottom: 100,
               ), // padding for global bottom sheet UI
-              itemCount: 114,
+              itemCount: _allSurahs.length,
               itemBuilder: (context, index) {
                 return _buildSurahRow(context, _allSurahs[index], isDarkMode);
               },

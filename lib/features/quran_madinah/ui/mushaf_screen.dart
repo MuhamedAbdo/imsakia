@@ -126,10 +126,8 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
     _audioProvider.removeListener(_onAudioProviderChanged);
     _pageController.dispose();
 
-    // إيقاف الصوت والتخلص من المشغل لقتل الـ Foreground Service كما طلب المستخدم
-    _audioProvider.stop();
-    _audioProvider.player.stop();
-    _audioProvider.player.dispose();
+    // إيقاف الصوت وإنهاء الـ Foreground Service بطريقة آمنة دون تدمير المشغل
+    _audioProvider.stopAndKillService();
 
     super.dispose();
   }
@@ -137,10 +135,10 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.detached || state == AppLifecycleState.paused) {
-      _audioProvider.stop();
-      _audioProvider.player.stop();
       if (state == AppLifecycleState.detached) {
-        _audioProvider.player.dispose();
+        _audioProvider.stopAndKillService();
+      } else {
+        _audioProvider.stop();
       }
     }
     super.didChangeAppLifecycleState(state);

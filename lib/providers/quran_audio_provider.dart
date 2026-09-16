@@ -76,12 +76,20 @@ class QuranAudioProvider extends ChangeNotifier {
       if (_player.hasPrevious) _player.seekToPrevious();
     };
 
-    // الاستماع لحالة التشغيل لإعادة التعيين عند الانتهاء
+    // الاستماع لحالة التشغيل لإعادة التعيين عند الانتهاء أو الانتقال للسورة التالية
     _player.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
-        _currentPlayingAyaIndex = null;
-        _currentSuraNumber = null;
-        notifyListeners();
+        if (!_isSingleAyah && _currentSuraNumber != null && _currentSuraNumber! < 114) {
+          // الانتقال التلقائي للسورة التالية (التشغيل المتواصل)
+          final nextSura = _currentSuraNumber! + 1;
+          final totalAyahs = quran.getVerseCount(nextSura);
+          // نستخدم Future.microtask لتجنب تداخل الأحداث أثناء تغيير الـ state
+          Future.microtask(() => loadAndPlaySura(nextSura, totalAyahs));
+        } else {
+          _currentPlayingAyaIndex = null;
+          _currentSuraNumber = null;
+          notifyListeners();
+        }
       }
     });
 
@@ -140,6 +148,7 @@ class QuranAudioProvider extends ChangeNotifier {
     try {
       _isSingleAyah = false;
       _currentSuraNumber = suraNumber;
+      _currentPlayingAyaIndex = startAyah;
       notifyListeners();
 
       final List<AudioSource> audioSources = [];
@@ -203,6 +212,12 @@ class QuranAudioProvider extends ChangeNotifier {
     _currentSuraNumber = null;
     _currentPlayingAyaIndex = null;
     notifyListeners();
+  }
+  
+  /// إيقاف التشغيل وإنهاء خدمة الخلفية
+  Future<void> stopAndKillService() async {
+    await stop();
+    await audioHandler?.stop();
   }
   
   /// تحميل السورة (Offline Mode)
