@@ -5,6 +5,11 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.Ringtone
+import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
@@ -21,6 +26,9 @@ class AthanReceiver : BroadcastReceiver() {
         private const val TAG = "ZadAthan"
         // الحد الأقصى لتأخر النظام المقبول: 30 دقيقة
         private const val MAX_ACCEPTABLE_DELAY_MS = 30 * 60 * 1000L
+
+        // Ringtone fallback — يُحتفظ به static لإمكانية الإيقاف لاحقاً
+        @Volatile private var emergencyRingtone: Ringtone? = null
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -127,6 +135,21 @@ class AthanReceiver : BroadcastReceiver() {
 
         android.util.Log.i(TAG, "!!! Athan Alert Triggered: $prayerName !!!")
 
+        // ════════════════════════════════════════════════════════════════════
+        // Layer 2: إخبار AlarmWatchdogService بتحديث الإشعار الدائم
+        // يحدث الآن (بعد cleanup) فتكون الصلاة التالية هي الصحيحة
+        // ════════════════════════════════════════════════════════════════════
+        try {
+            val watchdogIntent = Intent(context, AlarmWatchdogService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(watchdogIntent)
+            } else {
+                context.startService(watchdogIntent)
+            }
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Could not ping watchdog to refresh notification: ${e.message}")
+        }
+
         // --- Audible Branch: Start AthanService ---
         val serviceIntent = Intent(context, AthanService::class.java).apply {
             putExtra("prayer_name", prayerName)
@@ -134,6 +157,16 @@ class AthanReceiver : BroadcastReceiver() {
             putExtra("alarm_id", alarmId)
         }
 
+        // ════════════════════════════════════════════════════════════════════
+        // Layer 1: محاولة startForegroundService — مع Fallback للطوارئ
+        //
+        // سيناريو الفشل: MIUI جمّد العملية بعد Swipe Kill، فيُلقي النظام
+        // ForegroundServiceStartNotAllowedException (API 31+) أو يصمت (API قديم)
+        //
+        // الـ Fallback: تشغيل الصوت مباشرة عبر Ringtone API بدون Service.
+        // هذا ممكن من BroadcastReceiver ولا يتطلب Foreground permission.
+        // ════════════════════════════════════════════════════════════════════
+        var serviceStarted = false
         try {
             android.util.Log.e("AZAN_TRACE", "SERVICE REQUESTED")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -141,7 +174,61 @@ class AthanReceiver : BroadcastReceiver() {
             } else {
                 context.startService(serviceIntent)
             }
-        } catch (e: Exception) { e.printStackTrace() }
+            serviceStarted = true
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "!!! startForegroundService FAILED (likely post-Swipe freeze): ${e.message} — activating Ringtone fallback !!!")
+        }
+
+        if (!serviceStarted) {
+            playEmergencyRingtone(context, prayerName, alarmId)
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Layer 1 Fallback: Ringtone Emergency Playback
+    //
+    // يُستخدم عند فشل startForegroundService بعد Swipe Kill على MIUI.
+    // Ringtone API مسموح به من BroadcastReceiver بدون Foreground permission.
+    // يُشغّل صوت النظام الافتراضي للتنبيه (alarm) كـ fallback صوتي.
+    // ════════════════════════════════════════════════════════════════════
+    private fun playEmergencyRingtone(context: Context, prayerName: String, alarmId: Int) {
+        try {
+            android.util.Log.w(TAG, "!!! EMERGENCY RINGTONE FALLBACK for $prayerName !!!")
+
+            // إيقاف أي رنين سابق
+            emergencyRingtone?.stop()
+            emergencyRingtone = null
+
+            // استخدم صوت التنبيه الافتراضي للنظام
+            val alarmUri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+
+            val ringtone = RingtoneManager.getRingtone(context, alarmUri)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                ringtone.isLooping = false
+            }
+
+            // ضبط الـ AudioAttributes على USAGE_ALARM لأقصى صوت
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                ringtone.audioAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            }
+
+            ringtone.play()
+            emergencyRingtone = ringtone
+
+            // إظهار إشعار طارئ بالإضافة للصوت
+            showSilentNotification(context, prayerName, alarmId)
+
+            android.util.Log.w(TAG, "!!! EMERGENCY RINGTONE playing for $prayerName !!!")
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Emergency ringtone failed: ${e.message}")
+            // Last resort: notification only
+            showSilentNotification(context, prayerName, alarmId)
+        }
     }
 
     // ════════════════════════════════════════════════════════════════════

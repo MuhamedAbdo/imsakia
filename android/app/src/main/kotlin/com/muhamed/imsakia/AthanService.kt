@@ -242,7 +242,11 @@ class AthanService : Service() {
         val notification = notificationBuilder.build()
         android.util.Log.e("AZAN_TRACE", "START_FOREGROUND")
         android.util.Log.d("ImsakiaNative", "AZAN_TRACE: NOTIFICATION POSTED = ${System.currentTimeMillis()}")
-        startForeground(SERVICE_NOTIFICATION_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(SERVICE_NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(SERVICE_NOTIFICATION_ID, notification)
+        }
         android.util.Log.e("AZAN_TRACE", "NOTIFICATION POSTED")
         // fullScreenIntent on the notification handles showing the UI over the lock screen.
         // startActivity() from a background service is unreliable and risks ANR — removed.

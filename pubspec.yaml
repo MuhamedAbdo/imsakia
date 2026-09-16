@@ -94,6 +94,8 @@ dev_dependencies:
 flutter_launcher_icons:
   android: "ic_launcher"
   image_path: "assets/images/app_icon_square.png"
+  adaptive_icon_background: "#104a33" # أو أي درجة أخضر تفضلها
+  adaptive_icon_foreground: "assets/images/app_icon_foreground.png"
 
 flutter:
   uses-material-design: true

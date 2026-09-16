@@ -1,4 +1,4 @@
-﻿# ════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════
 # إمساكية (زاد) — قواعد ProGuard / R8
 # المبدأ: كل كلاس يُستدعى من نظام Android عبر اسمه (Manifest, AlarmManager,
 # AppWidgetProvider) يجب أن يكون محمياً من الـ Obfuscation.
@@ -37,6 +37,15 @@
 # ════════════════════════════════════════════════════════════════════════════
 -keep class com.muhamed.imsakia.AthanService { *; }
 -keep class com.muhamed.imsakia.SwipeDismissGuardService { *; }
+-keep class com.muhamed.imsakia.AlarmWatchdogService { *; }
+
+# ════════════════════════════════════════════════════════════════════════════
+# 5b. WorkManager Workers — يُستدعى من WorkManager بالاسم
+#     بدون هذه القاعدة يُطمس الاسم ويفشل WorkManager في إنشاء الـ Worker
+# ════════════════════════════════════════════════════════════════════════════
+-keep class com.muhamed.imsakia.PeriodicRescueWorker { *; }
+-keep class androidx.work.** { *; }
+-keep interface androidx.work.** { *; }
 
 # ════════════════════════════════════════════════════════════════════════════
 # 6. AppWidgetProviders — يُستدعيها النظام لتحديث الويدجت
@@ -128,3 +137,5 @@
 -dontwarn org.slf4j.**
 -dontwarn javax.annotation.**
 -dontwarn sun.misc.Unsafe
+-dontwarn sun.misc.Cleaner
+-dontwarn sun.misc.**

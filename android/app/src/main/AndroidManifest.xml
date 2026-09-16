@@ -16,6 +16,7 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.SET_ALARM" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
@@ -94,21 +95,32 @@
         <!-- ✅ CRITICAL: AthanService - NO separate process to prevent MIUI from applying aggressive Doze -->
         <!-- ⚠️ REMOVED: android:process=":athan" — it was causing a second FlutterEngine + heavy RAM usage,
              making MIUI freeze alarms by 15+ minutes. Now runs in the main process. -->
+        <!-- Layer 4: foregroundServiceType="mediaPlayback|dataSync" ensures deepest Doze penetration -->
         <service
             android:name=".AthanService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="mediaPlayback"
+            android:foregroundServiceType="mediaPlayback|dataSync"
             android:stopWithTask="false" />
 
-        <!-- 🛡️ SwipeDismissGuardService: Sticky background watchdog.
-             Catches onTaskRemoved() the moment the user swipes the app away,
-             then re-registers all future alarms via AlarmRescheduler.
-             stopWithTask=false keeps it alive even after Swipe-to-Dismiss. -->
+        <!-- 🛡️ SwipeDismissGuardService: SUPERSEDED by AlarmWatchdogService (Layer 2).
+             Kept for backward compatibility — onTaskRemoved() still fires here as secondary guard.
+             AlarmWatchdogService (foreground) is now the primary Swipe defense. -->
         <service
             android:name=".SwipeDismissGuardService"
             android:enabled="true"
             android:exported="false"
+            android:stopWithTask="false" />
+
+        <!-- 🔒 Layer 2: AlarmWatchdogService — Persistent Foreground Service (Iron Muezzin)
+             يعرض الصلاة القادمة في إشعار دائم خفي ويمنع MIUI من تجميد العملية.
+             foregroundServiceType="dataSync": يسمح لها بالبقاء في الخلفية بشكل موثوق.
+             stopWithTask=false: تستمر حتى بعد Swipe-to-Dismiss. -->
+        <service
+            android:name=".AlarmWatchdogService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync"
             android:stopWithTask="false" />
 
         <receiver
