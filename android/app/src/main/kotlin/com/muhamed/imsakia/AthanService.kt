@@ -25,6 +25,11 @@ class AthanService : Service() {
     // BUG #6 FIX: منع بث ATHAN_COMPLETED مرتين (setOnCompletionListener + onDestroy)
     private var completionBroadcastSent = false
 
+    // ─── Idempotency: تتبع الـ occurrence المشغّلة حالياً ─────────────────────────
+    // "${prayerKey}_${scheduledTime}" — نفس مفتاح AthanReceiver
+    // لا يمنع صلاة جديدة بمفتاح مختلف، حتى لو كان mediaPlayer يعزف
+    private var currentOccurrenceKey: String? = null
+
     // ════════════════════════════════════════════════════════════════════
     // BUG #5 FIX: إدارة ذكية للـ Audio Focus
     // الأذان هو الأولى بالمطلق — لا يتوقف إلا بطلب صريح:
@@ -69,8 +74,13 @@ class AthanService : Service() {
     private var currentAlarmId = 0
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        android.util.Log.e("AZAN_TRACE", "SERVICE STARTED")
-        android.util.Log.d("ImsakiaNative", "AZAN_TRACE: SERVICE STARTED = ${System.currentTimeMillis()}")
+        // ────── AZAN_TRACE: دخول onStartCommand ─────────────────────────────────
+        android.util.Log.e("AZAN_TRACE",
+            "SERVICE onStartCommand" +
+            " | action=${intent?.action}" +
+            " | prayer_key=${intent?.getStringExtra("prayer_key")}" +
+            " | scheduled_time=${intent?.getLongExtra("scheduled_time", 0L)}"
+        )
         
         val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         val isAthanEnabled = prefs.getBoolean("flutter.athan_enabled", true)
@@ -83,6 +93,8 @@ class AthanService : Service() {
         
         val isPrewarm = intent?.getBooleanExtra("is_prewarm", false) ?: false
         val scheduledTime = intent?.getLongExtra("scheduled_time", 0L) ?: 0L
+        // مفتاح الحضور: نفس الصيغة المستخدمة في AthanReceiver
+        val occurrenceKey = "${prayerKey}_${scheduledTime}"
 
         currentPrayerName = prayerName
         currentAlarmId = alarmId
@@ -115,6 +127,24 @@ class AthanService : Service() {
             return START_NOT_STICKY
         }
         
+        // ════════════════════════════════════════════════════════════════════
+        // 🛡️ PLAYBACK GUARD: رفض occurrence مكرّرة (طبقة دفاعية ثانية)
+        // يُقارن الـ occurrenceKey المطلوب بما يعزف حالياً.
+        // صلاة مختلفة (occurrenceKey مختلف) تمر دون رفض — حتى لو كان mediaPlayer يعزف.
+        // ════════════════════════════════════════════════════════════════════
+        if (mediaPlayer?.isPlaying == true && currentOccurrenceKey == occurrenceKey) {
+            android.util.Log.e("AZAN_TRACE",
+                "PLAYBACK REJECTED | occurrenceKey=$occurrenceKey | reason=same_occurrence_already_playing"
+            )
+            return START_NOT_STICKY
+        }
+        android.util.Log.e("AZAN_TRACE",
+            "PLAYBACK ACCEPTED | occurrenceKey=$occurrenceKey" +
+            " | prev_occurrenceKey=$currentOccurrenceKey" +
+            " | isPlaying=${mediaPlayer?.isPlaying}"
+        )
+        currentOccurrenceKey = occurrenceKey
+
         try {
             // 🔥 منع تداخل الأصوات
             mediaPlayer?.let {
@@ -401,6 +431,7 @@ class AthanService : Service() {
             it.release()
         }
         mediaPlayer = null
+        currentOccurrenceKey = null // ─── إعادة تعيين عند تدمير الخدمة
         
         try {
             val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager

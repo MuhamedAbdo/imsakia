@@ -27,6 +27,15 @@ class AthanReceiver : BroadcastReceiver() {
         // الحد الأقصى لتأخر النظام المقبول: 30 دقيقة
         private const val MAX_ACCEPTABLE_DELAY_MS = 30 * 60 * 1000L
 
+        // ─── Idempotency guard ──────────────────────────────────────────────
+        // مفتاح الحضور: "${prayerKey}_${scheduledTime}"
+        // يمنع occurrence واحدة من تشغيل الأذان أكثر من مرة حتى لو وصل البث مرتين.
+        private const val IDEMPOTENCY_PREFS = "athan_idempotency_v1"
+        // TTL مطابق لحد الـ stale — لا معنى لحفظ مفتاح قديم أكثر من ذلك
+        private const val IDEMPOTENCY_TTL_MS = 30 * 60 * 1000L
+        // القفل الذري: check + mark في critical section واحدة
+        private val idempotencyLock = Any()
+
         // Ringtone fallback — يُحتفظ به static لإمكانية الإيقاف لاحقاً
         @Volatile private var emergencyRingtone: Ringtone? = null
     }
@@ -51,18 +60,44 @@ class AthanReceiver : BroadcastReceiver() {
         val rawPrayerName = intent.getStringExtra("prayer_name") ?: "الصلاة"
         val prayerName = rawPrayerName.replace("صلاة الشروق", "شروق الشمس")
         val alarmId = intent.getIntExtra("alarm_id", -1)
-        android.util.Log.e("AZAN_TRACE", "RECEIVER FIRED\nprayerName=$prayerName\nid=$alarmId\nscheduledTime=$scheduledTime\nnow=$now\ndelayMs=$delayMs")
+        // ─── مُقدَّم للأمام: ضروري لبناء occurrenceKey قبل أي guard ───────────
+        val prayerKey = intent.getStringExtra("prayer_key") ?: "dhuhr"
+        val isSilent = intent.getBooleanExtra("is_silent", false)
+        // مفتاح الحضور الفريد: صلاة محددة في موعد تشغيل محدد
+        val occurrenceKey = "${prayerKey}_${scheduledTime}"
+
+        // ════════════════════════════════════════════════════════════════════
+        // AZAN_TRACE: دخول Receiver
+        // المصدر: لا يمكن تمييزه برمجياً بين AlarmManager وAlarmWatchdogService
+        //         بدون تعديل AlarmWatchdogService. راجع extras للتمييز اليدوي.
+        // ════════════════════════════════════════════════════════════════════
+        android.util.Log.e("AZAN_TRACE",
+            "RECEIVER ENTRY" +
+            " | prayerKey=$prayerKey" +
+            " | scheduledTime=$scheduledTime" +
+            " | occurrenceKey=$occurrenceKey" +
+            " | alarmId=$alarmId" +
+            " | now=$now" +
+            " | delayMs=$delayMs" +
+            " | isSilent=$isSilent"
+        )
         android.util.Log.d(TAG, "Receiver Awake - ID: $alarmId")
 
         // ════════════════════════════════════════════════════════════════════
-        // 🛡️ GUARD: إسقاط الأذان المتأخر (Drop Stale Alarms)
+        // 🛡️ GUARD 1: إسقاط الأذان المتأخر (Drop Stale Alarms)
         // إذا أخّر النظام المنبه لأكثر من 30 دقيقة، نلغي الأذان ونعرض إشعاراً صامتاً.
+        // ملاحظة: لا نُسجّل الـ occurrence في Idempotency عند الإسقاط بسبب stale،
+        //         حتى يمكن لمصدر آخر (غير متأخر) المطالبة بها نظرياً.
         // ════════════════════════════════════════════════════════════════════
         if (scheduledTime > 0L && delayMs > MAX_ACCEPTABLE_DELAY_MS) {
             android.util.Log.w(
                 TAG,
                 "!!! STALE ALARM DROPPED: $delayMs ms late (${delayMs / 1000}s) for alarm ID=$alarmId. " +
                 "Showing silent notification instead."
+            )
+            android.util.Log.e("AZAN_TRACE",
+                "STALE REJECTED | occurrenceKey=$occurrenceKey" +
+                " | delayMs=$delayMs | threshold=${MAX_ACCEPTABLE_DELAY_MS}ms"
             )
             showSilentNotification(context, prayerName, alarmId)
             return
@@ -72,8 +107,24 @@ class AthanReceiver : BroadcastReceiver() {
             android.util.Log.d(TAG, "--- Timing OK: delay=${delayMs}ms for $alarmId ---")
         }
 
-        val prayerKey = intent.getStringExtra("prayer_key") ?: "dhuhr"
-        val isSilent = intent.getBooleanExtra("is_silent", false)
+        // ════════════════════════════════════════════════════════════════════
+        // 🛡️ GUARD 2: Idempotency — منع تشغيل نفس الـ occurrence أكثر من مرة
+        // check + mark ذريّان داخل synchronized(idempotencyLock)
+        // لمنع تسابق بين مصدرَي البث المحتملَين (AlarmManager، AlarmWatchdogService).
+        // يجب أن يأتي بعد GUARD 1: لا نُسجّل occurrence مرفوضة بسبب stale.
+        // ════════════════════════════════════════════════════════════════════
+        val accepted = claimOccurrence(context, occurrenceKey, now)
+        if (!accepted) {
+            android.util.Log.e("AZAN_TRACE",
+                "IDEMPOTENCY REJECTED | occurrenceKey=$occurrenceKey | reason=occurrence_already_claimed"
+            )
+            return
+        }
+        android.util.Log.e("AZAN_TRACE",
+            "IDEMPOTENCY ACCEPTED | occurrenceKey=$occurrenceKey"
+        )
+
+        // prayerKey و isSilent مُقدَّمان لأعلى الدالة (قبل GUARD 1 و GUARD 2)
 
         // ════════════════════════════════════════════════════════════════════
         // 1. إزالة هذه الصلاة من athan_schedules فوراً بعد انطلاقها (BUG #3 FIX)
@@ -155,6 +206,7 @@ class AthanReceiver : BroadcastReceiver() {
             putExtra("prayer_name", prayerName)
             putExtra("prayer_key", prayerKey)
             putExtra("alarm_id", alarmId)
+            putExtra("scheduled_time", scheduledTime) // ← ضروري لمقارنة occurrenceKey في AthanService
         }
 
         // ════════════════════════════════════════════════════════════════════
@@ -168,15 +220,23 @@ class AthanReceiver : BroadcastReceiver() {
         // ════════════════════════════════════════════════════════════════════
         var serviceStarted = false
         try {
-            android.util.Log.e("AZAN_TRACE", "SERVICE REQUESTED")
+            android.util.Log.e("AZAN_TRACE",
+                "SERVICE START REQUESTED | occurrenceKey=$occurrenceKey | prayerKey=$prayerKey"
+            )
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(serviceIntent)
             } else {
                 context.startService(serviceIntent)
             }
             serviceStarted = true
+            android.util.Log.e("AZAN_TRACE",
+                "SERVICE START SUCCEEDED | occurrenceKey=$occurrenceKey"
+            )
         } catch (e: Exception) {
             android.util.Log.e(TAG, "!!! startForegroundService FAILED (likely post-Swipe freeze): ${e.message} — activating Ringtone fallback !!!")
+            android.util.Log.e("AZAN_TRACE",
+                "SERVICE START FAILED | occurrenceKey=$occurrenceKey | error=${e.message}"
+            )
         }
 
         if (!serviceStarted) {
@@ -228,6 +288,44 @@ class AthanReceiver : BroadcastReceiver() {
             android.util.Log.e(TAG, "Emergency ringtone failed: ${e.message}")
             // Last resort: notification only
             showSilentNotification(context, prayerName, alarmId)
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Idempotency: check + mark ذريّان في critical section واحدة.
+    //
+    // يُعيد true إذا كانت هذه أول مطالبة بهذه الـ occurrence (مقبولة).
+    // يُعيد false إذا سبق تسجيلها (مرفوضة).
+    //
+    // يستخدم commit() (متزامن) لا apply() لضمان الكتابة قبل إطلاق سراح القفل.
+    // يُنظِّف المفاتيح المنتهية (> 30 دقيقة) عند كل استدعاء.
+    // ════════════════════════════════════════════════════════════════════
+    private fun claimOccurrence(context: Context, occurrenceKey: String, nowMs: Long): Boolean {
+        synchronized(idempotencyLock) {
+            val prefs = context.getSharedPreferences(IDEMPOTENCY_PREFS, Context.MODE_PRIVATE)
+            val editor = prefs.edit()
+
+            // تنظيف المفاتيح المنتهية الصلاحية
+            for ((key, value) in prefs.all.toMap()) {
+                val firedAt = (value as? Long) ?: continue
+                if (nowMs - firedAt > IDEMPOTENCY_TTL_MS) {
+                    editor.remove(key)
+                    android.util.Log.d(TAG, "🧹 Idempotency: expired key removed: $key")
+                }
+            }
+
+            // هل سبق المطالبة بهذه الـ occurrence؟
+            if (prefs.contains(occurrenceKey)) {
+                editor.apply() // طبّق الـ cleanup فقط دون تغيير القرار
+                android.util.Log.d(TAG, "🔴 Idempotency: already claimed: $occurrenceKey")
+                return false
+            }
+
+            // سجّل المطالبة — commit() متزامن لضمان الكتابة قبل خروج المقطع الذري
+            editor.putLong(occurrenceKey, nowMs)
+            val committed = editor.commit()
+            android.util.Log.d(TAG, "🟢 Idempotency: claimed: $occurrenceKey | committed=$committed")
+            return true
         }
     }
 
