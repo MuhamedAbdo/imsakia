@@ -205,4 +205,31 @@ class AthanManager {
       return "فشل الاختبار المباشر: $e";
     }
   }
+
+  /// 🧪 A/B Test: يجدول منبهين متزامنين (setAlarmClock + setExactAndAllowWhileIdle)
+  /// لاختبار أيهما يخترق Doze Mode أولاً دون انتظار وقت صلاة حقيقي.
+  static Future<void> scheduleAbTestAthan({
+    Duration delay = const Duration(minutes: 3),
+  }) async {
+    final testTime = DateTime.now().add(delay);
+    const alarmId = 998; // ID مخصص للاختبار A/B (مختلف عن 999 الخاص بالاختبار المباشر)
+
+    debugPrint(
+      "[A/B Test] Scheduling dual alarms for ${testTime.toIso8601String()} (in ${delay.inSeconds}s)",
+    );
+
+    try {
+      const channel = MethodChannel('imsakia/notifications');
+      await channel.invokeMethod('scheduleAbTestAthan', {
+        'timeInMillis': testTime.millisecondsSinceEpoch,
+        'id': alarmId,
+        'prayerName': 'اختبار A/B',
+        'prayerKey': 'test',
+        'isSilent': false,
+      });
+      debugPrint("[A/B Test] Dual alarms scheduled successfully for $testTime");
+    } catch (e) {
+      debugPrint("[A/B Test] Failed to schedule dual alarms: $e");
+    }
+  }
 }

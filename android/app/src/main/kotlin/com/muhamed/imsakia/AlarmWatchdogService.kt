@@ -320,8 +320,8 @@ class AlarmWatchdogService : Service() {
 
                 android.util.Log.w(TAG, "⏰ Athan Engine: Triggering $prayerName (ID=$id)! delay=${now - timestamp}ms")
                 
-                // إرسال Broadcast إلى AthanReceiver
-                val broadcastIntent = Intent(applicationContext, AthanReceiver::class.java).apply {
+                // بدء AthanService مباشرة كـ Foreground Service
+                val serviceIntent = Intent(applicationContext, AthanService::class.java).apply {
                     action = "com.muhamed.imsakia.ATHAN_ALARM"
                     putExtra("prayer_name", prayerName)
                     putExtra("prayer_key", prayerKey)
@@ -329,7 +329,34 @@ class AlarmWatchdogService : Service() {
                     putExtra("is_silent", isSilent)
                     putExtra("scheduled_time", timestamp)
                 }
-                applicationContext.sendBroadcast(broadcastIntent)
+
+                val occurrenceKey = "${prayerKey}_${timestamp}"
+                
+                android.util.Log.e("WATCHDOG_DIRECT",
+                    "WATCHDOG_DIRECT_START_BEFORE" +
+                    " | occurrenceKey=$occurrenceKey" +
+                    " | prayerKey=$prayerKey" +
+                    " | scheduledTime=$timestamp" +
+                    " | currentTime=$now" +
+                    " | delay=${now - timestamp}ms" +
+                    " | alarmId=$id"
+                )
+                
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    applicationContext.startForegroundService(serviceIntent)
+                } else {
+                    applicationContext.startService(serviceIntent)
+                }
+                
+                android.util.Log.e("WATCHDOG_DIRECT",
+                    "WATCHDOG_DIRECT_START_AFTER" +
+                    " | occurrenceKey=$occurrenceKey" +
+                    " | prayerKey=$prayerKey" +
+                    " | scheduledTime=$timestamp" +
+                    " | currentTime=${System.currentTimeMillis()}" +
+                    " | delay=${now - timestamp}ms" +
+                    " | alarmId=$id"
+                )
             }
         }
         

@@ -9,6 +9,7 @@ import 'package:audio_service/audio_service.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
 import '../features/athan/providers/athan_provider.dart';
+import '../features/athan/services/athan_manager.dart';
 import '../features/athan_library/providers/athan_library_provider.dart';
 import '../features/athan_library/ui/athan_library_screen.dart';
 import '../services/prayer_times_service.dart';
@@ -319,6 +320,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ],
               ),
               const SizedBox(height: 30),
+              // 🧪 زر اختبار A/B — مؤقت، يُزال بعد انتهاء التجربة
+              if (!widget.isFirstTimeSetup) _buildAbTestButton(),
+              if (!widget.isFirstTimeSetup) const SizedBox(height: 15),
               _buildSaveButton(),
             ],
           ),
@@ -493,6 +497,50 @@ class _SettingsScreenState extends State<SettingsScreen>
             fontWeight: FontWeight.bold,
           ),
         ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 🧪 زر اختبار A/B — مؤقت (يُزال بعد انتهاء التجربة)
+  // يجدول منبهين متزامنين (setAlarmClock + setExactAndAllowWhileIdle)
+  // بعد 3 دقائق من الضغط، لاختبار أيهما يخترق Doze Mode أولاً.
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildAbTestButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 55,
+      child: ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.deepOrange.shade700,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+        ),
+        icon: const Icon(Icons.science_outlined, color: Colors.white),
+        label: Text(
+          'اختبار الأذان A/B (بعد 3 دقائق)',
+          style: GoogleFonts.tajawal(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        onPressed: () async {
+          await AthanManager.scheduleAbTestAthan(
+            delay: const Duration(minutes: 3),
+          );
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '✅ تم جدولة منبهين A/B — راقب AZAN_TRACE في Logcat بعد 3 دقائق',
+                style: GoogleFonts.tajawal(),
+              ),
+              backgroundColor: Colors.deepOrange,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        },
       ),
     );
   }

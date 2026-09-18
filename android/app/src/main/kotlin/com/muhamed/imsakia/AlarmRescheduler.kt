@@ -105,8 +105,23 @@ object AlarmRescheduler {
         prayerKey: String,
         isSilent: Boolean,
     ) {
-        // Intent يُرسَل لـ AthanReceiver عند انطلاق المنبه
-        val broadcastIntent = Intent(context, AthanReceiver::class.java).apply {
+        // 1. إلغاء المنبهات القديمة المسجلة كـ Broadcast
+        try {
+            val legacyIntent = Intent(context, AthanReceiver::class.java).apply {
+                action = "com.muhamed.imsakia.ATHAN_ALARM"
+            }
+            val legacyPendingIntent = PendingIntent.getBroadcast(
+                context, id, legacyIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(legacyPendingIntent)
+            legacyPendingIntent.cancel()
+            android.util.Log.d(TAG, "Canceled legacy Broadcast intent for ID=$id")
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to cancel legacy intent for ID=$id", e)
+        }
+
+        // 2. إنشاء المسار الجديد: Direct Foreground Service Start
+        val serviceIntent = Intent(context, AthanService::class.java).apply {
             action = "com.muhamed.imsakia.ATHAN_ALARM"
             putExtra("prayer_name", prayerName)
             putExtra("prayer_key", prayerKey)
@@ -115,13 +130,16 @@ object AlarmRescheduler {
             putExtra("scheduled_time", timeInMillis)
         }
 
-        // FLAG_UPDATE_CURRENT → يستبدل المنبه القديم بنفس الـ requestCode بأمان
-        val alarmPendingIntent = PendingIntent.getBroadcast(
-            context,
-            id,
-            broadcastIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val alarmPendingIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            PendingIntent.getForegroundService(
+                context, id, serviceIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        } else {
+            // وفقاً للتعليمات: استخدام getForegroundService بشكل حصري دون getService كاحتياط
+            PendingIntent.getForegroundService(
+                context, id, serviceIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        }
 
         // Intent لأيقونة الساعة في شريط الحالة
         val activityIntent = Intent(context, MainActivity::class.java).apply {

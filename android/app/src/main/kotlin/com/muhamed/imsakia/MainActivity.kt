@@ -144,6 +144,7 @@ class MainActivity : AudioServiceActivity() {
                             result.error("INVALID_TIME", "Time must be > 0", null)
                         }
                     }
+
                     "requestNotificationPermission" -> {
                         requestNotificationPermission()
                         result.success(true)
@@ -523,9 +524,8 @@ class MainActivity : AudioServiceActivity() {
             val delayMs = timeInMillis - now
             android.util.Log.e("AZAN_TRACE", "SCHEDULE REQUEST\nprayerName=$prayerName\nprayerKey=$prayerKey\nid=$id\ntimeInMillis=$timeInMillis\nnow=$now\ndelayMs=$delayMs\nisSilent=$isSilent")
 
-            // ── 1. Broadcast intent for AthanReceiver (the actual alarm event)
-            // carries scheduled_time so AthanReceiver can apply the stale guard
-            val broadcastIntent = Intent(this, AthanReceiver::class.java).apply {
+            // ── 1. Service intent for AthanService (the actual alarm event)
+            val serviceIntent = Intent(this, AthanService::class.java).apply {
                 action = "com.muhamed.imsakia.ATHAN_ALARM"
                 putExtra("prayer_name", prayerName)
                 putExtra("prayer_key", prayerKey)
@@ -533,8 +533,10 @@ class MainActivity : AudioServiceActivity() {
                 putExtra("is_silent", isSilent)
                 putExtra("scheduled_time", timeInMillis)
             }
-            val alarmPendingIntent = android.app.PendingIntent.getBroadcast(
-                this, id, broadcastIntent,
+            
+            // استخدام المسار المعتمد حصرياً كما تم التوجيه
+            val alarmPendingIntent = android.app.PendingIntent.getForegroundService(
+                this, id, serviceIntent,
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
             )
 
@@ -562,19 +564,33 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
+
+
     private fun cancelAthan(id: Int) {
         try {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
 
-            // Cancel the main alarm
-            val intent = Intent(this, AthanReceiver::class.java).apply {
+            // 1. Cancel Legacy Broadcast intent
+            val legacyIntent = Intent(this, AthanReceiver::class.java).apply {
                 action = "com.muhamed.imsakia.ATHAN_ALARM"
             }
-            val pIntent = android.app.PendingIntent.getBroadcast(
-                this, id, intent,
+            val pLegacyIntent = android.app.PendingIntent.getBroadcast(
+                this, id, legacyIntent,
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
             )
-            alarmManager.cancel(pIntent)
+            alarmManager.cancel(pLegacyIntent)
+            pLegacyIntent.cancel()
+
+            // 2. Cancel New ForegroundService intent
+            val serviceIntent = Intent(this, AthanService::class.java).apply {
+                action = "com.muhamed.imsakia.ATHAN_ALARM"
+            }
+            val pServiceIntent = android.app.PendingIntent.getForegroundService(
+                this, id, serviceIntent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(pServiceIntent)
+            pServiceIntent.cancel()
 
             // Remove from prefs
             val prefs = getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
@@ -592,15 +608,28 @@ class MainActivity : AudioServiceActivity() {
             val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             for ((idStr, _) in prefs.all) {
                 val id = idStr.toIntOrNull() ?: continue
-                // 1. Cancel Main Alarm
-                val intent = Intent(this, AthanReceiver::class.java).apply {
+                
+                // 1. Cancel Legacy Broadcast Intent
+                val legacyIntent = Intent(this, AthanReceiver::class.java).apply {
                     action = "com.muhamed.imsakia.ATHAN_ALARM"
                 }
-                val pIntent = android.app.PendingIntent.getBroadcast(
-                    this, id, intent,
+                val pLegacyIntent = android.app.PendingIntent.getBroadcast(
+                    this, id, legacyIntent,
                     android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
                 )
-                alarmManager.cancel(pIntent)
+                alarmManager.cancel(pLegacyIntent)
+                pLegacyIntent.cancel()
+
+                // 2. Cancel New ForegroundService Intent
+                val serviceIntent = Intent(this, AthanService::class.java).apply {
+                    action = "com.muhamed.imsakia.ATHAN_ALARM"
+                }
+                val pServiceIntent = android.app.PendingIntent.getForegroundService(
+                    this, id, serviceIntent,
+                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+                )
+                alarmManager.cancel(pServiceIntent)
+                pServiceIntent.cancel()
             }
             prefs.edit().clear().commit()
         } catch (e: Exception) {
@@ -811,21 +840,32 @@ class MainActivity : AudioServiceActivity() {
         try {
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
             for (id in 100..400) {
-                // 1. Cancel Broadcast Intent
+                // 1. Cancel Legacy Broadcast Intent
                 val bIntent = Intent(this, AthanReceiver::class.java)
                 val pbIntent = android.app.PendingIntent.getBroadcast(
                     this, id, bIntent,
                     android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
                 )
                 alarmManager.cancel(pbIntent)
+                pbIntent.cancel()
 
-                // 2. Cancel UI Activity Intent
+                // 2. Cancel New ForegroundService Intent
+                val sIntent = Intent(this, AthanService::class.java)
+                val psIntent = android.app.PendingIntent.getForegroundService(
+                    this, id, sIntent,
+                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+                )
+                alarmManager.cancel(psIntent)
+                psIntent.cancel()
+
+                // 3. Cancel UI Activity Intent
                 val aIntent = Intent(this, MainActivity::class.java)
                 val paIntent = android.app.PendingIntent.getActivity(
                     this, id + 500, aIntent,
                     android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
                 )
                 alarmManager.cancel(paIntent)
+                paIntent.cancel()
             }
         } catch (e: Exception) {
         }

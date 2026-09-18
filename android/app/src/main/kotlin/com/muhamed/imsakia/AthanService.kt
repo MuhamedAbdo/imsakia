@@ -25,6 +25,13 @@ class AthanService : Service() {
     // BUG #6 FIX: منع بث ATHAN_COMPLETED مرتين (setOnCompletionListener + onDestroy)
     private var completionBroadcastSent = false
 
+    companion object {
+        // مفتاح الحضور: "${prayerKey}_${scheduledTime}"
+        private const val IDEMPOTENCY_PREFS = "athan_idempotency_v1"
+        private const val IDEMPOTENCY_TTL_MS = 30 * 60 * 1000L
+        private val idempotencyLock = Any()
+    }
+
     // ─── Idempotency: تتبع الـ occurrence المشغّلة حالياً ─────────────────────────
     // "${prayerKey}_${scheduledTime}" — نفس مفتاح AthanReceiver
     // لا يمنع صلاة جديدة بمفتاح مختلف، حتى لو كان mediaPlayer يعزف
@@ -74,6 +81,17 @@ class AthanService : Service() {
     private var currentAlarmId = 0
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val alarmIdCheck = intent?.getIntExtra("alarm_id", 0) ?: 0
+        
+        if (alarmIdCheck == 998) {
+            android.util.Log.e("WATCHDOG_BROADCAST", "DIRECT_SERVICE_STARTED | alarmId=$alarmIdCheck")
+        }
+        
+        if (alarmIdCheck == 999) {
+            android.util.Log.e("AB_ALARM_TEST", "AB_ALARM_SERVICE_TRIGGERED | id=999")
+            android.util.Log.e("AB_ALARM_TEST", "AB_ALARM_SERVICE_ON_START_COMMAND | id=999")
+        }
+
         // ────── AZAN_TRACE: دخول onStartCommand ─────────────────────────────────
         android.util.Log.e("AZAN_TRACE",
             "SERVICE onStartCommand" +
@@ -128,20 +146,24 @@ class AthanService : Service() {
         }
         
         // ════════════════════════════════════════════════════════════════════
-        // 🛡️ PLAYBACK GUARD: رفض occurrence مكرّرة (طبقة دفاعية ثانية)
-        // يُقارن الـ occurrenceKey المطلوب بما يعزف حالياً.
-        // صلاة مختلفة (occurrenceKey مختلف) تمر دون رفض — حتى لو كان mediaPlayer يعزف.
+        // 🛡️ PLAYBACK GUARD: رفض occurrence مكرّرة باستخدام SharedPreferences الذري
+        // لمنع الـ Race Condition تماماً حتى لو لم يبدأ الـ MediaPlayer بعد.
         // ════════════════════════════════════════════════════════════════════
-        if (mediaPlayer?.isPlaying == true && currentOccurrenceKey == occurrenceKey) {
+        val isFirstClaim = claimOccurrence(this, occurrenceKey, System.currentTimeMillis())
+        if (!isFirstClaim) {
             android.util.Log.e("AZAN_TRACE",
-                "PLAYBACK REJECTED | occurrenceKey=$occurrenceKey | reason=same_occurrence_already_playing"
+                "PLAYBACK REJECTED | occurrenceKey=$occurrenceKey | reason=occurrence_already_claimed"
             )
+            return START_NOT_STICKY
+        }
+        
+        // منع التكرار في الذاكرة كطبقة حماية إضافية
+        if (currentOccurrenceKey == occurrenceKey) {
             return START_NOT_STICKY
         }
         android.util.Log.e("AZAN_TRACE",
             "PLAYBACK ACCEPTED | occurrenceKey=$occurrenceKey" +
-            " | prev_occurrenceKey=$currentOccurrenceKey" +
-            " | isPlaying=${mediaPlayer?.isPlaying}"
+            " | prev_occurrenceKey=$currentOccurrenceKey"
         )
         currentOccurrenceKey = occurrenceKey
 
@@ -459,4 +481,27 @@ class AthanService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun claimOccurrence(context: Context, occurrenceKey: String, nowMs: Long): Boolean {
+        synchronized(idempotencyLock) {
+            val prefs = context.getSharedPreferences(IDEMPOTENCY_PREFS, Context.MODE_PRIVATE)
+            val editor = prefs.edit()
+
+            for ((key, value) in prefs.all.toMap()) {
+                val firedAt = (value as? Long) ?: continue
+                if (nowMs - firedAt > IDEMPOTENCY_TTL_MS) {
+                    editor.remove(key)
+                }
+            }
+
+            if (prefs.contains(occurrenceKey)) {
+                editor.apply()
+                return false
+            }
+
+            editor.putLong(occurrenceKey, nowMs)
+            editor.commit()
+            return true
+        }
+    }
 }

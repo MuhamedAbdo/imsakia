@@ -63,16 +63,24 @@ class AthanReceiver : BroadcastReceiver() {
         // ─── مُقدَّم للأمام: ضروري لبناء occurrenceKey قبل أي guard ───────────
         val prayerKey = intent.getStringExtra("prayer_key") ?: "dhuhr"
         val isSilent = intent.getBooleanExtra("is_silent", false)
+        // alarm_type: يُميّز مصدر المنبه في اختبار A/B ("alarm_clock" | "exact_idle" | null)
+        val alarmType = intent.getStringExtra("alarm_type") ?: "unknown"
         // مفتاح الحضور الفريد: صلاة محددة في موعد تشغيل محدد
         val occurrenceKey = "${prayerKey}_${scheduledTime}"
 
         // ════════════════════════════════════════════════════════════════════
         // AZAN_TRACE: دخول Receiver
-        // المصدر: لا يمكن تمييزه برمجياً بين AlarmManager وAlarmWatchdogService
-        //         بدون تعديل AlarmWatchdogService. راجع extras للتمييز اليدوي.
+        // alarm_type يُميّز في A/B Test: alarm_clock (setAlarmClock) vs exact_idle (setExactAndAllowWhileIdle)
+        // الحارس Idempotency يقبل الوصول الأول ويرفض الثاني بصمت لنفس occurrenceKey.
         // ════════════════════════════════════════════════════════════════════
+        if (alarmId == 998) {
+            android.util.Log.e("AB_ALARM_TEST", "AB_ALARM_BROADCAST_TRIGGERED | id=998")
+            android.util.Log.e("AB_ALARM_TEST", "AB_ALARM_BROADCAST_RECEIVER_ENTERED | id=998")
+        }
+
         android.util.Log.e("AZAN_TRACE",
             "RECEIVER ENTRY" +
+            " | alarm_type=$alarmType" +
             " | prayerKey=$prayerKey" +
             " | scheduledTime=$scheduledTime" +
             " | occurrenceKey=$occurrenceKey" +
@@ -231,6 +239,9 @@ class AthanReceiver : BroadcastReceiver() {
             android.util.Log.e("AZAN_TRACE",
                 "SERVICE START SUCCEEDED | occurrenceKey=$occurrenceKey"
             )
+            if (alarmId == 998) {
+                android.util.Log.e("AB_ALARM_TEST", "AB_ALARM_BROADCAST_SERVICE_STARTED | id=998")
+            }
         } catch (e: Exception) {
             android.util.Log.e(TAG, "!!! startForegroundService FAILED (likely post-Swipe freeze): ${e.message} — activating Ringtone fallback !!!")
             android.util.Log.e("AZAN_TRACE",
