@@ -84,10 +84,26 @@ class AthanReceiver : BroadcastReceiver() {
         android.util.Log.d(TAG, "Receiver Awake - ID: $alarmId")
 
         // ════════════════════════════════════════════════════════════════════
-        // 🛡️ GUARD 1: إسقاط الأذان المتأخر (Drop Stale Alarms)
+        // 🛡️ GUARD 1: Idempotency — منع تشغيل نفس الـ occurrence أكثر من مرة
+        // check + mark ذريّان داخل synchronized(idempotencyLock)
+        // لمنع تسابق بين مصدرَي البث المحتملَين (AlarmManager، AlarmWatchdogService).
+        // تسجيل الحدث يجب أن يحدث فوراً قبل فحص التأخير، لمنع تكرار الإشعارات الصامتة
+        // ════════════════════════════════════════════════════════════════════
+        val accepted = claimOccurrence(context, occurrenceKey, now)
+        if (!accepted) {
+            android.util.Log.e("AZAN_TRACE",
+                "IDEMPOTENCY REJECTED | occurrenceKey=$occurrenceKey | reason=occurrence_already_claimed"
+            )
+            return
+        }
+        android.util.Log.e("AZAN_TRACE",
+            "IDEMPOTENCY ACCEPTED | occurrenceKey=$occurrenceKey"
+        )
+
+        // ════════════════════════════════════════════════════════════════════
+        // 🛡️ GUARD 2: إسقاط الأذان المتأخر (Drop Stale Alarms)
         // إذا أخّر النظام المنبه لأكثر من 30 دقيقة، نلغي الأذان ونعرض إشعاراً صامتاً.
-        // ملاحظة: لا نُسجّل الـ occurrence في Idempotency عند الإسقاط بسبب stale،
-        //         حتى يمكن لمصدر آخر (غير متأخر) المطالبة بها نظرياً.
+        // بما أن الـ occurrence سُجّلت أعلاه، فلن يتكرر هذا الإشعار الصامت.
         // ════════════════════════════════════════════════════════════════════
         if (scheduledTime > 0L && delayMs > MAX_ACCEPTABLE_DELAY_MS) {
             android.util.Log.w(
@@ -106,23 +122,6 @@ class AthanReceiver : BroadcastReceiver() {
         if (scheduledTime > 0L) {
             android.util.Log.d(TAG, "--- Timing OK: delay=${delayMs}ms for $alarmId ---")
         }
-
-        // ════════════════════════════════════════════════════════════════════
-        // 🛡️ GUARD 2: Idempotency — منع تشغيل نفس الـ occurrence أكثر من مرة
-        // check + mark ذريّان داخل synchronized(idempotencyLock)
-        // لمنع تسابق بين مصدرَي البث المحتملَين (AlarmManager، AlarmWatchdogService).
-        // يجب أن يأتي بعد GUARD 1: لا نُسجّل occurrence مرفوضة بسبب stale.
-        // ════════════════════════════════════════════════════════════════════
-        val accepted = claimOccurrence(context, occurrenceKey, now)
-        if (!accepted) {
-            android.util.Log.e("AZAN_TRACE",
-                "IDEMPOTENCY REJECTED | occurrenceKey=$occurrenceKey | reason=occurrence_already_claimed"
-            )
-            return
-        }
-        android.util.Log.e("AZAN_TRACE",
-            "IDEMPOTENCY ACCEPTED | occurrenceKey=$occurrenceKey"
-        )
 
         // prayerKey و isSilent مُقدَّمان لأعلى الدالة (قبل GUARD 1 و GUARD 2)
 
