@@ -66,7 +66,6 @@ class MainActivity : AudioServiceActivity() {
         val isAthanIntent = intent?.getBooleanExtra("trigger_athan_overlay", false) == true || 
                             intent?.hasExtra("prayer_name") == true
         if (isAthanIntent) {
-            setTheme(android.R.style.Theme_Black_NoTitleBar_Fullscreen)
             // Sovereignty: Force flags if it's an Athan intent
             applyLockScreenFlags()
         }
