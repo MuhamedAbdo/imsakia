@@ -24,6 +24,7 @@ class AthanService : Service() {
     private var focusRequest: android.media.AudioFocusRequest? = null
     // BUG #6 FIX: منع بث ATHAN_COMPLETED مرتين (setOnCompletionListener + onDestroy)
     private var completionBroadcastSent = false
+    private var isDiagnostic = false
 
     companion object {
         // مفتاح الحضور: "${prayerKey}_${scheduledTime}"
@@ -80,8 +81,43 @@ class AthanService : Service() {
     private var currentPrayerName = "الصلاة"
     private var currentAlarmId = 0
 
+    override fun onCreate() {
+        super.onCreate()
+        android.util.Log.e("AthanDiagnostic", "TEST_SERVICE_ON_CREATE")
+        
+        // ─── COLD START BLOCK FIX ───
+        // إرضاء نظام Android باستدعاء startForeground فور ولادة الخدمة قبل أي تأخير
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                ATHAN_SERVICE_CHANNEL, "Athan Service", NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                setSound(null, null)
+                setShowBadge(false)
+            }
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        }
+        val initialNotification = NotificationCompat.Builder(this, ATHAN_SERVICE_CHANNEL)
+            .setContentTitle("جاري تجهيز الأذان...")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setOngoing(true)
+            .build()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(SERVICE_NOTIFICATION_ID, initialNotification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(SERVICE_NOTIFICATION_ID, initialNotification)
+        }
+        android.util.Log.e("AthanService", "COLD START FIX: Initial startForeground called successfully in onCreate")
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val alarmIdCheck = intent?.getIntExtra("alarm_id", 0) ?: 0
+        
+        isDiagnostic = intent?.getBooleanExtra("is_diagnostic_test", false) ?: false
+        if (isDiagnostic) {
+            android.util.Log.e("AthanDiagnostic", "TEST_SERVICE_ON_START_COMMAND | alarmId=$alarmIdCheck")
+        }
         
         if (alarmIdCheck == 998) {
             android.util.Log.e("WATCHDOG_BROADCAST", "DIRECT_SERVICE_STARTED | alarmId=$alarmIdCheck")
@@ -140,6 +176,10 @@ class AthanService : Service() {
                 sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
             }
             
+            if (isDiagnostic) {
+                android.util.Log.e("AthanDiagnostic", "TEST_STOP_FOREGROUND | Called in ACTION_STOP_ATHAN")
+                android.util.Log.e("AthanDiagnostic", "TEST_STOP_SELF | Called in ACTION_STOP_ATHAN")
+            }
             stopForeground(STOP_FOREGROUND_DETACH)
             stopSelf()
             return START_NOT_STICKY
@@ -180,11 +220,20 @@ class AthanService : Service() {
             // notificationManager.cancelAll()  // ⚠️ REMOVED: caused silent notification bug
             // Only cancel the previous ATHAN notification specifically
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (isDiagnostic) {
+                android.util.Log.e("AthanDiagnostic", "TEST_NOTIFICATION_CANCEL | ID=$SERVICE_NOTIFICATION_ID")
+            }
             notificationManager.cancel(SERVICE_NOTIFICATION_ID)
             
             // ─── مسار الأذان الفعلي ─────────────────────────────────────────
             
+            if (isDiagnostic) {
+                android.util.Log.e("AthanDiagnostic", "TEST_NOTIFICATION_BEFORE | Calling startForegroundServiceNotification")
+            }
             startForegroundServiceNotification(prayerName, alarmId, isAthanEnabled, isOngoing = isAthanEnabled)
+            if (isDiagnostic) {
+                android.util.Log.e("AthanDiagnostic", "TEST_NOTIFICATION_POSTED | Foreground notification is active")
+            }
             acquireWakeLock()
             
             val shouldPlayAudio = !isSilentInIntent && (isAthanEnabled || prayerName.contains("اختبار"))
@@ -197,6 +246,9 @@ class AthanService : Service() {
             } else {
                 android.util.Log.w("ImsakiaNative", "!!! SERVICE: Audio is DISABLED, service will linger for 5s !!!")
                 Handler(Looper.getMainLooper()).postDelayed({
+                    if (isDiagnostic) {
+                        android.util.Log.e("AthanDiagnostic", "TEST_STOP_SELF | Linger 5s timeout reached")
+                    }
                     stopSelf()
                 }, 5000)
             }
@@ -443,6 +495,9 @@ class AthanService : Service() {
     }
 
     override fun onDestroy() {
+        if (isDiagnostic) {
+            android.util.Log.e("AthanDiagnostic", "TEST_SERVICE_ON_DESTROY")
+        }
         // BUG #4 FIX: إزالة WakeLock من MediaPlayer قبل release لمنع تسريبها
         mediaPlayer?.let {
             if (it.isPlaying) it.stop()

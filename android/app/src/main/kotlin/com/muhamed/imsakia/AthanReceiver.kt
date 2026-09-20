@@ -63,6 +63,13 @@ class AthanReceiver : BroadcastReceiver() {
         // ─── مُقدَّم للأمام: ضروري لبناء occurrenceKey قبل أي guard ───────────
         val prayerKey = intent.getStringExtra("prayer_key") ?: "dhuhr"
         val isSilent = intent.getBooleanExtra("is_silent", false)
+        val isPrewarm = intent.getBooleanExtra("is_prewarm", false)
+        val isDiagnosticTest = intent.getBooleanExtra("is_diagnostic_test", false)
+
+        if (isDiagnosticTest) {
+            android.util.Log.e("AthanDiagnostic", "TEST_RECEIVER_ENTRY | prayerKey=$prayerKey | scheduled=$scheduledTime | delayMs=$delayMs")
+        }
+
         // alarm_type: يُميّز مصدر المنبه في اختبار A/B ("alarm_clock" | "exact_idle" | null)
         val alarmType = intent.getStringExtra("alarm_type") ?: "unknown"
         // مفتاح الحضور الفريد: صلاة محددة في موعد تشغيل محدد
@@ -187,7 +194,10 @@ class AthanReceiver : BroadcastReceiver() {
         }
 
         if (isSilent) {
-            showSilentNotification(context, prayerName, alarmId)
+            if (isDiagnosticTest) {
+                android.util.Log.e("AthanDiagnostic", "TEST_NOTIFICATION_BEFORE | Calling showSilentNotification")
+            }
+            showSilentNotification(context, prayerName, alarmId, isDiagnosticTest)
             return
         }
 
@@ -428,7 +438,7 @@ class AthanReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun showSilentNotification(context: Context, prayerName: String, alarmId: Int) {
+    private fun showSilentNotification(context: Context, prayerName: String, alarmId: Int, isDiagnosticTest: Boolean = false) {
         val channelId = "zad_silent_v3"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val importance = android.app.NotificationManager.IMPORTANCE_HIGH
@@ -457,5 +467,8 @@ class AthanReceiver : BroadcastReceiver() {
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         notificationManager.notify(1001, builder.build())
+        if (isDiagnosticTest) {
+            android.util.Log.e("AthanDiagnostic", "TEST_NOTIFICATION_POSTED | Silent Notification (ID 1001) posted")
+        }
     }
 }

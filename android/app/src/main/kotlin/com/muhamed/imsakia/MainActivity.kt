@@ -135,9 +135,10 @@ class MainActivity : AudioServiceActivity() {
                         val prayerName = call.argument<String>("prayerName") ?: "الصلاة"
                         val prayerKey = call.argument<String>("prayerKey") ?: "dhuhr"
                         val isSilent = call.argument<Boolean>("isSilent") ?: false
+                        val isDiagnosticTest = call.argument<Boolean>("isDiagnosticTest") ?: false
                         
                         if (timeInMillis > 0) {
-                            scheduleExactAthan(timeInMillis, id, prayerName, prayerKey, isSilent)
+                            scheduleExactAthan(timeInMillis, id, prayerName, prayerKey, isSilent, isDiagnosticTest)
                             result.success(true)
                         } else {
                             result.error("INVALID_TIME", "Time must be > 0", null)
@@ -493,7 +494,7 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
-    private fun scheduleExactAthan(timeInMillis: Long, id: Int, prayerName: String, prayerKey: String, isSilent: Boolean) {
+    private fun scheduleExactAthan(timeInMillis: Long, id: Int, prayerName: String, prayerKey: String, isSilent: Boolean, isDiagnosticTest: Boolean = false) {
         android.util.Log.d("ImsakiaNative", "!!! NATIVE: Received schedule request for $prayerName (ID: $id) at $timeInMillis !!!")
         try {
             cancelAthan(id) // prevent overlap: cancel any existing alarm with the same id
