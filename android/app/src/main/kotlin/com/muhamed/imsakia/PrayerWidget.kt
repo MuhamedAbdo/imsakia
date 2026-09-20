@@ -156,10 +156,8 @@ class PrayerWidget : AppWidgetProvider() {
         )
         views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
 
-        // Apply update to all active widgets
-        for (appWidgetId in appWidgetIds) {
-            appWidgetManager.updateAppWidget(appWidgetId, views)
-        }
+        // Apply update to all active widgets via ComponentName to bypass Launcher binding delays
+        appWidgetManager.updateAppWidget(ComponentName(context, PrayerWidget::class.java), views)
         android.util.Log.d("ZadWidget", "WIDGET_TRACE: REMOTE VIEWS UPDATED")
     }
 

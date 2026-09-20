@@ -33,10 +33,8 @@ class NextPrayerWidget : AppWidgetProvider() {
         fun updateAll(context: Context) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val ids = appWidgetManager.getAppWidgetIds(ComponentName(context, NextPrayerWidget::class.java))
-            if (ids.isNotEmpty()) {
-                val provider = NextPrayerWidget()
-                provider.onUpdate(context, appWidgetManager, ids)
-            }
+            val provider = NextPrayerWidget()
+            provider.onUpdate(context, appWidgetManager, ids)
         }
     }
 
@@ -46,9 +44,7 @@ class NextPrayerWidget : AppWidgetProvider() {
         if (intent.action == ACTION_REDRAW) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val ids = appWidgetManager.getAppWidgetIds(ComponentName(context, NextPrayerWidget::class.java))
-            if (ids.isNotEmpty()) {
-                onUpdate(context, appWidgetManager, ids)
-            }
+            onUpdate(context, appWidgetManager, ids)
         }
     }
 
@@ -59,10 +55,8 @@ class NextPrayerWidget : AppWidgetProvider() {
         val nextTimestamp = prefs.getLong("flutter.next_prayer_timestamp", 0L)
         val now = System.currentTimeMillis()
 
-        for (widgetId in appWidgetIds) {
-            val views = buildViews(context, nextName, nextTimestamp, now)
-            appWidgetManager.updateAppWidget(widgetId, views)
-        }
+        val views = buildViews(context, nextName, nextTimestamp, now)
+        appWidgetManager.updateAppWidget(ComponentName(context, NextPrayerWidget::class.java), views)
 
         // Self-schedule: redraw precisely when the next prayer transitions
         if (nextTimestamp > now) {

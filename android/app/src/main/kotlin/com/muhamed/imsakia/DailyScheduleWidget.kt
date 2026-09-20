@@ -19,10 +19,8 @@ class DailyScheduleWidget : AppWidgetProvider() {
         fun updateAll(context: Context) {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val ids = appWidgetManager.getAppWidgetIds(ComponentName(context, DailyScheduleWidget::class.java))
-            if (ids.isNotEmpty()) {
-                val provider = DailyScheduleWidget()
-                provider.onUpdate(context, appWidgetManager, ids)
-            }
+            val provider = DailyScheduleWidget()
+            provider.onUpdate(context, appWidgetManager, ids)
         }
     }
 
@@ -38,8 +36,7 @@ class DailyScheduleWidget : AppWidgetProvider() {
         val maghribTime = prefs.getString("flutter.maghrib_time", "--")
         val ishaTime = prefs.getString("flutter.isha_time", "--")
 
-        for (widgetId in appWidgetIds) {
-            val views = RemoteViews(context.packageName, R.layout.daily_schedule_widget)
+        val views = RemoteViews(context.packageName, R.layout.daily_schedule_widget)
 
             // Set prayer times
             views.setTextViewText(R.id.prayer1_time, fajrTime)
@@ -109,7 +106,6 @@ class DailyScheduleWidget : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.daily_schedule_widget_layout, pendingIntent)
 
-            appWidgetManager.updateAppWidget(widgetId, views)
-        }
+        appWidgetManager.updateAppWidget(ComponentName(context, DailyScheduleWidget::class.java), views)
     }
 }

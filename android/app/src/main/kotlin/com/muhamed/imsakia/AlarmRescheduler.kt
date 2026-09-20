@@ -163,29 +163,17 @@ object AlarmRescheduler {
 
     private fun refreshWidgets(context: Context) {
         try {
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-
-            val prayerIds = appWidgetManager.getAppWidgetIds(
-                ComponentName(context, PrayerWidget::class.java)
-            )
-            if (prayerIds.isNotEmpty()) {
-                val intent = Intent(context, PrayerWidget::class.java).apply {
-                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, prayerIds)
-                }
-                context.sendBroadcast(intent)
+            val intent = Intent(context, PrayerWidget::class.java).apply {
+                action = "com.muhamed.imsakia.UPDATE_COUNTDOWN"
             }
+            context.sendBroadcast(intent)
 
-            val nextIds = appWidgetManager.getAppWidgetIds(
-                ComponentName(context, NextPrayerWidget::class.java)
-            )
-            if (nextIds.isNotEmpty()) {
-                val intent = Intent(context, NextPrayerWidget::class.java).apply {
-                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, nextIds)
-                }
-                context.sendBroadcast(intent)
+            val intentNext = Intent(context, NextPrayerWidget::class.java).apply {
+                action = NextPrayerWidget.ACTION_REDRAW
             }
+            context.sendBroadcast(intentNext)
+
+            DailyScheduleWidget.updateAll(context)
         } catch (e: Exception) {
             android.util.Log.e(TAG, "refreshWidgets failed: ${e.message}")
         }
