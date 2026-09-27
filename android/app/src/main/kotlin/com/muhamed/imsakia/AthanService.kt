@@ -140,7 +140,7 @@ class AthanService : Service() {
                 sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
             }
             
-            stopForeground(STOP_FOREGROUND_DETACH)
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -184,7 +184,7 @@ class AthanService : Service() {
             
             // ─── مسار الأذان الفعلي ─────────────────────────────────────────
             
-            startForegroundServiceNotification(prayerName, alarmId, isAthanEnabled, isOngoing = isAthanEnabled)
+            startForegroundServiceNotification(prayerName, alarmId, isSilent = isSilentInIntent, isOngoing = !isSilentInIntent)
             acquireWakeLock()
             
             val shouldPlayAudio = !isSilentInIntent && (isAthanEnabled || prayerName.contains("اختبار"))
@@ -196,6 +196,7 @@ class AthanService : Service() {
                 }.start()
             } else {
                 android.util.Log.w("ImsakiaNative", "!!! SERVICE: Audio is DISABLED, service will linger for 5s !!!")
+                stopForeground(STOP_FOREGROUND_DETACH)
                 Handler(Looper.getMainLooper()).postDelayed({
                     stopSelf()
                 }, 5000)
@@ -221,11 +222,11 @@ class AthanService : Service() {
         } catch (e: Exception) { e.printStackTrace() }
     }
     
-    private fun startForegroundServiceNotification(prayerName: String, alarmId: Int, isAthanEnabled: Boolean, isOngoing: Boolean) {
-        val channelId = if (isAthanEnabled) ATHAN_SERVICE_CHANNEL else "zad_silent_v3"
+    private fun startForegroundServiceNotification(prayerName: String, alarmId: Int, isSilent: Boolean, isOngoing: Boolean) {
+        val channelId = if (isSilent) "zad_silent_v3" else ATHAN_SERVICE_CHANNEL
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (isAthanEnabled) {
+            if (!isSilent) {
                 val channel = NotificationChannel(
                     channelId, "Athan Service", NotificationManager.IMPORTANCE_HIGH
                 ).apply {
@@ -239,9 +240,16 @@ class AthanService : Service() {
                 val channel = NotificationChannel(
                     channelId, "Silent Athan", NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    setSound(null, null)
+                    setSound(
+                        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                    )
                     setShowBadge(false)
-                    enableVibration(false)
+                    enableVibration(true)
+                    vibrationPattern = longArrayOf(0, 500, 200, 500)
                 }
                 getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
             }
@@ -262,6 +270,7 @@ class AthanService : Service() {
             putExtra("trigger_athan_overlay", true)
             putExtra("prayer_name", prayerName)
             putExtra("alarm_id", alarmId)
+            putExtra("is_silent", isSilent)
         }
         
         val fullScreenPendingIntent = PendingIntent.getActivity(
@@ -273,19 +282,19 @@ class AthanService : Service() {
 
         val isShorooq = prayerName.contains("شروق") || prayerName == "الشروق"
         val titleText = if (isShorooq) "شروق الشمس الآن" else "صلاة $prayerName الآن"
-        val bodyText = if (isShorooq) "حان الآن وقت الشروق" else (if (isAthanEnabled && isOngoing) "اضغط للإيقاف" else "حان الآن موعد صلاة $prayerName")
+        val bodyText = if (isShorooq) "حان الآن وقت الشروق" else (if (!isSilent && isOngoing) "اضغط للإيقاف" else "حان الآن موعد صلاة $prayerName")
         
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
             .setContentTitle(titleText)
             .setContentText(bodyText)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(if (isAthanEnabled) NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
+            .setCategory(if (!isSilent) NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
             .setOngoing(isOngoing)
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
             
-        if (isAthanEnabled) {
+        if (!isSilent) {
             notificationBuilder.setContentIntent(stopPendingIntent) // Tap to stop
             notificationBuilder.setVibrate(longArrayOf(0, 500, 200, 500))
             notificationBuilder.setFullScreenIntent(fullScreenPendingIntent, true)
@@ -421,7 +430,7 @@ class AthanService : Service() {
                     } catch (e: Exception) {}
 
                     sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
-                    stopForeground(STOP_FOREGROUND_DETACH)
+                    stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                 }
             }
@@ -437,7 +446,7 @@ class AthanService : Service() {
             // All attempts failed, notify UI to refresh anyway
             android.util.Log.e("ImsakiaNative", "!!! CRITICAL: All audio playback methods failed. Broadcasting completion to prevent stuck UI !!!")
             sendBroadcast(Intent("com.muhamed.imsakia.ATHAN_COMPLETED"))
-            stopForeground(STOP_FOREGROUND_DETACH)
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
     }
@@ -469,7 +478,7 @@ class AthanService : Service() {
         
         // BUG #4 FIX: تحقق من isHeld قبل release لمنع IllegalArgumentException
         wakeLock?.let { if (it.isHeld) it.release() }
-        stopForeground(STOP_FOREGROUND_DETACH)
+        stopForeground(STOP_FOREGROUND_REMOVE)
 
         // BUG #6 FIX: بث ATHAN_COMPLETED مرة واحدة فقط
         if (!completionBroadcastSent) {
