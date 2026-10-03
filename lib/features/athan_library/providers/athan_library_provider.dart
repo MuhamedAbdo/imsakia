@@ -100,6 +100,9 @@ class AthanLibraryProvider with ChangeNotifier {
     return false;
   }
 
+  /// مسار الملف المحلي المحمّل للأذان (إن وُجد) — يُستخدم للمعاينة من القرص.
+  String? localPathOf(String id) => _localPaths[id];
+
   // ─── Init ─────────────────────────────────────────────────────────────────
   Future<void> _init() async {
     await _loadSavedDefaults();

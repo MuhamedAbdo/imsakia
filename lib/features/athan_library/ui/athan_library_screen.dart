@@ -45,31 +45,87 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
   }
 
   // ─── Toggle preview playback ───────────────────────────────────────────────
+  // حد أقصى محاولتان إجماليًا: محاولة أولى + محاولة واحدة بعد backoff قصير.
+  static const int _previewMaxAttempts = 2;
+
   Future<void> _togglePreview(AthanModel athan) async {
     final provider = context.read<AthanLibraryProvider>();
     final isPlaying = provider.playingId == athan.id;
 
     if (isPlaying) {
+      // إيقاف صريح بطلب المستخدم — هذا هو الاستخدام الصحيح لـ stop().
       await _player.stop();
       provider.setPlayingId(null);
-    } else {
-      provider.setPlayingId(athan.id);
+      return;
+    }
+
+    // مؤشّر التحميل الفوري (يتحول زر التشغيل إلى إيقاف أثناء الإعداد).
+    provider.setPlayingId(athan.id);
+
+    // الإصلاح الثالث: إذا كان الصوت محمّلًا محليًا فعاينه من القرص بدل البثّ البعيد.
+    final String? localPath = provider.isDownloaded(athan.id)
+        ? provider.localPathOf(athan.id)
+        : null;
+
+    for (var attempt = 1; attempt <= _previewMaxAttempts; attempt++) {
+      // إذا اختار المستخدم مصدرًا آخر أثناء المحاولة، أوقف هذه المحاولة بصمت.
+      if (!mounted || provider.playingId != athan.id) return;
       try {
-        await _player.stop();
-        await _player.setUrl(athan.url);
+        // setUrl/setFilePath وحدها تُصفّر المصدر السابق بأمان (لا حاجة لـ stop() هنا).
+        if (localPath != null) {
+          await _player.setFilePath(localPath);
+        } else {
+          await _player.setUrl(athan.url);
+        }
         await _player.play();
+        return; // نجاح
+      } on PlayerInterruptedException {
+        // المستخدم انتقل عمدًا إلى ملف آخر قبل اكتمال التحميل — ليس فشل خادم ولا عطلًا.
+        return;
       } catch (e) {
+        // فقدت هذه المعاينة التركيز (اختيار أحدث) — تجاهل بصمت.
+        if (!mounted || provider.playingId != athan.id) return;
+
+        // الإصلاح الأول: إعادة محاولة محدودة على أخطاء الخادم/المصدر المؤقتة فقط.
+        final bool transient = localPath == null && _isTransientSourceError(e);
+        if (transient && attempt < _previewMaxAttempts) {
+          await Future.delayed(const Duration(milliseconds: 700));
+          continue;
+        }
+
         provider.setPlayingId(null);
         if (mounted) {
+          final String message = transient
+              ? 'الخادم لم يستجب الآن، حاول مجددًا بعد قليل'
+              : 'تعذّر تشغيل الصوت: $e';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('تعذّر تشغيل الصوت: $e'),
+              content: Text(message),
               backgroundColor: Colors.red.shade700,
             ),
           );
         }
+        return;
       }
     }
+  }
+
+  /// يميّز أخطاء المصدر/الخادم المؤقتة (HTTP 5xx / انقطاع اتصال) عن غيرها،
+  /// حتى لا نُعيد المحاولة على كل خطأ بلا تمييز (مثل 404 أو رابط غير صالح).
+  bool _isTransientSourceError(Object e) {
+    if (e is PlayerException) {
+      // على أندرويد: code = ExoPlaybackException.type، و TYPE_SOURCE == 1.
+      if (e.code != 1) return false;
+      final m = (e.message ?? '').toLowerCase();
+      return m.contains('response code: 5') ||
+          m.contains('source error') ||
+          m.contains('httpdatasource') ||
+          m.contains('unable to connect') ||
+          m.contains('connection') ||
+          m.contains('timeout') ||
+          m.contains('timed out');
+    }
+    return false;
   }
 
   // ─── Download & Set ───────────────────────────────────────────────────────
