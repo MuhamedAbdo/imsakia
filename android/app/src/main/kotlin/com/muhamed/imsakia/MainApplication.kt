@@ -32,21 +32,17 @@ class MainApplication : Application() {
 
         android.util.Log.i("ZadApp", "MainApplication.onCreate() — Process awake, initializing Iron Muezzin…")
 
-        // ── Layer 4 (Base): إعادة جدولة المنبهات المستقبلية ──────────────────
-        // سريع جداً: قراءة SharedPreferences فقط (لا I/O ثقيل)
+        // ── Layer 4 (Base): إعادة جدولة المنبهات المستقبلية في الخلفية لمنع تجميد الخيط الرئيسي ──
         try {
-            AlarmRescheduler.rescheduleAll(this, reason = "MainApplication.onCreate")
+            Thread {
+                AlarmRescheduler.rescheduleAll(this, reason = "MainApplication.onCreate")
+            }.start()
         } catch (e: Exception) {
             android.util.Log.e("ZadApp", "rescheduleAll failed in onCreate: ${e.message}")
         }
 
-        // ── Layer 2: تشغيل الحارس الدائم (Persistent Foreground Watchdog) ────
-        // يعرض الصلاة القادمة في إشعار دائم ويمنع MIUI من تجميد العملية
-        try {
-            AlarmWatchdogService.start(this)
-        } catch (e: Exception) {
-            android.util.Log.e("ZadApp", "AlarmWatchdogService.start() failed: ${e.message}")
-        }
+        // ملاحظة: تم نقل تشغيل AlarmWatchdogService إلى MainActivity بعد استقرار الواجهة
+        // لمنع حدوث ForegroundServiceDidNotStartInTimeException الناتج عن تأخر بدء Flutter Engine
 
         // ── Layer 3: تسجيل WorkManager كطبقة احتياطية ────────────────────────
         // يعمل كل 15 دقيقة لإصلاح أي منبه جمّده MIUI

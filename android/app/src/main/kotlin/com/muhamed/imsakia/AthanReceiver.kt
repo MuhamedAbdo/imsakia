@@ -198,12 +198,7 @@ class AthanReceiver : BroadcastReceiver() {
         // يحدث الآن (بعد cleanup) فتكون الصلاة التالية هي الصحيحة
         // ════════════════════════════════════════════════════════════════════
         try {
-            val watchdogIntent = Intent(context, AlarmWatchdogService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(watchdogIntent)
-            } else {
-                context.startService(watchdogIntent)
-            }
+            AlarmWatchdogService.refreshNotification(context)
         } catch (e: Exception) {
             android.util.Log.w(TAG, "Could not ping watchdog to refresh notification: ${e.message}")
         }

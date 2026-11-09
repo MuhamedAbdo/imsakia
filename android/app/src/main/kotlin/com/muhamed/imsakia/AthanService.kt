@@ -154,11 +154,13 @@ class AthanService : Service() {
             android.util.Log.e("AZAN_TRACE",
                 "PLAYBACK REJECTED | occurrenceKey=$occurrenceKey | reason=occurrence_already_claimed"
             )
+            safeDismissForeground()
             return START_NOT_STICKY
         }
         
         // منع التكرار في الذاكرة كطبقة حماية إضافية
         if (currentOccurrenceKey == occurrenceKey) {
+            safeDismissForeground()
             return START_NOT_STICKY
         }
         android.util.Log.e("AZAN_TRACE",
@@ -220,6 +222,39 @@ class AthanService : Service() {
                 acquire(120000) // 2 minutes max
             }
         } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    private fun safeDismissForeground() {
+        try {
+            val channelId = ATHAN_SERVICE_CHANNEL
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    channelId, "Athan Service", NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    setSound(null, null)
+                    setShowBadge(false)
+                }
+                getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+            }
+            val dummyNotification = NotificationCompat.Builder(this, channelId)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("زاد")
+                .setContentText("")
+                .setPriority(NotificationCompat.PRIORITY_MIN)
+                .setSilent(true)
+                .build()
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(SERVICE_NOTIFICATION_ID, dummyNotification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+            } else {
+                startForeground(SERVICE_NOTIFICATION_ID, dummyNotification)
+            }
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        } catch (e: Exception) {
+            android.util.Log.e("ImsakiaNative", "safeDismissForeground error: ${e.message}")
+            stopSelf()
+        }
     }
     
     private fun startForegroundServiceNotification(prayerName: String, alarmId: Int, isSilent: Boolean, isOngoing: Boolean) {

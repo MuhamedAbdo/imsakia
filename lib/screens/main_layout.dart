@@ -35,7 +35,6 @@ import 'settings_screen.dart';
 import 'tasbih_screen.dart';
 import '../features/audio/screens/audio_reciters_screen.dart';
 import '../widgets/event_card_widget.dart';
-import '../widgets/oem_restrictions_dialog.dart';
 
 // =============================================================================
 //  UnderDevelopmentPage
@@ -132,12 +131,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       ),
     ];
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) {
-        _checkBatteryOptimization().ignore();
-        OemRestrictionsDialog.checkAndShow(context).ignore();
-      }
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkBatteryOptimization().ignore();
+    });
   }
 
   Future<void> _checkBatteryOptimization() async {
@@ -405,7 +401,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      
+
       setState(() {
         _nextPrayer = PrayerTimesService.instance.getNextPrayer();
         _timeUntilNextPrayer = PrayerTimesService.instance
@@ -699,7 +695,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // ---------------------------------------------------------------------------
   //  Hijri Date Card
   // ---------------------------------------------------------------------------
-  Widget _buildHijriCard(BuildContext context, String formattedDate, bool isDark) {
+  Widget _buildHijriCard(
+    BuildContext context,
+    String formattedDate,
+    bool isDark,
+  ) {
     final gregorianStr = DateFormat.yMMMMd('ar').format(DateTime.now());
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -768,7 +768,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           gregorianStr,
                           style: GoogleFonts.tajawal(
                             fontSize: 13,
-                            color: isDark ? Colors.white70 : const Color(0xFF546E7A),
+                            color: isDark
+                                ? Colors.white70
+                                : const Color(0xFF546E7A),
                             fontWeight: FontWeight.w500,
                           ),
                         ),

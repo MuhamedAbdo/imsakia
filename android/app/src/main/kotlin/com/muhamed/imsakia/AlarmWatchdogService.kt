@@ -65,11 +65,19 @@ class AlarmWatchdogService : Service() {
         // request code ثابت لإعادة التشغيل
         private const val RESTART_REQUEST_CODE = 3001
 
+        @Volatile
+        var isRunning: Boolean = false
+            private set
+
         /**
          * تشغيل الخدمة أو إعادة تشغيلها بأمان.
          * يُستدعى من MainApplication.onCreate() وبعد كل boot.
          */
         fun start(context: Context) {
+            if (isRunning) {
+                android.util.Log.d(TAG, "AlarmWatchdogService is already running — skipping redundant startForegroundService")
+                return
+            }
             val intent = Intent(context, AlarmWatchdogService::class.java)
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -84,10 +92,133 @@ class AlarmWatchdogService : Service() {
         }
 
         /**
+         * تحديث الإشعار مباشرة وبأمان دون استدعاء startForegroundService.
+         * آمن للاستدعاء من الخلفية أو Receivers دون أي مخاطر ANR أو قيود النظام.
+         */
+        fun refreshNotification(context: Context) {
+            try {
+                createNotificationChannel(context)
+                val notification = buildNotification(context, fastMode = false)
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                nm.notify(NOTIFICATION_ID, notification)
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "refreshNotification failed: ${e.message}")
+            }
+        }
+
+        /**
          * إيقاف الخدمة (إذا أراد المستخدم في المستقبل إيقاف الإشعار الدائم).
          */
         fun stop(context: Context) {
+            isRunning = false
             context.stopService(Intent(context, AlarmWatchdogService::class.java))
+        }
+
+        fun createNotificationChannel(context: Context) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    CHANNEL_ID,
+                    "زاد — الصلاة القادمة",         // اسم قناة الإشعارات (يظهر في الإعدادات)
+                    NotificationManager.IMPORTANCE_LOW  // لا صوت، لا اهتزاز، لا نقطة تنبيه
+                ).apply {
+                    description = "يعرض اسم وموعد الصلاة القادمة"
+                    setShowBadge(false)
+                    setSound(null, null)
+                    enableVibration(false)
+                    enableLights(false)
+                }
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                nm.createNotificationChannel(channel)
+            }
+        }
+
+        fun buildNotification(context: Context, fastMode: Boolean = false): Notification {
+            val prayerName: String
+            val prayerTime: String
+
+            if (fastMode) {
+                prayerName = ""
+                prayerTime = ""
+            } else {
+                val result = readNextPrayer(context)
+                prayerName = result.first
+                prayerTime = result.second
+            }
+
+            // Intent لفتح التطبيق عند نقر الإشعار
+            val openIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            val pendingIntent = PendingIntent.getActivity(
+                context, 0, openIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val contentTitle: String
+            val contentText: String
+
+            if (prayerName.isNotEmpty() && prayerTime.isNotEmpty()) {
+                contentTitle = "الصلاة القادمة: $prayerName"
+                contentText = prayerTime
+            } else {
+                contentTitle = "زاد — مواقيت الصلاة"
+                contentText = if (fastMode) "جاري التهيئة..." else "اضغط للدخول للتطبيق"
+            }
+
+            return NotificationCompat.Builder(context, CHANNEL_ID)
+                .setContentTitle(contentTitle)
+                .setContentText(contentText)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentIntent(pendingIntent)
+                .setOngoing(true)          // لا يمكن للمستخدم رفعه بالسحب
+                .setShowWhen(false)        // لا يعرض وقت الإنشاء
+                .setSilent(true)           // لا صوت ولا اهتزاز
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .build()
+        }
+
+        fun readNextPrayer(context: Context): Pair<String, String> {
+            return try {
+                val now = System.currentTimeMillis()
+
+                // محاولة أولى: HomeWidgetPreferences (أسرع)
+                val widgetPrefs = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
+                val name = widgetPrefs.getString("flutter.next_prayer_name", "") ?: ""
+                val ts = widgetPrefs.getLong("flutter.next_prayer_timestamp", 0L)
+
+                if (name.isNotEmpty() && ts > now) {
+                    val sdf = SimpleDateFormat("h:mm a", Locale("ar"))
+                    return Pair(name, sdf.format(Date(ts)))
+                }
+
+                // محاولة ثانية: athan_schedules مباشرة
+                val schedules = context.getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
+                var nextTs = Long.MAX_VALUE
+                var nextName = ""
+
+                for ((key, value) in schedules.all) {
+                    if (key.endsWith("_data")) continue
+                    val id = key.toIntOrNull() ?: continue
+                    val timestamp = (value as? Number)?.toLong() ?: continue
+                    if (timestamp > now && timestamp < nextTs) {
+                        nextTs = timestamp
+                        val data = schedules.getString("${id}_data", "") ?: ""
+                        nextName = data.split("|").getOrElse(0) { "" }
+                    }
+                }
+
+                if (nextName.isNotEmpty() && nextTs != Long.MAX_VALUE) {
+                    val sdf = SimpleDateFormat("h:mm a", Locale("ar"))
+                    Pair(nextName, sdf.format(Date(nextTs)))
+                } else {
+                    Pair("", "")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "readNextPrayer failed: ${e.message}")
+                Pair("", "")
+            }
         }
     }
 
@@ -99,31 +230,41 @@ class AlarmWatchdogService : Service() {
     // دورة حياة الخدمة
     // ─────────────────────────────────────────────────────────────
 
-    override fun onCreate() {
-        super.onCreate()
-        android.util.Log.i(TAG, "AlarmWatchdogService created — going foreground")
-        createNotificationChannel()
-        // استدعاء فوري جداً لـ startForeground دون أي قراءة من الشيرد بريفرنسز لتجنب كراش ForegroundServiceDidNotStartInTimeException
+    private fun promoteToForeground(fastMode: Boolean = false) {
         try {
+            createNotificationChannel(this)
+            val notification = buildNotification(this, fastMode = fastMode)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34
                 startForeground(
                     NOTIFICATION_ID, 
-                    buildNotification(fastMode = true), 
+                    notification, 
                     android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
                 )
             } else {
-                startForeground(NOTIFICATION_ID, buildNotification(fastMode = true))
+                startForeground(NOTIFICATION_ID, notification)
             }
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "startForeground failed: ${e.message}")
+            android.util.Log.e(TAG, "promoteToForeground failed: ${e.message}")
         }
     }
 
+    override fun onCreate() {
+        super.onCreate()
+        isRunning = true
+        android.util.Log.i(TAG, "AlarmWatchdogService created — going foreground")
+        createNotificationChannel(this)
+        promoteToForeground(fastMode = true)
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        isRunning = true
         android.util.Log.d(TAG, "onStartCommand — watchdog active")
 
-        // تحديث الإشعار بأحدث بيانات الصلاة القادمة
-        updateNotification()
+        // CRITICAL FOR ANDROID 8+: Always call promoteToForeground in onStartCommand as well
+        // because if startForegroundService() is called when the service is already running,
+        // Android requires startForeground() to be called again to fulfill the contract,
+        // otherwise Android throws ForegroundServiceDidNotStartInTimeException!
+        promoteToForeground(fastMode = false)
 
         // بدء محرك الأذان الذاتي
         startAthanEngine()
@@ -152,6 +293,7 @@ class AlarmWatchdogService : Service() {
     }
 
     override fun onDestroy() {
+        isRunning = false
         android.util.Log.w(TAG, "AlarmWatchdogService destroyed — scheduling restart")
         serviceJob?.cancel()
         scheduleServiceRestart()
@@ -164,112 +306,8 @@ class AlarmWatchdogService : Service() {
     // إدارة الإشعار
     // ─────────────────────────────────────────────────────────────
 
-    /**
-     * يقرأ بيانات الصلاة القادمة ويُحدّث الإشعار الدائم.
-     * يُستدعى من AthanReceiver بعد كل أذان لتحديث الصلاة التالية.
-     */
     fun updateNotification() {
-        try {
-            val notification = buildNotification()
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            nm.notify(NOTIFICATION_ID, notification)
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "updateNotification failed: ${e.message}")
-        }
-    }
-
-    private fun buildNotification(fastMode: Boolean = false): Notification {
-        val prayerName: String
-        val prayerTime: String
-
-        if (fastMode) {
-            prayerName = ""
-            prayerTime = ""
-        } else {
-            val result = readNextPrayer()
-            prayerName = result.first
-            prayerTime = result.second
-        }
-
-        // Intent لفتح التطبيق عند نقر الإشعار
-        val openIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, openIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val contentTitle: String
-        val contentText: String
-
-        if (prayerName.isNotEmpty() && prayerTime.isNotEmpty()) {
-            contentTitle = "الصلاة القادمة: $prayerName"
-            contentText = prayerTime
-        } else {
-            contentTitle = "زاد — مواقيت الصلاة"
-            contentText = if (fastMode) "جاري التهيئة..." else "اضغط للدخول للتطبيق"
-        }
-
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(contentTitle)
-            .setContentText(contentText)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)          // لا يمكن للمستخدم رفعه بالسحب
-            .setShowWhen(false)        // لا يعرض وقت الإنشاء
-            .setSilent(true)           // لا صوت ولا اهتزاز
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .build()
-    }
-
-    /**
-     * يقرأ اسم ووقت الصلاة القادمة من:
-     *   1. HomeWidgetPreferences (مكتوب من AthanReceiver و Flutter)
-     *   2. athan_schedules (fallback مباشر)
-     */
-    private fun readNextPrayer(): Pair<String, String> {
-        return try {
-            val now = System.currentTimeMillis()
-
-            // محاولة أولى: HomeWidgetPreferences (أسرع)
-            val widgetPrefs = getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
-            val name = widgetPrefs.getString("flutter.next_prayer_name", "") ?: ""
-            val ts = widgetPrefs.getLong("flutter.next_prayer_timestamp", 0L)
-
-            if (name.isNotEmpty() && ts > now) {
-                val sdf = SimpleDateFormat("h:mm a", Locale("ar"))
-                return Pair(name, sdf.format(Date(ts)))
-            }
-
-            // محاولة ثانية: athan_schedules مباشرة
-            val schedules = getSharedPreferences("athan_schedules", Context.MODE_PRIVATE)
-            var nextTs = Long.MAX_VALUE
-            var nextName = ""
-
-            for ((key, value) in schedules.all) {
-                if (key.endsWith("_data")) continue
-                val id = key.toIntOrNull() ?: continue
-                val timestamp = (value as? Number)?.toLong() ?: continue
-                if (timestamp > now && timestamp < nextTs) {
-                    nextTs = timestamp
-                    val data = schedules.getString("${id}_data", "") ?: ""
-                    nextName = data.split("|").getOrElse(0) { "" }
-                }
-            }
-
-            if (nextName.isNotEmpty() && nextTs != Long.MAX_VALUE) {
-                val sdf = SimpleDateFormat("h:mm a", Locale("ar"))
-                Pair(nextName, sdf.format(Date(nextTs)))
-            } else {
-                Pair("", "")
-            }
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "readNextPrayer failed: ${e.message}")
-            Pair("", "")
-        }
+        refreshNotification(this)
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -381,35 +419,26 @@ class AlarmWatchdogService : Service() {
     private fun scheduleServiceRestart() {
         try {
             val restartIntent = Intent(applicationContext, AlarmWatchdogService::class.java)
-            val pi = PendingIntent.getService(
-                applicationContext,
-                RESTART_REQUEST_CODE,
-                restartIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+            val pi = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                PendingIntent.getForegroundService(
+                    applicationContext,
+                    RESTART_REQUEST_CODE,
+                    restartIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            } else {
+                PendingIntent.getService(
+                    applicationContext,
+                    RESTART_REQUEST_CODE,
+                    restartIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            }
             val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
             alarmManager.set(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 3_000L, pi)
             android.util.Log.d(TAG, "Watchdog restart scheduled in 3s")
         } catch (e: Exception) {
             android.util.Log.e(TAG, "scheduleServiceRestart failed: ${e.message}")
-        }
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "زاد — الصلاة القادمة",         // اسم قناة الإشعارات (يظهر في الإعدادات)
-                NotificationManager.IMPORTANCE_LOW  // لا صوت، لا اهتزاز، لا نقطة تنبيه
-            ).apply {
-                description = "يعرض اسم وموعد الصلاة القادمة"
-                setShowBadge(false)
-                setSound(null, null)
-                enableVibration(false)
-                enableLights(false)
-            }
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            nm.createNotificationChannel(channel)
         }
     }
 }

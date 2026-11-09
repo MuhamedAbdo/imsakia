@@ -9,7 +9,6 @@ import 'package:audio_service/audio_service.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
 import '../features/athan/providers/athan_provider.dart';
-import '../features/athan/services/athan_manager.dart';
 import '../features/athan_library/providers/athan_library_provider.dart';
 import '../features/athan_library/ui/athan_library_screen.dart';
 import '../services/prayer_times_service.dart';
@@ -320,9 +319,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ],
               ),
               const SizedBox(height: 30),
-              // 🧪 زر اختبار A/B — مؤقت، يُزال بعد انتهاء التجربة
-              if (!widget.isFirstTimeSetup) _buildAbTestButton(),
-              if (!widget.isFirstTimeSetup) const SizedBox(height: 15),
               _buildSaveButton(),
             ],
           ),
@@ -501,50 +497,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // 🧪 زر اختبار A/B — مؤقت (يُزال بعد انتهاء التجربة)
-  // يجدول منبهين متزامنين (setAlarmClock + setExactAndAllowWhileIdle)
-  // بعد 3 دقائق من الضغط، لاختبار أيهما يخترق Doze Mode أولاً.
-  // ═══════════════════════════════════════════════════════════
-  Widget _buildAbTestButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 55,
-      child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.deepOrange.shade700,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-        ),
-        icon: const Icon(Icons.science_outlined, color: Colors.white),
-        label: Text(
-          'اختبار الأذان A/B (بعد 3 دقائق)',
-          style: GoogleFonts.tajawal(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        onPressed: () async {
-          await AthanManager.scheduleAbTestAthan(
-            delay: const Duration(minutes: 3),
-          );
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '✅ تم جدولة منبهين A/B — راقب AZAN_TRACE في Logcat بعد 3 دقائق',
-                style: GoogleFonts.tajawal(),
-              ),
-              backgroundColor: Colors.deepOrange,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   Widget _buildSection({
     required String title,
     required IconData icon,
@@ -627,17 +579,41 @@ class _SettingsScreenState extends State<SettingsScreen>
               const Divider(height: 20),
               Text(
                 'تفعيل الأذان لكل صلاة (التعطيل يجعله صامتاً):',
-                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
+                style: GoogleFonts.tajawal(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: Colors.green,
+                ),
               ),
               const SizedBox(height: 5),
               Consumer<SettingsProvider>(
                 builder: (context, settings, _) => Column(
                   children: [
-                    _buildPrayerToggleRow('الفجر', settings.fajrAthanEnabled, (v) => settings.setPrayerAthanEnabled('fajr', v)),
-                    _buildPrayerToggleRow('الظهر', settings.dhuhrAthanEnabled, (v) => settings.setPrayerAthanEnabled('dhuhr', v)),
-                    _buildPrayerToggleRow('العصر', settings.asrAthanEnabled, (v) => settings.setPrayerAthanEnabled('asr', v)),
-                    _buildPrayerToggleRow('المغرب', settings.maghribAthanEnabled, (v) => settings.setPrayerAthanEnabled('maghrib', v)),
-                    _buildPrayerToggleRow('العشاء', settings.ishaAthanEnabled, (v) => settings.setPrayerAthanEnabled('isha', v)),
+                    _buildPrayerToggleRow(
+                      'الفجر',
+                      settings.fajrAthanEnabled,
+                      (v) => settings.setPrayerAthanEnabled('fajr', v),
+                    ),
+                    _buildPrayerToggleRow(
+                      'الظهر',
+                      settings.dhuhrAthanEnabled,
+                      (v) => settings.setPrayerAthanEnabled('dhuhr', v),
+                    ),
+                    _buildPrayerToggleRow(
+                      'العصر',
+                      settings.asrAthanEnabled,
+                      (v) => settings.setPrayerAthanEnabled('asr', v),
+                    ),
+                    _buildPrayerToggleRow(
+                      'المغرب',
+                      settings.maghribAthanEnabled,
+                      (v) => settings.setPrayerAthanEnabled('maghrib', v),
+                    ),
+                    _buildPrayerToggleRow(
+                      'العشاء',
+                      settings.ishaAthanEnabled,
+                      (v) => settings.setPrayerAthanEnabled('isha', v),
+                    ),
                   ],
                 ),
               ),
@@ -667,13 +643,20 @@ class _SettingsScreenState extends State<SettingsScreen>
                   selectedPath: provider.getPathForPrayer('dhuhr'),
                   // 🔑 إذا يوجد أذان سحابي للصلوات العادية → أقفل القائمة
                   isCloudOverride: libraryProvider.hasCloudAthanFor('dhuhr'),
-                  cloudOverrideName: libraryProvider.getAssignedNameFor('dhuhr'),
+                  cloudOverrideName: libraryProvider.getAssignedNameFor(
+                    'dhuhr',
+                  ),
                   onChanged: (path) =>
                       provider.setPrayerMuezzin('dhuhr', path!),
                   onTestPlay: () => _testPlayAthan('dhuhr'),
                   onCloudClear: () async {
                     await libraryProvider.clearDefault(prayerKey: 'dhuhr');
-                    if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                    if (context.mounted) {
+                      Provider.of<AthanProvider>(
+                        context,
+                        listen: false,
+                      ).syncFromPrefs();
+                    }
                   },
                 ),
                 const SizedBox(height: 8),
@@ -696,7 +679,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                     children: [
                       Text(
                         'تخصيص أصوات الصلوات',
-                        style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: GoogleFonts.tajawal(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       // ─── الفجر: يقفل عند وجود أذان فجر سحابي ──────────
@@ -705,14 +691,23 @@ class _SettingsScreenState extends State<SettingsScreen>
                         prayerKey: 'fajr',
                         muezzins: provider.fajrMuezzins,
                         selectedPath: provider.getPathForPrayer('fajr'),
-                        isCloudOverride: libraryProvider.hasCloudAthanFor('fajr'),
-                        cloudOverrideName: libraryProvider.getAssignedNameFor('fajr'),
+                        isCloudOverride: libraryProvider.hasCloudAthanFor(
+                          'fajr',
+                        ),
+                        cloudOverrideName: libraryProvider.getAssignedNameFor(
+                          'fajr',
+                        ),
                         onChanged: (path) =>
                             provider.setPrayerMuezzin('fajr', path!),
                         onTestPlay: () => _testPlayAthan('fajr'),
                         onCloudClear: () async {
                           await libraryProvider.clearDefault(prayerKey: 'fajr');
-                          if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                          if (context.mounted) {
+                            Provider.of<AthanProvider>(
+                              context,
+                              listen: false,
+                            ).syncFromPrefs();
+                          }
                         },
                       ),
                       const SizedBox(height: 10),
@@ -722,14 +717,25 @@ class _SettingsScreenState extends State<SettingsScreen>
                         prayerKey: 'dhuhr',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('dhuhr'),
-                        isCloudOverride: libraryProvider.hasCloudAthanFor('dhuhr'),
-                        cloudOverrideName: libraryProvider.getAssignedNameFor('dhuhr'),
+                        isCloudOverride: libraryProvider.hasCloudAthanFor(
+                          'dhuhr',
+                        ),
+                        cloudOverrideName: libraryProvider.getAssignedNameFor(
+                          'dhuhr',
+                        ),
                         onChanged: (path) =>
                             provider.setPrayerMuezzin('dhuhr', path!),
                         onTestPlay: () => _testPlayAthan('dhuhr'),
                         onCloudClear: () async {
-                          await libraryProvider.clearDefault(prayerKey: 'dhuhr');
-                          if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                          await libraryProvider.clearDefault(
+                            prayerKey: 'dhuhr',
+                          );
+                          if (context.mounted) {
+                            Provider.of<AthanProvider>(
+                              context,
+                              listen: false,
+                            ).syncFromPrefs();
+                          }
                         },
                       ),
                       const SizedBox(height: 10),
@@ -738,14 +744,23 @@ class _SettingsScreenState extends State<SettingsScreen>
                         prayerKey: 'asr',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('asr'),
-                        isCloudOverride: libraryProvider.hasCloudAthanFor('asr'),
-                        cloudOverrideName: libraryProvider.getAssignedNameFor('asr'),
+                        isCloudOverride: libraryProvider.hasCloudAthanFor(
+                          'asr',
+                        ),
+                        cloudOverrideName: libraryProvider.getAssignedNameFor(
+                          'asr',
+                        ),
                         onChanged: (path) =>
                             provider.setPrayerMuezzin('asr', path!),
                         onTestPlay: () => _testPlayAthan('asr'),
                         onCloudClear: () async {
                           await libraryProvider.clearDefault(prayerKey: 'asr');
-                          if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                          if (context.mounted) {
+                            Provider.of<AthanProvider>(
+                              context,
+                              listen: false,
+                            ).syncFromPrefs();
+                          }
                         },
                       ),
                       const SizedBox(height: 10),
@@ -754,14 +769,25 @@ class _SettingsScreenState extends State<SettingsScreen>
                         prayerKey: 'maghrib',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('maghrib'),
-                        isCloudOverride: libraryProvider.hasCloudAthanFor('maghrib'),
-                        cloudOverrideName: libraryProvider.getAssignedNameFor('maghrib'),
+                        isCloudOverride: libraryProvider.hasCloudAthanFor(
+                          'maghrib',
+                        ),
+                        cloudOverrideName: libraryProvider.getAssignedNameFor(
+                          'maghrib',
+                        ),
                         onChanged: (path) =>
                             provider.setPrayerMuezzin('maghrib', path!),
                         onTestPlay: () => _testPlayAthan('maghrib'),
                         onCloudClear: () async {
-                          await libraryProvider.clearDefault(prayerKey: 'maghrib');
-                          if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                          await libraryProvider.clearDefault(
+                            prayerKey: 'maghrib',
+                          );
+                          if (context.mounted) {
+                            Provider.of<AthanProvider>(
+                              context,
+                              listen: false,
+                            ).syncFromPrefs();
+                          }
                         },
                       ),
                       const SizedBox(height: 10),
@@ -770,14 +796,23 @@ class _SettingsScreenState extends State<SettingsScreen>
                         prayerKey: 'isha',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('isha'),
-                        isCloudOverride: libraryProvider.hasCloudAthanFor('isha'),
-                        cloudOverrideName: libraryProvider.getAssignedNameFor('isha'),
+                        isCloudOverride: libraryProvider.hasCloudAthanFor(
+                          'isha',
+                        ),
+                        cloudOverrideName: libraryProvider.getAssignedNameFor(
+                          'isha',
+                        ),
                         onChanged: (path) =>
                             provider.setPrayerMuezzin('isha', path!),
                         onTestPlay: () => _testPlayAthan('isha'),
                         onCloudClear: () async {
                           await libraryProvider.clearDefault(prayerKey: 'isha');
-                          if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                          if (context.mounted) {
+                            Provider.of<AthanProvider>(
+                              context,
+                              listen: false,
+                            ).syncFromPrefs();
+                          }
                         },
                       ),
                     ],
@@ -794,7 +829,8 @@ class _SettingsScreenState extends State<SettingsScreen>
               _buildActionTile(
                 context,
                 title: 'تأمين عمل التطبيق (Battery Optimization)',
-                subtitle: 'مهم جداً لشاومي وسامسونج لضمان عمل الأذان في الخلفية وقت الذروة',
+                subtitle:
+                    'مهم جداً لشاومي وسامسونج لضمان عمل الأذان في الخلفية وقت الذروة',
                 icon: Icons.battery_saver_rounded,
                 isGranted: _permissionStatuses['battery_optimization'] ?? false,
                 onTap: () =>
@@ -820,7 +856,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                 isGranted: _permissionStatuses['system_alert'] ?? false,
                 onTap: () => PermissionsService.openComprehensivePermissions(),
               ),
-
             ],
           ],
         );
@@ -829,26 +864,31 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   /// بانر زر فتح مكتبة الأذان
-  Widget _buildAthanLibraryBanner(bool isDark, AthanLibraryProvider libraryProvider, AthanProvider provider) {
+  Widget _buildAthanLibraryBanner(
+    bool isDark,
+    AthanLibraryProvider libraryProvider,
+    AthanProvider provider,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-
         // ─── زر فتح مكتبة الأذان ─────────────────────────────────────
         InkWell(
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => const AthanLibraryScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const AthanLibraryScreen()),
             ).then((_) {
               // ✨ بعد العودة: مزامنة الحالة من SharedPreferences لتحديث الواجهة تلقائياً
               if (mounted) {
-                Provider.of<AthanLibraryProvider>(context, listen: false)
-                    .syncFromPrefs();
-                Provider.of<AthanProvider>(context, listen: false)
-                    .syncFromPrefs();
+                Provider.of<AthanLibraryProvider>(
+                  context,
+                  listen: false,
+                ).syncFromPrefs();
+                Provider.of<AthanProvider>(
+                  context,
+                  listen: false,
+                ).syncFromPrefs();
               }
             });
           },
@@ -875,7 +915,11 @@ class _SettingsScreenState extends State<SettingsScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.library_music_rounded, color: Colors.white, size: 22),
+                const Icon(
+                  Icons.library_music_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
                 const SizedBox(width: 10),
                 Text(
                   'مكتبة الأذان (تحميل المزيد) ☁️',
@@ -886,7 +930,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(Icons.arrow_back_ios_rounded, color: Colors.white70, size: 14),
+                const Icon(
+                  Icons.arrow_back_ios_rounded,
+                  color: Colors.white70,
+                  size: 14,
+                ),
               ],
             ),
           ),
@@ -894,8 +942,6 @@ class _SettingsScreenState extends State<SettingsScreen>
       ],
     );
   }
-
-
 
   Widget _buildActionTile(
     BuildContext context, {
@@ -964,7 +1010,11 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  Widget _buildPrayerToggleRow(String label, bool value, Function(bool) onChanged) {
+  Widget _buildPrayerToggleRow(
+    String label,
+    bool value,
+    Function(bool) onChanged,
+  ) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1014,14 +1064,15 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ? Colors.green.withValues(alpha: 0.12)
                   : Colors.green.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: Colors.green.withValues(alpha: 0.35),
-              ),
+              border: Border.all(color: Colors.green.withValues(alpha: 0.35)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.cloud_done_rounded,
-                    color: Colors.green, size: 18),
+                const Icon(
+                  Icons.cloud_done_rounded,
+                  color: Colors.green,
+                  size: 18,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1041,7 +1092,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                   builder: (context, snapshot) {
                     final isThisPlaying =
                         snapshot.data?.playing == true &&
-                        audioHandler?.mediaItem.value?.extras?['activeTestKey'] == prayerKey;
+                        audioHandler
+                                ?.mediaItem
+                                .value
+                                ?.extras?['activeTestKey'] ==
+                            prayerKey;
                     return Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -1055,7 +1110,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                             color: isThisPlaying ? Colors.red : Colors.green,
                             size: 28,
                           ),
-                          tooltip: isThisPlaying ? 'إيقاف التجربة' : 'معاينة الأذان السحابي',
+                          tooltip: isThisPlaying
+                              ? 'إيقاف التجربة'
+                              : 'معاينة الأذان السحابي',
                           onPressed: onTestPlay,
                         ),
                         if (onCloudClear != null)

@@ -76,7 +76,9 @@ class PeriodicRescueWorker(
             AlarmRescheduler.rescheduleAll(applicationContext, reason = "PeriodicRescueWorker")
 
             // 2. إعادة تشغيل AlarmWatchdogService إذا لم يكن يعمل
-            AlarmWatchdogService.start(applicationContext)
+            if (!AlarmWatchdogService.isRunning) {
+                AlarmWatchdogService.start(applicationContext)
+            }
 
             android.util.Log.i(TAG, "=== PeriodicRescueWorker SUCCESS ===")
             Result.success()
