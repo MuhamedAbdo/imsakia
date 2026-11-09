@@ -28,6 +28,15 @@ class SettingsProvider extends ChangeNotifier {
   bool _maghribAthanEnabled = true;
   bool _ishaAthanEnabled = true;
 
+  // Manual Prayer Time Adjustments
+  String _prayerAdjustmentMode = AppConstants.defaultPrayerAdjustmentMode;
+  int _prayerAdjustmentGlobal = AppConstants.defaultPrayerAdjustment;
+  int _prayerAdjustmentFajr = AppConstants.defaultPrayerAdjustment;
+  int _prayerAdjustmentDhuhr = AppConstants.defaultPrayerAdjustment;
+  int _prayerAdjustmentAsr = AppConstants.defaultPrayerAdjustment;
+  int _prayerAdjustmentMaghrib = AppConstants.defaultPrayerAdjustment;
+  int _prayerAdjustmentIsha = AppConstants.defaultPrayerAdjustment;
+
   // Getters
   AppThemeMode get themeMode => _themeMode;
   String get selectedCity => _selectedCity;
@@ -46,6 +55,32 @@ class SettingsProvider extends ChangeNotifier {
   bool get asrAthanEnabled => _asrAthanEnabled;
   bool get maghribAthanEnabled => _maghribAthanEnabled;
   bool get ishaAthanEnabled => _ishaAthanEnabled;
+
+  String get prayerAdjustmentMode => _prayerAdjustmentMode;
+  int get prayerAdjustmentGlobal => _prayerAdjustmentGlobal;
+  int get prayerAdjustmentFajr => _prayerAdjustmentFajr;
+  int get prayerAdjustmentDhuhr => _prayerAdjustmentDhuhr;
+  int get prayerAdjustmentAsr => _prayerAdjustmentAsr;
+  int get prayerAdjustmentMaghrib => _prayerAdjustmentMaghrib;
+  int get prayerAdjustmentIsha => _prayerAdjustmentIsha;
+
+  int getPrayerAdjustment(String prayerKey) {
+    switch (prayerKey) {
+      case 'fajr':
+        return _prayerAdjustmentFajr;
+      case 'dhuhr':
+        return _prayerAdjustmentDhuhr;
+      case 'asr':
+        return _prayerAdjustmentAsr;
+      case 'maghrib':
+        return _prayerAdjustmentMaghrib;
+      case 'isha':
+        return _prayerAdjustmentIsha;
+      default:
+        return 0;
+    }
+  }
+
   double get fontSize => _fontSize;
   Set<String> get fiqhBookmarks => _fiqhBookmarks;
 
@@ -100,6 +135,39 @@ class SettingsProvider extends ChangeNotifier {
     _fontSize = _prefs?.getDouble('fiqh_font_size') ?? 16.0;
     final bookmarksList = _prefs?.getStringList('fiqh_bookmarks') ?? [];
     _fiqhBookmarks = bookmarksList.toSet();
+
+    _prayerAdjustmentMode =
+        _prefs?.getString(AppConstants.prayerAdjustmentModeKey) ??
+        AppConstants.defaultPrayerAdjustmentMode;
+    if (_prayerAdjustmentMode != AppConstants.prayerAdjustmentModeGlobal &&
+        _prayerAdjustmentMode != AppConstants.prayerAdjustmentModeIndividual) {
+      _prayerAdjustmentMode = AppConstants.defaultPrayerAdjustmentMode;
+    }
+
+    _prayerAdjustmentGlobal = _normalizeAdjustment(
+      _prefs?.getInt(AppConstants.prayerAdjustmentGlobalKey) ??
+          AppConstants.defaultPrayerAdjustment,
+    );
+    _prayerAdjustmentFajr = _normalizeAdjustment(
+      _prefs?.getInt(AppConstants.prayerAdjustmentFajrKey) ??
+          AppConstants.defaultPrayerAdjustment,
+    );
+    _prayerAdjustmentDhuhr = _normalizeAdjustment(
+      _prefs?.getInt(AppConstants.prayerAdjustmentDhuhrKey) ??
+          AppConstants.defaultPrayerAdjustment,
+    );
+    _prayerAdjustmentAsr = _normalizeAdjustment(
+      _prefs?.getInt(AppConstants.prayerAdjustmentAsrKey) ??
+          AppConstants.defaultPrayerAdjustment,
+    );
+    _prayerAdjustmentMaghrib = _normalizeAdjustment(
+      _prefs?.getInt(AppConstants.prayerAdjustmentMaghribKey) ??
+          AppConstants.defaultPrayerAdjustment,
+    );
+    _prayerAdjustmentIsha = _normalizeAdjustment(
+      _prefs?.getInt(AppConstants.prayerAdjustmentIshaKey) ??
+          AppConstants.defaultPrayerAdjustment,
+    );
   }
 
   // التعديل التراكمي: يجمع التعديل الجديد مع المخزن مسبقاً
@@ -193,6 +261,75 @@ class SettingsProvider extends ChangeNotifier {
     _autoHijriAdjustment = true;
     _fontSize = 16.0;
     _fiqhBookmarks = {};
+    _prayerAdjustmentMode = AppConstants.defaultPrayerAdjustmentMode;
+    _prayerAdjustmentGlobal = AppConstants.defaultPrayerAdjustment;
+    _prayerAdjustmentFajr = AppConstants.defaultPrayerAdjustment;
+    _prayerAdjustmentDhuhr = AppConstants.defaultPrayerAdjustment;
+    _prayerAdjustmentAsr = AppConstants.defaultPrayerAdjustment;
+    _prayerAdjustmentMaghrib = AppConstants.defaultPrayerAdjustment;
+    _prayerAdjustmentIsha = AppConstants.defaultPrayerAdjustment;
+  }
+
+  int _normalizeAdjustment(int value) {
+    if (value < AppConstants.minPrayerAdjustment) {
+      return AppConstants.minPrayerAdjustment;
+    }
+    if (value > AppConstants.maxPrayerAdjustment) {
+      return AppConstants.maxPrayerAdjustment;
+    }
+    return value;
+  }
+
+  Future<void> setPrayerAdjustmentMode(String mode) async {
+    if (mode != AppConstants.prayerAdjustmentModeGlobal &&
+        mode != AppConstants.prayerAdjustmentModeIndividual) {
+      return;
+    }
+    _prayerAdjustmentMode = mode;
+    await _prefs?.setString(AppConstants.prayerAdjustmentModeKey, mode);
+    notifyListeners();
+  }
+
+  Future<void> setGlobalPrayerAdjustment(int minutes) async {
+    final normalized = _normalizeAdjustment(minutes);
+    _prayerAdjustmentGlobal = normalized;
+    await _prefs?.setInt(AppConstants.prayerAdjustmentGlobalKey, normalized);
+    notifyListeners();
+  }
+
+  Future<void> setIndividualPrayerAdjustment(
+    String prayerKey,
+    int minutes,
+  ) async {
+    final normalized = _normalizeAdjustment(minutes);
+    switch (prayerKey) {
+      case 'fajr':
+        _prayerAdjustmentFajr = normalized;
+        await _prefs?.setInt(AppConstants.prayerAdjustmentFajrKey, normalized);
+        break;
+      case 'dhuhr':
+        _prayerAdjustmentDhuhr = normalized;
+        await _prefs?.setInt(AppConstants.prayerAdjustmentDhuhrKey, normalized);
+        break;
+      case 'asr':
+        _prayerAdjustmentAsr = normalized;
+        await _prefs?.setInt(AppConstants.prayerAdjustmentAsrKey, normalized);
+        break;
+      case 'maghrib':
+        _prayerAdjustmentMaghrib = normalized;
+        await _prefs?.setInt(
+          AppConstants.prayerAdjustmentMaghribKey,
+          normalized,
+        );
+        break;
+      case 'isha':
+        _prayerAdjustmentIsha = normalized;
+        await _prefs?.setInt(AppConstants.prayerAdjustmentIshaKey, normalized);
+        break;
+      default:
+        return;
+    }
+    notifyListeners();
   }
 
   // Font Size Methods

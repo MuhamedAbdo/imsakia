@@ -390,9 +390,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (mounted && times != null) {
       setState(() {
         _prayerTimes = times;
-        _nextPrayer = PrayerTimesService.instance.getNextPrayer();
+        _nextPrayer = PrayerTimesService.instance.getNextEvent();
         _timeUntilNextPrayer = PrayerTimesService.instance
-            .getTimeUntilNextPrayer();
+            .getTimeUntilNextEvent();
       });
     }
   }
@@ -403,9 +403,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (!mounted) return;
 
       setState(() {
-        _nextPrayer = PrayerTimesService.instance.getNextPrayer();
+        _nextPrayer = PrayerTimesService.instance.getNextEvent();
         _timeUntilNextPrayer = PrayerTimesService.instance
-            .getTimeUntilNextPrayer();
+            .getTimeUntilNextEvent();
       });
 
       // منع العد التنازلي السالب وتحديث البيانات فوراً
@@ -548,6 +548,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String _getHeaderImage() {
     switch (_nextPrayer) {
       case 'fajr':
+      case 'sunrise':
         return 'assets/images/fajr_dawn.png';
       case 'dhuhr':
         return 'assets/images/dhuhr_noon.png';
@@ -627,7 +628,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'الصلاة القادمة',
+                              _nextPrayer == 'sunrise'
+                                  ? 'الحدث القادم'
+                                  : 'الصلاة القادمة',
                               style: GoogleFonts.tajawal(
                                 fontSize: 12,
                                 color: Colors.white70,

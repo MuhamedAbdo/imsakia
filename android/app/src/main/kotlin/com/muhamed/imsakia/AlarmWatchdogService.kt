@@ -158,7 +158,8 @@ class AlarmWatchdogService : Service() {
             val contentText: String
 
             if (prayerName.isNotEmpty() && prayerTime.isNotEmpty()) {
-                contentTitle = "الصلاة القادمة: $prayerName"
+                val isSunrise = prayerName == "الشروق" || prayerName.contains("شروق")
+                contentTitle = if (isSunrise) prayerName else "الصلاة القادمة: $prayerName"
                 contentText = prayerTime
             } else {
                 contentTitle = "زاد — مواقيت الصلاة"

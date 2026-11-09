@@ -75,6 +75,23 @@ class AppConstants {
   static String athanEnabledKey = 'athan_enabled';
   static const String hijriAdjustmentKey = 'hijri_adjustment';
 
+  // Manual Prayer Adjustment Keys
+  static const String prayerAdjustmentModeKey = 'prayer_adj_mode';
+  static const String prayerAdjustmentGlobalKey = 'prayer_adj_global';
+  static const String prayerAdjustmentFajrKey = 'prayer_adj_fajr';
+  static const String prayerAdjustmentDhuhrKey = 'prayer_adj_dhuhr';
+  static const String prayerAdjustmentAsrKey = 'prayer_adj_asr';
+  static const String prayerAdjustmentMaghribKey = 'prayer_adj_maghrib';
+  static const String prayerAdjustmentIshaKey = 'prayer_adj_isha';
+
+  // Manual Prayer Adjustment Defaults & Limits
+  static const String defaultPrayerAdjustmentMode = 'global';
+  static const String prayerAdjustmentModeGlobal = 'global';
+  static const String prayerAdjustmentModeIndividual = 'individual';
+  static const int defaultPrayerAdjustment = 0;
+  static const int minPrayerAdjustment = -30;
+  static const int maxPrayerAdjustment = 30;
+
   // Default Settings
   static const double defaultLatitude = 30.0444; // Cairo
   static const double defaultLongitude = 31.2357; // Cairo

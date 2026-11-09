@@ -94,7 +94,7 @@ class PrayerTimesService {
     // نُضيف الـ offset اليدوي فقط عندما لا يُطبِّق النظام DST (مناطق UTC ثابتة كـ UTC+3).
     final Duration dstOffset = _computeDstOffset();
 
-    final Map<String, DateTime> times = {
+    final Map<String, DateTime> rawTimes = {
       'fajr': prayerTimes.fajr.add(dstOffset),
       'sunrise': prayerTimes.sunrise.add(dstOffset),
       'dhuhr': prayerTimes.dhuhr.add(dstOffset),
@@ -102,6 +102,8 @@ class PrayerTimesService {
       'maghrib': prayerTimes.maghrib.add(dstOffset),
       'isha': prayerTimes.isha.add(dstOffset),
     };
+
+    final Map<String, DateTime> times = _applyManualAdjustments(rawTimes);
 
     _currentPrayerTimes = times;
 
@@ -191,9 +193,9 @@ class PrayerTimesService {
 
       _lastWidgetUpdateTime = now;
 
-      final nextPrayerKey = getNextPrayer() ?? 'fajr';
-      final nextPrayerTime = getNextPrayerTime();
-      final nextPrayerName = _getArabicName(nextPrayerKey);
+      final nextEventKey = getNextEvent() ?? 'fajr';
+      final nextEventTime = getNextEventTime();
+      final nextEventName = _getArabicName(nextEventKey);
 
       final lastPrayerKey = getLastPrayer() ?? 'isha';
       final lastPrayerTime = getLastPrayerTime();
@@ -201,10 +203,10 @@ class PrayerTimesService {
       final lastPrayerInfo =
           "$lastPrayerName ${_formatTimeTo12h(lastPrayerTime)}";
 
-      // حساب العد التنازلي للصلاة القادمة
+      // حساب العد التنازلي للحدث القادم (صلاة أو شروق)
       String countdownText = "جاري التحديث...";
-      if (nextPrayerTime != null) {
-        final diff = nextPrayerTime.difference(DateTime.now());
+      if (nextEventTime != null) {
+        final diff = nextEventTime.difference(DateTime.now());
         if (diff.isNegative) {
           countdownText = "جاري التحديث...";
         } else {
@@ -235,13 +237,13 @@ class PrayerTimesService {
       final eventTypeName = event?.type.toString().split('.').last ?? 'none';
 
       final nextPrayerDisplay =
-          "$nextPrayerName ${_formatTimeTo12h(nextPrayerTime)}";
+          "$nextEventName ${_formatTimeTo12h(nextEventTime)}";
 
       // حفظ البيانات للويدجت بالمفاتيح المطلوبة بدقة للهيكل الجديد
-      if (nextPrayerTime != null) {
+      if (nextEventTime != null) {
         await HomeWidget.saveWidgetData<int>(
           'flutter.next_prayer_timestamp',
-          nextPrayerTime.millisecondsSinceEpoch,
+          nextEventTime.millisecondsSinceEpoch,
         );
       } else {
         await HomeWidget.saveWidgetData<int>(
@@ -251,7 +253,7 @@ class PrayerTimesService {
       }
       await HomeWidget.saveWidgetData<String>(
         'flutter.next_prayer_name',
-        nextPrayerName,
+        nextEventName,
       );
       await HomeWidget.saveWidgetData<String>(
         'flutter.next_prayer_display',
@@ -295,7 +297,7 @@ class PrayerTimesService {
       );
 
       Logger.info(
-        "Widget data updated: $nextPrayerName at ${nextPrayerTime.toString()}",
+        "Widget data updated: $nextEventName at ${nextEventTime.toString()}",
       );
   }
 
@@ -345,7 +347,7 @@ class PrayerTimesService {
         );
         final prayerTimes = PrayerTimes(coordinates, dateComponents, params);
 
-        final Map<String, DateTime> times = {
+        final Map<String, DateTime> rawTimes = {
           'fajr': prayerTimes.fajr.add(dstOffset),
           'sunrise': prayerTimes.sunrise.add(dstOffset),
           'dhuhr': prayerTimes.dhuhr.add(dstOffset),
@@ -353,6 +355,8 @@ class PrayerTimesService {
           'maghrib': prayerTimes.maghrib.add(dstOffset),
           'isha': prayerTimes.isha.add(dstOffset),
         };
+
+        final Map<String, DateTime> times = _applyManualAdjustments(rawTimes);
 
         final idOffset = dayOffset * 10; // Today: 0, Tomorrow: 10
 
@@ -423,6 +427,86 @@ class PrayerTimesService {
       Logger.info('[DST] Fixed timezone — applying manual +1h offset as configured.');
       return const Duration(hours: 1);
     }
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  // Manual Prayer Time Adjustments (الضبط اليدوي لمواقيت الصلاة)
+  //
+  // القواعد الصارمة:
+  //   1. يُطبّق التعديل على الصلوات الخمس فقط (الفجر، الظهر، العصر، المغرب، العشاء).
+  //   2. الشروق محمي تماماً ولا يخضع لأي تعديل إطلاقاً (فلكي بحت).
+  //   3. القيم محصورة بين -30 دقيقة و +30 دقيقة.
+  //   4. القيم الموجبة تعني تأخير وقت الصلاة، والسالبة تعني التقديم.
+  // ════════════════════════════════════════════════════════════════════
+  Map<String, DateTime> _applyManualAdjustments(
+    Map<String, DateTime> baseTimes,
+  ) {
+    if (_sharedPreferences == null) return baseTimes;
+
+    final mode =
+        _sharedPreferences!.getString(AppConstants.prayerAdjustmentModeKey) ??
+        AppConstants.defaultPrayerAdjustmentMode;
+
+    int getOffset(String key) {
+      if (mode == AppConstants.prayerAdjustmentModeGlobal || mode == 'global') {
+        final val =
+            _sharedPreferences!.getInt(
+              AppConstants.prayerAdjustmentGlobalKey,
+            ) ??
+            AppConstants.defaultPrayerAdjustment;
+        return val.clamp(
+          AppConstants.minPrayerAdjustment,
+          AppConstants.maxPrayerAdjustment,
+        );
+      } else {
+        String prefKey;
+        switch (key) {
+          case 'fajr':
+            prefKey = AppConstants.prayerAdjustmentFajrKey;
+            break;
+          case 'dhuhr':
+            prefKey = AppConstants.prayerAdjustmentDhuhrKey;
+            break;
+          case 'asr':
+            prefKey = AppConstants.prayerAdjustmentAsrKey;
+            break;
+          case 'maghrib':
+            prefKey = AppConstants.prayerAdjustmentMaghribKey;
+            break;
+          case 'isha':
+            prefKey = AppConstants.prayerAdjustmentIshaKey;
+            break;
+          default:
+            return 0;
+        }
+        final val =
+            _sharedPreferences!.getInt(prefKey) ??
+            AppConstants.defaultPrayerAdjustment;
+        return val.clamp(
+          AppConstants.minPrayerAdjustment,
+          AppConstants.maxPrayerAdjustment,
+        );
+      }
+    }
+
+    final Map<String, DateTime> adjustedTimes = {};
+    baseTimes.forEach((key, time) {
+      if (key == 'sunrise') {
+        // الشروق محمي ولا يتم تعديله أبداً وفقاً للشروط الصارمة
+        adjustedTimes[key] = time;
+      } else if (['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].contains(key)) {
+        final offsetMinutes = getOffset(key);
+        if (offsetMinutes != 0) {
+          adjustedTimes[key] = time.add(Duration(minutes: offsetMinutes));
+        } else {
+          adjustedTimes[key] = time;
+        }
+      } else {
+        adjustedTimes[key] = time;
+      }
+    });
+
+    return adjustedTimes;
   }
 
   CalculationParameters _getParams(String method) {
@@ -545,8 +629,8 @@ class PrayerTimesService {
           needsUpdate = true;
         }
 
-        // 2. فحص انتقال الصلاة (مثلاً: دخل وقت الظهر فجأة)
-        final currentNext = getNextPrayer();
+        // 2. فحص انتقال الحدث/الصلاة (مثلاً: دخل وقت الشروق أو الظهر فجأة)
+        final currentNext = getNextEvent();
         if (_lastNextPrayerKey != null && _lastNextPrayerKey != currentNext) {
           needsUpdate = true;
         }
@@ -560,13 +644,15 @@ class PrayerTimesService {
     );
   }
 
-
-
+  /// الصلاة المفروضة القادمة (تقتصر حصراً على الصلوات الخمس المفروضة: الفجر، الظهر، العصر، المغرب، العشاء).
+  /// الشروق مستثنى تماماً ولا يُعتبر صلاة.
   String? getNextPrayer() {
     if (_currentPrayerTimes == null) return null;
     final now = DateTime.now();
-    for (final entry in _currentPrayerTimes!.entries) {
-      if (entry.value.isAfter(now)) return entry.key;
+    const obligatoryKeys = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    for (final key in obligatoryKeys) {
+      final time = _currentPrayerTimes![key];
+      if (time != null && time.isAfter(now)) return key;
     }
     return 'fajr';
   }
@@ -578,7 +664,6 @@ class PrayerTimesService {
     if (prayerTime == null) return null;
 
     final now = DateTime.now();
-    // إذا كانت الصلاة المجلوبة (مثل الظهر) قد مرت اليوم، أو كنا في نهاية اليوم وننتقل للفجر
     if (prayerTime.isBefore(now)) {
       return prayerTime.add(const Duration(days: 1));
     }
@@ -588,6 +673,39 @@ class PrayerTimesService {
   Duration? getTimeUntilNextPrayer() {
     final nextTime = getNextPrayerTime();
     return nextTime?.difference(DateTime.now());
+  }
+
+  /// الحدث الزمني/الفلكي القادم (يشمل الشروQ وباقي الصلوات الستة).
+  /// يُستخدم لتغذية ويدجت الشاشة الرئيسية والعد التنازلي بحيث يظهر الشروق في وقته.
+  String? getNextEvent() {
+    if (_currentPrayerTimes == null) return null;
+    final now = DateTime.now();
+    for (final entry in _currentPrayerTimes!.entries) {
+      if (entry.value.isAfter(now)) return entry.key;
+    }
+    return 'fajr';
+  }
+
+  DateTime? getNextEventTime() {
+    if (_currentPrayerTimes == null) return null;
+    final nextEvent = getNextEvent();
+    final eventTime = _currentPrayerTimes![nextEvent];
+    if (eventTime == null) return null;
+
+    final now = DateTime.now();
+    if (eventTime.isBefore(now)) {
+      return eventTime.add(const Duration(days: 1));
+    }
+    return eventTime;
+  }
+
+  Duration? getTimeUntilNextEvent() {
+    final nextTime = getNextEventTime();
+    return nextTime?.difference(DateTime.now());
+  }
+
+  bool isNextEventSunrise() {
+    return getNextEvent() == 'sunrise';
   }
 
   String? getLastPrayer() {

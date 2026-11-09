@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:audio_service/audio_service.dart';
+import '../utils/app_constants.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
 import '../features/athan/providers/athan_provider.dart';
@@ -50,6 +51,34 @@ class _SettingsScreenState extends State<SettingsScreen>
     'kuwait': 'الكويت',
     'qatar': 'قطر',
   };
+
+  static const List<Map<String, dynamic>> _adjustablePrayers = [
+    {
+      'key': 'fajr',
+      'name': 'الفجر',
+      'icon': Icons.wb_twilight_rounded,
+    },
+    {
+      'key': 'dhuhr',
+      'name': 'الظهر',
+      'icon': Icons.wb_sunny_rounded,
+    },
+    {
+      'key': 'asr',
+      'name': 'العصر',
+      'icon': Icons.cloud_outlined,
+    },
+    {
+      'key': 'maghrib',
+      'name': 'المغرب',
+      'icon': Icons.nights_stay_rounded,
+    },
+    {
+      'key': 'isha',
+      'name': 'العشاء',
+      'icon': Icons.bedtime_rounded,
+    },
+  ];
 
   @override
   void initState() {
@@ -275,49 +304,24 @@ class _SettingsScreenState extends State<SettingsScreen>
           child: Column(
             children: [
               if (widget.isFirstTimeSetup) _buildHeader(),
-              _buildSection(
-                title: 'الموقع الجغرافي',
-                icon: Icons.location_on_rounded,
-                children: [
-                  CustomLocalizedPicker(
-                    initialCountry: _selectedCountry,
-                    initialState: _selectedState,
-                    onSelectionChanged: (country, state) {
-                      setState(() {
-                        _selectedCountry = country;
-                        _selectedState = state;
-                        if (country != null) {
-                          _autoSelectMethod(country);
-                        }
-                      });
-                    },
-                  ),
-                ],
+              Consumer<SettingsProvider>(
+                builder: (context, settings, _) =>
+                    _buildLocationSection(settings),
               ),
               const SizedBox(height: 15),
-              _buildSection(
-                title: 'الحساب الفقهي والوقت',
-                icon: Icons.settings_outlined,
-                children: [
-                  _buildCalculationMethodSelector(),
-                  const SizedBox(height: 15),
-                  _buildMadhabSelector(),
-                  const Divider(height: 30),
-                  _buildDstToggle(),
-                ],
-              ),
+              _buildManualAdjustmentSection(isDark),
               const SizedBox(height: 15),
               _buildAthanSection(isDark),
+              if (Platform.isAndroid) ...[
+                const SizedBox(height: 15),
+                _buildSystemPermissionsSection(isDark),
+              ],
               const SizedBox(height: 15),
-              _buildSection(
-                title: 'التقويم والمظهر',
-                icon: Icons.palette_outlined,
-                children: [
-                  _buildHijriAdjustmentControl(),
-                  const Divider(height: 30),
-                  _buildThemeSelector(isDark),
-                ],
-              ),
+              _buildCalendarSection(isDark),
+              const SizedBox(height: 15),
+              _buildAppearanceSection(isDark),
+              const SizedBox(height: 15),
+              _buildAboutSection(isDark),
               const SizedBox(height: 30),
               _buildSaveButton(),
             ],
@@ -401,6 +405,38 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
+  Widget _buildLocationSection(SettingsProvider settings) {
+    return _buildCollapsibleSection(
+      title: 'الموقع الجغرافي وحساب المواقيت',
+      icon: Icons.location_on_rounded,
+      subtitle: settings.selectedCityName.isNotEmpty
+          ? settings.selectedCityName
+          : 'حدد موقعك لحساب المواقيت بدقة',
+      initiallyExpanded: true,
+      children: [
+        CustomLocalizedPicker(
+          initialCountry: _selectedCountry,
+          initialState: _selectedState,
+          onSelectionChanged: (country, state) {
+            setState(() {
+              _selectedCountry = country;
+              _selectedState = state;
+              if (country != null) {
+                _autoSelectMethod(country);
+              }
+            });
+          },
+        ),
+        const SizedBox(height: 15),
+        _buildCalculationMethodSelector(),
+        const SizedBox(height: 15),
+        _buildMadhabSelector(),
+        const Divider(height: 30),
+        _buildDstToggle(),
+      ],
+    );
+  }
+
   Widget _buildCalculationMethodSelector() {
     return Consumer<SettingsProvider>(
       builder: (context, settings, _) => DropdownButtonFormField<String>(
@@ -452,6 +488,333 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
+  Widget _buildManualAdjustmentSection(bool isDark) {
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, _) {
+        final isGlobal =
+            settings.prayerAdjustmentMode ==
+            AppConstants.prayerAdjustmentModeGlobal;
+
+        final subtitle = isGlobal
+            ? (settings.prayerAdjustmentGlobal == 0
+                ? 'الضبط الموحد (فلكي بدون تعديل)'
+                : 'الضبط الموحد (${settings.prayerAdjustmentGlobal > 0 ? '+${settings.prayerAdjustmentGlobal}' : settings.prayerAdjustmentGlobal} دقيقة)')
+            : 'مخصص لكل صلاة';
+
+        return _buildCollapsibleSection(
+          title: 'الضبط اليدوي لمواقيت الصلاة',
+          icon: Icons.tune_rounded,
+          subtitle: subtitle,
+          initiallyExpanded: true,
+          children: [
+            Text(
+              'يمكنك تقديم أو تأخير مواقيت الصلاة بالدقائق (من -30 إلى +30 دقيقة).\nالقيم الموجبة (+) تعني تأخير الوقت، والقيم السالبة (-) تعني تقديم الوقت.',
+              style: GoogleFonts.tajawal(
+                fontSize: 12,
+                color: isDark ? Colors.white70 : Colors.black54,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildAdjustmentModeSelector(settings, isDark),
+            const SizedBox(height: 16),
+            if (isGlobal) ...[
+              _buildAdjustmentStepper(
+                label: 'جميع الصلوات الخمس',
+                icon: Icons.access_time_rounded,
+                value: settings.prayerAdjustmentGlobal,
+                isDark: isDark,
+                onChanged: (delta) {
+                  final newVal = settings.prayerAdjustmentGlobal + delta;
+                  if (newVal >= AppConstants.minPrayerAdjustment &&
+                      newVal <= AppConstants.maxPrayerAdjustment) {
+                    settings.setGlobalPrayerAdjustment(newVal);
+                    PrayerTimesService.instance.getCurrentPrayerTimes();
+                  }
+                },
+                onReset: settings.prayerAdjustmentGlobal != 0
+                    ? () {
+                        settings.setGlobalPrayerAdjustment(0);
+                        PrayerTimesService.instance.getCurrentPrayerTimes();
+                      }
+                    : null,
+              ),
+            ] else ...[
+              ..._adjustablePrayers.map((prayer) {
+                final key = prayer['key'] as String;
+                final name = prayer['name'] as String;
+                final icon = prayer['icon'] as IconData;
+                final value = settings.getPrayerAdjustment(key);
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _buildAdjustmentStepper(
+                    label: name,
+                    icon: icon,
+                    value: value,
+                    isDark: isDark,
+                    onChanged: (delta) {
+                      final newVal = value + delta;
+                      if (newVal >= AppConstants.minPrayerAdjustment &&
+                          newVal <= AppConstants.maxPrayerAdjustment) {
+                        settings.setIndividualPrayerAdjustment(key, newVal);
+                        PrayerTimesService.instance.getCurrentPrayerTimes();
+                      }
+                    },
+                    onReset: value != 0
+                        ? () {
+                            settings.setIndividualPrayerAdjustment(key, 0);
+                            PrayerTimesService.instance.getCurrentPrayerTimes();
+                          }
+                        : null,
+                  ),
+                );
+              }),
+            ],
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 14,
+                  color: isDark ? Colors.white38 : Colors.black38,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'ملاحظة: وقت الشروق وقت فلكي بحت ولا يخضع للتعديل.',
+                    style: GoogleFonts.tajawal(
+                      fontSize: 11,
+                      color: isDark ? Colors.white38 : Colors.black38,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildAdjustmentModeSelector(SettingsProvider settings, bool isDark) {
+    final isGlobal =
+        settings.prayerAdjustmentMode ==
+        AppConstants.prayerAdjustmentModeGlobal;
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.black.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.1)
+              : Colors.black.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildModeTab(
+              title: 'الضبط الموحد',
+              isSelected: isGlobal,
+              isDark: isDark,
+              onTap: () {
+                if (!isGlobal) {
+                  settings.setPrayerAdjustmentMode(
+                    AppConstants.prayerAdjustmentModeGlobal,
+                  );
+                  PrayerTimesService.instance.getCurrentPrayerTimes();
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _buildModeTab(
+              title: 'مخصص لكل صلاة',
+              isSelected: !isGlobal,
+              isDark: isDark,
+              onTap: () {
+                if (isGlobal) {
+                  settings.setPrayerAdjustmentMode(
+                    AppConstants.prayerAdjustmentModeIndividual,
+                  );
+                  PrayerTimesService.instance.getCurrentPrayerTimes();
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeTab({
+    required String title,
+    required bool isSelected,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(9),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.green : Colors.transparent,
+          borderRadius: BorderRadius.circular(9),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.green.withValues(alpha: 0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Center(
+          child: Text(
+            title,
+            style: GoogleFonts.tajawal(
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              fontSize: 13,
+              color: isSelected
+                  ? Colors.white
+                  : (isDark ? Colors.white70 : Colors.black87),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdjustmentStepper({
+    required String label,
+    required IconData icon,
+    required int value,
+    required bool isDark,
+    required void Function(int delta) onChanged,
+    VoidCallback? onReset,
+  }) {
+    Color valueColor;
+    String valueText;
+
+    if (value == 0) {
+      valueColor = isDark ? Colors.grey[400]! : Colors.grey[600]!;
+      valueText = '0 دقيقة';
+    } else if (value > 0) {
+      valueColor = Colors.orange[700]!;
+      valueText = '+$value د (تأخير)';
+    } else {
+      valueColor = Colors.blue[600]!;
+      valueText = '$value د (تقديم)';
+    }
+
+    final canDecrement = value > AppConstants.minPrayerAdjustment;
+    final canIncrement = value < AppConstants.maxPrayerAdjustment;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.04)
+            : Colors.black.withValues(alpha: 0.02),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: value != 0
+              ? Colors.green.withValues(alpha: 0.3)
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : Colors.black.withValues(alpha: 0.05)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 18,
+            color: value != 0
+                ? Colors.green
+                : (isDark ? Colors.white60 : Colors.black54),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.tajawal(
+                fontSize: 14,
+                fontWeight: value != 0 ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.remove_circle_outline),
+                iconSize: 22,
+                color: canDecrement
+                    ? Colors.red
+                    : Colors.grey.withValues(alpha: 0.3),
+                padding: const EdgeInsets.all(4),
+                constraints: const BoxConstraints(),
+                onPressed: canDecrement ? () => onChanged(-1) : null,
+              ),
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: onReset,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 88),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: value == 0
+                        ? (isDark
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.grey.withValues(alpha: 0.1))
+                        : (value > 0
+                            ? Colors.orange.withValues(alpha: 0.12)
+                            : Colors.blue.withValues(alpha: 0.12)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    valueText,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.tajawal(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: valueColor,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                iconSize: 22,
+                color: canIncrement
+                    ? Colors.green
+                    : Colors.grey.withValues(alpha: 0.3),
+                padding: const EdgeInsets.all(4),
+                constraints: const BoxConstraints(),
+                onPressed: canIncrement ? () => onChanged(1) : null,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildThemeSelector(bool isDark) {
     return Consumer2<SettingsProvider, ThemeProvider>(
       builder: (context, settings, theme, _) => Row(
@@ -497,33 +860,57 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  Widget _buildSection({
+  Widget _buildCollapsibleSection({
     required String title,
     required IconData icon,
     required List<Widget> children,
+    String? subtitle,
+    bool initiallyExpanded = false,
   }) {
     return NeumorphicBox(
       borderRadius: 20,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: Colors.green, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: GoogleFonts.tajawal(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-              ],
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          dividerColor: Colors.transparent,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+        ),
+        child: ExpansionTile(
+          initiallyExpanded: initiallyExpanded,
+          shape: const Border(),
+          collapsedShape: const Border(),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const Divider(height: 25),
+            child: Icon(icon, color: Colors.green, size: 20),
+          ),
+          title: Text(
+            title,
+            style: GoogleFonts.tajawal(
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+            ),
+          ),
+          subtitle: subtitle != null
+              ? Text(
+                  subtitle,
+                  style: GoogleFonts.tajawal(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                )
+              : null,
+          iconColor: Colors.green,
+          collapsedIconColor: Colors.grey,
+          children: [
+            const Divider(height: 16),
             ...children,
           ],
         ),
@@ -553,9 +940,17 @@ class _SettingsScreenState extends State<SettingsScreen>
   Widget _buildAthanSection(bool isDark) {
     return Consumer2<AthanProvider, AthanLibraryProvider>(
       builder: (context, provider, libraryProvider, child) {
-        return _buildSection(
-          title: 'إعدادات الأذان (الآذان متوفر بعد اختيار الموقع)',
+        final subtitle = provider.isAthanEnabled
+            ? (provider.isUnifiedMuezzin
+                ? 'تنبيه صوتي مفعّل (مؤذن موحد)'
+                : 'تنبيه صوتي مفعّل (مخصص لكل صلاة)')
+            : 'تنبيه صوتي متوقف (إشعار صامت فقط)';
+
+        return _buildCollapsibleSection(
+          title: 'إعدادات الأذان والتنبيه الصامت',
           icon: Icons.notifications_active_outlined,
+          subtitle: subtitle,
+          initiallyExpanded: false,
           children: [
             // Master Toggle
             SwitchListTile(
@@ -823,43 +1218,147 @@ class _SettingsScreenState extends State<SettingsScreen>
               const SizedBox(height: 8),
               _buildAthanLibraryBanner(isDark, libraryProvider, provider),
             ],
-            const SizedBox(height: 15),
-            // Xiaomi & Performance Optimization Buttons
-            if (Platform.isAndroid) ...[
-              _buildActionTile(
-                context,
-                title: 'تأمين عمل التطبيق (Battery Optimization)',
-                subtitle:
-                    'مهم جداً لشاومي وسامسونج لضمان عمل الأذان في الخلفية وقت الذروة',
-                icon: Icons.battery_saver_rounded,
-                isGranted: _permissionStatuses['battery_optimization'] ?? false,
-                onTap: () =>
-                    PermissionsService.openBatteryOptimizationSettings(),
-              ),
-              const SizedBox(height: 10),
-              _buildActionTile(
-                context,
-                title: 'إعدادات التشغيل التلقائي (Auto-start)',
-                subtitle: 'خاص بهواتف Oppo, Realme, Huawei, Samsung, Xiaomi',
-                icon: Icons.power_settings_new_rounded,
-                isGranted:
-                    _permissionStatuses['system_alert'] ??
-                    false, // We check overlay/start status
-                onTap: () => PermissionsService.openComprehensivePermissions(),
-              ),
-              const SizedBox(height: 10),
-              _buildActionTile(
-                context,
-                title: 'صلاحيات شاومي الخاصة (Xiaomi Permissions)',
-                subtitle: 'فعل "Show on Lock Screen" لتفتح الصور تلقائياً',
-                icon: Icons.security_rounded,
-                isGranted: _permissionStatuses['system_alert'] ?? false,
-                onTap: () => PermissionsService.openComprehensivePermissions(),
-              ),
-            ],
           ],
         );
       },
+    );
+  }
+
+  Widget _buildSystemPermissionsSection(bool isDark) {
+    if (!Platform.isAndroid) return const SizedBox.shrink();
+
+    return _buildCollapsibleSection(
+      title: 'تحسين الأداء وصلاحيات النظام',
+      icon: Icons.security_rounded,
+      subtitle: 'تأمين عمل الأذان في الخلفية وعلى شاشة القفل',
+      initiallyExpanded: false,
+      children: [
+        _buildActionTile(
+          context,
+          title: 'تأمين عمل التطبيق (Battery Optimization)',
+          subtitle:
+              'مهم جداً لشاومي وسامسونج لضمان عمل الأذان في الخلفية وقت الذروة',
+          icon: Icons.battery_saver_rounded,
+          isGranted: _permissionStatuses['battery_optimization'] ?? false,
+          onTap: () =>
+              PermissionsService.openBatteryOptimizationSettings(),
+        ),
+        const SizedBox(height: 10),
+        _buildActionTile(
+          context,
+          title: 'إعدادات التشغيل التلقائي (Auto-start)',
+          subtitle: 'خاص بهواتف Oppo, Realme, Huawei, Samsung, Xiaomi',
+          icon: Icons.power_settings_new_rounded,
+          isGranted: _permissionStatuses['system_alert'] ?? false,
+          onTap: () => PermissionsService.openComprehensivePermissions(),
+        ),
+        const SizedBox(height: 10),
+        _buildActionTile(
+          context,
+          title: 'صلاحيات شاومي الخاصة (Xiaomi Permissions)',
+          subtitle: 'فعل "Show on Lock Screen" لتفتح الصور تلقائياً',
+          icon: Icons.security_rounded,
+          isGranted: _permissionStatuses['system_alert'] ?? false,
+          onTap: () => PermissionsService.openComprehensivePermissions(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCalendarSection(bool isDark) {
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, _) {
+        final subtitle = _tempAdjustment != 0
+            ? 'معايرة مؤقتة: ${_tempAdjustment > 0 ? '+$_tempAdjustment' : _tempAdjustment} يوم'
+            : (settings.hijriAdjustment != 0
+                ? 'معايرة: ${settings.hijriAdjustment > 0 ? '+${settings.hijriAdjustment}' : settings.hijriAdjustment} يوم'
+                : 'تلقائي (فلكي بدون تعديل)');
+
+        return _buildCollapsibleSection(
+          title: 'التقويم الهجري',
+          icon: Icons.calendar_month_outlined,
+          subtitle: subtitle,
+          initiallyExpanded: false,
+          children: [
+            _buildHijriAdjustmentControl(),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildAppearanceSection(bool isDark) {
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, _) {
+        final subtitle = settings.themeMode == AppThemeMode.dark
+            ? 'الوضع الداكن مفعّل'
+            : 'الوضع الفاتح مفعّل';
+
+        return _buildCollapsibleSection(
+          title: 'المظهر والتخصيص',
+          icon: Icons.palette_outlined,
+          subtitle: subtitle,
+          initiallyExpanded: false,
+          children: [
+            _buildThemeSelector(isDark),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildAboutSection(bool isDark) {
+    return _buildCollapsibleSection(
+      title: 'عن التطبيق',
+      icon: Icons.info_outline_rounded,
+      subtitle: 'زاد — رفيقك الإيماني (الإصدار 2.0.0)',
+      initiallyExpanded: false,
+      children: [
+        Center(
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.mosque_rounded,
+                  size: 40,
+                  color: Colors.green,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'تطبيق زاد (Zaad)',
+                style: GoogleFonts.tajawal(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'الإصدار 2.0.0',
+                style: GoogleFonts.tajawal(
+                  fontSize: 13,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'تطبيق إسلامي شامل لمواقيت الصلاة، الأذان الدقيق، التقويم الهجري، الأذكار اليومية، والمناسبات الإسلامية، يعمل بدون إنترنت مع حماية دقيقة للمنبهات في الخلفية.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.tajawal(
+                  fontSize: 12,
+                  color: isDark ? Colors.white70 : Colors.black87,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
