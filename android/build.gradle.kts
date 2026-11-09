@@ -14,6 +14,15 @@ rootProject.layout.buildDirectory.value(newBuildDir)
 subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
+
+    // Ensure Kotlin Android plugin is applied for libraries with Kotlin sources (e.g. audio_session under AGP 9+)
+    plugins.withId("com.android.library") {
+        val hasKotlin = file("src/main/kotlin").exists() || name in listOf("audio_session", "just_audio")
+        if (hasKotlin && !pluginManager.hasPlugin("org.jetbrains.kotlin.android")) {
+            pluginManager.apply("org.jetbrains.kotlin.android")
+        }
+    }
+
     // Removed home_widget configuration
     // Register afterEvaluate HERE (before evaluationDependsOn below triggers early
     // evaluation of other subprojects). This ensures the callback is already in place

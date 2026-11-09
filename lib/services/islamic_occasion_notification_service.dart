@@ -11,7 +11,20 @@ import 'custom_occasion_service.dart';
 /// 1️⃣  **إشعارات المناسبات** (IDs: 20000–20013) — الساعة 10:00 صباحاً في يوم المناسبة.
 /// 2️⃣  **إشعارات التذكير بالصيام** (IDs: 30000–30013) — الساعة 18:00 في اليوم المحدد
 ///      قبل المناسبة بـ [IslamicOccasion.reminderDaysBefore].
-/// 3️⃣  **إشعارات المناسبات المخصصة** (IDs: 40000+) — الساعة 10:00 صباحاً.
+/// 3️⃣  **إشعارات المناسبات المخصصة** (IDs: 40000–49999) — الساعة 10:00 صباحاً.
+///
+/// ═══ ضمانات عدم تعارض الـ IDs ═══════════════════════════════════════════════
+///  • أوقات الصلاة (Prayer):    100 –   999  (يُعيِّنها PrayerTimesService)
+///  • مناسبات إسلامية:         20000 – 20013 (base + offset اليوم في النافذة)
+///  • تذكيرات الصيام:          30000 – 30013 (base + offset يوم المناسبة ذاتها)
+///  • مناسبات مخصصة:          40000 – 49999 (base + موضع المناسبة في القائمة)
+///
+/// الفصل بين النطاقات رياضياً مضمون:
+///  - أوقات الصلاة:   base ∈ {101–106}, offset ≤ 140  → max = 246   < 20000 ✅
+///  - مناسبات:        base = 20000, offset ≤ 13       → max = 20013  < 30000 ✅
+///  - صيام:           base = 30000, offset ≤ 13       → max = 30013  < 40000 ✅
+///  - مخصصة:          base = 40000, listIndex ≤ 9999  → max = 49999  ✅
+/// ═══════════════════════════════════════════════════════════════════════════════
 ///
 /// كلا النوعين مستقل تماماً عن نظام الأذان ويعتمد على MethodChannel النيتف.
 class IslamicOccasionNotificationService {
@@ -31,8 +44,12 @@ class IslamicOccasionNotificationService {
   /// إشعارات التذكير بالصيام (18:00)
   static const int _baseFastingId = 30000;
 
-  /// إشعارات المناسبات المخصصة الصباحية (10:00 ص)
+  /// إشعارات المناسبات المخصصة الصباحية (10:00 ص) — نطاق: 40000–49999
   static const int _baseCustomOccasionId = 40000;
+
+  /// الحد الأقصى لـ listIndex المقبول للمناسبات المخصصة.
+  /// يضمن بقاء جميع الـ IDs ضمن النطاق 40000–49999 مهما بلغ عدد المناسبات.
+  static const int _maxCustomListIndex = 9999;
 
   /// أقصى عدد أيام مدرجة في كل حزمة
   static const int _windowDays = 14;
@@ -51,26 +68,74 @@ class IslamicOccasionNotificationService {
   static const String _scheduledFlagPrefix = 'occasion_native_scheduled_';
   static const String _activeNativeIdsKey = 'active_native_notification_ids';
 
+  /// مفتاح العلم الذي يكتبه [BootReceiver] في FlutterSharedPreferences عند كل
+  /// BOOT_COMPLETED أو MY_PACKAGE_REPLACED. وجوده يعني أن AlarmManager مسح
+  /// جميع المنبهات، ويجب إعادة جدولة المناسبات بصرف النظر عن علم اليوم.
+  /// يُكتب من native كـ "flutter.needs_occasion_reschedule" ليقرأه Dart تلقائياً.
+  static const String _needsRescheduleAfterBootKey =
+      'needs_occasion_reschedule';
+
+  /// تتبع المهمة الجارية حالياً لمنع التداخل والتنفيذ المتزامن
+  Future<void>? _inFlightSchedule;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // الدالة الرئيسية
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// يجدول إشعارات المناسبات وإشعارات التذكير بالصيام للـ 14 يوماً القادمة.
   ///
-  /// يُستدعى تلقائياً من [scheduleAllPrayers] في نهاية كل دورة جدولة.
-  Future<void> scheduleOccasionNotifications({bool force = false}) async {
+  /// يُستدعى تلقائياً من [scheduleAllPrayers] في نهاية كل دورة جدولة،
+  /// ومن `main.dart` عند استئناف التطبيق (Resume) لإعادة المحاولة فوراً إن فشلت محاولة سابقة.
+  ///
+  /// منطق تجاوز الحارس اليومي:
+  ///  - [force] = true  → يتجاوز العلم دائماً (استدعاء صريح من scheduleAllPrayers)
+  ///  - [_needsRescheduleAfterBootKey] = true → يتجاوز العلم بعد الإقلاع (Fix 5)
+  Future<void> scheduleOccasionNotifications({bool force = false}) {
+    if (_inFlightSchedule != null) {
+      Logger.debug(
+        'OccasionNotif: Scheduling already in flight, sharing active task.',
+      );
+      return _inFlightSchedule!;
+    }
+    return _inFlightSchedule = _executeSchedule(force).whenComplete(() {
+      _inFlightSchedule = null;
+    });
+  }
+
+  Future<void> _executeSchedule(bool force) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final today = DateTime.now();
-      final dateKey = '$_scheduledFlagPrefix${today.year}-${today.month}-${today.day}';
 
-      // ✅ ضمان الجدولة مرة واحدة فقط يومياً (ما لم يُطلب Force)
-      if (!force) {
+      // ── Fix 5: تحديث الذاكرة المحلية لاستيعاب ما كتبه BootReceiver ─────────
+      // BootReceiver يعمل في سياق native قبل أن يُشغَّل Flutter، لذا يجب إعادة
+      // القراءة صراحةً لضمان رؤية العلم الذي كتبه.
+      await prefs.reload();
+
+      final today = DateTime.now();
+      final dateKey =
+          '$_scheduledFlagPrefix${today.year}-${today.month}-${today.day}';
+
+      // ── Fix 5: كشف إعادة التشغيل أو تحديث الحزمة ─────────────────────────
+      // يكتب BootReceiver هذا العلم في FlutterSharedPreferences ("flutter.<key>")
+      // عند كل BOOT_COMPLETED أو MY_PACKAGE_REPLACED، أي كلما مسح Android
+      // جميع منبهات AlarmManager تلقائياً.
+      final needsRescheduleAfterBoot =
+          prefs.getBool(_needsRescheduleAfterBootKey) ?? false;
+      final effectiveForce = force || needsRescheduleAfterBoot;
+
+      // ✅ ضمان الجدولة مرة واحدة فقط يومياً (ما لم يُطلب Force أو حدث إقلاع)
+      if (!effectiveForce) {
         final isScheduledToday = prefs.getBool(dateKey) ?? false;
         if (isScheduledToday) {
-          Logger.debug('OccasionNotif [Native]: Already scheduled today, skipping.');
+          Logger.debug(
+            'OccasionNotif [Native]: Already scheduled today, skipping.',
+          );
           return;
         }
+      } else if (needsRescheduleAfterBoot) {
+        Logger.debug(
+          'OccasionNotif [Native]: Post-boot/update reschedule forced — bypassing daily guard.',
+        );
       }
 
       // إلغاء جميع الإشعارات السابقة أولاً
@@ -80,6 +145,7 @@ class IslamicOccasionNotificationService {
       int occasionCount = 0;
       int fastingCount = 0;
       int customOccasionCount = 0;
+      bool allSucceeded = true;
       List<String> scheduledIds = [];
 
       final customOccasions = await CustomOccasionService.getOccasions();
@@ -98,6 +164,7 @@ class IslamicOccasionNotificationService {
         if (occasion == null) continue;
 
         // ── 1️⃣ إشعار المناسبة الصباحي (10:00 ص) ────────────────────────
+        // ID = 20000 + offset → نطاق 20000–20013، فريد لكل يوم في النافذة.
         final occasionTime = DateTime(
           targetDate.year,
           targetDate.month,
@@ -108,7 +175,7 @@ class IslamicOccasionNotificationService {
 
         if (occasionTime.isAfter(today)) {
           final id = _baseOccasionId + offset;
-          await _scheduleOne(
+          final success = await _scheduleOne(
             id: id,
             title: 'حدث في مثل هذا اليوم 🗓️',
             body: occasion.primaryName,
@@ -116,12 +183,17 @@ class IslamicOccasionNotificationService {
             payload: 'islamic_occasion|${occasion.primaryName}',
             channelId: _occasionChannelId,
           );
-          scheduledIds.add(id.toString());
-          occasionCount++;
+          if (success) {
+            scheduledIds.add(id.toString());
+            occasionCount++;
+          } else {
+            allSucceeded = false;
+          }
         }
 
         // ── 2️⃣ إشعار التذكير بالصيام (18:00) ───────────────────────────
-        if (occasion.hasFastingReminder && occasion.fastingReminderTitle != null) {
+        if (occasion.hasFastingReminder &&
+            occasion.fastingReminderTitle != null) {
           final reminderDate = targetDate.subtract(
             Duration(days: occasion.reminderDaysBefore),
           );
@@ -134,11 +206,14 @@ class IslamicOccasionNotificationService {
           );
 
           if (fastingTime.isAfter(today)) {
-            final fastingOffset =
-                fastingTime.difference(today).inDays.clamp(0, _windowDays - 1);
-            final id = _baseFastingId + fastingOffset;
+            // ── Fix 4: الـ ID مرتبط بـ [offset] يوم المناسبة (لا بالمسافة من اليوم) ──
+            // السبب: ربط الـ ID بمسافة التذكير من اليوم كان يتسبب في تعارض IDs عندما
+            // تكون مناسبتان مختلفتان لهما تذكيران يقعان على نفس البُعد الزمني من اليوم.
+            // الربط بـ [offset] يضمن أن كل مناسبة (التي لها offset فريد في النافذة)
+            // تحصل على ID تذكير صيام فريد رياضياً — نطاق: 30000–30013.
+            final id = _baseFastingId + offset;
 
-            await _scheduleOne(
+            final success = await _scheduleOne(
               id: id,
               title: occasion.fastingReminderTitle!,
               body: occasion.fastingReminderBody ?? '',
@@ -146,8 +221,12 @@ class IslamicOccasionNotificationService {
               payload: 'fasting_reminder|${occasion.primaryName}',
               channelId: _fastingChannelId,
             );
-            scheduledIds.add(id.toString());
-            fastingCount++;
+            if (success) {
+              scheduledIds.add(id.toString());
+              fastingCount++;
+            } else {
+              allSucceeded = false;
+            }
           }
         }
       }
@@ -180,8 +259,22 @@ class IslamicOccasionNotificationService {
           );
 
           if (occasionTime.isAfter(today)) {
-            final id = _baseCustomOccasionId + offset + customOccasion.id.hashCode % 1000;
-            await _scheduleOne(
+            // ── Fix 3: ID = 40000 + موضع المناسبة في القائمة الكاملة ─────────────
+            // العلة القديمة: `hashCode % 1000` يُنتج قيماً سالبة في Dart عندما
+            // يكون hashCode سالباً، مما قد يُنتج IDs خارج النطاق 40000–49999 أو
+            // تعارضاً مع نطاق 30000.
+            //
+            // الحل: كل مناسبة مخصصة (CustomOccasion) لها تاريخ ثابت (Gregorian أو
+            // Hijri)، لذا تظهر مرة واحدة على الأكثر في أي نافذة 14 يوماً. هذا يعني
+            // أن موضعها (listIndex) في قائمة customOccasions يكفي وحده لتمييز الـ ID
+            // داخل النطاق 40000–49999 دون الحاجة لدمجه مع [offset].
+            final listIndex = customOccasions.indexWhere(
+              (c) => c.id == customOccasion.id,
+            );
+            if (listIndex == -1 || listIndex > _maxCustomListIndex) continue;
+            final id = _baseCustomOccasionId + listIndex;
+
+            final success = await _scheduleOne(
               id: id,
               title: 'مناسبة مخصصة 🌟',
               body: customOccasion.title,
@@ -189,22 +282,43 @@ class IslamicOccasionNotificationService {
               payload: 'custom_occasion|${customOccasion.title}',
               channelId: _occasionChannelId,
             );
-            scheduledIds.add(id.toString());
-            customOccasionCount++;
+            if (success) {
+              scheduledIds.add(id.toString());
+              customOccasionCount++;
+            } else {
+              allSucceeded = false;
+            }
           }
         }
       }
 
-      // حفظ الـ IDs التي تمت جدولتها لاستخدامها عند الإلغاء
+      // حفظ الـ IDs التي تمت جدولتها بنجاح فقط لاستخدامها عند الإلغاء
+      bool persistenceSucceeded = true;
       if (scheduledIds.isNotEmpty) {
-        await prefs.setStringList(_activeNativeIdsKey, scheduledIds);
+        persistenceSucceeded = await prefs.setStringList(
+          _activeNativeIdsKey,
+          scheduledIds,
+        );
       }
 
-      // حفظ تاريخ اليوم لمنع إعادة الجدولة
-      await prefs.setBool(dateKey, true);
+      // ── تعيين الحارس ومسح علم الإقلاع فقط عند النجاح التام للجدولة والحفظ ──
+      if (allSucceeded && persistenceSucceeded) {
+        await prefs.setBool(dateKey, true);
+        if (needsRescheduleAfterBoot) {
+          await prefs.remove(_needsRescheduleAfterBootKey);
+        }
+      } else {
+        Logger.warning(
+          'OccasionNotif: Partial failure or persistence issue detected '
+          '(allSucceeded=$allSucceeded, persistenceSucceeded=$persistenceSucceeded). '
+          'Daily guard and boot flag preserved for retry.',
+        );
+      }
+
       debugPrint(
         'OccasionNotif [Native]: Scheduled $occasionCount occasions, '
-        '$fastingCount fasting, $customOccasionCount custom.',
+        '$fastingCount fasting, $customOccasionCount custom.'
+        '${needsRescheduleAfterBoot ? " [post-boot forced]" : ""}',
       );
     } catch (e) {
       Logger.error('IslamicOccasionNotificationService error: $e');
@@ -216,7 +330,8 @@ class IslamicOccasionNotificationService {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// جدولة إشعار واحد عبر MethodChannel النيتف.
-  Future<void> _scheduleOne({
+  /// يُعيد true فقط إذا أكّد نظام الأندرويد نجاح الجدولة صراحةً.
+  Future<bool> _scheduleOne({
     required int id,
     required String title,
     required String body,
@@ -227,14 +342,17 @@ class IslamicOccasionNotificationService {
     try {
       final timeInMillis = scheduledDateTime.millisecondsSinceEpoch;
 
-      await _channel.invokeMethod<bool>('scheduleNativeNotification', {
-        'id': id,
-        'timeInMillis': timeInMillis,
-        'title': title,
-        'body': body,
-        'payload': payload,
-        'channelId': channelId,
-      });
+      final bool? success = await _channel
+          .invokeMethod<bool>('scheduleNativeNotification', {
+            'id': id,
+            'timeInMillis': timeInMillis,
+            'title': title,
+            'body': body,
+            'payload': payload,
+            'channelId': channelId,
+          });
+
+      return success == true;
     } on PlatformException catch (e) {
       if (e.code == 'EXACT_ALARM_PERMISSION_DENIED') {
         // الجدولة تحدث في الخلفية — نسجل تحذيراً فقط بدون توجيه المستخدم
@@ -243,10 +361,16 @@ class IslamicOccasionNotificationService {
           'User should be directed from settings screen.',
         );
       } else {
-        Logger.error('OccasionNotif scheduleNativeNotification[$id] error: ${e.message}');
+        Logger.error(
+          'OccasionNotif scheduleNativeNotification[$id] error: ${e.message}',
+        );
       }
+      return false;
     } catch (e) {
-      Logger.error('OccasionNotif scheduleNativeNotification[$id] unexpected: $e');
+      Logger.error(
+        'OccasionNotif scheduleNativeNotification[$id] unexpected: $e',
+      );
+      return false;
     }
   }
 
@@ -255,17 +379,24 @@ class IslamicOccasionNotificationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final activeIds = prefs.getStringList(_activeNativeIdsKey) ?? [];
-      
+
       if (activeIds.isNotEmpty) {
-        final idsToCancel = activeIds.map((e) => int.tryParse(e) ?? 0).where((id) => id > 0).toList();
+        final idsToCancel = activeIds
+            .map((e) => int.tryParse(e) ?? 0)
+            .where((id) => id > 0)
+            .toList();
         await _channel.invokeMethod('cancelSpecificNativeNotifications', {
           'ids': idsToCancel,
         });
         await prefs.remove(_activeNativeIdsKey);
-        Logger.debug('OccasionNotif [Native]: Cancelled ${idsToCancel.length} specific notifications.');
+        Logger.debug(
+          'OccasionNotif [Native]: Cancelled ${idsToCancel.length} specific notifications.',
+        );
       } else {
         // حماية إضافية للرجوع للوراء في حالة الترقية من الإصدار القديم
-        Logger.debug('OccasionNotif [Native]: No active IDs tracked. Skipping range cancelling to prevent OOM.');
+        Logger.debug(
+          'OccasionNotif [Native]: No active IDs tracked. Skipping range cancelling to prevent OOM.',
+        );
       }
     } catch (e) {
       Logger.error('OccasionNotif _cancelAll error: $e');

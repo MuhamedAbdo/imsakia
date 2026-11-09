@@ -639,7 +639,7 @@ class _CalendarPageState extends State<CalendarPage>
                         opacity: animation,
                         child: SizeTransition(
                           sizeFactor: animation,
-                          alignment: AlignmentDirectional.topStart,
+                          axisAlignment: -1.0,
                           child: child,
                         ),
                       ),

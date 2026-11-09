@@ -32,6 +32,21 @@ class BootReceiver : BroadcastReceiver() {
             val pendingResult = goAsync()
             Thread {
                 try {
+                    // ── Fix 5: علم إعادة جدولة المناسبات ─────────────────────────────────
+                    // يكتب BootReceiver هذا العلم في FlutterSharedPreferences قبل أي شيء،
+                    // حتى تقرأه IslamicOccasionNotificationService عند أول فتح للتطبيق
+                    // وتتجاوز الحارس اليومي لإعادة الجدولة.
+                    // المفتاح مكتوب كـ "flutter.<key>" لأن plugin Flutter يُضيف هذا البادئة.
+                    try {
+                        context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                            .edit()
+                            .putBoolean("flutter.needs_occasion_reschedule", true)
+                            .apply()
+                        android.util.Log.d("ZadBoot", "needs_occasion_reschedule flag written to FlutterSharedPreferences")
+                    } catch (e: Exception) {
+                        android.util.Log.e("ZadBoot", "Failed to write occasion reschedule flag: ${e.message}")
+                    }
+
                     // Layer 4: إعادة جدولة المنبهات
                     AlarmRescheduler.rescheduleAll(context, reason = action)
 

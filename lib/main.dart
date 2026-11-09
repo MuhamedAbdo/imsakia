@@ -28,6 +28,7 @@ import 'features/athan/ui/athan_overlay_screen.dart';
 import 'utils/app_constants.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'services/prayer_times_service.dart';
+import 'services/islamic_occasion_notification_service.dart';
 import 'services/home_events_service.dart';
 import 'services/bookmark_service.dart';
 import 'package:path_provider/path_provider.dart';
@@ -43,24 +44,25 @@ void handleNotificationPayload(String payload) {
       (c) => c.id == categoryId,
       orElse: () => AzkarService.instance.categories.first,
     );
-    
+
     navigatorKey.currentState?.push(
-      MaterialPageRoute(
-        builder: (_) => AzkarDetailScreen(category: category),
-      ),
+      MaterialPageRoute(builder: (_) => AzkarDetailScreen(category: category)),
     );
   } else {
     // 🔔 For occasion/fasting reminders, opening the app is currently sufficient.
     // If needed, we can show a dialog or navigate to the calendar screen here.
-    debugPrint('handleNotificationPayload: Handled occasion payload = $payload');
+    debugPrint(
+      'handleNotificationPayload: Handled occasion payload = $payload',
+    );
   }
 }
-
 
 // Background notification response handler (fires when app is killed)
 // Must be a top-level function annotated with @pragma
 @pragma('vm:entry-point')
-void notificationBackgroundResponseHandler(NotificationResponse response) async {
+void notificationBackgroundResponseHandler(
+  NotificationResponse response,
+) async {
   if (response.payload == 'stop_athan' ||
       (response.actionId != null && response.actionId == 'stop_athan_action')) {
     // Initialize isolate plugin channels
@@ -80,7 +82,8 @@ void main() async {
   const channel = MethodChannel('imsakia/notifications');
   bool isEmergencyAthan = false;
   try {
-    isEmergencyAthan = await channel.invokeMethod<bool>('isEmergencyAthanMode') ?? false;
+    isEmergencyAthan =
+        await channel.invokeMethod<bool>('isEmergencyAthanMode') ?? false;
   } on MissingPluginException {
     // الـ method مش موجودة على الجانب الـ native — نتعامل كحالة طبيعية
     isEmergencyAthan = false;
@@ -91,20 +94,25 @@ void main() async {
   if (isEmergencyAthan) {
     // We keep this true for now, but will override it below if overlayScreen == null
     MyApp.isAthanShowing = true;
-    debugPrint("!!! SOVEREIGN: Emergency Athan Mode Detected - Freezing Widget Sync !!!");
+    debugPrint(
+      "!!! SOVEREIGN: Emergency Athan Mode Detected - Freezing Widget Sync !!!",
+    );
   }
 
   // 🔔 Cold Start: التحقق من فتح التطبيق بالنقر على إشعار أذكار/مناسبة
   try {
-    final notificationPayload =
-        await channel.invokeMethod<String?>('getInitialNotificationPayload');
+    final notificationPayload = await channel.invokeMethod<String?>(
+      'getInitialNotificationPayload',
+    );
     if (notificationPayload != null && notificationPayload.isNotEmpty) {
       if (notificationPayload.startsWith('azkar_') ||
           notificationPayload.startsWith('islamic_occasion') ||
           notificationPayload.startsWith('fasting_reminder') ||
           notificationPayload.startsWith('custom_occasion')) {
         pendingAzkarRoutePayload = notificationPayload;
-        debugPrint('main: notification payload captured on cold start: $notificationPayload');
+        debugPrint(
+          'main: notification payload captured on cold start: $notificationPayload',
+        );
       }
     }
   } on MissingPluginException {
@@ -124,19 +132,22 @@ void main() async {
   await initAudioService();
   await AthanManager.initialize();
 
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-  
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
   // Initialize the notification plugin with foreground AND background handlers
   await flutterLocalNotificationsPlugin.initialize(
     settings: const InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       iOS: DarwinInitializationSettings(),
       macOS: DarwinInitializationSettings(),
-      linux: LinuxInitializationSettings(defaultActionName: 'Open notification'),
+      linux: LinuxInitializationSettings(
+        defaultActionName: 'Open notification',
+      ),
       windows: WindowsInitializationSettings(
         appName: 'Imsakia',
         appUserModelId: 'com.muhamed.imsakia',
-        guid: 'd185bb81-1bf3-4660-84a1-0e3196edc9c6'
+        guid: 'd185bb81-1bf3-4660-84a1-0e3196edc9c6',
       ),
     ),
     onDidReceiveNotificationResponse: (NotificationResponse response) {
@@ -145,14 +156,17 @@ void main() async {
         final parts = payload.split('|');
         final prayerName = parts.length >= 2 ? parts[1] : 'الصلاة';
         final isFajr = prayerName == 'الفجر';
-        
+
         if (MyApp.isAthanShowing) {
           debugPrint("Athan already showing, ignoring notification tap");
           return;
         }
-        
+
         navigatorKey.currentState?.push(
-          MaterialPageRoute(builder: (_) => AthanOverlayScreen(prayerName: prayerName, isFajr: isFajr)),
+          MaterialPageRoute(
+            builder: (_) =>
+                AthanOverlayScreen(prayerName: prayerName, isFajr: isFajr),
+          ),
         );
       } else if (payload == 'azkar_morning' || payload == 'azkar_evening') {
         if (MyApp.sessionSplashShown && navigatorKey.currentState != null) {
@@ -168,17 +182,22 @@ void main() async {
         audioHandler?.customAction('stopAthan');
       }
     },
-    onDidReceiveBackgroundNotificationResponse: notificationBackgroundResponseHandler,
+    onDidReceiveBackgroundNotificationResponse:
+        notificationBackgroundResponseHandler,
   );
 
-  final NotificationAppLaunchDetails? notificationAppLaunchDetails = await flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
-  
+  final NotificationAppLaunchDetails? notificationAppLaunchDetails =
+      await flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
+
   Widget? overlayScreen;
-  
+
   // 1. تحقق من الأذان المعلق في Native SharedPreferences (Guaranteed Delivery)
   final pendingPrayer = await AthanManager.getPendingAthan();
   if (pendingPrayer != null && pendingPrayer.isNotEmpty) {
-    overlayScreen = AthanOverlayScreen(prayerName: pendingPrayer, isColdStart: true);
+    overlayScreen = AthanOverlayScreen(
+      prayerName: pendingPrayer,
+      isColdStart: true,
+    );
     // ✅ نظّف فوراً بعد الاستهلاك
     await AthanManager.clearPendingAthan();
   } else if (notificationAppLaunchDetails?.didNotificationLaunchApp ?? false) {
@@ -188,7 +207,10 @@ void main() async {
       if (payload.startsWith('athan_overlay|')) {
         final parts = payload.split('|');
         if (parts.length >= 2) {
-          overlayScreen = AthanOverlayScreen(prayerName: parts[1], isColdStart: true);
+          overlayScreen = AthanOverlayScreen(
+            prayerName: parts[1],
+            isColdStart: true,
+          );
         }
       } else if (payload == 'azkar_morning' || payload == 'azkar_evening') {
         // 3. التقاط حمولة الأذكار وتخزينها للمرحلة التي تلي SplashScreen
@@ -199,15 +221,19 @@ void main() async {
 
   if (overlayScreen != null) {
     // 🚀 وضع الطوارئ: لا ننتظر الأذكار أو الأحاديث نهائياً
-    debugPrint("!!! HARDENED: Athan Mode - Skipping ALL non-essential background tasks !!!");
+    debugPrint(
+      "!!! HARDENED: Athan Mode - Skipping ALL non-essential background tasks !!!",
+    );
     MyApp.isAthanShowing = true;
   } else {
     // 💡 صمام الأمان (Cold Start Reset): تفريغ الحالة تماماً إذا لم يكن الإقلاع لأجل الأذان
     if (MyApp.isAthanShowing) {
-      debugPrint("!!! SAFEGUARD: False Athan flag detected on normal launch. Forcing reset. !!!");
+      debugPrint(
+        "!!! SAFEGUARD: False Athan flag detected on normal launch. Forcing reset. !!!",
+      );
       MyApp.isAthanShowing = false;
     }
-    
+
     // الحالة الطبيعية
     HadithService.instance.initialize();
     AzkarService.instance.initialize();
@@ -224,7 +250,8 @@ void main() async {
 
   // 🔥 ONE-TIME CLEANUP: Clear orphaned alarms from other branches/versions
   // This ensures the Sovereign Athan system starts with a clean slate.
-  final hasCleanedOrphans = prefs.getBool('orphaned_alarms_cleaned_v1') ?? false;
+  final hasCleanedOrphans =
+      prefs.getBool('orphaned_alarms_cleaned_v1') ?? false;
   if (!hasCleanedOrphans) {
     debugPrint("!!! HARDENED: Performing one-time orphaned alarm cleanup !!!");
     await AthanManager.cancelAllAlarms();
@@ -232,17 +259,17 @@ void main() async {
   }
 
   final hasCompletedSetup = prefs.getBool('setup_completed') ?? false;
-  
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
 
-  runApp(MyApp(
-    settingsProvider: settingsProvider, 
-    prefs: prefs, 
-    initialOverlay: overlayScreen,
-    showPermissionsGate: !hasCompletedSetup,
-  ));
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+
+  runApp(
+    MyApp(
+      settingsProvider: settingsProvider,
+      prefs: prefs,
+      initialOverlay: overlayScreen,
+      showPermissionsGate: !hasCompletedSetup,
+    ),
+  );
 }
 
 class MyApp extends StatefulWidget {
@@ -253,7 +280,13 @@ class MyApp extends StatefulWidget {
 
   static bool isAthanShowing = false;
   static bool sessionSplashShown = false;
-  MyApp({super.key, required this.settingsProvider, required this.prefs, this.initialOverlay, this.showPermissionsGate = false}) {
+  MyApp({
+    super.key,
+    required this.settingsProvider,
+    required this.prefs,
+    this.initialOverlay,
+    this.showPermissionsGate = false,
+  }) {
     if (initialOverlay != null) {
       isAthanShowing = true;
     }
@@ -286,7 +319,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       // Without this, alarms are NEVER rescheduled on app launch = alarms degrade over time.
       Future.microtask(() => _rescheduleAndSync());
     } else {
-      debugPrint("!!! HARDENED: Athan Overlay detected, skipping heavy background scheduling !!!");
+      debugPrint(
+        "!!! HARDENED: Athan Overlay detected, skipping heavy background scheduling !!!",
+      );
     }
   }
 
@@ -295,7 +330,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   /// هذا يضمن التعافي الفوري في حال مُسحت المنبهات من AlarmManager
   /// بسبب Force Stop أو ADB Debugging أو أي سبب قسري آخر.
   Future<void> _rescheduleAndSync() async {
-    debugPrint("!!! SELF-HEALING: Rescheduling all prayers on app launch/resume !!!");
+    debugPrint(
+      "!!! SELF-HEALING: Rescheduling all prayers on app launch/resume !!!",
+    );
     // مسح علم needs_sync لأننا نُعيد الجدولة بشكل كامل الآن
     await widget.prefs.setBool('needs_sync', false);
     await PrayerTimesService.instance.scheduleAllPrayers();
@@ -311,17 +348,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       final now = DateTime.now();
       // ✅ Throttle: only reschedule if it's been 30+ minutes since the last reschedule
       // Prevents unnecessary 84-alarm rescheduling every time user switches apps
-      final shouldReschedule = _lastRescheduledAt == null ||
+      final shouldReschedule =
+          _lastRescheduledAt == null ||
           now.difference(_lastRescheduledAt!) > const Duration(minutes: 30);
       if (shouldReschedule) {
         _lastRescheduledAt = now;
-        debugPrint("!!! SELF-HEALING: App resumed — rescheduling prayers (throttled: 30min) !!!");
+        debugPrint(
+          "!!! SELF-HEALING: App resumed — rescheduling prayers (throttled: 30min) !!!",
+        );
         PrayerTimesService.instance.scheduleAllPrayers();
       } else {
-        debugPrint("!!! SELF-HEALING: App resumed — skipping reschedule (throttled, last: $_lastRescheduledAt) !!!");
+        debugPrint(
+          "!!! SELF-HEALING: App resumed — skipping reschedule (throttled, last: $_lastRescheduledAt) !!!",
+        );
         // Still update the widget display even if not fully rescheduling
         // FORCE REDRAW WIDGET TO FIX NEGATIVE COUNTDOWN
         PrayerTimesService.instance.updateWidgetData(force: true);
+        IslamicOccasionNotificationService.instance
+            .scheduleOccasionNotifications();
+        IslamicOccasionNotificationService.instance.scheduleOccasionNotifications();
       }
     }
   }
@@ -334,13 +379,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   void _setupMethodChannel() {
     platform.setMethodCallHandler((call) async {
-      
       if (call.method == "showAthanOverlay") {
         final prayerName = call.arguments['prayerName'] ?? "الصلاة";
-        
+
         // 1. Passive check: Are we already showing this exact Athan?
         if (_currentAthanOverlay == prayerName || MyApp.isAthanShowing) {
-           return;
+          return;
         }
 
         // 🔥 إضافة تأخير طفيف لضمان استقرار الـ Activity فوق القفل قبل فتح الشاشة
@@ -359,7 +403,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                   name: 'athan_overlay',
                   arguments: {'prayerName': prayerName},
                 ),
-                builder: (context) => AthanOverlayScreen(prayerName: prayerName),
+                builder: (context) =>
+                    AthanOverlayScreen(prayerName: prayerName),
               ),
             );
 
@@ -373,7 +418,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       } else if (call.method == "dismissAthanOverlay") {
         // 1. تأخير بسيط جداً (500ms) للسماح بتنسيق العمليات
         await Future.delayed(const Duration(milliseconds: 500));
-        
+
         // ✅ تنظيف العلم عند الإغلاق الناجح
         AthanManager.clearShouldExitFlag();
 
@@ -397,7 +442,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             }
             return true; // Stop popping at the route below
           });
-          
+
           if (wasOnOverlay) {
             setState(() {
               _currentAthanOverlay = null;
@@ -409,7 +454,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         // 🔔 Warm Start: المستخدم نقر على إشعار أذكار/مناسبة والتطبيق مفتوح
         final payload = call.arguments as String?;
         if (payload != null && payload.isNotEmpty) {
-          debugPrint('_setupMethodChannel: notificationPayloadReceived = $payload');
+          debugPrint(
+            '_setupMethodChannel: notificationPayloadReceived = $payload',
+          );
           if (MyApp.sessionSplashShown && navigatorKey.currentState != null) {
             // التوجيه المباشر إذا كان التطبيق تجاوز شاشة الإقلاع
             handleNotificationPayload(payload);
@@ -432,10 +479,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (_) => QuranProvider()),
         ChangeNotifierProvider(create: (_) => QuranAudioProvider()),
         ChangeNotifierProvider(create: (_) => HomeEventsService()),
+        ChangeNotifierProvider(create: (_) => BukhariProvider()),
         ChangeNotifierProvider(
-          create: (_) => BukhariProvider(),
+          create: (_) => madinah.QuranProvider(widget.prefs),
         ),
-        ChangeNotifierProvider(create: (_) => madinah.QuranProvider(widget.prefs)),
         ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
         ChangeNotifierProvider(create: (_) => DownloadProvider()),
         ChangeNotifierProvider<AthanProvider>(create: (_) => AthanProvider()),
@@ -459,8 +506,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                     TargetPlatform.iOS: NoAnimationPageTransitionsBuilder(),
                   },
                 );
-                lightTheme = lightTheme.copyWith(pageTransitionsTheme: noAnimTheme);
-                darkTheme = darkTheme.copyWith(pageTransitionsTheme: noAnimTheme);
+                lightTheme = lightTheme.copyWith(
+                  pageTransitionsTheme: noAnimTheme,
+                );
+                darkTheme = darkTheme.copyWith(
+                  pageTransitionsTheme: noAnimTheme,
+                );
               }
 
               return MaterialApp(
@@ -474,15 +525,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 routes: {
                   '/settings': (context) => const SettingsScreen(),
                   '/main': (context) => const MainLayout(),
-                  '/sequential-permissions': (context) => const SequentialPermissionsScreen(),
-                  '/city-selection': (context) => const SettingsScreen(isFirstTimeSetup: true),
+                  '/sequential-permissions': (context) =>
+                      const SequentialPermissionsScreen(),
+                  '/city-selection': (context) =>
+                      const SettingsScreen(isFirstTimeSetup: true),
                 },
                 builder: (context, child) {
                   // 🔥 تحميل الصور مسبقاً في الذاكرة لضمان ظهور شاشة الأذان في جزء من الثانية (Pre-cache)
                   _precacheAthanImages(context);
-                  
+
                   return MediaQuery(
-                    data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+                    data: MediaQuery.of(
+                      context,
+                    ).copyWith(textScaler: TextScaler.noScaling),
                     child: child!,
                   );
                 },
@@ -522,7 +577,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void _precacheAthanImages(BuildContext context) {
     if (_imagesPrecached) return;
     _imagesPrecached = true;
-    
+
     final assets = [
       'assets/images/fajr_dawn.png',
       'assets/images/dhuhr_noon.png',
@@ -530,10 +585,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       'assets/images/maghrib_sunset.png',
       'assets/images/isha_night.png',
     ];
-    
+
     for (final val in assets) {
-      precacheImage(AssetImage(val), context).catchError((_) {
-      });
+      precacheImage(AssetImage(val), context).catchError((_) {});
     }
   }
 }
@@ -548,10 +602,14 @@ Future<void> _prepareAthanAssets() async {
 
     if (!await file.exists()) {
       final byteData = await rootBundle.load('assets/audio/athan_makkah.mp3');
-      await file.writeAsBytes(byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
+      await file.writeAsBytes(
+        byteData.buffer.asUint8List(
+          byteData.offsetInBytes,
+          byteData.lengthInBytes,
+        ),
+      );
     }
-  } catch (_) {
-  }
+  } catch (_) {}
 }
 
 ThemeMode _getThemeMode(AppThemeMode mode) {
