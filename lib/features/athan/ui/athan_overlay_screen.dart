@@ -42,6 +42,7 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
 
   @override
   void initState() {
+    super.initState();
     // 🔥 Ensure screen wakes up instantly on boot/locked
     WakelockPlus.enable();
     
@@ -51,7 +52,6 @@ class _AthanOverlayScreenState extends State<AthanOverlayScreen>
       overlays: [],
     );
     
-    super.initState();
     _openedAt = DateTime.now();
 
     // ✅ تحقق أمان: لو الاسم غير صالح، أغلق الشاشة فوراً لمنع الشاشات المعلقة
