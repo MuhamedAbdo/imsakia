@@ -45,8 +45,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     'maghrib': 0,
     'isha': 0,
   };
-  // الأقسام المفتوحة افتراضياً في الأكورديون
-  final Set<int> _expandedSections = {0, 1, 2, 3, 4, 5};
+  // الأقسام المفتوحة افتراضياً في الأكورديون (مغلقة افتراضياً)
+  final Set<int> _expandedSections = {};
 
   Map<String, bool> _permissionStatuses = {};
 
