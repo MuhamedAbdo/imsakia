@@ -75,6 +75,10 @@ class AppConstants {
   static String athanEnabledKey = 'athan_enabled';
   static const String hijriAdjustmentKey = 'hijri_adjustment';
   static const String prayerTimeOffsetsKey = 'prayer_time_offsets';
+  static const String calibrationModeGlobal = 'global';
+  static const String calibrationModeIndividual = 'individual';
+  static const int minPrayerCalibrationOffset = -15;
+  static const int maxPrayerCalibrationOffset = 15;
 
   // Default Settings
   static const double defaultLatitude = 30.0444; // Cairo

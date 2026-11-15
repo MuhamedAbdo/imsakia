@@ -5,6 +5,7 @@ import '../utils/app_constants.dart';
 import '../services/prayer_times_service.dart';
 
 enum AppThemeMode { light, dark, system }
+enum PrayerCalibrationMode { global, individual }
 
 class SettingsProvider extends ChangeNotifier {
   SharedPreferences? _prefs;
@@ -30,6 +31,7 @@ class SettingsProvider extends ChangeNotifier {
   bool _ishaAthanEnabled = true;
 
   // Manual Prayer Time Calibration Offsets (Minutes)
+  PrayerCalibrationMode _calibrationMode = PrayerCalibrationMode.global;
   int _prayerOffsetGlobal = 0;
   int _prayerOffsetFajr = 0;
   int _prayerOffsetDhuhr = 0;
@@ -58,6 +60,10 @@ class SettingsProvider extends ChangeNotifier {
   double get fontSize => _fontSize;
   Set<String> get fiqhBookmarks => _fiqhBookmarks;
 
+  PrayerCalibrationMode get prayerCalibrationMode => _calibrationMode;
+  bool get isGlobalCalibrationMode =>
+      _calibrationMode == PrayerCalibrationMode.global;
+
   int get prayerOffsetGlobal => _prayerOffsetGlobal;
   int get prayerOffsetFajr => _prayerOffsetFajr;
   int get prayerOffsetDhuhr => _prayerOffsetDhuhr;
@@ -75,25 +81,23 @@ class SettingsProvider extends ChangeNotifier {
 
   int getEffectivePrayerOffset(String prayerKey) {
     if (prayerKey == 'sunrise') return 0;
-    int individual = 0;
+    if (_calibrationMode == PrayerCalibrationMode.global) {
+      return _prayerOffsetGlobal.clamp(-15, 15);
+    }
     switch (prayerKey) {
       case 'fajr':
-        individual = _prayerOffsetFajr;
-        break;
+        return _prayerOffsetFajr.clamp(-15, 15);
       case 'dhuhr':
-        individual = _prayerOffsetDhuhr;
-        break;
+        return _prayerOffsetDhuhr.clamp(-15, 15);
       case 'asr':
-        individual = _prayerOffsetAsr;
-        break;
+        return _prayerOffsetAsr.clamp(-15, 15);
       case 'maghrib':
-        individual = _prayerOffsetMaghrib;
-        break;
+        return _prayerOffsetMaghrib.clamp(-15, 15);
       case 'isha':
-        individual = _prayerOffsetIsha;
-        break;
+        return _prayerOffsetIsha.clamp(-15, 15);
+      default:
+        return 0;
     }
-    return (_prayerOffsetGlobal + individual).clamp(-20, 20);
   }
 
   Future<void> initialize() async {
@@ -153,12 +157,29 @@ class SettingsProvider extends ChangeNotifier {
       try {
         final decoded = jsonDecode(offsetsRaw);
         if (decoded is Map<String, dynamic>) {
-          _prayerOffsetGlobal = _parseOffset(decoded['global']);
-          _prayerOffsetFajr = _parseOffset(decoded['fajr']);
-          _prayerOffsetDhuhr = _parseOffset(decoded['dhuhr']);
-          _prayerOffsetAsr = _parseOffset(decoded['asr']);
-          _prayerOffsetMaghrib = _parseOffset(decoded['maghrib']);
-          _prayerOffsetIsha = _parseOffset(decoded['isha']);
+          if (decoded.containsKey('mode') && decoded['mode'] != null) {
+            final modeStr = decoded['mode'] as String?;
+            if (modeStr == AppConstants.calibrationModeIndividual) {
+              _calibrationMode = PrayerCalibrationMode.individual;
+              _prayerOffsetGlobal = 0;
+              _prayerOffsetFajr = _parseOffset(decoded['fajr']);
+              _prayerOffsetDhuhr = _parseOffset(decoded['dhuhr']);
+              _prayerOffsetAsr = _parseOffset(decoded['asr']);
+              _prayerOffsetMaghrib = _parseOffset(decoded['maghrib']);
+              _prayerOffsetIsha = _parseOffset(decoded['isha']);
+            } else {
+              _calibrationMode = PrayerCalibrationMode.global;
+              _prayerOffsetGlobal = _parseOffset(decoded['global']);
+              _prayerOffsetFajr = 0;
+              _prayerOffsetDhuhr = 0;
+              _prayerOffsetAsr = 0;
+              _prayerOffsetMaghrib = 0;
+              _prayerOffsetIsha = 0;
+            }
+          } else {
+            // Legacy structure migration
+            await _migrateLegacyOffsets(decoded);
+          }
         } else {
           _resetPrayerOffsetsInMemory();
         }
@@ -170,6 +191,52 @@ class SettingsProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _migrateLegacyOffsets(Map<String, dynamic> decoded) async {
+    final oldGlobal = _parseRawInt(decoded['global']);
+    final oldFajr = _parseRawInt(decoded['fajr']);
+    final oldDhuhr = _parseRawInt(decoded['dhuhr']);
+    final oldAsr = _parseRawInt(decoded['asr']);
+    final oldMaghrib = _parseRawInt(decoded['maghrib']);
+    final oldIsha = _parseRawInt(decoded['isha']);
+
+    // Existing implementation rule: (global + individual).clamp(-20, 20)
+    // Clamped to new [-15, 15] permitted range
+    final effFajr = (oldGlobal + oldFajr).clamp(-20, 20).clamp(-15, 15);
+    final effDhuhr = (oldGlobal + oldDhuhr).clamp(-20, 20).clamp(-15, 15);
+    final effAsr = (oldGlobal + oldAsr).clamp(-20, 20).clamp(-15, 15);
+    final effMaghrib = (oldGlobal + oldMaghrib).clamp(-20, 20).clamp(-15, 15);
+    final effIsha = (oldGlobal + oldIsha).clamp(-20, 20).clamp(-15, 15);
+
+    _calibrationMode = PrayerCalibrationMode.individual;
+    _prayerOffsetGlobal = 0;
+    _prayerOffsetFajr = effFajr;
+    _prayerOffsetDhuhr = effDhuhr;
+    _prayerOffsetAsr = effAsr;
+    _prayerOffsetMaghrib = effMaghrib;
+    _prayerOffsetIsha = effIsha;
+
+    final payload = {
+      'mode': AppConstants.calibrationModeIndividual,
+      'global': 0,
+      'fajr': effFajr,
+      'dhuhr': effDhuhr,
+      'asr': effAsr,
+      'maghrib': effMaghrib,
+      'isha': effIsha,
+    };
+
+    await _prefs?.setString(
+      AppConstants.prayerTimeOffsetsKey,
+      jsonEncode(payload),
+    );
+  }
+
+  int _parseRawInt(dynamic val) {
+    if (val is int) return val;
+    if (val is String) return int.tryParse(val) ?? 0;
+    return 0;
+  }
+
   int _parseOffset(dynamic val) {
     if (val is int) return val.clamp(-15, 15);
     if (val is String) return (int.tryParse(val) ?? 0).clamp(-15, 15);
@@ -177,6 +244,7 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   void _resetPrayerOffsetsInMemory() {
+    _calibrationMode = PrayerCalibrationMode.global;
     _prayerOffsetGlobal = 0;
     _prayerOffsetFajr = 0;
     _prayerOffsetDhuhr = 0;
@@ -186,23 +254,58 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   Future<void> savePrayerOffsets({
-    required int global,
-    required Map<String, int> individual,
+    required PrayerCalibrationMode mode,
+    int global = 0,
+    Map<String, int> individual = const {},
   }) async {
-    _prayerOffsetGlobal = global.clamp(-15, 15);
-    _prayerOffsetFajr = (individual['fajr'] ?? 0).clamp(-15, 15);
-    _prayerOffsetDhuhr = (individual['dhuhr'] ?? 0).clamp(-15, 15);
-    _prayerOffsetAsr = (individual['asr'] ?? 0).clamp(-15, 15);
-    _prayerOffsetMaghrib = (individual['maghrib'] ?? 0).clamp(-15, 15);
-    _prayerOffsetIsha = (individual['isha'] ?? 0).clamp(-15, 15);
+    _calibrationMode = mode;
+    if (mode == PrayerCalibrationMode.global) {
+      _prayerOffsetGlobal = global.clamp(-15, 15);
+      _prayerOffsetFajr = 0;
+      _prayerOffsetDhuhr = 0;
+      _prayerOffsetAsr = 0;
+      _prayerOffsetMaghrib = 0;
+      _prayerOffsetIsha = 0;
+    } else {
+      _prayerOffsetGlobal = 0;
+      _prayerOffsetFajr = (individual['fajr'] ?? 0).clamp(-15, 15);
+      _prayerOffsetDhuhr = (individual['dhuhr'] ?? 0).clamp(-15, 15);
+      _prayerOffsetAsr = (individual['asr'] ?? 0).clamp(-15, 15);
+      _prayerOffsetMaghrib = (individual['maghrib'] ?? 0).clamp(-15, 15);
+      _prayerOffsetIsha = (individual['isha'] ?? 0).clamp(-15, 15);
+    }
 
     final payload = {
+      'mode': mode == PrayerCalibrationMode.global
+          ? AppConstants.calibrationModeGlobal
+          : AppConstants.calibrationModeIndividual,
       'global': _prayerOffsetGlobal,
       'fajr': _prayerOffsetFajr,
       'dhuhr': _prayerOffsetDhuhr,
       'asr': _prayerOffsetAsr,
       'maghrib': _prayerOffsetMaghrib,
       'isha': _prayerOffsetIsha,
+    };
+
+    await _prefs?.setString(
+      AppConstants.prayerTimeOffsetsKey,
+      jsonEncode(payload),
+    );
+    notifyListeners();
+  }
+
+  Future<void> restoreOriginalPrayerTimes() async {
+    _calibrationMode = PrayerCalibrationMode.global;
+    _resetPrayerOffsetsInMemory();
+
+    final payload = {
+      'mode': AppConstants.calibrationModeGlobal,
+      'global': 0,
+      'fajr': 0,
+      'dhuhr': 0,
+      'asr': 0,
+      'maghrib': 0,
+      'isha': 0,
     };
 
     await _prefs?.setString(

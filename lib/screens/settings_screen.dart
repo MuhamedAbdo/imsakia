@@ -37,6 +37,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   int _tempAdjustment = 0; // عداد مؤقت يظهر للمستخدم فقط
 
   // ⏱️ التعديلات اليدوية المؤقتة (Staged Calibration)
+  PrayerCalibrationMode _stagedCalibrationMode = PrayerCalibrationMode.global;
   int _stagedGlobalOffset = 0;
   Map<String, int> _stagedPrayerOffsets = {
     'fajr': 0,
@@ -67,6 +68,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     super.initState();
     _settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     _loadSavedLocation();
+    _stagedCalibrationMode = _settingsProvider.prayerCalibrationMode;
     _stagedGlobalOffset = _settingsProvider.prayerOffsetGlobal;
     _stagedPrayerOffsets = Map<String, int>.from(
       _settingsProvider.prayerIndividualOffsets,
@@ -229,6 +231,7 @@ class _SettingsScreenState extends State<SettingsScreen>
 
       // حفظ التعديلات اليدوية للمواقيت
       await _settingsProvider.savePrayerOffsets(
+        mode: _stagedCalibrationMode,
         global: _stagedGlobalOffset,
         individual: _stagedPrayerOffsets,
       );
@@ -620,7 +623,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'تعديل التوقيت بالدقائق ليتوافق بدقة مع المسجد المحلي. الشروق مستثنى من التعديل اليدوي.',
+                  'تعديل التوقيت بالدقائق ليتوافق بدقة مع المسجد المحلي. اختر نمطاً واحداً: عام أو فردي. الشروق مستثنى دائماً من التعديل.',
                   style: GoogleFonts.tajawal(fontSize: 12),
                 ),
               ),
@@ -628,14 +631,201 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
         ),
         const SizedBox(height: 16),
-        // ── التعديل العام ──────────────────────────
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(14),
+        // ── محدد النمط (عام / فردي) ──────────────────────────
+        _buildCalibrationModeSelector(isDark),
+        const SizedBox(height: 16),
+        if (_stagedCalibrationMode == PrayerCalibrationMode.global)
+          _buildGlobalCalibrationControls(isDark)
+        else
+          _buildIndividualCalibrationControls(isDark),
+        const SizedBox(height: 10),
+        // صف الشروق الموضح أنه مستثنى دائماً
+        _buildSunriseRow(isDark),
+        const SizedBox(height: 14),
+        // زر استعادة المواقيت الأصلية
+        Center(
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.orange.shade800,
+              side: BorderSide(
+                color: isDark ? Colors.orange.shade700 : Colors.orange.shade300,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            onPressed: _handleRestoreOriginalPrayerTimes,
+            icon: const Icon(Icons.restore_rounded, size: 20),
+            label: Text(
+              'استعادة المواقيت الأصلية',
+              style: GoogleFonts.tajawal(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
-          child: Row(
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCalibrationModeSelector(bool isDark) {
+    final isGlobal = _stagedCalibrationMode == PrayerCalibrationMode.global;
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: () => _handleModeSwitch(PrayerCalibrationMode.global),
+              borderRadius: BorderRadius.circular(10),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                decoration: BoxDecoration(
+                  color: isGlobal
+                      ? (isDark ? Colors.green.shade800 : Colors.green)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: isGlobal
+                      ? [
+                          BoxShadow(
+                            color: Colors.green.withValues(alpha: 0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.public_rounded,
+                          size: 18,
+                          color: isGlobal
+                              ? Colors.white
+                              : (isDark ? Colors.grey.shade400 : Colors.grey.shade700),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'الوضع العام',
+                          style: GoogleFonts.tajawal(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: isGlobal
+                                ? Colors.white
+                                : (isDark ? Colors.grey.shade300 : Colors.grey.shade800),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'تعديل موحد لكافة الصلوات',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.tajawal(
+                        fontSize: 10,
+                        color: isGlobal
+                            ? Colors.white.withValues(alpha: 0.9)
+                            : (isDark ? Colors.grey.shade500 : Colors.grey.shade600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: InkWell(
+              onTap: () => _handleModeSwitch(PrayerCalibrationMode.individual),
+              borderRadius: BorderRadius.circular(10),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                decoration: BoxDecoration(
+                  color: !isGlobal
+                      ? (isDark ? Colors.green.shade800 : Colors.green)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: !isGlobal
+                      ? [
+                          BoxShadow(
+                            color: Colors.green.withValues(alpha: 0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.tune_rounded,
+                          size: 18,
+                          color: !isGlobal
+                              ? Colors.white
+                              : (isDark ? Colors.grey.shade400 : Colors.grey.shade700),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'الوضع الفردي',
+                          style: GoogleFonts.tajawal(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: !isGlobal
+                                ? Colors.white
+                                : (isDark ? Colors.grey.shade300 : Colors.grey.shade800),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'تعديل مخصص لكل صلاة',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.tajawal(
+                        fontSize: 10,
+                        color: !isGlobal
+                            ? Colors.white.withValues(alpha: 0.9)
+                            : (isDark ? Colors.grey.shade500 : Colors.grey.shade600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGlobalCalibrationControls(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? Colors.white12 : Colors.grey.shade300,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
               Expanded(
                 child: Column(
@@ -649,7 +839,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                       ),
                     ),
                     Text(
-                      'يُضاف للصلوات الخمس (-15 إلى +15 دقيقة)',
+                      'يُطبق بالتساوي على الصلوات الخمس (-15 إلى +15 دقيقة)',
                       style: GoogleFonts.tajawal(
                         fontSize: 11,
                         color: Colors.grey,
@@ -658,6 +848,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ],
                 ),
               ),
+              _buildOffsetBadge(_stagedGlobalOffset),
+              const SizedBox(width: 8),
               _buildStepper(
                 value: _stagedGlobalOffset,
                 min: -15,
@@ -670,10 +862,37 @@ class _SettingsScreenState extends State<SettingsScreen>
               ),
             ],
           ),
-        ),
-        const Divider(height: 25),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle_outline, size: 16, color: Colors.green),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'يطبق هذا التعديل على: الفجر، الظهر، العصر، المغرب، العشاء.',
+                    style: GoogleFonts.tajawal(fontSize: 11, color: Colors.green),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIndividualCalibrationControls(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         Text(
-          'التعديل الفردي لكل صلاة:',
+          'التعديل الفردي لكل صلاة (-15 إلى +15 دقيقة):',
           style: GoogleFonts.tajawal(
             fontWeight: FontWeight.bold,
             fontSize: 13,
@@ -684,8 +903,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         ...['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].map((prayerKey) {
           final prayerName = _getPrayerNameArabic(prayerKey);
           final prayerIcon = _getPrayerIcon(prayerKey);
-          final individual = _stagedPrayerOffsets[prayerKey] ?? 0;
-          final effective = (_stagedGlobalOffset + individual).clamp(-20, 20);
+          final offset = _stagedPrayerOffsets[prayerKey] ?? 0;
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
@@ -710,36 +928,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                     ),
                   ),
                   const Spacer(),
-                  // شارة المحصلة الفعلية
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: effective == 0
-                          ? Colors.grey.withValues(alpha: 0.15)
-                          : (effective > 0
-                              ? Colors.green.withValues(alpha: 0.15)
-                              : Colors.red.withValues(alpha: 0.15)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      effective == 0
-                          ? 'مطابق'
-                          : (effective > 0 ? '+$effective د' : '$effective د'),
-                      style: GoogleFonts.tajawal(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: effective == 0
-                            ? Colors.grey
-                            : (effective > 0 ? Colors.green : Colors.red),
-                      ),
-                    ),
-                  ),
+                  _buildOffsetBadge(offset),
                   const SizedBox(width: 8),
                   _buildStepper(
-                    value: individual,
+                    value: offset,
                     min: -15,
                     max: 15,
                     onChanged: (val) {
@@ -753,70 +945,210 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
           );
         }),
-        // صف الشروق الموضح أنه مستثنى دائماً
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF181818) : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.wb_sunny_outlined, size: 20, color: Colors.orange),
-                const SizedBox(width: 8),
-                Text(
-                  'الشروق',
-                  style: GoogleFonts.tajawal(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'مستثنى من التعديل',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 11,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Center(
-          child: TextButton.icon(
-            onPressed: () {
-              setState(() {
-                _stagedGlobalOffset = 0;
-                _stagedPrayerOffsets = {
-                  'fajr': 0,
-                  'dhuhr': 0,
-                  'asr': 0,
-                  'maghrib': 0,
-                  'isha': 0,
-                };
-              });
-            },
-            icon: const Icon(Icons.restart_alt_rounded, size: 18, color: Colors.orange),
-            label: Text(
-              'إعادة ضبط كافة التعديلات إلى صفر',
-              style: GoogleFonts.tajawal(fontSize: 13, color: Colors.orange),
-            ),
-          ),
-        ),
       ],
     );
+  }
+
+  Widget _buildSunriseRow(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF181818) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.wb_sunny_outlined, size: 20, color: Colors.orange),
+            const SizedBox(width: 8),
+            Text(
+              'الشروق',
+              style: GoogleFonts.tajawal(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'مستثنى دائماً من التعديل',
+                style: GoogleFonts.tajawal(
+                  fontSize: 11,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOffsetBadge(int offset) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: offset == 0
+            ? Colors.grey.withValues(alpha: 0.15)
+            : (offset > 0
+                ? Colors.green.withValues(alpha: 0.15)
+                : Colors.red.withValues(alpha: 0.15)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        offset == 0 ? 'مطابق' : (offset > 0 ? '+$offset د' : '$offset د'),
+        style: GoogleFonts.tajawal(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: offset == 0
+              ? Colors.grey
+              : (offset > 0 ? Colors.green : Colors.red),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleModeSwitch(PrayerCalibrationMode newMode) async {
+    if (_stagedCalibrationMode == newMode) return;
+
+    final isSwitchingToIndividual =
+        newMode == PrayerCalibrationMode.individual;
+    final title = isSwitchingToIndividual
+        ? 'التحويل إلى الوضع الفردي'
+        : 'التحويل إلى الوضع العام';
+
+    final message = isSwitchingToIndividual
+        ? 'عند التحويل إلى الوضع الفردي:\n'
+            '• سيتم إعادة ضبط التعديل العام الحالي إلى صفر.\n'
+            '• سيبدأ الوضع الفردي بجميع قيم الصلوات الخمس مضبوطة على صفر.\n'
+            '• لن يتم نقل قيم التعديل السابقة تلقائياً.\n\n'
+            'هل ترغب في المتابعة؟'
+        : 'عند التحويل إلى الوضع العام:\n'
+            '• سيتم إعادة ضبط جميع التعديلات الفردية الخمسة إلى صفر.\n'
+            '• سيبدأ الوضع العام بقيمة تعديل صفر.\n'
+            '• لن يتم نقل أي من القيم الفردية السابقة.\n\n'
+            'هل ترغب في المتابعة؟';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          title,
+          style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          message,
+          style: GoogleFonts.tajawal(fontSize: 14, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'إلغاء',
+              style: GoogleFonts.tajawal(color: Colors.grey),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'تأكيد',
+              style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      setState(() {
+        _stagedCalibrationMode = newMode;
+        _stagedGlobalOffset = 0;
+        _stagedPrayerOffsets = {
+          'fajr': 0,
+          'dhuhr': 0,
+          'asr': 0,
+          'maghrib': 0,
+          'isha': 0,
+        };
+      });
+    }
+  }
+
+  Future<void> _handleRestoreOriginalPrayerTimes() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          'استعادة المواقيت الأصلية',
+          style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'هل أنت متأكد من رغبتك في استعادة مواقيت الصلاة الأصلية؟\n\n'
+          '• سيتم ضبط جميع التعديلات (العامة والفردية) على صفر.\n'
+          '• ستتم العودة إلى الوضع الافتراضي (الوضع العام).\n'
+          '• ستعود مواقيت الصلاة إلى قيمها المحسوبة الأصلية دون أي تعديل.\n\n'
+          'لن تتأثر إعدادات المدينة أو طريقة الحساب أو المذهب أو التوقيت الصيفي.',
+          style: GoogleFonts.tajawal(fontSize: 14, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'إلغاء',
+              style: GoogleFonts.tajawal(color: Colors.grey),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange.shade800,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'استعادة',
+              style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      setState(() {
+        _stagedCalibrationMode = PrayerCalibrationMode.global;
+        _stagedGlobalOffset = 0;
+        _stagedPrayerOffsets = {
+          'fajr': 0,
+          'dhuhr': 0,
+          'asr': 0,
+          'maghrib': 0,
+          'isha': 0,
+        };
+      });
+    }
   }
 
   Widget _buildStepper({

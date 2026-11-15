@@ -43,6 +43,7 @@ class PrayerTimesService {
     if (location == null) return null;
 
     _sharedPreferences ??= await SharedPreferences.getInstance();
+    await _sharedPreferences?.reload();
     final calculationMethod =
         _sharedPreferences!.getString(AppConstants.calculationMethodKey) ??
         AppConstants.defaultCalculationMethod;
@@ -218,6 +219,7 @@ class PrayerTimesService {
       }
 
       _sharedPreferences ??= await SharedPreferences.getInstance();
+      await _sharedPreferences?.reload();
       final city =
           _sharedPreferences!
               .getString(AppConstants.selectedCityKey)
@@ -355,6 +357,7 @@ class PrayerTimesService {
       if (location == null) return;
 
       _sharedPreferences ??= await SharedPreferences.getInstance();
+      await _sharedPreferences?.reload();
 
       final calculationMethod =
           _sharedPreferences!.getString(AppConstants.calculationMethodKey) ??
@@ -427,11 +430,12 @@ class PrayerTimesService {
     }
   }
 
-  /// يطبق التعديل اليدوي التراكمي (العام + الفردي) مع استثناء الشروق
+  /// يطبق التعديل اليدوي الحصري (إما نمط عام أو نمط فردي) مع استثناء الشروق
   Map<String, DateTime> _applyManualCalibration(
     Map<String, DateTime> times,
     SharedPreferences? prefs,
   ) {
+    String mode = AppConstants.calibrationModeGlobal;
     int global = 0;
     int fajr = 0;
     int dhuhr = 0;
@@ -444,12 +448,30 @@ class PrayerTimesService {
       try {
         final decoded = jsonDecode(offsetsRaw);
         if (decoded is Map<String, dynamic>) {
-          global = _parseOffset(decoded['global']);
-          fajr = _parseOffset(decoded['fajr']);
-          dhuhr = _parseOffset(decoded['dhuhr']);
-          asr = _parseOffset(decoded['asr']);
-          maghrib = _parseOffset(decoded['maghrib']);
-          isha = _parseOffset(decoded['isha']);
+          if (decoded.containsKey('mode') && decoded['mode'] != null) {
+            mode = decoded['mode'] == AppConstants.calibrationModeIndividual
+                ? AppConstants.calibrationModeIndividual
+                : AppConstants.calibrationModeGlobal;
+
+            if (mode == AppConstants.calibrationModeIndividual) {
+              fajr = _parseOffset(decoded['fajr']);
+              dhuhr = _parseOffset(decoded['dhuhr']);
+              asr = _parseOffset(decoded['asr']);
+              maghrib = _parseOffset(decoded['maghrib']);
+              isha = _parseOffset(decoded['isha']);
+            } else {
+              global = _parseOffset(decoded['global']);
+            }
+          } else {
+            // Unmigrated legacy format fallback: migrate effective values to individual
+            mode = AppConstants.calibrationModeIndividual;
+            final oldGlobal = _parseRawInt(decoded['global']);
+            fajr = (oldGlobal + _parseRawInt(decoded['fajr'])).clamp(-20, 20).clamp(-15, 15);
+            dhuhr = (oldGlobal + _parseRawInt(decoded['dhuhr'])).clamp(-20, 20).clamp(-15, 15);
+            asr = (oldGlobal + _parseRawInt(decoded['asr'])).clamp(-20, 20).clamp(-15, 15);
+            maghrib = (oldGlobal + _parseRawInt(decoded['maghrib'])).clamp(-20, 20).clamp(-15, 15);
+            isha = (oldGlobal + _parseRawInt(decoded['isha'])).clamp(-20, 20).clamp(-15, 15);
+          }
         }
       } catch (e) {
         Logger.error("Failed to parse manual prayer offsets: $e");
@@ -463,30 +485,40 @@ class PrayerTimesService {
         // ☀️ Sunrise is permanently excluded from manual calibration
         calibrated[prayerKey] = time;
       } else {
-        int individual = 0;
-        switch (prayerKey) {
-          case 'fajr':
-            individual = fajr;
-            break;
-          case 'dhuhr':
-            individual = dhuhr;
-            break;
-          case 'asr':
-            individual = asr;
-            break;
-          case 'maghrib':
-            individual = maghrib;
-            break;
-          case 'isha':
-            individual = isha;
-            break;
+        int offset = 0;
+        if (mode == AppConstants.calibrationModeIndividual) {
+          switch (prayerKey) {
+            case 'fajr':
+              offset = fajr;
+              break;
+            case 'dhuhr':
+              offset = dhuhr;
+              break;
+            case 'asr':
+              offset = asr;
+              break;
+            case 'maghrib':
+              offset = maghrib;
+              break;
+            case 'isha':
+              offset = isha;
+              break;
+          }
+        } else {
+          offset = global;
         }
-        final int effectiveOffset = (global + individual).clamp(-20, 20);
+        final int effectiveOffset = offset.clamp(-15, 15);
         calibrated[prayerKey] = time.add(Duration(minutes: effectiveOffset));
       }
     });
 
     return calibrated;
+  }
+
+  int _parseRawInt(dynamic val) {
+    if (val is int) return val;
+    if (val is String) return int.tryParse(val) ?? 0;
+    return 0;
   }
 
   int _parseOffset(dynamic val) {
