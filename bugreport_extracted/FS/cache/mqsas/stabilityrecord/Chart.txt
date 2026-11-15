@@ -1,0 +1,29 @@
+--------dgt and det match--------
+ram console header, hw_status: 6, fiq step 0.
+Not Clear, old status is 6.
+
+------------------------------------
+record time      :2026-10-27 18:15:32
+miui version     :V13.0.2.0.SJOMIXM
+dgt              :a4cfd0fe11abf459a193d9b314edd824
+det              :
+java.lang.IllegalStateException: Too many receivers, total of 1000, registered for pid: 1670, callerPackage: android
+^^at com.android.server.am.ActivityManagerService.registerReceiverWithFeature(ActivityManagerService.java:12949)
+^^at android.app.ContextImpl.registerReceiverInternal(ContextImpl.java:1780)
+^^at android.app.ContextImpl.registerReceiver(ContextImpl.java:1734)
+^^at android.content.ContextWrapper.registerReceiver(ContextWrapper.java:748)
+^^at com.android.server.am.BaseErrorDialog.onStart(BaseErrorDialog.java:69)
+^^at android.app.Dialog.show(Dialog.java:342)
+^^at com.android.server.am.ErrorDialogController$$ExternalSyntheticLambda4.accept(dex-id-fb6c920892bdb4adcf878874e9f1262eacde4419:2)
+^^at com.android.server.am.ErrorDialogController.forAllDialogs(ErrorDialogController.java:163)
+^^at com.android.server.am.ErrorDialogController.lambda$showCrashDialogs$1$ErrorDialogController(ErrorDialogController.java:181)
+^^at com.android.server.am.ErrorDialogController$$ExternalSyntheticLambda0.run(dex-id-fb6c920892bdb4adcf878874e9f1262eacde4419:2)
+^^at android.os.Handler.handleCallback(Handler.java:938)
+^^at android.os.Handler.dispatchMessage(Handler.java:99)
+^^at android.os.Looper.loopOnce(Looper.java:210)
+^^at android.os.Looper.loop(Looper.java:299)
+^^at android.os.HandlerThread.run(HandlerThread.java:67)
+^^at com.android.server.ServiceThread.run(ServiceThread.java:46)
+^^at com.android.server.UiThread.run(UiThread.java:45)
+
+------------------------------------

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:adhan/adhan.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
@@ -23,7 +24,8 @@ class PrayerTimesService {
   StreamController<Map<String, DateTime>>? _prayerTimesController;
   Timer? _updateTimer;
   SharedPreferences? _sharedPreferences;
-  bool _isScheduling = false; // 🔥 لمنع تداخل عمليات الجدولة
+  Completer<void>? _activeSchedulingCompleter;
+  Completer<void>? _pendingSchedulingCompleter;
   bool _isWidgetUpdating = false; // ✅ FIX: منع تداخل تحديثات الويدجت
   DateTime?
   _lastWidgetUpdateTime; // 🔥 لمنع استهلاك المعالج بتحديثات الويدجت المتكررة
@@ -94,7 +96,7 @@ class PrayerTimesService {
     // نُضيف الـ offset اليدوي فقط عندما لا يُطبِّق النظام DST (مناطق UTC ثابتة كـ UTC+3).
     final Duration dstOffset = _computeDstOffset();
 
-    final Map<String, DateTime> times = {
+    final Map<String, DateTime> rawTimes = {
       'fajr': prayerTimes.fajr.add(dstOffset),
       'sunrise': prayerTimes.sunrise.add(dstOffset),
       'dhuhr': prayerTimes.dhuhr.add(dstOffset),
@@ -103,7 +105,7 @@ class PrayerTimesService {
       'isha': prayerTimes.isha.add(dstOffset),
     };
 
-    _currentPrayerTimes = times;
+    _currentPrayerTimes = _applyManualCalibration(rawTimes, _sharedPreferences);
 
     _scheduleAthanAlarmsIfNeeded(_currentPrayerTimes!);
 
@@ -304,20 +306,55 @@ class PrayerTimesService {
     return DateFormat('h:mm a', 'ar').format(time);
   }
 
-  Future<void> scheduleAllPrayers() async {
-    if (_isScheduling) return;
-    _isScheduling = true;
+  Future<void> scheduleAllPrayers() {
+    if (_activeSchedulingCompleter != null) {
+      _pendingSchedulingCompleter ??= Completer<void>();
+      return _pendingSchedulingCompleter!.future;
+    }
 
+    final completer = Completer<void>();
+    _activeSchedulingCompleter = completer;
+    _runSchedulerQueue();
+    return completer.future;
+  }
+
+  Future<void> _runSchedulerQueue() async {
+    while (_activeSchedulingCompleter != null) {
+      final currentCompleter = _activeSchedulingCompleter!;
+      Object? passError;
+
+      try {
+        await _executeSchedulingPass();
+      } catch (e) {
+        passError = e;
+        Logger.error("Failed to execute scheduling pass: $e");
+      }
+
+      if (passError == null) {
+        if (!currentCompleter.isCompleted) {
+          currentCompleter.complete();
+        }
+      } else {
+        if (!currentCompleter.isCompleted) {
+          currentCompleter.completeError(passError);
+        }
+      }
+
+      if (_pendingSchedulingCompleter != null) {
+        _activeSchedulingCompleter = _pendingSchedulingCompleter;
+        _pendingSchedulingCompleter = null;
+      } else {
+        _activeSchedulingCompleter = null;
+      }
+    }
+  }
+
+  Future<void> _executeSchedulingPass() async {
     try {
       final location = await _getCurrentLocation();
       if (location == null) return;
 
       _sharedPreferences ??= await SharedPreferences.getInstance();
-
-      // 🔥 مسح كافة المنبهات القديمة قبل جدولة الجديدة لتجنب امتلاء الذاكرة (الحد الأقصى 500)
-      await AthanManager.cancelAllAlarms();
-
-      // We schedule alarms even if Athan is disabled to support silent notifications
 
       final calculationMethod =
           _sharedPreferences!.getString(AppConstants.calculationMethodKey) ??
@@ -335,7 +372,7 @@ class PrayerTimesService {
       // ⏰ BUG #1 FIX: مصدر حقيقة واحد — نفس منطق getCurrentPrayerTimes
       final Duration dstOffset = _computeDstOffset();
 
-      // --- Schedule for next 14 days to prevent widget stopping in background ---
+      // --- Schedule for next 14 days (15 days total) in-place without bulk cancellation ---
       for (int dayOffset = 0; dayOffset <= 14; dayOffset++) {
         final targetDate = now.add(Duration(days: dayOffset));
         final dateComponents = DateComponents(
@@ -345,7 +382,7 @@ class PrayerTimesService {
         );
         final prayerTimes = PrayerTimes(coordinates, dateComponents, params);
 
-        final Map<String, DateTime> times = {
+        final Map<String, DateTime> rawTimes = {
           'fajr': prayerTimes.fajr.add(dstOffset),
           'sunrise': prayerTimes.sunrise.add(dstOffset),
           'dhuhr': prayerTimes.dhuhr.add(dstOffset),
@@ -354,21 +391,29 @@ class PrayerTimesService {
           'isha': prayerTimes.isha.add(dstOffset),
         };
 
+        final Map<String, DateTime> times = _applyManualCalibration(
+          rawTimes,
+          _sharedPreferences,
+        );
+
         final idOffset = dayOffset * 10; // Today: 0, Tomorrow: 10
 
         times.forEach((name, time) {
+          int baseId = _getPrayerId(name);
           if (time.isAfter(now)) {
-            int baseId = _getPrayerId(name);
             AthanManager.scheduleNextAthan(
               alarmId: baseId + idOffset,
               time: time,
               isFajr: name == 'fajr',
               prayerName: _getArabicName(name),
             );
+          } else if (dayOffset == 0) {
+            // Cancel any stale alarm for today that was shifted backwards into the past
+            AthanManager.cancelAthan(baseId);
           }
         });
 
-        // 📿 جدولة إشعارات أذكار الصباح والمساء لليوم الحالي فقط
+        // 📿 جدولة إشعارات أذكار الصباح والمساء لليوم الحالي فقط بناءً على الأوقات المعدلة
         if (dayOffset == 0) {
           AzkarNotificationService.instance.scheduleAzkarNotifications(
             times['fajr']!,
@@ -376,15 +421,78 @@ class PrayerTimesService {
           );
         }
       }
-    } catch (e) {
-      Logger.error("Failed to schedule prayers: $e");
     } finally {
-      _isScheduling = false;
       // ✅ عند إعادة الجدولة، نجبر الويدجت على التحديث فوراً
       updateWidgetData(force: true);
-      // 🗓️ جدولة إشعارات المناسبات الإسلامية (مستقلة عن الأذان)
-      IslamicOccasionNotificationService.instance.scheduleOccasionNotifications();
     }
+  }
+
+  /// يطبق التعديل اليدوي التراكمي (العام + الفردي) مع استثناء الشروق
+  Map<String, DateTime> _applyManualCalibration(
+    Map<String, DateTime> times,
+    SharedPreferences? prefs,
+  ) {
+    int global = 0;
+    int fajr = 0;
+    int dhuhr = 0;
+    int asr = 0;
+    int maghrib = 0;
+    int isha = 0;
+
+    final offsetsRaw = prefs?.getString(AppConstants.prayerTimeOffsetsKey);
+    if (offsetsRaw != null && offsetsRaw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(offsetsRaw);
+        if (decoded is Map<String, dynamic>) {
+          global = _parseOffset(decoded['global']);
+          fajr = _parseOffset(decoded['fajr']);
+          dhuhr = _parseOffset(decoded['dhuhr']);
+          asr = _parseOffset(decoded['asr']);
+          maghrib = _parseOffset(decoded['maghrib']);
+          isha = _parseOffset(decoded['isha']);
+        }
+      } catch (e) {
+        Logger.error("Failed to parse manual prayer offsets: $e");
+      }
+    }
+
+    final Map<String, DateTime> calibrated = {};
+
+    times.forEach((prayerKey, time) {
+      if (prayerKey == 'sunrise') {
+        // ☀️ Sunrise is permanently excluded from manual calibration
+        calibrated[prayerKey] = time;
+      } else {
+        int individual = 0;
+        switch (prayerKey) {
+          case 'fajr':
+            individual = fajr;
+            break;
+          case 'dhuhr':
+            individual = dhuhr;
+            break;
+          case 'asr':
+            individual = asr;
+            break;
+          case 'maghrib':
+            individual = maghrib;
+            break;
+          case 'isha':
+            individual = isha;
+            break;
+        }
+        final int effectiveOffset = (global + individual).clamp(-20, 20);
+        calibrated[prayerKey] = time.add(Duration(minutes: effectiveOffset));
+      }
+    });
+
+    return calibrated;
+  }
+
+  int _parseOffset(dynamic val) {
+    if (val is int) return val.clamp(-15, 15);
+    if (val is String) return (int.tryParse(val) ?? 0).clamp(-15, 15);
+    return 0;
   }
 
   // ════════════════════════════════════════════════════════════════════

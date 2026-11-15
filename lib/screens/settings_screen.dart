@@ -5,11 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:audio_service/audio_service.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
 import '../features/athan/providers/athan_provider.dart';
-import '../features/athan/services/athan_manager.dart';
 import '../features/athan_library/providers/athan_library_provider.dart';
 import '../features/athan_library/ui/athan_library_screen.dart';
 import '../services/prayer_times_service.dart';
@@ -38,6 +36,18 @@ class _SettingsScreenState extends State<SettingsScreen>
   String? _selectedState;
   int _tempAdjustment = 0; // عداد مؤقت يظهر للمستخدم فقط
 
+  // ⏱️ التعديلات اليدوية المؤقتة (Staged Calibration)
+  int _stagedGlobalOffset = 0;
+  Map<String, int> _stagedPrayerOffsets = {
+    'fajr': 0,
+    'dhuhr': 0,
+    'asr': 0,
+    'maghrib': 0,
+    'isha': 0,
+  };
+  // الأقسام المفتوحة افتراضياً في الأكورديون
+  final Set<int> _expandedSections = {0, 1, 2, 3, 4, 5};
+
   Map<String, bool> _permissionStatuses = {};
 
   final Map<String, String> _calculationMethods = {
@@ -57,6 +67,10 @@ class _SettingsScreenState extends State<SettingsScreen>
     super.initState();
     _settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     _loadSavedLocation();
+    _stagedGlobalOffset = _settingsProvider.prayerOffsetGlobal;
+    _stagedPrayerOffsets = Map<String, int>.from(
+      _settingsProvider.prayerIndividualOffsets,
+    );
 
     // 🔥 ضمان مزامنة الـ Switch مع حالة نظام أندرويد من اللحظة الأولى
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -113,6 +127,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     }
   }
 
+  // ignore: unused_element
   void _testPlayAthan(String prayerKey) async {
     if (audioHandler == null) {
       try {
@@ -212,6 +227,12 @@ class _SettingsScreenState extends State<SettingsScreen>
         });
       }
 
+      // حفظ التعديلات اليدوية للمواقيت
+      await _settingsProvider.savePrayerOffsets(
+        global: _stagedGlobalOffset,
+        individual: _stagedPrayerOffsets,
+      );
+
       if (widget.isFirstTimeSetup) {
         await _settingsProvider.setFirstLaunchComplete();
       }
@@ -276,7 +297,9 @@ class _SettingsScreenState extends State<SettingsScreen>
           child: Column(
             children: [
               if (widget.isFirstTimeSetup) _buildHeader(),
+              // 1. الموقع الجغرافي
               _buildSection(
+                sectionIndex: 0,
                 title: 'الموقع الجغرافي',
                 icon: Icons.location_on_rounded,
                 children: [
@@ -296,9 +319,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ],
               ),
               const SizedBox(height: 15),
+              // 2. الحساب الفقهي والوقت
               _buildSection(
+                sectionIndex: 1,
                 title: 'الحساب الفقهي والوقت',
-                icon: Icons.settings_outlined,
+                icon: Icons.access_time_rounded,
                 children: [
                   _buildCalculationMethodSelector(),
                   const SizedBox(height: 15),
@@ -308,9 +333,18 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ],
               ),
               const SizedBox(height: 15),
+              // 3. إعدادات الأذان
               _buildAthanSection(isDark),
               const SizedBox(height: 15),
+              // 4. ضبط المواقيت يدوياً
+              _buildManualCalibrationSection(isDark),
+              const SizedBox(height: 15),
+              // 5. الصلاحيات
+              _buildPermissionsSection(),
+              const SizedBox(height: 15),
+              // 6. التقويم والمظهر
               _buildSection(
+                sectionIndex: 5,
                 title: 'التقويم والمظهر',
                 icon: Icons.palette_outlined,
                 children: [
@@ -320,9 +354,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ],
               ),
               const SizedBox(height: 30),
-              // 🧪 زر اختبار A/B — مؤقت، يُزال بعد انتهاء التجربة
-              if (!widget.isFirstTimeSetup) _buildAbTestButton(),
-              if (!widget.isFirstTimeSetup) const SizedBox(height: 15),
               _buildSaveButton(),
             ],
           ),
@@ -501,82 +532,363 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // 🧪 زر اختبار A/B — مؤقت (يُزال بعد انتهاء التجربة)
-  // يجدول منبهين متزامنين (setAlarmClock + setExactAndAllowWhileIdle)
-  // بعد 3 دقائق من الضغط، لاختبار أيهما يخترق Doze Mode أولاً.
-  // ═══════════════════════════════════════════════════════════
-  Widget _buildAbTestButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 55,
-      child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.deepOrange.shade700,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-        ),
-        icon: const Icon(Icons.science_outlined, color: Colors.white),
-        label: Text(
-          'اختبار الأذان A/B (بعد 3 دقائق)',
-          style: GoogleFonts.tajawal(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        onPressed: () async {
-          await AthanManager.scheduleAbTestAthan(
-            delay: const Duration(minutes: 3),
-          );
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '✅ تم جدولة منبهين A/B — راقب AZAN_TRACE في Logcat بعد 3 دقائق',
-                style: GoogleFonts.tajawal(),
-              ),
-              backgroundColor: Colors.deepOrange,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   Widget _buildSection({
+    required int sectionIndex,
     required String title,
     required IconData icon,
     required List<Widget> children,
   }) {
+    final isExpanded = _expandedSections.contains(sectionIndex);
     return NeumorphicBox(
       borderRadius: 20,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Row(
-              children: [
-                Icon(icon, color: Colors.green, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
+            InkWell(
+              onTap: () {
+                setState(() {
+                  if (isExpanded) {
+                    _expandedSections.remove(sectionIndex);
+                  } else {
+                    _expandedSections.add(sectionIndex);
+                  }
+                });
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Icon(icon, color: Colors.green, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: GoogleFonts.tajawal(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      isExpanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      color: Colors.grey,
+                      size: 24,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            AnimatedCrossFade(
+              firstChild: const SizedBox.shrink(),
+              secondChild: Column(
+                children: [
+                  const Divider(height: 25),
+                  ...children,
+                ],
+              ),
+              crossFadeState: isExpanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 250),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildManualCalibrationSection(bool isDark) {
+    return _buildSection(
+      sectionIndex: 3,
+      title: 'ضبط المواقيت يدوياً',
+      icon: Icons.tune_rounded,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.amber.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline, color: Colors.amber, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'تعديل التوقيت بالدقائق ليتوافق بدقة مع المسجد المحلي. الشروق مستثنى من التعديل اليدوي.',
+                  style: GoogleFonts.tajawal(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // ── التعديل العام ──────────────────────────
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'التعديل العام (لكافة الصلوات)',
+                      style: GoogleFonts.tajawal(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      'يُضاف للصلوات الخمس (-15 إلى +15 دقيقة)',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 11,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _buildStepper(
+                value: _stagedGlobalOffset,
+                min: -15,
+                max: 15,
+                onChanged: (val) {
+                  setState(() {
+                    _stagedGlobalOffset = val;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 25),
+        Text(
+          'التعديل الفردي لكل صلاة:',
+          style: GoogleFonts.tajawal(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            color: Colors.green,
+          ),
+        ),
+        const SizedBox(height: 10),
+        ...['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].map((prayerKey) {
+          final prayerName = _getPrayerNameArabic(prayerKey);
+          final prayerIcon = _getPrayerIcon(prayerKey);
+          final individual = _stagedPrayerOffsets[prayerKey] ?? 0;
+          final effective = (_stagedGlobalOffset + individual).clamp(-20, 20);
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? Colors.white12 : Colors.grey.shade200,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(prayerIcon, size: 20, color: Colors.blueGrey),
+                  const SizedBox(width: 8),
+                  Text(
+                    prayerName,
                     style: GoogleFonts.tajawal(
                       fontWeight: FontWeight.bold,
-                      fontSize: 15,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const Spacer(),
+                  // شارة المحصلة الفعلية
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: effective == 0
+                          ? Colors.grey.withValues(alpha: 0.15)
+                          : (effective > 0
+                              ? Colors.green.withValues(alpha: 0.15)
+                              : Colors.red.withValues(alpha: 0.15)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      effective == 0
+                          ? 'مطابق'
+                          : (effective > 0 ? '+$effective د' : '$effective د'),
+                      style: GoogleFonts.tajawal(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: effective == 0
+                            ? Colors.grey
+                            : (effective > 0 ? Colors.green : Colors.red),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildStepper(
+                    value: individual,
+                    min: -15,
+                    max: 15,
+                    onChanged: (val) {
+                      setState(() {
+                        _stagedPrayerOffsets[prayerKey] = val;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+        // صف الشروق الموضح أنه مستثنى دائماً
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF181818) : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.wb_sunny_outlined, size: 20, color: Colors.orange),
+                const SizedBox(width: 8),
+                Text(
+                  'الشروق',
+                  style: GoogleFonts.tajawal(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'مستثنى من التعديل',
+                    style: GoogleFonts.tajawal(
+                      fontSize: 11,
+                      color: Colors.grey,
                     ),
                   ),
                 ),
               ],
             ),
-            const Divider(height: 25),
-            ...children,
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: 8),
+        Center(
+          child: TextButton.icon(
+            onPressed: () {
+              setState(() {
+                _stagedGlobalOffset = 0;
+                _stagedPrayerOffsets = {
+                  'fajr': 0,
+                  'dhuhr': 0,
+                  'asr': 0,
+                  'maghrib': 0,
+                  'isha': 0,
+                };
+              });
+            },
+            icon: const Icon(Icons.restart_alt_rounded, size: 18, color: Colors.orange),
+            label: Text(
+              'إعادة ضبط كافة التعديلات إلى صفر',
+              style: GoogleFonts.tajawal(fontSize: 13, color: Colors.orange),
+            ),
+          ),
+        ),
+      ],
     );
+  }
+
+  Widget _buildStepper({
+    required int value,
+    required int min,
+    required int max,
+    required ValueChanged<int> onChanged,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 22),
+          onPressed: value > min ? () => onChanged(value - 1) : null,
+        ),
+        SizedBox(
+          width: 32,
+          child: Text(
+            value > 0 ? '+$value' : '$value',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.tajawal(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          icon: const Icon(Icons.add_circle_outline, color: Colors.green, size: 22),
+          onPressed: value < max ? () => onChanged(value + 1) : null,
+        ),
+      ],
+    );
+  }
+
+  String _getPrayerNameArabic(String key) {
+    switch (key) {
+      case 'fajr':
+        return 'الفجر';
+      case 'dhuhr':
+        return 'الظهر';
+      case 'asr':
+        return 'العصر';
+      case 'maghrib':
+        return 'المغرب';
+      case 'isha':
+        return 'العشاء';
+      case 'sunrise':
+        return 'الشروق';
+      default:
+        return key;
+    }
+  }
+
+  IconData _getPrayerIcon(String key) {
+    switch (key) {
+      case 'fajr':
+        return Icons.nights_stay_outlined;
+      case 'dhuhr':
+        return Icons.wb_sunny_rounded;
+      case 'asr':
+        return Icons.wb_cloudy_outlined;
+      case 'maghrib':
+        return Icons.wb_twilight_rounded;
+      case 'isha':
+        return Icons.bedtime_outlined;
+      default:
+        return Icons.access_time_rounded;
+    }
   }
 
   Widget _buildHeader() {
@@ -602,6 +914,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     return Consumer2<AthanProvider, AthanLibraryProvider>(
       builder: (context, provider, libraryProvider, child) {
         return _buildSection(
+          sectionIndex: 2,
           title: 'إعدادات الأذان (الآذان متوفر بعد اختيار الموقع)',
           icon: Icons.notifications_active_outlined,
           children: [
@@ -627,17 +940,41 @@ class _SettingsScreenState extends State<SettingsScreen>
               const Divider(height: 20),
               Text(
                 'تفعيل الأذان لكل صلاة (التعطيل يجعله صامتاً):',
-                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
+                style: GoogleFonts.tajawal(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: Colors.green,
+                ),
               ),
               const SizedBox(height: 5),
               Consumer<SettingsProvider>(
                 builder: (context, settings, _) => Column(
                   children: [
-                    _buildPrayerToggleRow('الفجر', settings.fajrAthanEnabled, (v) => settings.setPrayerAthanEnabled('fajr', v)),
-                    _buildPrayerToggleRow('الظهر', settings.dhuhrAthanEnabled, (v) => settings.setPrayerAthanEnabled('dhuhr', v)),
-                    _buildPrayerToggleRow('العصر', settings.asrAthanEnabled, (v) => settings.setPrayerAthanEnabled('asr', v)),
-                    _buildPrayerToggleRow('المغرب', settings.maghribAthanEnabled, (v) => settings.setPrayerAthanEnabled('maghrib', v)),
-                    _buildPrayerToggleRow('العشاء', settings.ishaAthanEnabled, (v) => settings.setPrayerAthanEnabled('isha', v)),
+                    _buildPrayerToggleRow(
+                      'الفجر',
+                      settings.fajrAthanEnabled,
+                      (v) => settings.setPrayerAthanEnabled('fajr', v),
+                    ),
+                    _buildPrayerToggleRow(
+                      'الظهر',
+                      settings.dhuhrAthanEnabled,
+                      (v) => settings.setPrayerAthanEnabled('dhuhr', v),
+                    ),
+                    _buildPrayerToggleRow(
+                      'العصر',
+                      settings.asrAthanEnabled,
+                      (v) => settings.setPrayerAthanEnabled('asr', v),
+                    ),
+                    _buildPrayerToggleRow(
+                      'المغرب',
+                      settings.maghribAthanEnabled,
+                      (v) => settings.setPrayerAthanEnabled('maghrib', v),
+                    ),
+                    _buildPrayerToggleRow(
+                      'العشاء',
+                      settings.ishaAthanEnabled,
+                      (v) => settings.setPrayerAthanEnabled('isha', v),
+                    ),
                   ],
                 ),
               ),
@@ -667,13 +1004,19 @@ class _SettingsScreenState extends State<SettingsScreen>
                   selectedPath: provider.getPathForPrayer('dhuhr'),
                   // 🔑 إذا يوجد أذان سحابي للصلوات العادية → أقفل القائمة
                   isCloudOverride: libraryProvider.hasCloudAthanFor('dhuhr'),
-                  cloudOverrideName: libraryProvider.getAssignedNameFor('dhuhr'),
+                  cloudOverrideName: libraryProvider.getAssignedNameFor(
+                    'dhuhr',
+                  ),
                   onChanged: (path) =>
                       provider.setPrayerMuezzin('dhuhr', path!),
-                  onTestPlay: () => _testPlayAthan('dhuhr'),
                   onCloudClear: () async {
                     await libraryProvider.clearDefault(prayerKey: 'dhuhr');
-                    if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                    if (context.mounted) {
+                      Provider.of<AthanProvider>(
+                        context,
+                        listen: false,
+                      ).syncFromPrefs();
+                    }
                   },
                 ),
                 const SizedBox(height: 8),
@@ -696,7 +1039,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                     children: [
                       Text(
                         'تخصيص أصوات الصلوات',
-                        style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: GoogleFonts.tajawal(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       // ─── الفجر: يقفل عند وجود أذان فجر سحابي ──────────
@@ -705,14 +1051,22 @@ class _SettingsScreenState extends State<SettingsScreen>
                         prayerKey: 'fajr',
                         muezzins: provider.fajrMuezzins,
                         selectedPath: provider.getPathForPrayer('fajr'),
-                        isCloudOverride: libraryProvider.hasCloudAthanFor('fajr'),
-                        cloudOverrideName: libraryProvider.getAssignedNameFor('fajr'),
+                        isCloudOverride: libraryProvider.hasCloudAthanFor(
+                          'fajr',
+                        ),
+                        cloudOverrideName: libraryProvider.getAssignedNameFor(
+                          'fajr',
+                        ),
                         onChanged: (path) =>
                             provider.setPrayerMuezzin('fajr', path!),
-                        onTestPlay: () => _testPlayAthan('fajr'),
                         onCloudClear: () async {
                           await libraryProvider.clearDefault(prayerKey: 'fajr');
-                          if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                          if (context.mounted) {
+                            Provider.of<AthanProvider>(
+                              context,
+                              listen: false,
+                            ).syncFromPrefs();
+                          }
                         },
                       ),
                       const SizedBox(height: 10),
@@ -722,14 +1076,24 @@ class _SettingsScreenState extends State<SettingsScreen>
                         prayerKey: 'dhuhr',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('dhuhr'),
-                        isCloudOverride: libraryProvider.hasCloudAthanFor('dhuhr'),
-                        cloudOverrideName: libraryProvider.getAssignedNameFor('dhuhr'),
+                        isCloudOverride: libraryProvider.hasCloudAthanFor(
+                          'dhuhr',
+                        ),
+                        cloudOverrideName: libraryProvider.getAssignedNameFor(
+                          'dhuhr',
+                        ),
                         onChanged: (path) =>
                             provider.setPrayerMuezzin('dhuhr', path!),
-                        onTestPlay: () => _testPlayAthan('dhuhr'),
                         onCloudClear: () async {
-                          await libraryProvider.clearDefault(prayerKey: 'dhuhr');
-                          if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                          await libraryProvider.clearDefault(
+                            prayerKey: 'dhuhr',
+                          );
+                          if (context.mounted) {
+                            Provider.of<AthanProvider>(
+                              context,
+                              listen: false,
+                            ).syncFromPrefs();
+                          }
                         },
                       ),
                       const SizedBox(height: 10),
@@ -738,14 +1102,22 @@ class _SettingsScreenState extends State<SettingsScreen>
                         prayerKey: 'asr',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('asr'),
-                        isCloudOverride: libraryProvider.hasCloudAthanFor('asr'),
-                        cloudOverrideName: libraryProvider.getAssignedNameFor('asr'),
+                        isCloudOverride: libraryProvider.hasCloudAthanFor(
+                          'asr',
+                        ),
+                        cloudOverrideName: libraryProvider.getAssignedNameFor(
+                          'asr',
+                        ),
                         onChanged: (path) =>
                             provider.setPrayerMuezzin('asr', path!),
-                        onTestPlay: () => _testPlayAthan('asr'),
                         onCloudClear: () async {
                           await libraryProvider.clearDefault(prayerKey: 'asr');
-                          if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                          if (context.mounted) {
+                            Provider.of<AthanProvider>(
+                              context,
+                              listen: false,
+                            ).syncFromPrefs();
+                          }
                         },
                       ),
                       const SizedBox(height: 10),
@@ -754,14 +1126,24 @@ class _SettingsScreenState extends State<SettingsScreen>
                         prayerKey: 'maghrib',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('maghrib'),
-                        isCloudOverride: libraryProvider.hasCloudAthanFor('maghrib'),
-                        cloudOverrideName: libraryProvider.getAssignedNameFor('maghrib'),
+                        isCloudOverride: libraryProvider.hasCloudAthanFor(
+                          'maghrib',
+                        ),
+                        cloudOverrideName: libraryProvider.getAssignedNameFor(
+                          'maghrib',
+                        ),
                         onChanged: (path) =>
                             provider.setPrayerMuezzin('maghrib', path!),
-                        onTestPlay: () => _testPlayAthan('maghrib'),
                         onCloudClear: () async {
-                          await libraryProvider.clearDefault(prayerKey: 'maghrib');
-                          if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                          await libraryProvider.clearDefault(
+                            prayerKey: 'maghrib',
+                          );
+                          if (context.mounted) {
+                            Provider.of<AthanProvider>(
+                              context,
+                              listen: false,
+                            ).syncFromPrefs();
+                          }
                         },
                       ),
                       const SizedBox(height: 10),
@@ -770,14 +1152,22 @@ class _SettingsScreenState extends State<SettingsScreen>
                         prayerKey: 'isha',
                         muezzins: provider.generalMuezzins,
                         selectedPath: provider.getPathForPrayer('isha'),
-                        isCloudOverride: libraryProvider.hasCloudAthanFor('isha'),
-                        cloudOverrideName: libraryProvider.getAssignedNameFor('isha'),
+                        isCloudOverride: libraryProvider.hasCloudAthanFor(
+                          'isha',
+                        ),
+                        cloudOverrideName: libraryProvider.getAssignedNameFor(
+                          'isha',
+                        ),
                         onChanged: (path) =>
                             provider.setPrayerMuezzin('isha', path!),
-                        onTestPlay: () => _testPlayAthan('isha'),
                         onCloudClear: () async {
                           await libraryProvider.clearDefault(prayerKey: 'isha');
-                          if (context.mounted) Provider.of<AthanProvider>(context, listen: false).syncFromPrefs();
+                          if (context.mounted) {
+                            Provider.of<AthanProvider>(
+                              context,
+                              listen: false,
+                            ).syncFromPrefs();
+                          }
                         },
                       ),
                     ],
@@ -788,67 +1178,78 @@ class _SettingsScreenState extends State<SettingsScreen>
               const SizedBox(height: 8),
               _buildAthanLibraryBanner(isDark, libraryProvider, provider),
             ],
-            const SizedBox(height: 15),
-            // Xiaomi & Performance Optimization Buttons
-            if (Platform.isAndroid) ...[
-              _buildActionTile(
-                context,
-                title: 'تأمين عمل التطبيق (Battery Optimization)',
-                subtitle: 'مهم جداً لشاومي وسامسونج لضمان عمل الأذان في الخلفية وقت الذروة',
-                icon: Icons.battery_saver_rounded,
-                isGranted: _permissionStatuses['battery_optimization'] ?? false,
-                onTap: () =>
-                    PermissionsService.openBatteryOptimizationSettings(),
-              ),
-              const SizedBox(height: 10),
-              _buildActionTile(
-                context,
-                title: 'إعدادات التشغيل التلقائي (Auto-start)',
-                subtitle: 'خاص بهواتف Oppo, Realme, Huawei, Samsung, Xiaomi',
-                icon: Icons.power_settings_new_rounded,
-                isGranted:
-                    _permissionStatuses['system_alert'] ??
-                    false, // We check overlay/start status
-                onTap: () => PermissionsService.openComprehensivePermissions(),
-              ),
-              const SizedBox(height: 10),
-              _buildActionTile(
-                context,
-                title: 'صلاحيات شاومي الخاصة (Xiaomi Permissions)',
-                subtitle: 'فعل "Show on Lock Screen" لتفتح الصور تلقائياً',
-                icon: Icons.security_rounded,
-                isGranted: _permissionStatuses['system_alert'] ?? false,
-                onTap: () => PermissionsService.openComprehensivePermissions(),
-              ),
-
-            ],
           ],
         );
       },
     );
   }
 
+  /// 5. قسم الصلاحيات وتأمين عمل التطبيق
+  Widget _buildPermissionsSection() {
+    if (!Platform.isAndroid) return const SizedBox.shrink();
+    return _buildSection(
+      sectionIndex: 4,
+      title: 'الصلاحيات وتأمين الخلفية',
+      icon: Icons.security_rounded,
+      children: [
+        _buildActionTile(
+          context,
+          title: 'تأمين عمل التطبيق (Battery Optimization)',
+          subtitle:
+              'مهم جداً لشاومي وسامسونج لضمان عمل الأذان في الخلفية وقت الذروة',
+          icon: Icons.battery_saver_rounded,
+          isGranted: _permissionStatuses['battery_optimization'] ?? false,
+          onTap: () =>
+              PermissionsService.openBatteryOptimizationSettings(),
+        ),
+        const SizedBox(height: 10),
+        _buildActionTile(
+          context,
+          title: 'إعدادات التشغيل التلقائي (Auto-start)',
+          subtitle: 'خاص بهواتف Oppo, Realme, Huawei, Samsung, Xiaomi',
+          icon: Icons.power_settings_new_rounded,
+          isGranted: _permissionStatuses['system_alert'] ?? false,
+          onTap: () => PermissionsService.openComprehensivePermissions(),
+        ),
+        const SizedBox(height: 10),
+        _buildActionTile(
+          context,
+          title: 'صلاحيات شاومي الخاصة (Xiaomi Permissions)',
+          subtitle: 'فعل "Show on Lock Screen" لتفتح الصور تلقائياً',
+          icon: Icons.security_rounded,
+          isGranted: _permissionStatuses['system_alert'] ?? false,
+          onTap: () => PermissionsService.openComprehensivePermissions(),
+        ),
+      ],
+    );
+  }
+
   /// بانر زر فتح مكتبة الأذان
-  Widget _buildAthanLibraryBanner(bool isDark, AthanLibraryProvider libraryProvider, AthanProvider provider) {
+  Widget _buildAthanLibraryBanner(
+    bool isDark,
+    AthanLibraryProvider libraryProvider,
+    AthanProvider provider,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-
         // ─── زر فتح مكتبة الأذان ─────────────────────────────────────
         InkWell(
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => const AthanLibraryScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const AthanLibraryScreen()),
             ).then((_) {
               // ✨ بعد العودة: مزامنة الحالة من SharedPreferences لتحديث الواجهة تلقائياً
               if (mounted) {
-                Provider.of<AthanLibraryProvider>(context, listen: false)
-                    .syncFromPrefs();
-                Provider.of<AthanProvider>(context, listen: false)
-                    .syncFromPrefs();
+                Provider.of<AthanLibraryProvider>(
+                  context,
+                  listen: false,
+                ).syncFromPrefs();
+                Provider.of<AthanProvider>(
+                  context,
+                  listen: false,
+                ).syncFromPrefs();
               }
             });
           },
@@ -875,7 +1276,11 @@ class _SettingsScreenState extends State<SettingsScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.library_music_rounded, color: Colors.white, size: 22),
+                const Icon(
+                  Icons.library_music_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
                 const SizedBox(width: 10),
                 Text(
                   'مكتبة الأذان (تحميل المزيد) ☁️',
@@ -886,7 +1291,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(Icons.arrow_back_ios_rounded, color: Colors.white70, size: 14),
+                const Icon(
+                  Icons.arrow_back_ios_rounded,
+                  color: Colors.white70,
+                  size: 14,
+                ),
               ],
             ),
           ),
@@ -894,8 +1303,6 @@ class _SettingsScreenState extends State<SettingsScreen>
       ],
     );
   }
-
-
 
   Widget _buildActionTile(
     BuildContext context, {
@@ -964,7 +1371,11 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  Widget _buildPrayerToggleRow(String label, bool value, Function(bool) onChanged) {
+  Widget _buildPrayerToggleRow(
+    String label,
+    bool value,
+    Function(bool) onChanged,
+  ) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -984,7 +1395,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     required List<Muezzin> muezzins,
     required String selectedPath,
     required void Function(String?) onChanged,
-    required VoidCallback onTestPlay,
     // ─── Cloud Override ────────────────────────────────────────────────────
     bool isCloudOverride = false,
     String? cloudOverrideName,
@@ -1014,14 +1424,15 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ? Colors.green.withValues(alpha: 0.12)
                   : Colors.green.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: Colors.green.withValues(alpha: 0.35),
-              ),
+              border: Border.all(color: Colors.green.withValues(alpha: 0.35)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.cloud_done_rounded,
-                    color: Colors.green, size: 18),
+                const Icon(
+                  Icons.cloud_done_rounded,
+                  color: Colors.green,
+                  size: 18,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1034,46 +1445,20 @@ class _SettingsScreenState extends State<SettingsScreen>
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 6),
-                // زر المعاينة يعمل حتى في وضع القفل
-                StreamBuilder<PlaybackState>(
-                  stream: audioHandler?.playbackState,
-                  builder: (context, snapshot) {
-                    final isThisPlaying =
-                        snapshot.data?.playing == true &&
-                        audioHandler?.mediaItem.value?.extras?['activeTestKey'] == prayerKey;
-                    return Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          icon: Icon(
-                            isThisPlaying
-                                ? Icons.stop_circle_outlined
-                                : Icons.play_circle_outline,
-                            color: isThisPlaying ? Colors.red : Colors.green,
-                            size: 28,
-                          ),
-                          tooltip: isThisPlaying ? 'إيقاف التجربة' : 'معاينة الأذان السحابي',
-                          onPressed: onTestPlay,
-                        ),
-                        if (onCloudClear != null)
-                          IconButton(
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            icon: Icon(
-                              Icons.cancel,
-                              color: Colors.red.shade300,
-                              size: 24,
-                            ),
-                            tooltip: 'إلغاء التخصيص',
-                            onPressed: onCloudClear,
-                          ),
-                      ],
-                    );
-                  },
-                ),
+                if (onCloudClear != null) ...[
+                  const SizedBox(width: 6),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    icon: Icon(
+                      Icons.cancel,
+                      color: Colors.red.shade300,
+                      size: 24,
+                    ),
+                    tooltip: 'إلغاء التخصيص',
+                    onPressed: onCloudClear,
+                  ),
+                ],
               ],
             ),
           ),
@@ -1091,56 +1476,20 @@ class _SettingsScreenState extends State<SettingsScreen>
       current = muezzins.first;
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: DropdownButtonFormField<String>(
-            isExpanded: true,
-            initialValue: current.path,
-            decoration: InputDecoration(
-              labelText: label,
-              labelStyle: GoogleFonts.tajawal(),
-            ),
-            items: muezzins.map((m) {
-              return DropdownMenuItem<String>(
-                value: m.path,
-                child: Text(m.name, style: GoogleFonts.tajawal(fontSize: 14)),
-              );
-            }).toList(),
-            onChanged: onChanged,
-          ),
-        ),
-        const SizedBox(width: 8),
-        StreamBuilder<PlaybackState>(
-          stream: audioHandler?.playbackState,
-          builder: (context, snapshot) {
-            final state = snapshot.data;
-            final isAthanPlaying = state?.playing == true;
-
-            bool isThisTaskPlaying = false;
-            if (audioHandler != null && isAthanPlaying) {
-              final activeKey =
-                  audioHandler!.mediaItem.value?.extras?['activeTestKey'];
-              if (activeKey == prayerKey) {
-                isThisTaskPlaying = true;
-              }
-            }
-
-            return IconButton(
-              icon: Icon(
-                isThisTaskPlaying
-                    ? Icons.stop_circle_outlined
-                    : Icons.play_circle_outline,
-                color: isThisTaskPlaying ? Colors.red : Colors.green,
-                size: 30,
-              ),
-              tooltip: isThisTaskPlaying ? 'إيقاف التجربة' : 'تشغيل تجريبي',
-              onPressed: onTestPlay,
-            );
-          },
-        ),
-      ],
+    return DropdownButtonFormField<String>(
+      isExpanded: true,
+      initialValue: current.path,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.tajawal(),
+      ),
+      items: muezzins.map((m) {
+        return DropdownMenuItem<String>(
+          value: m.path,
+          child: Text(m.name, style: GoogleFonts.tajawal(fontSize: 14)),
+        );
+      }).toList(),
+      onChanged: onChanged,
     );
   }
 }

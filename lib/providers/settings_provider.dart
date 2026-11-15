@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/app_constants.dart';
@@ -28,6 +29,14 @@ class SettingsProvider extends ChangeNotifier {
   bool _maghribAthanEnabled = true;
   bool _ishaAthanEnabled = true;
 
+  // Manual Prayer Time Calibration Offsets (Minutes)
+  int _prayerOffsetGlobal = 0;
+  int _prayerOffsetFajr = 0;
+  int _prayerOffsetDhuhr = 0;
+  int _prayerOffsetAsr = 0;
+  int _prayerOffsetMaghrib = 0;
+  int _prayerOffsetIsha = 0;
+
   // Getters
   AppThemeMode get themeMode => _themeMode;
   String get selectedCity => _selectedCity;
@@ -48,6 +57,44 @@ class SettingsProvider extends ChangeNotifier {
   bool get ishaAthanEnabled => _ishaAthanEnabled;
   double get fontSize => _fontSize;
   Set<String> get fiqhBookmarks => _fiqhBookmarks;
+
+  int get prayerOffsetGlobal => _prayerOffsetGlobal;
+  int get prayerOffsetFajr => _prayerOffsetFajr;
+  int get prayerOffsetDhuhr => _prayerOffsetDhuhr;
+  int get prayerOffsetAsr => _prayerOffsetAsr;
+  int get prayerOffsetMaghrib => _prayerOffsetMaghrib;
+  int get prayerOffsetIsha => _prayerOffsetIsha;
+
+  Map<String, int> get prayerIndividualOffsets => {
+    'fajr': _prayerOffsetFajr,
+    'dhuhr': _prayerOffsetDhuhr,
+    'asr': _prayerOffsetAsr,
+    'maghrib': _prayerOffsetMaghrib,
+    'isha': _prayerOffsetIsha,
+  };
+
+  int getEffectivePrayerOffset(String prayerKey) {
+    if (prayerKey == 'sunrise') return 0;
+    int individual = 0;
+    switch (prayerKey) {
+      case 'fajr':
+        individual = _prayerOffsetFajr;
+        break;
+      case 'dhuhr':
+        individual = _prayerOffsetDhuhr;
+        break;
+      case 'asr':
+        individual = _prayerOffsetAsr;
+        break;
+      case 'maghrib':
+        individual = _prayerOffsetMaghrib;
+        break;
+      case 'isha':
+        individual = _prayerOffsetIsha;
+        break;
+    }
+    return (_prayerOffsetGlobal + individual).clamp(-20, 20);
+  }
 
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -100,6 +147,69 @@ class SettingsProvider extends ChangeNotifier {
     _fontSize = _prefs?.getDouble('fiqh_font_size') ?? 16.0;
     final bookmarksList = _prefs?.getStringList('fiqh_bookmarks') ?? [];
     _fiqhBookmarks = bookmarksList.toSet();
+
+    final offsetsRaw = _prefs?.getString(AppConstants.prayerTimeOffsetsKey);
+    if (offsetsRaw != null && offsetsRaw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(offsetsRaw);
+        if (decoded is Map<String, dynamic>) {
+          _prayerOffsetGlobal = _parseOffset(decoded['global']);
+          _prayerOffsetFajr = _parseOffset(decoded['fajr']);
+          _prayerOffsetDhuhr = _parseOffset(decoded['dhuhr']);
+          _prayerOffsetAsr = _parseOffset(decoded['asr']);
+          _prayerOffsetMaghrib = _parseOffset(decoded['maghrib']);
+          _prayerOffsetIsha = _parseOffset(decoded['isha']);
+        } else {
+          _resetPrayerOffsetsInMemory();
+        }
+      } catch (_) {
+        _resetPrayerOffsetsInMemory();
+      }
+    } else {
+      _resetPrayerOffsetsInMemory();
+    }
+  }
+
+  int _parseOffset(dynamic val) {
+    if (val is int) return val.clamp(-15, 15);
+    if (val is String) return (int.tryParse(val) ?? 0).clamp(-15, 15);
+    return 0;
+  }
+
+  void _resetPrayerOffsetsInMemory() {
+    _prayerOffsetGlobal = 0;
+    _prayerOffsetFajr = 0;
+    _prayerOffsetDhuhr = 0;
+    _prayerOffsetAsr = 0;
+    _prayerOffsetMaghrib = 0;
+    _prayerOffsetIsha = 0;
+  }
+
+  Future<void> savePrayerOffsets({
+    required int global,
+    required Map<String, int> individual,
+  }) async {
+    _prayerOffsetGlobal = global.clamp(-15, 15);
+    _prayerOffsetFajr = (individual['fajr'] ?? 0).clamp(-15, 15);
+    _prayerOffsetDhuhr = (individual['dhuhr'] ?? 0).clamp(-15, 15);
+    _prayerOffsetAsr = (individual['asr'] ?? 0).clamp(-15, 15);
+    _prayerOffsetMaghrib = (individual['maghrib'] ?? 0).clamp(-15, 15);
+    _prayerOffsetIsha = (individual['isha'] ?? 0).clamp(-15, 15);
+
+    final payload = {
+      'global': _prayerOffsetGlobal,
+      'fajr': _prayerOffsetFajr,
+      'dhuhr': _prayerOffsetDhuhr,
+      'asr': _prayerOffsetAsr,
+      'maghrib': _prayerOffsetMaghrib,
+      'isha': _prayerOffsetIsha,
+    };
+
+    await _prefs?.setString(
+      AppConstants.prayerTimeOffsetsKey,
+      jsonEncode(payload),
+    );
+    notifyListeners();
   }
 
   // التعديل التراكمي: يجمع التعديل الجديد مع المخزن مسبقاً
@@ -193,6 +303,7 @@ class SettingsProvider extends ChangeNotifier {
     _autoHijriAdjustment = true;
     _fontSize = 16.0;
     _fiqhBookmarks = {};
+    _resetPrayerOffsetsInMemory();
   }
 
   // Font Size Methods

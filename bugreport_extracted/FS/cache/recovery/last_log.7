@@ -1,0 +1,1088 @@
+[    0.001792] platform device_type is unknown
+[    0.001843] platform uses default device_type emmc
+[    0.001847] recovery filesystem table
+[    0.001849] =========================
+[    0.001851]   0 /system  ext4 system 0
+[    0.001853]   1 /vendor  ext4 vendor 0
+[    0.001855]   2 /product  ext4 product 0
+[    0.001857]   3 /metadata  ext4 /dev/block/platform/bootdevice/by-name/md_udc 0
+[    0.001858]   4 /data  ext4 /dev/block/platform/bootdevice/by-name/userdata 0
+[    0.001860]   5 /cache  ext4 /dev/block/platform/bootdevice/by-name/cache 0
+[    0.001862]   6 /mnt/vendor/protect_f  ext4 /dev/block/platform/bootdevice/by-name/protect1 0
+[    0.001864]   7 /mnt/vendor/protect_s  ext4 /dev/block/platform/bootdevice/by-name/protect2 0
+[    0.001866]   8 /mnt/vendor/nvdata  ext4 /dev/block/platform/bootdevice/by-name/nvdata 0
+[    0.001868]   9 /mnt/vendor/nvcfg  ext4 /dev/block/platform/bootdevice/by-name/nvcfg 0
+[    0.001870]   10 /mnt/vendor/persist  ext4 /dev/block/platform/bootdevice/by-name/persist 0
+[    0.001872]   11 auto  auto /devices/platform/externdevice* 0
+[    0.001874]   12 auto  vfat /devices/platform/mt_usb* 0
+[    0.001875]   13 /persistent  emmc /dev/block/platform/bootdevice/by-name/frp 0
+[    0.001877]   14 /nvram  emmc /dev/block/platform/bootdevice/by-name/nvram 0
+[    0.001879]   15 /proinfo  emmc /dev/block/platform/bootdevice/by-name/proinfo 0
+[    0.001881]   16 /bootloader  emmc /dev/block/platform/bootdevice/by-name/lk 0
+[    0.001883]   17 /bootloader2  emmc /dev/block/platform/bootdevice/by-name/lk2 0
+[    0.001884]   18 /misc  emmc /dev/block/platform/bootdevice/by-name/misc 0
+[    0.001886]   19 /para  emmc /dev/block/platform/bootdevice/by-name/para 0
+[    0.001888]   20 /recovery  emmc /dev/block/platform/bootdevice/by-name/recovery 0
+[    0.001890]   21 /boot  emmc /dev/block/platform/bootdevice/by-name/boot 0
+[    0.001892]   22 /vbmeta_vendor  emmc /dev/block/platform/bootdevice/by-name/vbmeta_vendor 0
+[    0.001893]   23 /vbmeta_system  emmc /dev/block/platform/bootdevice/by-name/vbmeta_system 0
+[    0.001895]   24 /logo  emmc /dev/block/platform/bootdevice/by-name/logo 0
+[    0.001897]   25 /expdb  emmc /dev/block/platform/bootdevice/by-name/expdb 0
+[    0.001899]   26 /seccfg  emmc /dev/block/platform/bootdevice/by-name/seccfg 0
+[    0.001901]   27 /tee1  emmc /dev/block/platform/bootdevice/by-name/tee1 0
+[    0.001902]   28 /tee2  emmc /dev/block/platform/bootdevice/by-name/tee2 0
+[    0.001904]   29 /scp1  emmc /dev/block/platform/bootdevice/by-name/scp1 0
+[    0.001906]   30 /scp2  emmc /dev/block/platform/bootdevice/by-name/scp2 0
+[    0.001908]   31 /sspm_1  emmc /dev/block/platform/bootdevice/by-name/sspm_1 0
+[    0.001909]   32 /sspm_2  emmc /dev/block/platform/bootdevice/by-name/sspm_2 0
+[    0.001911]   33 /md1img  emmc /dev/block/platform/bootdevice/by-name/md1img 0
+[    0.001913]   34 /md1dsp  emmc /dev/block/platform/bootdevice/by-name/md1dsp 0
+[    0.001915]   35 /gz1  emmc /dev/block/platform/bootdevice/by-name/gz1 0
+[    0.001917]   36 /gz2  emmc /dev/block/platform/bootdevice/by-name/gz2 0
+[    0.001918]   37 /spmfw  emmc /dev/block/platform/bootdevice/by-name/spmfw 0
+[    0.001920]   38 /boot_para  emmc /dev/block/platform/bootdevice/by-name/boot_para 0
+[    0.001922]   39 /dtbo  emmc /dev/block/platform/bootdevice/by-name/dtbo 0
+[    0.001924]   40 /otp  emmc /dev/block/platform/bootdevice/by-name/otp 0
+[    0.001925]   41 /vbmeta  emmc /dev/block/platform/bootdevice/by-name/vbmeta 0
+[    0.001927]   42 /cust  ext4 /dev/block/platform/bootdevice/by-name/cust 0
+[    0.001929]   43 /tmp  ramdisk ramdisk 0
+[    0.001931]   44 /system_root  ext4 system 0
+[    0.001933]   45 /sdcard  vfat /dev/block/mmcblk1p1 0
+[    0.001935]
+[    0.004907] I:[libfs_mgr]superblock s_max_mnt_count:65535,/dev/block/platform/bootdevice/by-name/cache
+[    0.007334] I:[libfs_mgr]check_fs(): mount(/dev/block/platform/bootdevice/by-name/cache,/cache,ext4)=0: Success
+[    0.027685] I:[libfs_mgr]check_fs(): unmount(/cache) succeeded
+[    0.027697] I:[libfs_mgr]Not running /system/bin/e2fsck on /dev/block/mmcblk0p45 (executable not in system image)
+[    0.029118] I:[libfs_mgr]superblock s_max_mnt_count:65535,/dev/block/platform/bootdevice/by-name/cache
+[    0.031127] I:[libfs_mgr]__mount(source=/dev/block/platform/bootdevice/by-name/cache,target=/cache,type=ext4)=0: Success
+[    0.036427] Failed to dlsym make_device: undefined symbol: make_device
+[    0.036467] Falling back to the default make_device() instead
+[    0.036820] recovery filesystem table
+[    0.036857] =========================
+[    0.036984]   0 /system  ext4 system 0
+[    0.037103]   1 /vendor  ext4 vendor 0
+[    0.037222]   2 /product  ext4 product 0
+[    0.037340]   3 /metadata  ext4 /dev/block/platform/bootdevice/by-name/md_udc 0
+[    0.037458]   4 /data  ext4 /dev/block/platform/bootdevice/by-name/userdata 0
+[    0.037576]   5 /cache  ext4 /dev/block/platform/bootdevice/by-name/cache 0
+[    0.037693]   6 /mnt/vendor/protect_f  ext4 /dev/block/platform/bootdevice/by-name/protect1 0
+[    0.037834]   7 /mnt/vendor/protect_s  ext4 /dev/block/platform/bootdevice/by-name/protect2 0
+[    0.037952]   8 /mnt/vendor/nvdata  ext4 /dev/block/platform/bootdevice/by-name/nvdata 0
+[    0.038070]   9 /mnt/vendor/nvcfg  ext4 /dev/block/platform/bootdevice/by-name/nvcfg 0
+[    0.038187]   10 /mnt/vendor/persist  ext4 /dev/block/platform/bootdevice/by-name/persist 0
+[    0.038307]   11 auto  auto /devices/platform/externdevice* 0
+[    0.038425]   12 auto  vfat /devices/platform/mt_usb* 0
+[    0.038542]   13 /persistent  emmc /dev/block/platform/bootdevice/by-name/frp 0
+[    0.038660]   14 /nvram  emmc /dev/block/platform/bootdevice/by-name/nvram 0
+[    0.038777]   15 /proinfo  emmc /dev/block/platform/bootdevice/by-name/proinfo 0
+[    0.038894]   16 /bootloader  emmc /dev/block/platform/bootdevice/by-name/lk 0
+[    0.039012]   17 /bootloader2  emmc /dev/block/platform/bootdevice/by-name/lk2 0
+[    0.039129]   18 /misc  emmc /dev/block/platform/bootdevice/by-name/misc 0
+[    0.039247]   19 /para  emmc /dev/block/platform/bootdevice/by-name/para 0
+[    0.039364]   20 /recovery  emmc /dev/block/platform/bootdevice/by-name/recovery 0
+[    0.039481]   21 /boot  emmc /dev/block/platform/bootdevice/by-name/boot 0
+[    0.039598]   22 /vbmeta_vendor  emmc /dev/block/platform/bootdevice/by-name/vbmeta_vendor 0
+[    0.039717]   23 /vbmeta_system  emmc /dev/block/platform/bootdevice/by-name/vbmeta_system 0
+[    0.039835]   24 /logo  emmc /dev/block/platform/bootdevice/by-name/logo 0
+[    0.039953]   25 /expdb  emmc /dev/block/platform/bootdevice/by-name/expdb 0
+[    0.040070]   26 /seccfg  emmc /dev/block/platform/bootdevice/by-name/seccfg 0
+[    0.040189]   27 /tee1  emmc /dev/block/platform/bootdevice/by-name/tee1 0
+[    0.040306]   28 /tee2  emmc /dev/block/platform/bootdevice/by-name/tee2 0
+[    0.040425]   29 /scp1  emmc /dev/block/platform/bootdevice/by-name/scp1 0
+[    0.040542]   30 /scp2  emmc /dev/block/platform/bootdevice/by-name/scp2 0
+[    0.040661]   31 /sspm_1  emmc /dev/block/platform/bootdevice/by-name/sspm_1 0
+[    0.040778]   32 /sspm_2  emmc /dev/block/platform/bootdevice/by-name/sspm_2 0
+[    0.040895]   33 /md1img  emmc /dev/block/platform/bootdevice/by-name/md1img 0
+[    0.041013]   34 /md1dsp  emmc /dev/block/platform/bootdevice/by-name/md1dsp 0
+[    0.041130]   35 /gz1  emmc /dev/block/platform/bootdevice/by-name/gz1 0
+[    0.041248]   36 /gz2  emmc /dev/block/platform/bootdevice/by-name/gz2 0
+[    0.041366]   37 /spmfw  emmc /dev/block/platform/bootdevice/by-name/spmfw 0
+[    0.041484]   38 /boot_para  emmc /dev/block/platform/bootdevice/by-name/boot_para 0
+[    0.041602]   39 /dtbo  emmc /dev/block/platform/bootdevice/by-name/dtbo 0
+[    0.041719]   40 /otp  emmc /dev/block/platform/bootdevice/by-name/otp 0
+[    0.041855]   41 /vbmeta  emmc /dev/block/platform/bootdevice/by-name/vbmeta 0
+[    0.041975]   42 /cust  ext4 /dev/block/platform/bootdevice/by-name/cust 0
+[    0.042092]   43 /tmp  ramdisk ramdisk 0
+[    0.042209]   44 /system_root  ext4 system 0
+[    0.042326]   45 /sdcard  vfat /dev/block/mmcblk1p1 0
+[    0.042344]
+[    0.045104] I:Brightness: 1023 (50%)
+[    0.046349] Failed to find/open a drm device: No such file or directory
+[    0.046460] fb0 reports (possibly inaccurate):
+[    0.046466]   vi.bits_per_pixel = 32
+[    0.046469]   vi.red.offset   =   0   .length =   8
+[    0.046471]   vi.green.offset =   8   .length =   8
+[    0.046473]   vi.blue.offset  =  16   .length =   8
+[    0.104944] framebuffer: 5 (1080 x 2340)
+[    0.105103] the light in recovery now is 640
+[    0.107334] the light in recovery now is 640
+[    0.187197]        installing_tip1: loc_seq:0 (1080 x 212 @ 0)
+[    0.188580]        installing_tip2: loc_seq:0 (1080 x 212 @ 0)
+[    0.488238] I:the light in recovery now is 640
+[    0.520407] __bionic_open_tzdata: couldn't find any tzdata when looking for Asia/Shanghai!
+[    0.520451] I:Starting recovery (pid 320) on Sat Apr 27 18:03:49 2024
+[    0.520467]
+[    0.520490] I:locale is [en_US]
+[    0.559031] SELinux: Loaded file_contexts
+[    0.559082] E:[libfs_mgr]unknown volume for path [/persist]
+[    0.559099] mount persist fail
+[    0.559293] stage is []
+[    0.559334] reason is []
+[    0.560309] Command: "/system/bin/recovery"
+[    0.560331]
+[    0.561045] ro.boot.bootreason=reboot_longkey
+[    0.561060] ro.boot.dp=3
+[    0.561067] ro.boot.hwc=Global
+[    0.561074] ro.boot.rsc=merlingl
+[    0.561081] ro.boot.mode=recovery
+[    0.561088] ro.boot.cpuid=0x2d8b8f23055bb5bc2187748ab17c54c81017389b
+[    0.561094] ro.boot.efuse=1
+[    0.561101] ro.boot.flash.locked=1
+[    0.561107] ro.boot.radio.multisim.config=dsds
+[    0.561113] ro.boot.vbmeta.size=1792
+[    0.561120] ro.boot.vbmeta.digest=a9af08dce91c8e53e630128824f60ce7732569258e2ff8d615745e325337dd29
+[    0.561131] ro.boot.vbmeta.hash_alg=sha256
+[    0.561138] ro.boot.vbmeta.avb_version=1.2
+[    0.561145] ro.boot.vbmeta.device_state=locked
+[    0.561151] ro.boot.dtb_idx=0
+[    0.561157] ro.boot.hwlevel=MP
+[    0.561163] ro.boot.dtbo_idx=0
+[    0.561170] ro.boot.hardware=mt6768
+[    0.561176] ro.boot.hwversion=2522.29.0
+[    0.561182] ro.boot.rpmb_flag=1
+[    0.561188] ro.boot.secureboot=1
+[    0.561194] ro.boot.veritymode=enforcing
+[    0.561201] ro.boot.veritymode.managed=yes
+[    0.561207] ro.boot.boot_devices=bootdevice,soc/11230000.mmc,11230000.mmc
+[    0.561213] ro.boot.meta_log_disable=0
+[    0.561220] ro.boot.verifiedbootstate=green
+[    0.561226] ro.baseband=unknown
+[    0.561232] ro.bootmode=recovery
+[    0.561238] ro.hardware=mt6768
+[    0.561244] ro.revision=0
+[    0.561250] ro.bootloader=unknown
+[    0.561257] ro.boottime.adbd=2638314153
+[    0.561263] ro.boottime.init=1575504307
+[    0.561269] ro.boottime.init.fsck.cache=22
+[    0.561276] ro.boottime.init.mount.cache=2
+[    0.561282] ro.boottime.init.selinux=124882847
+[    0.561288] ro.boottime.init.first_stage=86534769
+[    0.561294] ro.boottime.init.cold_boot_wait=658
+[    0.561301] ro.boottime.logd=2677668923
+[    0.561307] ro.boottime.charger=2668507461
+[    0.561313] ro.boottime.ueventd=1906168307
+[    0.561319] ro.boottime.recovery=2671704384
+[    0.561330] ro.product.property_source_order=odm,vendor,product,system
+[    0.561337] ro.odm.build.date=Thu Oct 13 20:08:27 CST 2022
+[    0.561344] ro.odm.build.date.utc=1665662907
+[    0.561351] ro.odm.build.version.incremental=V13.0.2.0.SJOMIXM
+[    0.561357] ro.odm.build.fingerprint=Redmi/merlin/merlin:12/SP1A.210812.016/V13.0.2.0.SJOMIXM:user/release-keys
+[    0.561364] ro.product.odm.name=merlin
+[    0.561370] ro.product.odm.brand=Redmi
+[    0.561376] ro.product.odm.model=merlin
+[    0.561382] ro.product.odm.device=merlin
+[    0.561389] ro.product.odm.manufacturer=Xiaomi
+[    0.561395] ro.adb.secure=1
+[    0.561401] ro.build.id=SP1A.210812.016
+[    0.561408] ro.build.date=Thu Oct 13 20:08:27 CST 2022
+[    0.561414] ro.build.date.utc=1665662907
+[    0.561420] ro.build.host=m1-xm-ota-bd375.bj.idc.xiaomi.com
+[    0.561427] ro.build.tags=release-keys
+[    0.561433] ro.build.type=user
+[    0.561439] ro.build.user=builder
+[    0.561445] ro.build.flavor=merlin-user
+[    0.561451] ro.build.display.id=SP1A.210812.016
+[    0.561458] ro.build.product=merlin
+[    0.561464] ro.build.version.sdk=31
+[    0.561482] ro.build.version.base_os=
+[    0.561490] ro.build.version.release=12
+[    0.561497] ro.build.version.codename=REL
+[    0.561504] ro.build.version.incremental=V13.0.2.0.SJOMIXM
+[    0.561510] ro.build.version.preview_sdk=0
+[    0.561516] ro.build.version.all_codenames=REL
+[    0.561522] ro.build.version.security_patch=2022-09-01
+[    0.561529] ro.build.version.release_or_codename=12
+[    0.561535] ro.build.version.preview_sdk_fingerprint=REL
+[    0.561542] ro.build.version.min_supported_target_sdk=23
+[    0.561548] ro.build.description=merlin-user 12 SP1A.210812.016 V13.0.2.0.SJOMIXM release-keys
+[    0.561554] ro.build.characteristics=default
+[    0.561561] ro.build.system_root_image=false
+[    0.561567] ro.secure=1
+[    0.561573] ro.system.build.id=SP1A.210812.016
+[    0.561579] ro.system.build.date=Thu Oct 13 20:08:27 CST 2022
+[    0.561586] ro.system.build.date.utc=1665662907
+[    0.561592] ro.system.build.tags=release-keys
+[    0.561598] ro.system.build.type=user
+[    0.561604] ro.system.build.version.sdk=31
+[    0.561610] ro.system.build.version.release=12
+[    0.561617] ro.system.build.version.incremental=V13.0.2.0.SJOMIXM
+[    0.561623] ro.system.build.version.release_or_codename=12
+[    0.561635] ro.system.build.fingerprint=Redmi/merlin/merlin:12/SP1A.210812.016/V13.0.2.0.SJOMIXM:user/release-keys
+[    0.561642] ro.treble.enabled=true
+[    0.561649] ro.product.cpu.abi=arm64-v8a
+[    0.561656] ro.product.cpu.abilist=arm64-v8a,armeabi-v7a,armeabi
+[    0.561662] ro.product.cpu.abilist32=armeabi-v7a,armeabi
+[    0.561668] ro.product.cpu.abilist64=arm64-v8a
+[    0.561674] ro.product.cert=M2003J15SS
+[    0.561681] ro.product.name=merlin
+[    0.561687] ro.product.brand=Redmi
+[    0.561693] ro.product.build.id=SP1A.210812.016
+[    0.561699] ro.product.build.date=Thu Oct 13 20:08:27 CST 2022
+[    0.561705] ro.product.build.date.utc=1665662907
+[    0.561712] ro.product.build.tags=release-keys
+[    0.561718] ro.product.build.type=user
+[    0.561724] ro.product.build.version.sdk=31
+[    0.561730] ro.product.build.version.release=12
+[    0.561737] ro.product.build.version.incremental=V13.0.2.0.SJOMIXM
+[    0.561743] ro.product.build.version.release_or_codename=12
+[    0.561749] ro.product.build.fingerprint=Redmi/merlin/merlin:12/SP1A.210812.016/V13.0.2.0.SJOMIXM:user/release-keys
+[    0.561799] ro.product.model=merlin
+[    0.561808] ro.product.device=merlin
+[    0.561815] ro.product.system.name=merlin
+[    0.561821] ro.product.system.brand=Redmi
+[    0.561827] ro.product.system.model=merlin
+[    0.561834] ro.product.system.device=merlin
+[    0.561840] ro.product.system.manufacturer=Xiaomi
+[    0.561846] ro.product.product.name=merlin
+[    0.561853] ro.product.product.brand=Redmi
+[    0.561859] ro.product.product.model=merlin
+[    0.561865] ro.product.product.device=merlin
+[    0.561872] ro.product.product.manufacturer=Xiaomi
+[    0.561878] ro.product.system_ext.name=merlin
+[    0.561884] ro.product.system_ext.brand=Redmi
+[    0.561890] ro.product.system_ext.model=merlin
+[    0.561897] ro.product.system_ext.device=merlin
+[    0.561903] ro.product.system_ext.manufacturer=Xiaomi
+[    0.561909] ro.product.manufacturer=Xiaomi
+[    0.561916] ro.debuggable=0
+[    0.561922] ro.system_ext.build.id=SP1A.210812.016
+[    0.561928] ro.system_ext.build.date=Thu Oct 13 20:08:27 CST 2022
+[    0.561934] ro.system_ext.build.date.utc=1665662907
+[    0.561941] ro.system_ext.build.tags=release-keys
+[    0.561951] ro.system_ext.build.type=user
+[    0.561964] ro.system_ext.build.version.sdk=31
+[    0.561976] ro.system_ext.build.version.release=12
+[    0.561989] ro.system_ext.build.version.incremental=V13.0.2.0.SJOMIXM
+[    0.562001] ro.system_ext.build.version.release_or_codename=12
+[    0.562014] ro.system_ext.build.fingerprint=Redmi/merlin/merlin:12/SP1A.210812.016/V13.0.2.0.SJOMIXM:user/release-keys
+[    0.562027] ro.actionable_compatible_property.enabled=true
+[    0.562040] ro.vendor.build.id=SP1A.210812.016
+[    0.562053] ro.vendor.build.date=Thu Oct 13 20:08:27 CST 2022
+[    0.562065] ro.vendor.build.date.utc=1665662907
+[    0.562092] ro.vendor.build.tags=release-keys
+[    0.562108] ro.vendor.build.type=user
+[    0.562122] ro.vendor.build.version.sdk=31
+[    0.562134] ro.vendor.build.version.release=12
+[    0.562148] ro.vendor.build.version.incremental=V13.0.2.0.SJOMIXM
+[    0.562161] ro.vendor.build.version.release_or_codename=12
+[    0.562173] ro.vendor.build.fingerprint=Redmi/merlin/merlin:12/SP1A.210812.016/V13.0.2.0.SJOMIXM:user/release-keys
+[    0.562186] ro.vendor.product.cpu.abilist=arm64-v8a,armeabi-v7a,armeabi
+[    0.562199] ro.vendor.product.cpu.abilist32=armeabi-v7a,armeabi
+[    0.562211] ro.vendor.product.cpu.abilist64=arm64-v8a
+[    0.562224] ro.product.board=merlin
+[    0.562236] ro.product.vendor.name=merlin
+[    0.562249] ro.product.vendor.brand=Redmi
+[    0.562261] ro.product.vendor.model=merlin
+[    0.562274] ro.product.vendor.device=merlin
+[    0.562286] ro.product.vendor.manufacturer=Xiaomi
+[    0.562298] ro.product.first_api_level=29
+[    0.562310] camera.disable_zsl_mode=1
+[    0.562335] media.c2.dmabuf.padding=3072
+[    0.562350] ro.cold_boot_done=true
+[    0.562363] ro.config.low_ram.threshold_gb=4
+[    0.562376] ro.config.elder-ringtone=Angel.mp3
+[    0.562389] ro.config.sms_received_sound=FadeIn.ogg
+[    0.562401] ro.config.sms_delivered_sound=MessageComplete.ogg
+[    0.562414] config.svi.xml=1
+[    0.562426] config.svi.xml.print=1
+[    0.562438] config.svi.path=/system/etc/SVIConfig.xml
+[    0.562451] ro.bionic.arch=arm64
+[    0.562463] ro.bionic.2nd_arch=arm
+[    0.562476] ro.bionic.cpu_variant=cortex-a53
+[    0.562489] ro.bionic.2nd_cpu_variant=cortex-a53
+[    0.562839] ro.dalvik.vm.native.bridge=0
+[    0.562863] ro.zygote=zygote64_32
+[    0.562878] dalvik.vm.isa.arm.variant=cortex-a53
+[    0.562892] dalvik.vm.isa.arm.features=default
+[    0.562905] dalvik.vm.isa.arm64.variant=cortex-a53
+[    0.562918] dalvik.vm.isa.arm64.features=default
+[    0.562930] dalvik.vm.dexopt.secondary=true
+[    0.562943] dalvik.vm.dexopt.thermal-cutoff=2
+[    0.562955] dalvik.vm.usejit=true
+[    0.562967] dalvik.vm.madvise.artfile.size=4294967295
+[    0.562980] dalvik.vm.madvise.odexfile.size=104857600
+[    0.562993] dalvik.vm.madvise.vdexfile.size=104857600
+[    0.563005] dalvik.vm.heapsize=512m
+[    0.563017] dalvik.vm.lockprof.threshold=500
+[    0.563030] dalvik.vm.dex2oat-Xms=64m
+[    0.563043] dalvik.vm.dex2oat-Xmx=512m
+[    0.563055] dalvik.vm.heapmaxfree=8m
+[    0.563067] dalvik.vm.heapminfree=512k
+[    0.563080] dalvik.vm.minidebuginfo=true
+[    0.563092] dalvik.vm.appimageformat=lz4
+[    0.563104] dalvik.vm.usejitprofiles=true
+[    0.563117] dalvik.vm.dex2oat-cpu-set=0,1,2,3
+[    0.563129] dalvik.vm.dex2oat-threads=4
+[    0.563142] dalvik.vm.heapgrowthlimit=256m
+[    0.563165] dalvik.vm.image-dex2oat-Xms=64m
+[    0.563179] dalvik.vm.image-dex2oat-Xmx=64m
+[    0.563192] dalvik.vm.mtk-stack-trace-file=/data/anr/mtk_traces.txt
+[    0.563205] dalvik.vm.ps-min-first-save-ms=0
+[    0.563218] dalvik.vm.dex2oat-minidebuginfo=true
+[    0.563230] dalvik.vm.heaptargetutilization=0.75
+[    0.563243] dalvik.vm.dex2oat-max-image-block-size=524288
+[    0.563255] dalvik.vm.dex2oat-resolve-startup-strings=true
+[    0.563268] dalvik.vm.dex2oat-updatable-bcp-packages-file=/system/etc/updatable-bcp-packages.txt
+[    0.563281] persist.sys.dalvik.vm.lib.2=libart.so
+[    0.563293] debug.sf.hwc.min.duration=17000000
+[    0.563306] debug.sf.late.sf.duration=27600000
+[    0.563318] debug.sf.late.app.duration=20000000
+[    0.563331] debug.sf.early.sf.duration=27600000
+[    0.563343] debug.sf.early.app.duration=20000000
+[    0.563355] debug.sf.earlyGl.sf.duration=27600000
+[    0.563368] debug.sf.earlyGl.app.duration=20000000
+[    0.563380] debug.sf.disable_backpressure=1
+[    0.563393] debug.sf.use_phase_offsets_as_durations=1
+[    0.563405] debug.als.logs=1
+[    0.563418] debug.svi.logs=1
+[    0.563430] debug.atrace.tags.enableflags=0
+[    0.563443] debug.mtk_tflite.target_nnapi=29
+[    0.563455] debug.stagefright.c2inputsurface=-1
+[    0.563468] ro.mi.development=false
+[    0.563480] ro.com.agoda.consumer.preload=/cust/etc/agoda.aid
+[    0.563506] ro.com.google.ime.theme_file=xiaomi_theme_20171222.zip
+[    0.563522] ro.com.google.ime.themes_dir=/system/etc/gboard_theme
+[    0.563535] ro.com.google.acsa=true
+[    0.563548] ro.com.google.lens.oem_camera_package=com.android.camera
+[    0.563561] ro.com.google.gmsversion=12_202207
+[    0.563574] ro.com.google.clientidbase=android-xiaomi
+[    0.563586] ro.com.android.mobiledata=false
+[    0.563599] ro.lmk.extra_medium=400
+[    0.563611] ro.lmk.extra_critical=400
+[    0.563624] ro.opa.eligible_device=true
+[    0.563636] ro.rom.zone=2
+[    0.563649] ro.sys.usb.mtp.whql.enable=0
+[    0.563661] ro.sys.usb.bicr=no
+[    0.563673] ro.sys.usb.storage.type=mtp
+[    0.563686] ro.sys.usb.charging.only=yes
+[    0.563699] ro.wps.prop.channel.path=/cust/etc/wps.prop
+[    0.563711] ro.fota.oem=Xiaomi
+[    0.563724] ro.miui.ui.version.code=13
+[    0.563736] ro.miui.ui.version.name=V130
+[    0.563749] ro.miui.pai.preinstall.path=/data/miui/pai/
+[    0.563761] ro.miui.build.region=global
+[    0.563774] ro.miui.notch=1
+[    0.563786] ro.miui.google.csp=true
+[    0.563799] ro.miui.version.code_time=1665590400
+[    0.563811] ro.miui.cust_device=merlin
+[    0.563824] ro.miui.has_real_blur=1
+[    0.563836] ro.miui.fpstool_enabled=true
+[    0.563848] ro.miui.has_cust_partition=true
+[    0.563861] ro.miui.remove_uri_80_flag=1
+[    0.563873] ro.miui.customized_clientid=2
+[    0.563885] ro.wifi.channels=
+[    0.563898] ro.allow.mock.location=0
+[    0.563910] ro.audio.usb.period_us=5000
+[    0.563923] ro.audio.silent=0
+[    0.563935] ro.camera.sound.forced=0
+[    0.563947] ro.iorapd.enable=false
+[    0.563960] ro.kernel.zio=38,108,105,16
+[    0.563972] ro.malloc.impl=jemalloc
+[    0.563985] ro.system.product.cpu.abilist=arm64-v8a,armeabi-v7a,armeabi
+[    0.563997] ro.system.product.cpu.abilist32=armeabi-v7a,armeabi
+[    0.564010] ro.system.product.cpu.abilist64=arm64-v8a
+[    0.564023] ro.zygote.preload.enable=0
+[    0.564035] ro.booking.channel.path=/cust/etc/.booking.data.aid
+[    0.564048] ro.netflix.signup=1
+[    0.564060] ro.netflix.bsp_rev=MTK6768-19055-1
+[    0.564073] ro.netflix.channel=497730f0-ad4b-11e7-95a4-c7ad113ce187
+[    0.564085] ro.product.locale=en-GB
+[    0.564098] ro.product.mod_device=merlin_global
+[    0.564110] ro.tripcom.channel.path=/cust/etc/tripcom.prop.txt
+[    0.564123] ro.mediatek.wlan.p2p=1
+[    0.564135] ro.mediatek.wlan.wsc=1
+[    0.564148] ro.mediatek.version.branch=alps-mp-s0.mssi1.tc8sp2-mt6833
+[    0.564161] ro.appsflyer.preinstall.path=/data/miui/pai/pre_install.appsflyer
+[    0.564173] ro.telephony.sim.count=2
+[    0.564186] ro.base_build=noah
+[    0.564198] ro.secureboot.lockstate=locked
+[    0.564211] ro.secureboot.devicelock=1
+[    0.564223] ro.trackingId.com.lzd.appid=/cust/etc/lazadaconfiginfo
+[    0.564236] ro.postinstall.fstab.prefix=/system
+[    0.564249] ro.mtk_perf_response_time=1
+[    0.564261] ro.mtk_key_manager_support=1
+[    0.564273] ro.mtk_perf_fast_start_win=1
+[    0.564286] ro.support_one_handed_mode=true
+[    0.564298] ro.mtk_perf_simple_start_win=1
+[    0.564311] ro.mtk_cam_stereo_camera_support=1
+[    0.564323] Build.BRAND=MTK
+[    0.564336] persist.vm.stackdump.threshold=0
+[    0.564348] persist.adb.nonblocking_ffs=1
+[    0.564360] persist.miui.extm.enable=1
+[    0.564373] persist.power.useautobrightadj=true
+[    0.564385] persist.binder.check.size=200
+[    0.564398] persist.binder.check.enable=true
+[    0.564410] persist.camera.dualcal.state=-1
+[    0.564423] persist.internalAntenna.enable=true
+[    0.564435] persist.enable_task_snapshots=false
+[    0.564448] mediatek.wlan.ctia=0
+[    0.564460] audio_para_version=J15S-Audiopara-V13-20220623
+[    0.564482] persist.device_config.runtime_native.usap_pool_enabled=false
+[    0.564496] drm.service.enabled=true
+[    0.564509] ro.frp.pst=/dev/block/platform/bootdevice/by-name/frp
+[    0.564522] ro.apex.updatable=true
+[    0.564535] ro.boot.product.hardware.sku=merlin
+[    0.564547] ro.boot.dynamic_partitions=true
+[    0.564560] ro.hwui.use_vulkan=
+[    0.564572] ro.board.platform=mt6768
+[    0.564584] ro.build.ab_update=false
+[    0.564596] ro.carrier=unknown
+[    0.564620] ro.hardware.egl=meow
+[    0.564635] ro.hardware.nfc_nci=nqx.default
+[    0.564649] ro.hardware.consumerir=common
+[    0.564662] ro.hardware.gatekeeper=beanpod
+[    0.564674] ro.hardware.hwcomposer=mtk_common
+[    0.564687] pm.dexopt.ab-ota=speed-profile
+[    0.564699] pm.dexopt.shared=speed
+[    0.564711] pm.dexopt.cmdline=verify
+[    0.564724] pm.dexopt.install=speed-profile
+[    0.564736] pm.dexopt.inactive=verify
+[    0.564749] pm.dexopt.bg-dexopt=speed-profile
+[    0.564761] pm.dexopt.first-use=speed-profile
+[    0.564773] pm.dexopt.first-boot=verify
+[    0.564786] pm.dexopt.install-bulk=speed-profile
+[    0.564798] pm.dexopt.install-fast=skip
+[    0.564810] pm.dexopt.install-bulk-secondary=verify
+[    0.564823] pm.dexopt.install-bulk-downgraded=verify
+[    0.564836] pm.dexopt.install-bulk-secondary-downgraded=extract
+[    0.564849] persist.sys.timezone=Asia/Shanghai
+[    0.564861] sys.usb.ffs.aio_compat=1
+[    0.564873] sys.usb.ffs.ready=1
+[    0.564886] ro.build.fingerprint=Redmi/merlin/merlin:12/SP1A.210812.016/V13.0.2.0.SJOMIXM:user/release-keys
+[    0.564906] ro.opengles.version=196610
+[    0.564920] ro.gsid.image_running=0
+[    0.564933] gsid.image_installed=0
+[    0.564946] ro.incremental.enable=yes
+[    0.564958] sys.init.perf_lsm_hooks=1
+[    0.564970] init.svc.logd=restarting
+[    0.564983] init.svc.charger=running
+[    0.564995] init.svc.ueventd=running
+[    0.565007] init.svc.recovery=running
+[    0.565020] init.svc.heapprofd=stopped
+[    0.565032] init.svc.traced_perf=stopped
+[    0.565044] init.svc.adbd=running
+[    0.565057] init.svc_debug_pid.adbd=318
+[    0.565069] init.svc_debug_pid.logd=321
+[    0.565082] init.svc_debug_pid.charger=319
+[    0.565094] init.svc_debug_pid.ueventd=307
+[    0.565106] init.svc_debug_pid.recovery=320
+[    0.565118] init.svc_debug_pid.heapprofd=
+[    0.565131] init.svc_debug_pid.traced_perf=
+[    0.565149] keyguard.no_require_sim=true
+[    0.565168] llk.enable=false
+[    0.565182] khungtask.enable=false
+[    0.565201] ro.lmk.low=1000
+[    0.565214] ro.lmk.kill_timeout_ms=100
+[    0.565227] ro.lmk.thrashing_limit=30
+[    0.565240] ro.lmk.critical_upgrade=true
+[    0.565253] ro.lmk.upgrade_pressure=60
+[    0.565265] ro.lmk.downgrade_pressure=80
+[    0.565277] ro.lmk.kill_heaviest_task=true
+[    0.565290] ro.lmk.use_minfree_levels=false
+[    0.565302] ro.lmk.psi_partial_stall_ms=35
+[    0.565314] ro.lmk.psi_complete_stall_ms=35
+[    0.565327] ro.lmk.thrashing_limit_decay=2
+[    0.565339] ro.lmk.swap_free_low_percentage=10
+[    0.565359] ro.config.per_app_memcg=false
+[    0.565372] log.tag.stats_log=I
+[    0.565385] persist.log.tag.AT=I
+[    0.565398] persist.log.tag.VT=I
+[    0.565410] persist.log.tag.RFX=I
+[    0.565423] persist.log.tag.RIL=I
+[    0.565435] persist.log.tag.RILC=I
+[    0.565447] persist.log.tag.RILD=I
+[    0.565460] persist.log.tag.MtkDc=I
+[    0.565472] persist.log.tag.PQ_DS=I
+[    0.565485] persist.log.tag.Phone=I
+[    0.565497] persist.log.tag.RmcWp=I
+[    0.565510] persist.log.tag.RtcDC=I
+[    0.565522] persist.log.tag.RtcWp=I
+[    0.565534] persist.log.tag.ImsApp=I
+[    0.565547] persist.log.tag.MTKSST=D
+[    0.565559] persist.log.tag.MtkDcc=I
+[    0.565571] persist.log.tag.MtkDct=I
+[    0.565584] persist.log.tag.MwiRIL=I
+[    0.565596] persist.log.tag.PKM-SA=I
+[    0.565608] persist.log.tag.RtcIms=I
+[    0.565620] persist.log.tag.RtcPhb=I
+[    0.565633] persist.log.tag.WfoApp=I
+[    0.565645] persist.log.tag.DcFcMgr=I
+[    0.565657] persist.log.tag.ImsCall=I
+[    0.565692] persist.log.tag.ImsEcbm=I
+[    0.565707] persist.log.tag.PKM-Lib=I
+[    0.565720] persist.log.tag.PKM-MDM=I
+[    0.565733] persist.log.tag.RILC-OP=I
+[    0.565746] persist.log.tag.RILMUXD=I
+[    0.565943] persist.log.tag.RTC_DAC=I
+[    0.565949] persist.log.tag.RfxRoot=I
+[    0.565951] persist.log.tag.RmcCapa=I
+[    0.565954] persist.log.tag.RtcCapa=I
+[    0.565955] persist.log.tag.Telecom=I
+[    0.565957] persist.log.tag.DMC-Core=I
+[    0.565959] persist.log.tag.IMS_RILA=I
+[    0.565961] persist.log.tag.ImsPhone=I
+[    0.565963] persist.log.tag.MtkSIMFH=I
+[    0.565970] persist.log.tag.RfxTimer=I
+[    0.565972] persist.log.tag.UiccCard=I
+[    0.565974] persist.log.tag.AdnRecord=I
+[    0.565976] persist.log.tag.MtkCsimFH=I
+[    0.565978] persist.log.tag.MtkIsimFH=I
+[    0.565979] persist.log.tag.MtkRuimFH=I
+[    0.565981] persist.log.tag.MtkUsimFH=I
+[    0.565983] persist.log.tag.RILMD2-SS=I
+[    0.565985] persist.log.tag.RfxAction=I
+[    0.565986] persist.log.tag.RfxObject=I
+[    0.565988] persist.log.tag.RilClient=I
+[    0.565990] persist.log.tag.RmcNwHdlr=D
+[    0.565992] persist.log.tag.RmcPhbReq=I
+[    0.565993] persist.log.tag.RmcPhbUrc=I
+[    0.565995] persist.log.tag.RtcNwCtrl=I
+[    0.565997] persist.log.tag.UxUtility=I
+[    0.565999] persist.log.tag.WORLDMODE=I
+[    0.566000] persist.log.tag.CapaSwitch=I
+[    0.566002] persist.log.tag.DSSelector=I
+[    0.566004] persist.log.tag.ImsManager=I
+[    0.566006] persist.log.tag.ImsService=I
+[    0.566008] persist.log.tag.MtkFactory=I
+[    0.566010] persist.log.tag.MtkSubCtrl=I
+[    0.566011] persist.log.tag.RIL-Fusion=I
+[    0.566017] persist.log.tag.RIL-Parcel=I
+[    0.566019] persist.log.tag.RIL-Socket=I
+[    0.566021] persist.log.tag.RfxFragEnc=I
+[    0.566023] persist.log.tag.RfxIdToStr=I
+[    0.566025] persist.log.tag.RfxMessage=I
+[    0.566027] persist.log.tag.RfxOpUtils=I
+[    0.566028] persist.log.tag.RilOpProxy=I
+[    0.566030] persist.log.tag.RtcEmbmsAt=I
+[    0.566032] persist.log.tag.SIMRecords=I
+[    0.566034] persist.log.tag.WpfaDriver=I
+[    0.566035] persist.log.tag.GsmCdmaConn=I
+[    0.566037] persist.log.tag.IccProvider=I
+[    0.566039] persist.log.tag.IsimRecords=I
+[    0.566041] persist.log.tag.MtkIccPHBIM=I
+[    0.566042] persist.log.tag.MtkUiccCard=I
+[    0.566044] persist.log.tag.MtkUiccCtrl=I
+[    0.566046] persist.log.tag.NetAgent_IO=I
+[    0.566048] persist.log.tag.PKM-Monitor=I
+[    0.566050] persist.log.tag.PKM-Service=I
+[    0.566051] persist.log.tag.RIL-Netlink=I
+[    0.566053] persist.log.tag.RfxCloneMgr=I
+[    0.566055] persist.log.tag.RfxRilUtils=I
+[    0.566057] persist.log.tag.RmcDcCommon=I
+[    0.566058] persist.log.tag.RmcEmbmsReq=I
+[    0.566060] persist.log.tag.RmcEmbmsUrc=I
+[    0.566062] persist.log.tag.RmcRadioReq=I
+[    0.566064] persist.log.tag.RtcModeCont=I
+[    0.566066] persist.log.tag.SpnOverride=I
+[    0.566067] persist.log.tag.VsimAdaptor=I
+[    0.566069] persist.log.tag.WpfaParsing=I
+[    0.566071] persist.log.tag.libPowerHal=I
+[    0.566073] persist.log.tag.APM-ServiceJ=I
+[    0.566074] persist.log.tag.APM-SessionJ=I
+[    0.566076] persist.log.tag.APM-SessionN=I
+[    0.566078] persist.log.tag.C2K_RIL-DATA=I
+[    0.566080] persist.log.tag.DSSelectorOm=I
+[    0.566082] persist.log.tag.GsmCdmaPhone=I
+[    0.566083] persist.log.tag.IccCardProxy=I
+[    0.566085] persist.log.tag.ImsEcbmProxy=I
+[    0.566087] persist.log.tag.ImsPhoneBase=I
+[    0.566089] persist.log.tag.ImsPhoneCall=I
+[    0.566090] persist.log.tag.MtkAdnRecord=I
+[    0.566092] persist.log.tag.NetworkStats=I
+[    0.566094] persist.log.tag.PhoneFactory=I
+[    0.566096] persist.log.tag.RadioManager=I
+[    0.566097] persist.log.tag.RfxDebugInfo=I
+[    0.566099] persist.log.tag.RfxDisThread=I
+[    0.566101] persist.log.tag.RfxIdToMsgId=I
+[    0.566102] persist.log.tag.RfxStatusMgr=I
+[    0.566104] persist.log.tag.RilOemClient=I
+[    0.566106] persist.log.tag.RmcDcUtility=I
+[    0.566108] persist.log.tag.RmcGsmSimUrc=I
+[    0.566110] persist.log.tag.RmcNwReqHdlr=D
+[    0.566111] persist.log.tag.RmcRatSwHdlr=D
+[    0.566113] persist.log.tag.RtcEmbmsUtil=I
+[    0.566115] persist.log.tag.RtcImsDialog=I
+[    0.566117] persist.log.tag.RtcRadioCont=I
+[    0.566118] persist.log.tag.RtcRatSwCtrl=D
+[    0.566120] persist.log.tag.IMSRILRequest=I
+[    0.566122] persist.log.tag.ImsVTProvider=I
+[    0.566124] persist.log.tag.MtkImsManager=I
+[    0.566125] persist.log.tag.MtkImsService=I
+[    0.566127] persist.log.tag.MtkSIMRecords=I
+[    0.566129] persist.log.tag.MtkSmsManager=I
+[    0.566131] persist.log.tag.MtkSmsMessage=I
+[    0.566133] persist.log.tag.NetworkPolicy=I
+[    0.566134] persist.log.tag.OperatorUtils=I
+[    0.566138] persist.log.tag.RIL-SocListen=I
+[    0.566140] persist.log.tag.RfxChannelMgr=I
+[    0.566142] persist.log.tag.RfxController=I
+[    0.566143] persist.log.tag.RfxHandlerMgr=I
+[    0.566145] persist.log.tag.RfxMainThread=I
+[    0.566147] persist.log.tag.RfxRilAdapter=I
+[    0.566149] persist.log.tag.RmcCdmaSimUrc=I
+[    0.566150] persist.log.tag.RmcCommSimReq=I
+[    0.566152] persist.log.tag.RmcCommSimUrc=I
+[    0.566154] persist.log.tag.RmcOemHandler=I
+[    0.566156] persist.log.tag.RmcOpRadioReq=I
+[    0.566157] persist.log.tag.SimSwitchOP01=I
+[    0.566159] persist.log.tag.SimSwitchOP02=I
+[    0.566161] persist.log.tag.SimSwitchOP18=I
+[    0.566163] persist.log.tag.mtkpower@impl=I
+[    0.566165] persist.log.tag.APM-KpiMonitor=I
+[    0.566166] persist.log.tag.APM-Subscriber=I
+[    0.566168] persist.log.tag.AdnRecordCache=I
+[    0.566170] persist.log.tag.DMC-ApmService=I
+[    0.566172] persist.log.tag.DMC-DmcService=I
+[    0.566174] persist.log.tag.DSSelectorOP01=I
+[    0.566175] persist.log.tag.DSSelectorOP02=I
+[    0.566177] persist.log.tag.DSSelectorOP09=I
+[    0.566179] persist.log.tag.DSSelectorOP18=I
+[    0.566181] persist.log.tag.DSSelectorUtil=I
+[    0.566183] persist.log.tag.DataDispatcher=I
+[    0.566184] persist.log.tag.ExternalSimMgr=I
+[    0.566186] persist.log.tag.GsmCallTkrHlpr=I
+[    0.566188] persist.log.tag.IccPhoneBookIM=I
+[    0.566190] persist.log.tag.ImsCallProfile=I
+[    0.566191] persist.log.tag.ImsCallSession=I
+[    0.566193] persist.log.tag.LCM-Subscriber=I
+[    0.566195] persist.log.tag.MDM-Subscriber=I
+[    0.566197] persist.log.tag.MtkGsmCdmaConn=I
+[    0.566199] persist.log.tag.MtkIccProvider=I
+[    0.566201] persist.log.tag.MtkPhoneNotifr=I
+[    0.566202] persist.log.tag.MtkSmsCbHeader=I
+[    0.566204] persist.log.tag.MtkSpnOverride=I
+[    0.566206] persist.log.tag.MtkUiccCardApp=I
+[    0.566208] persist.log.tag.RIL_UIM_SOCKET=I
+[    0.566209] persist.log.tag.RfxContFactory=I
+[    0.566211] persist.log.tag.RmcNwRTReqHdlr=D
+[    0.566213] persist.log.tag.RtcCommSimCtrl=I
+[    0.566215] persist.log.tag.SlotQueueEntry=I
+[    0.566217] persist.log.tag.UiccController=I
+[    0.566218] persist.log.tag.WpfaCcciReader=I
+[    0.566220] persist.log.tag.WpfaCcciSender=I
+[    0.566222] persist.log.tag.WpfaRingBuffer=I
+[    0.566224] persist.log.tag.AdnRecordLoader=I
+[    0.566225] persist.log.tag.AirplaneHandler=I
+[    0.566227] persist.log.tag.CountryDetector=I
+[    0.566229] persist.log.tag.DMC-ReqQManager=I
+[    0.566231] persist.log.tag.ImsBaseCommands=I
+[    0.566233] persist.log.tag.IsimFileHandler=I
+[    0.566234] persist.log.tag.MtkEmbmsAdaptor=I
+[    0.566236] persist.log.tag.MtkIccCardProxy=I
+[    0.566238] persist.log.tag.MtkRecordLoader=I
+[    0.566239] persist.log.tag.MtkRetryManager=I
+[    0.566241] persist.log.tag.NetAgentService=I
+[    0.566243] persist.log.tag.NetLnkEventHdlr=I
+[    0.566245] persist.log.tag.PowerHalMgrImpl=I
+[    0.566246] persist.log.tag.ProxyController=I
+[    0.566251] persist.log.tag.RfxMclDisThread=I
+[    0.566253] persist.log.tag.RfxMclMessenger=I
+[    0.566255] persist.log.tag.RfxMclStatusMgr=I
+[    0.566257] persist.log.tag.RmcCommSimOpReq=I
+[    0.566259] persist.log.tag.RmcDcPdnManager=I
+[    0.566261] persist.log.tag.RmcDcReqHandler=I
+[    0.566262] persist.log.tag.RmcImsCtlReqHdl=I
+[    0.566264] persist.log.tag.RmcImsCtlUrcHdl=I
+[    0.566266] persist.log.tag.WpfaDriverDeReg=I
+[    0.566268] persist.log.tag.mtkpower_client=I
+[    0.566270] persist.log.tag.MtkPhoneSwitcher=D
+[    0.566271] persist.log.tag.RmcGsmSimRequest=I
+[    0.566273] persist.log.tag.RtcImsConference=I
+[    0.566275] persist.log.tag.WpfaDriverAccept=I
+[    0.566277] persist.log.tag.WpfaDriverUtilis=I
+[    0.566278] persist.log.tag.WpfaRuleRegister=I
+[    0.566280] persist.log.tag.RmcCdmaSimRequest=I
+[    0.566282] persist.log.tag.WpfaDriverAdapter=I
+[    0.566284] persist.log.tag.WpfaDriverMessage=I
+[    0.566285] persist.log.tag.WpfaDriverULIpPkt=I
+[    0.566287] persist.log.tag.WpfaDriverVersion=I
+[    0.566289] persist.log.tag.WpfaRuleContainer=I
+[    0.566291] persist.log.tag.DMC-SessionManager=I
+[    0.566294] persist.log.tag.MAPI-MdiRedirector=I
+[    0.566296] persist.log.tag.DMC-TranslatorUtils=I
+[    0.566298] persist.log.tag.MAPI-SocketListener=I
+[    0.566300] persist.log.tag.MtkPhoneNumberUtils=I
+[    0.566302] persist.log.tag.PowerHalWifiMonitor=I
+[    0.566303] persist.log.tag.WpfaDriverRegFilter=I
+[    0.566305] persist.log.tag.WpfaShmSynchronizer=I
+[    0.566307] persist.log.tag.DMC-EventsSubscriber=I
+[    0.566309] persist.log.tag.DMC-TranslatorLoader=I
+[    0.566310] persist.log.tag.PowerHalAddressUitls=I
+[    0.566312] persist.log.tag.wpfa_iptable_android=I
+[    0.566314] persist.log.tag.MAPI-CommandProcessor=I
+[    0.566316] persist.log.tag.MAPI-SocketConnection=I
+[    0.566318] persist.log.tag.WpfaControlMsgHandler=I
+[    0.566319] persist.log.tag.WpfaShmReadMsgHandler=I
+[    0.566321] persist.log.tag.MAPI-MdiRedirectorCtrl=I
+[    0.566323] persist.log.tag.MAPI-TranslatorManager=I
+[    0.566325] persist.log.tag.PowerHalMgrServiceImpl=I
+[    0.566326] persist.log.tag.RmcEccNumberUrcHandler=D
+[    0.566328] persist.log.tag.RtcEccNumberController=D
+[    0.566330] persist.log.tag.RtcImsConfigController=I
+[    0.566332] persist.log.tag.WpfaShmWriteMsgHandler=I
+[    0.566333] persist.log.tag.WpfaShmAccessController=I
+[    0.566335] persist.log.tag.WpfaFilterRuleReqHandler=I
+[    0.566337] persist.log.tag.CarrierExpressServiceImpl=I
+[    0.566339] persist.log.tag.WpfaCcciDataHeaderEncoder=I
+[    0.566341] persist.log.tag.PhoneConfigurationSettings=I
+[    0.566342] persist.log.tag.CarrierExpressServiceImplExt=I
+[    0.566344] persist.log.tag.MAPI-NetworkSocketConnection=I
+[    0.566346] ro.logd.size.stats=64K
+[    0.566348] ro.logd.kernel=false
+[    0.566349] media.stagefright.thumbnail.prefer_hw_codecs=true
+[    0.566551] ro.oem_unlock_supported=1
+[    0.566726] ro.control_privapp_permissions=enforce
+[    0.566980] pm.dexopt.post-boot=extract
+[    0.567003] pm.dexopt.boot-after-ota=verify
+[    0.567140] ro.property_service.version=2
+[    0.567258] qemu.hw.mainkeys=0
+[    0.567397] persist.radio.multisim.config=dsds
+[    0.567445] persist.radio.apm_sim_not_pwdn=1
+[    0.567529] ro.minui.pixel_format=RGBX_8888
+[    0.567732] ro.boot.serialno=1017389b0409
+[    0.567754] ro.serialno=1017389b0409
+[    0.567798] ro.setupwizard.rotation_locked=true
+[    0.567818] setupwizard.theme=glif_v3_light
+[    0.567834] setupwizard.feature.baseline_setupwizard_enabled=true
+[    0.567879] security.perf_harden=1
+[    0.568043] ro.sf.lcd_density=440
+[    0.568065] ro.surface_flinger.supports_background_blur=1
+[    0.568081] ro.surface_flinger.primary_display_orientation=ORIENTATION_0
+[    0.568099] ro.surface_flinger.max_frame_buffer_acquired_buffers=3
+[    0.568115] ro.surface_flinger.force_hwc_copy_for_virtual_displays=true
+[    0.568268] sys.boot.reason=reboot_longkey
+[    0.568407] net.bt.name=Android
+[    0.568429] sys.fp.miui.token=0
+[    0.568444] sys.ipo.disable=1
+[    0.568463] sys.ipo.pwrdncap=2
+[    0.568479] sys.usb.config_disable=0
+[    0.568497] sys.miui.shutdown.waittime=500
+[    0.568513] sys.rpmb_state=1
+[    0.568531] sys.wifitracing.started=0
+[    0.568547] persist.sys.lmk.camera_minfree_6g_levels=18432:0,23040:100,27648:200,76800:250,127500:800,161280:950
+[    0.568566] persist.sys.mms.bg_apps_limit=96
+[    0.568582] persist.sys.mms.compact_enable=true
+[    0.568600] persist.sys.spc.enabled=true
+[    0.568615] persist.sys.usb.config=none
+[    0.568634] persist.sys.fuse.passthrough.enable=true
+[    0.568650] persist.sys.miui.camera.lmkd.level.update=2
+[    0.568669] persist.sys.miui.adj_update_foreground_state.enable.delayMs=3000
+[    0.568685] persist.sys.mmms.switch=true
+[    0.568703] persist.sys.slab.threshold=256000,358400,460800,665600,819200
+[    0.568718] persist.sys.debug.fdtrack_abort_threshold=4096
+[    0.568737] persist.sys.mitalk.enable=true
+[    0.568752] persist.sys.minfree_4g=73728,92160,110592,340000,510000,645120
+[    0.568770] persist.sys.minfree_6g=73728,92160,110592,340000,1548288,1999872
+[    0.568786] persist.sys.minfree_def=73728,92160,110592,154832,409424,579072
+[    0.568822] persist.sys.mdlog_dumpback=2
+[    0.568838] persist.sys.mcd_config_file=/system/etc/mcd_default.conf
+[    0.568857] persist.sys.miui_scout_enable=true
+[    0.568872] persist.sys.watchdog_enhanced=true
+[    0.568890] persist.sys.sysrqOnAnr_D_state=true
+[    0.568905] persist.sys.miui_animator_sched.bigcores=6-7
+[    0.568924] persist.sys.miui_animator_sched.sched_threads=2
+[    0.568984] persist.sys.use_mi_new_strategy=true
+[    0.569005] persist.sys.oom_crash_on_watchdog=true
+[    0.569108] ro.config.ringtone=MiRemix.ogg
+[    0.569129] ro.config.alarm_alert=Fireflies.ogg
+[    0.569144] ro.config.media_vol_default=10
+[    0.569163] ro.config.notification_sound=WaterDrop_preview.ogg
+[    0.569205] ro.com.android.dataroaming=false
+[    0.569225] ro.telephony.default_network=10,10,10,10
+[    0.569241] ro.telephony.iwlan_operation_mode=AP-assisted
+[    0.569260] telephony.active_modems.max_count=2
+[    0.569276] telephony.lteOnCdmaDevice=1
+[    0.569556] persist.traced.enable=1
+[    0.569705] sys.usb.configfs=1
+[    0.569726] sys.usb.controller=musb-hdrc
+[    0.569833] init.userspace_reboot.is_supported=true
+[    0.570011] ro.odm.build.id=SP1A.210812.016
+[    0.570033] ro.odm.build.tags=release-keys
+[    0.570049] ro.odm.build.type=user
+[    0.570068] ro.odm.build.version.sdk=31
+[    0.570084] ro.odm.build.version.release=12
+[    0.570102] ro.odm.build.version.release_or_codename=12
+[    0.570118] ro.odm.product.cpu.abilist=arm64-v8a,armeabi-v7a,armeabi
+[    0.570137] ro.odm.product.cpu.abilist32=armeabi-v7a,armeabi
+[    0.570152] ro.odm.product.cpu.abilist64=arm64-v8a
+[    0.570171] ro.vendor.bt.platform=connac1x
+[    0.570186] ro.vendor.fm.platform=mt6631
+[    0.570205] ro.vendor.pq.mtk_dc_support=1
+[    0.570220] ro.vendor.pq.mtk_ds_support=0
+[    0.570238] ro.vendor.pq.mtk_aal_support=1
+[    0.570254] ro.vendor.pq.mtk_hfg_support=0
+[    0.570273] ro.vendor.pq.mtk_caltm_support=1
+[    0.570288] ro.vendor.pq.mtk_dre30_support=0
+[    0.570307] ro.vendor.pq.mtk_scltm_support=0
+[    0.570322] ro.vendor.pq.mtk_disp_c3d_support=0
+[    0.570341] ro.vendor.pq.mtk_video_transition=0
+[    0.570356] ro.vendor.pq.mtk_clearzoom_support=0
+[    0.570374] ro.vendor.pq.mtk_mdp_ccorr_support=1
+[    0.570390] ro.vendor.pq.mtk_disp_ccorr_support=0
+[    0.570409] ro.vendor.pq.mtk_disp_color_support=1
+[    0.570424] ro.vendor.pq.mtk_disp_gamma_support=1
+[    0.570442] ro.vendor.pq.mtk_disp_tdshp_support=0
+[    0.570457] ro.vendor.pq.mtk_ai_scence_pq_support=0
+[    0.570476] ro.vendor.pq.mtk_blulight_def_support=0
+[    0.570491] ro.vendor.pq.mtk_disp_game_pq_support=0
+[    0.570510] ro.vendor.pq.mtk_pq_interface_support=0
+[    0.570525] ro.vendor.pq.mtk_ai_sdr_to_hdr_support=0
+[    0.570543] ro.vendor.pq.mtk_ultra_dimming_support=0
+[    0.570558] ro.vendor.pq.mtk_backlight_smooth_support=1
+[    0.570576] ro.vendor.pq.mtk_ultra_resolution_support=0
+[    0.570591] ro.vendor.pq.mtk_pq_video_whitelist_support=0
+[    0.570610] ro.vendor.pq.mtk_hdr10_plus_recording_support=0
+[    0.570625] ro.vendor.rc=/vendor/etc/init/hw/
+[    0.570644] ro.vendor.se.type=HCE,UICC
+[    0.570659] ro.vendor.aee.convert64=0
+[    0.570678] ro.vendor.gps.chrdev=gps_drv
+[    0.570693] ro.vendor.mml.mtk_mml_support=0
+[    0.570712] ro.vendor.mtk.sensor.support=yes
+[    0.570727] ro.vendor.mtk.bt_sap_enable=true
+[    0.570745] ro.vendor.wfd.dummy.enable=0
+[    0.570761] ro.vendor.wfd.iframesize.level=0
+[    0.570779] ro.vendor.cabc.enable=true
+[    0.570794] ro.vendor.init.sensor.rc=init.sensor_1_0.rc
+[    0.570813] ro.vendor.smvr.p2batch.hd=4
+[    0.570828] ro.vendor.smvr.p2batch.vga=8
+[    0.570846] ro.vendor.wifi.sap.interface=ap0
+[    0.570862] ro.vendor.wifi.sap.concurrent.iface=ap1
+[    0.570880] ro.vendor.wlan.gen=gen4m
+[    0.570895] ro.vendor.wlan.chrdev=wmt_chrdev_wifi
+[    0.570914] ro.vendor.wlan.standalone.log=y
+[    0.570930] ro.vendor.audio.sos=true
+[    0.570948] ro.vendor.audio.game.effect=true
+[    0.570963] ro.vendor.audio.voice.volume.boost=manual
+[    0.570982] ro.vendor.audio.soundfx.usb=true
+[    0.570997] ro.vendor.audio.soundfx.type=mi
+[    0.571019] ro.vendor.build.software.version=Android12_130
+[    0.571035] ro.vendor.radio.max.multisim=dsds
+[    0.571054] ro.vendor.camera.isp.support.colorspace=0
+[    0.571069] ro.vendor.mtk_nn.option=D,E,F,Z
+[    0.571087] ro.vendor.system.mtk_mapi_support=1
+[    0.571102] ro.vendor.camera3.zsl.default=140
+[    0.571120] ro.vendor.connsys.dedicated.log=1
+[    0.571135] ro.vendor.connsys.dedicated.log.port=bt,wifi,gps,mcu
+[    0.571154] ro.vendor.display.svi=1
+[    0.571169] ro.vendor.display.sensortype=2
+[    0.571188] ro.vendor.mediatek.version.branch=alps-mp-s0.mp1.tc8sp2-mt6833
+[    0.571203] ro.vendor.mediatek.version.release=alps-mp-s0.mp1.tc8sp2-mt6833-V1.3.1_huaqin.xm.s0mp1.k6833v1.64_P23
+[    0.571221] ro.vendor.mediatek.platform=MT6768
+[    0.571236] ro.vendor.md_prop_ver=1
+[    0.571254] ro.vendor.mtk_cta_set=1
+[    0.571270] ro.vendor.mtk_ps1_rat=C/Lf/Lt/W/T/G
+[    0.571288] ro.vendor.mtk_agps_app=1
+[    0.571303] ro.vendor.mtk_ril_mode=c6m_1rild
+[    0.571321] ro.vendor.mtk_uicc_clf=1
+[    0.571336] ro.vendor.mtk_eccci_c2k=1
+[    0.571355] ro.vendor.mtk_fd_support=1
+[    0.571370] ro.vendor.mtk_nn_support=1
+[    0.571388] ro.vendor.mtk_pq_support=2
+[    0.571403] ro.vendor.ap_info_monitor=0
+[    0.571421] ro.vendor.mtk_aal_support=1
+[    0.571436] ro.vendor.mtk_c2k_support=1
+[    0.571454] ro.vendor.mtk_data_config=1
+[    0.571469] ro.vendor.mtk_dmc_support=1
+[    0.571488] ro.vendor.mtk_f2fs_enable=0
+[    0.571502] ro.vendor.mtk_gps_support=1
+[    0.571521] ro.vendor.mtk_lte_support=1
+[    0.571536] ro.vendor.mtk_wfd_support=1
+[    0.571554] ro.vendor.num_md_protocol=2
+[    0.571569] ro.vendor.colorpick_adjust=true
+[    0.571587] ro.vendor.composer_version=2.1
+[    0.571602] ro.vendor.customer_logpath=/data
+[    0.571621] ro.vendor.have_aee_feature=1
+[    0.571635] ro.vendor.mtk_c2k_lte_mode=2
+[    0.571654] ro.vendor.mtk_emmc_support=1
+[    0.571669] ro.vendor.mtk_log_hide_gps=0
+[    0.571687] ro.vendor.mtk_mapi_support=1
+[    0.571702] ro.vendor.mtk_wapi_support=1
+[    0.571720] ro.vendor.sim_me_lock_mode=0
+[    0.571735] ro.vendor.have_aeev_feature=1
+[    0.571753] ro.vendor.md_auto_setup_ims=1
+[    0.571768] ro.vendor.mtk_embms_support=1
+[    0.571786] ro.vendor.mtk_omacp_support=1
+[    0.571801] ro.vendor.mtk_pq_color_mode=1
+[    0.571819] ro.vendor.jpeg_decode_sw_opt=1
+[    0.571834] ro.vendor.mtk_rild_read_imsi=1
+[    0.571853] ro.vendor.mtk_sim_card_onoff=3
+[    0.571868] ro.vendor.mtk_tee_gp_support=1
+[    0.571886] ro.vendor.mtk_zsdhdr_support=1
+[    0.571901] ro.vendor.mtk_wappush_support=1
+[    0.571919] ro.vendor.mtk_audio_ape_support=1
+[    0.571934] ro.vendor.mtk_prefer_64bit_proc=0
+[    0.571953] ro.vendor.pref_scale_enable_cfg=1
+[    0.571968] ro.vendor.mtk_audio_alac_support=1
+[    0.571987] ro.vendor.mtk_camera_app_version=3
+[    0.572002] ro.vendor.mtk_nn_quant_preferred=1
+[    0.572021] ro.vendor.mtk_world_phone_policy=0
+[    0.572036] ro.vendor.mtk_nn_baseline_support=1
+[    0.572054] ro.vendor.mtk_slow_motion_support=1
+[    0.572069] ro.vendor.mtk_config_max_dram_size=0x800000000
+[    0.572088] ro.vendor.mtk_external_sim_support=1
+[    0.572102] ro.vendor.mtk_flv_playback_support=1
+[    0.572121] ro.vendor.mtk_protocol1_rat_config=C/Lf/Lt/W/T/G
+[    0.572136] ro.vendor.mtk_audio_tuning_tool_ver=V2.2
+[    0.572155] ro.vendor.mtk_md_world_mode_support=1
+[    0.572170] ro.vendor.mtk_modem_monitor_support=1
+[    0.572188] ro.vendor.mtk_mvpu_security_support=0
+[    0.572203] ro.vendor.mtk_microtrust_tee_support=1
+[    0.572221] ro.vendor.mtk_sec_video_path_support=1
+[    0.572236] ro.vendor.mtk_video_hevc_enc_support=1
+[    0.572255] ro.vendor.mtk_external_sim_only_slots=0
+[    0.572270] ro.vendor.mtk_telephony_add_on_policy=0
+[    0.572288] ro.vendor.mtk_widevine_drm_l1_support=1
+[    0.572303] ro.vendor.mtk_fm_short_antenna_support=1
+[    0.572321] ro.vendor.mtk_single_bin_modem_support=1
+[    0.572336] ro.hardware.wlan.dbs=0
+[    0.572354] ro.hardware.kmsetkey=beanpod
+[    0.572370] vendor.mtk.vdec.waitkeyframeforplay=9
+[    0.572389] vendor.sys.rpmb_state=1
+[    0.572404] vendor.rild.libargs=-d /dev/ttyC0
+[    0.572425] vendor.rild.libpath=mtk-ril.so
+[    0.572440] vendor.debug.sf.latch_unsignaled=1
+[    0.572459] vendor.camera.mdp.cz.enable=1
+[    0.572474] vendor.camera.mdp.dre.enable=0
+[    0.572492] vendor.connsys.driver.ready=no
+[    0.572507] vendor.display.svi.config=1
+[    0.572525] vendor.display.svi.config_path=/system/etc/SVIConfig.xml
+[    0.572547] vendor.wipecache.menu.confirmed=no
+[    0.572566] vendor.mtk_thumbnail_optimization=true
+[    0.572581] persist.vendor.log.tel_log_ctrl=1
+[    0.572600] persist.vendor.max.brightness=448
+[    0.572615] persist.vendor.mtk.volte.enable=1
+[    0.572633] persist.vendor.sys.pay.ifaa=1
+[    0.572649] persist.vendor.wfc.sys_wfc_support=1
+[    0.572668] persist.vendor.audio.button_jack.switch=0
+[    0.572682] persist.vendor.audio.button_jack.profile=volume
+[    0.572701] persist.vendor.mdlog.flush_log_ratio=72340194296137244
+[    0.572717] persist.vendor.radio.fd.r8.counter=150
+[    0.572735] persist.vendor.radio.fd.off.r8.counter=50
+[    0.572751] persist.vendor.radio.fd.off.counter=50
+[    0.572769] persist.vendor.radio.fd.counter=150
+[    0.572785] persist.vendor.radio.smart.data.switch=1
+[    0.572803] persist.vendor.radio.msimmode=dsds
+[    0.572818] persist.vendor.radio.flashless.fsm=0
+[    0.572837] persist.vendor.radio.flashless.fsm_rw=0
+[    0.572852] persist.vendor.radio.flashless.fsm_cst=0
+[    0.572870] persist.vendor.radio.mtk_ps2_rat=L/W/G
+[    0.572885] persist.vendor.radio.mtk_ps3_rat=G
+[    0.572904] persist.vendor.radio.mtk_dsbp_support=2
+[    0.572919] persist.vendor.charge.oneTrack=true
+[    0.572938] persist.vendor.camera3.pipeline.bufnum.min.low_ram.imgo=6
+[    0.572953] persist.vendor.camera3.pipeline.bufnum.min.low_ram.lcso=6
+[    0.572972] persist.vendor.camera3.pipeline.bufnum.min.low_ram.rrzo=6
+[    0.572987] persist.vendor.camera3.pipeline.bufnum.min.low_ram.rsso=6
+[    0.573006] persist.vendor.camera3.pipeline.bufnum.min.low_ram.fdyuv=5
+[    0.573021] persist.vendor.camera3.pipeline.bufnum.min.high_ram.imgo=7
+[    0.573040] persist.vendor.camera3.pipeline.bufnum.min.high_ram.lcso=7
+[    0.573055] persist.vendor.camera3.pipeline.bufnum.min.high_ram.rrzo=7
+[    0.573073] persist.vendor.camera3.pipeline.bufnum.min.high_ram.rsso=7
+[    0.573088] persist.vendor.camera3.pipeline.bufnum.min.high_ram.fdyuv=5
+[    0.573107] persist.vendor.camera3.pipeline.bufnum.base.imgo=4
+[    0.573121] persist.vendor.camera3.pipeline.bufnum.base.lcso=4
+[    0.573140] persist.vendor.camera3.pipeline.bufnum.base.rrzo=4
+[    0.573155] persist.vendor.camera3.pipeline.bufnum.base.rsso=5
+[    0.573174] persist.vendor.connsys.patch.version=-1
+[    0.573189] persist.vendor.connsys.chipid=-1
+[    0.573207] persist.vendor.connsys.dynamic.dump=0
+[    0.573222] persist.vendor.connsys.fm_chipid=mt6631
+[    0.573241] persist.vendor.connsys.fm_short_antenna_support=1
+[    0.573256] persist.vendor.factory.GB2312=yes
+[    0.573274] persist.vendor.ims_support=1
+[    0.573290] persist.vendor.otg_control=true
+[    0.573308] persist.vendor.mims_support=2
+[    0.573323] persist.vendor.vilte_support=1
+[    0.573342] persist.vendor.volte_support=1
+[    0.573357] persist.vendor.viwifi_support=1
+[    0.573375] persist.vendor.mtk_wfc_support=1
+[    0.573390] persist.vendor.vzw_device_type=0
+[    0.573408] persist.vendor.md_c2k_cap_dep_check=0
+[    0.573423] persist.vendor.mtk_ct_volte_support=3
+[    0.573442] persist.vendor.mtk_sim_switch_policy=2
+[    0.573457] persist.vendor.mtk_dynamic_ims_switch=1
+[    0.573529] ro.vendor.build.security_patch=2022-04-05
+[    0.573657] ro.vndk.version=31
+[    0.573705] ro.crypto.volume.filenames_mode=aes-256-cts
+[    0.573929] wifi.direct.interface=p2p0
+[    0.573951] wifi.interface=wlan0
+[    0.574056] wifi.tethering.interface=ap0
+[    0.574216]
+[    0.613010] status none, prompt_and_wait
+[    0.613054] recovery: GetMenuSelection
+[    7.333824] mi_screen: chosen_item[1]
+[   10.556422] mi_screen: chosen_item[1]
+[   12.616865] mi_screen: chosen_item[1]
+[   12.655841]
+[   12.655892] -- Wiping data...
+[   12.656628] Formatting /data...
+[   12.694423] mke2fs 1.45.4 (23-Sep-2019)
+[   17.680312] Discarding device blocks:     4096/27979000 3149824/27979000 8916992/2797900014159872/2797900019927040/2797900025694208/27979000                 done                            
+[   17.683241] Creating filesystem with 27979000 4k blocks and 6995968 inodes
+[   17.683265] Filesystem UUID: 93623e20-3b32-4e5a-828e-eb7c060decbe
+[   17.683270] Superblock backups stored on blocks: 
+[   17.683274] 	32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632, 2654208, 
+[   17.683278] 	4096000, 7962624, 11239424, 20480000, 23887872
+[   17.683282]
+[   17.683286] Allocating group tables:   0/854       done                            
+[   17.686515] Writing inode tables:   0/854       done                            
+[   23.265268] Creating journal (131072 blocks): done
+[   23.282661] Writing superblocks and filesystem accounting information:   0/854       done
+[   23.282693]
+[   23.348102] Formatting /cache...
+[   23.410809] mke2fs 1.45.4 (23-Sep-2019)
+[   23.437750] Discarding device blocks:   4096/110592             done                            
+[   23.438260] Creating filesystem with 110592 4k blocks and 110592 inodes
+[   23.438332] Filesystem UUID: 7829d175-1bd7-4feb-9953-19b1bbac8ce1
+[   23.438418] Superblock backups stored on blocks: 
+[   23.438564] 	32768, 98304
+[   23.438610]
+[   23.438858] Allocating group tables: 0/4   done                            
+[   23.441647] Writing inode tables: 0/4   done                            
+[   23.603825] Creating journal (4096 blocks): done
+[   23.608125] Writing superblocks and filesystem accounting information: 0/4   done
+[   23.608149]
+[   23.610141] I:[libfs_mgr]superblock s_max_mnt_count:65535,/dev/block/platform/bootdevice/by-name/cache
+[   23.613061] I:[libfs_mgr]check_fs(): mount(/dev/block/platform/bootdevice/by-name/cache,/cache,ext4)=0: Success
+[   23.636439] I:[libfs_mgr]check_fs(): unmount(/cache) succeeded
+[   23.636713] I:[libfs_mgr]Not running /system/bin/e2fsck on /dev/block/mmcblk0p45 (executable not in system image)
+[   23.637465] libc: Unable to set property "ro.boottime.init.fsck.cache" to "26": error code: 0xb
+[   23.638046] I:[libfs_mgr]superblock s_max_mnt_count:65535,/dev/block/platform/bootdevice/by-name/cache
+[   23.661695] I:[libfs_mgr]__mount(source=/dev/block/platform/bootdevice/by-name/cache,target=/cache,type=ext4)=0: Success
+[   23.662362] libc: Unable to set property "ro.boottime.init.mount.cache" to "23": error code: 0xb
+[   23.861210] Formatting /metadata...
+[   23.886566] mke2fs 1.45.4 (23-Sep-2019)
+[   23.904556] Discarding device blocks: 4096/5786         done                            
+[   23.905014] Creating filesystem with 5786 4k blocks and 5792 inodes
+[   23.905071]
+[   23.905310] Allocating group tables: 0/1   done                            
+[   23.908485] Writing inode tables: 0/1   done                            
+[   23.945118] Creating journal (1024 blocks): done
+[   23.948714] Writing superblocks and filesystem accounting information: 0/1   done
+[   23.948735]
+[   23.949945] I:PostWipeData
+[   23.950144] I:Secure-wiping "/dev/block/by-name/nvdata" from 0 to 67108864
+[   23.950157] I:  Trying BLKSECDISCARD...
+[   23.972363] I:  Done
+[   23.972383] Data wipe complete.
+[   23.972391] W:erase vm-data
+[   23.972398] E:no partition named: vm-data
+[   23.972405] E:Erase cache and data successfully!
+[   23.972411] E:no efs flag file, no efs clear
+[   27.025079] mi_screen: chosen_item[0]
+[   27.025309] recovery: GetMenuSelection
+[   28.372952] mi_screen: chosen_item[0]
+[   29.791251] mi_screen: chosen_item[0]
+[   29.794740] I:Saving new_status:INSTALL_NONE
+[   29.796976] enter finish_recovery status[3]
+[   29.797073] I:Saving locale "en_US"

@@ -1,0 +1,7 @@
+---------- miui reboot records ----------
+record time      :2026-10-27 18:15:32
+miuireboot       :Java Exception
+miui version     :V13.0.2.0.SJOMIXM
+process          :system_server
+dgt              :a4cfd0fe11abf459a193d9b314edd824
+------------------------------------

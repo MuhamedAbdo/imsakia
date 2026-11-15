@@ -1,0 +1,10 @@
+jni com_android_appsearch libicing.so
+jni com_android_art libartservice.so
+public com_android_art libnativehelper.so
+jni com_android_conscrypt libjavacrypto.so
+jni com_android_extservices libtflite_support_classifiers_native.so
+public com_android_i18n libicui18n.so:libicuuc.so:libicu.so
+jni com_android_mediaprovider libpdfclient.so
+public com_android_neuralnetworks libneuralnetworks.so
+jni com_android_os_statsd libstats_jni.so
+jni com_android_tethering libandroid_net_connectivity_com_android_net_module_util_jni.so:libandroid_net_connectivity_com_android_net_module_util_jni_CommonConnectivityJni.so:libcrypto_httpengine.so:libframework-connectivity-jni.so:libframework-connectivity-tiramisu-jni.so:libhttpengine.so:libservice-connectivity.so:libservice-thread-jni.so

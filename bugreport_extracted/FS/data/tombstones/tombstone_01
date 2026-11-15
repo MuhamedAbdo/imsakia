@@ -1,0 +1,348 @@
+*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+Build fingerprint: 'Redmi/merlin_global/merlin:12/SP1A.210812.016/V13.0.2.0.SJOMIXM:user/release-keys'
+Revision: '0'
+ABI: 'arm'
+Timestamp: 2026-08-17 07:50:54.255204112+0300
+Process uptime: 0s
+Cmdline: /vendor/bin/volte_imcb
+pid: 1544, tid: 1544, name: volte_imcb  >>> /vendor/bin/volte_imcb <<<
+uid: 1000
+signal 15 (?), code -6 (SI_TKILL), fault addr --------
+    r0  fffffffc  r1  00000089  r2  0000351c  r3  00000000
+    r4  00000000  r5  ffffffff  r6  00000000  r7  000000f0
+    r8  0000351c  r9  f0c93004  r10 00000000  r11 0000006f
+    ip  ffa0e908  sp  ffa0e8f8  lr  f07ba8b1  pc  f07b512c
+
+backtrace:
+      #00 pc 0005c12c  /apex/com.android.runtime/lib/bionic/libc.so (syscall+32) (BuildId: c3f479705b82c55801158aefde571341)
+      #01 pc 000618ad  /apex/com.android.runtime/lib/bionic/libc.so (__futex_wait_ex(void volatile*, bool, int, bool, timespec const*)+92) (BuildId: c3f479705b82c55801158aefde571341)
+      #02 pc 000a82f5  /apex/com.android.runtime/lib/bionic/libc.so (pthread_cond_wait+32) (BuildId: c3f479705b82c55801158aefde571341)
+      #03 pc 0000b1c8  /vendor/bin/volte_imcb (BuildId: c8017b6c413c84e14cc8cc248615967b5034b9c1)
+      #04 pc 0000c864  /vendor/bin/volte_imcb (BuildId: c8017b6c413c84e14cc8cc248615967b5034b9c1)
+      #05 pc 0005a695  /apex/com.android.runtime/lib/bionic/libc.so (__libc_init+56) (BuildId: c3f479705b82c55801158aefde571341)
+
+memory near r9 ([anon:libc_malloc]):
+    f0c92fe0 00000000 00000000 00000000 00000000  ................
+    f0c92ff0 00000000 00000000 00000000 00000000  ................
+    f0c93000 00000000 00003524 00000080 00000002  ....$5..........
+    f0c93010 00000000 00000047 00000049 f0c90000  ....G...I.......
+    f0c93020 5f626d76 0000656d 00000000 00000000  vmb_me..........
+    f0c93030 00000000 00000000 00000000 00000000  ................
+    f0c93040 00000002 00000000 00000001 00010080  ................
+    f0c93050 00000005 00000000 00000001 00000000  ................
+    f0c93060 00000000 00000000 00000000 00000000  ................
+    f0c93070 00000000 00000000 00000000 00000000  ................
+    f0c93080 00000000 00000000 00000000 00000000  ................
+    f0c93090 00000000 00000000 00000000 00000000  ................
+    f0c930a0 00000000 00000000 00000000 00000000  ................
+    f0c930b0 00000000 00000000 00000000 00000000  ................
+    f0c930c0 00000000 00000000 00000000 00000000  ................
+    f0c930d0 00000000 00000000 00000000 00000000  ................
+
+memory near ip ([stack]):
+    ffa0e8e0 00000000 00000000 00000000 00000000  ................
+    ffa0e8f0 00000000 00000000 f0fde708 f0813274  ............t2..
+    ffa0e900 00000089 00000000 00000000 00000000  ................
+    ffa0e910 ffffffff 00000000 00000000 00000000  ................
+    ffa0e920 359faad0 f0c93000 f0c93004 0000351c  ...5.0...0...5..
+    ffa0e930 00000000 03fcf4b8 00000000 00000010  ................
+    ffa0e940 ffa0e9a0 f08012f9 00000000 f08ac023  ............#...
+    ffa0e950 f08ac03e f08ac023 f08ac03e 03f301cc  >...#...>.......
+    ffa0e960 00000100 f0a66410 ffa0e980 03f3113c  .....d......<...
+    ffa0e970 359faad0 f08ac023 f08ac03e f08ac023  ...5#...>...#...
+    ffa0e980 00000000 03fcf4b8 00000000 00000000  ................
+    ffa0e990 f0c93000 00000001 f0c93000 f0a66400  .0.......0...d..
+    ffa0e9a0 ffa0eae8 03f31868 0133a2b9 f08ac004  ....h.....3.....
+    ffa0e9b0 f08ac023 f08ac03e 00000000 00000000  #...>...........
+    ffa0e9c0 00000000 00000000 f0fd7a48 0000000b  ........Hz......
+    ffa0e9d0 00000000 00000000 00000000 00000005  ................
+
+memory near sp ([stack]):
+    ffa0e8d0 00000000 00000000 00000000 00000000  ................
+    ffa0e8e0 00000000 00000000 00000000 00000000  ................
+    ffa0e8f0 00000000 00000000 f0fde708 f0813274  ............t2..
+    ffa0e900 00000089 00000000 00000000 00000000  ................
+    ffa0e910 ffffffff 00000000 00000000 00000000  ................
+    ffa0e920 359faad0 f0c93000 f0c93004 0000351c  ...5.0...0...5..
+    ffa0e930 00000000 03fcf4b8 00000000 00000010  ................
+    ffa0e940 ffa0e9a0 f08012f9 00000000 f08ac023  ............#...
+    ffa0e950 f08ac03e f08ac023 f08ac03e 03f301cc  >...#...>.......
+    ffa0e960 00000100 f0a66410 ffa0e980 03f3113c  .....d......<...
+    ffa0e970 359faad0 f08ac023 f08ac03e f08ac023  ...5#...>...#...
+    ffa0e980 00000000 03fcf4b8 00000000 00000000  ................
+    ffa0e990 f0c93000 00000001 f0c93000 f0a66400  .0.......0...d..
+    ffa0e9a0 ffa0eae8 03f31868 0133a2b9 f08ac004  ....h.....3.....
+    ffa0e9b0 f08ac023 f08ac03e 00000000 00000000  #...>...........
+    ffa0e9c0 00000000 00000000 f0fd7a48 0000000b  ........Hz......
+
+memory near lr (/apex/com.android.runtime/lib/bionic/libc.so):
+    f07ba890 ef76f04f b000f8d0 f04f4604 464930ff  O.v......FO..0IF
+    f07ba8a0 46434632 7a00e9cd 20f09002 e8c8f050  2FCF...z... P...
+    f07ba8b0 d0091c41 9a066829 d10a4291 e8bdb007  A...)h...B......
+    f07ba8c0 f06f8ff0 e7f5006d f8c46820 4240b000  ..o.m... h....@B
+    f07ba8d0 f04fe7f0 bf00ef26 00055ece 47f0e92d  ..O.&....^..-..G
+    f07ba8e0 4680b088 2400481e 29002586 f8d04478  ...F.H.$.%.)xD..
+    f07ba8f0 f8d99000 90070000 4404e9cd 2506bf18  ...........D...%
+    f07ba900 bf182b00 d1012a00 e007461e 4619ae04  .+...*...F.....F
+    f07ba910 f0004630 9804f937 d4172800 ef30f04f  0F..7....(..O.0.
+    f07ba920 a000f8d0 20f04607 462a4641 e9cd2300  .....F. AF*F.#..
+    f07ba930 94026400 e884f050 d00a1c41 1000f8d9  .d..P...A.......
+    f07ba940 42919a07 b008d10a 87f0e8bd 006df06f  ...B........o.m.
+    f07ba950 6838e7f4 a000f8c7 e7ef4240 eee0f04f  ..8h....@B..O...
+    f07ba960 00055e48 4604b510 5000f44f f04f60a0  H^.....FO..P.`O.
+    f07ba970 602030ff 5000f44f fff6f03e 46206060  .0 `O..P>...`` F
+    f07ba980 b5f0bd10 4604b081 b1086840 fffcf03e  .......F@h..>...
+
+memory near pc (/apex/com.android.runtime/lib/bionic/libc.so):
+    f07b5100 e3300000 03a00001 e12fff1e e1a0c00d  ..0......./.....
+    f07b5110 e92d00f0 e1a07000 e1a00001 e1a01002  ..-..p..........
+    f07b5120 e1a02003 e89c0078 ef000000 e8bd00f0  . ..x...........
+    f07b5130 e3700a01 912fff1e e2600000 ea01537c  ..p.../...`.|S..
+    f07b5140 ee1d3f70 e5933004 e3a00102 e593100c  p?...0..........
+    f07b5150 e583000c e1a0c007 e3a070be ef000000  .........p......
+    f07b5160 e1a0700c e3300000 012fff1e e583100c  .p....0.../.....
+    f07b5170 e3700a01 912fff1e e2600000 ea01536c  ..p.../...`.lS..
+    f07b5180 f5d1f040 e92d4001 e3520010 3a000024  @....@-...R.$..:
+    f07b5190 e2603000 e213300f 0a00000e e0422003  .0`..0....... B.
+    f07b51a0 e1b0cf83 44d1e001 44c0e001 24d1c001  .......D...D...$
+    f07b51b0 24d1e001 24c0c001 24c0e001 e1b0ce83  ...$...$...$....
+    f07b51c0 aa000001 f4a1030d f480031d 3a000001  ...............:
+    f07b51d0 f421070d f400071d e2522040 3a000006  ..!.....@ R....:
+    f07b51e0 f421020d f421420d f5d1f100 e2522040  ..!..B!.....@ R.
+    f07b51f0 f400022d f400422d 2afffff8 e2922020  -...-B.....*  ..
+
+memory map (174 entries):
+    03f25000-03fc8fff r-x         0     a4000  /vendor/bin/volte_imcb (BuildId: c8017b6c413c84e14cc8cc248615967b5034b9c1)
+    03fc9000-03fc9fff r--     a3000      1000  /vendor/bin/volte_imcb (BuildId: c8017b6c413c84e14cc8cc248615967b5034b9c1)
+    03fca000-03fccfff rw-     a4000      3000  /vendor/bin/volte_imcb (BuildId: c8017b6c413c84e14cc8cc248615967b5034b9c1)
+    03fcd000-04726fff rw-         0    75a000  [anon:.bss]
+    efcfe000-efcfefff ---         0      1000
+    efcff000-efdfdfff rw-         0     ff000  [anon:stack_and_tls:1600]
+    efdfe000-efdfffff ---         0      2000
+    efe00000-efefefff rw-         0     ff000  [anon:stack_and_tls:1599]
+    efeff000-efefffff ---         0      1000
+    eff00000-efffffff rw-         0    100000  [anon:libc_malloc]
+    f00aa000-f00c9fff r--         0     20000  /dev/__properties__/u:object_r:property_service_version_prop:s0
+    f00ca000-f00cafff ---         0      1000
+    f00cb000-f01c9fff rw-         0     ff000  [anon:stack_and_tls:1575]
+    f01ca000-f01cbfff ---         0      2000
+    f01cc000-f02cafff rw-         0     ff000  [anon:stack_and_tls:1572]
+    f02cb000-f02ccfff ---         0      2000
+    f02cd000-f03cbfff rw-         0     ff000  [anon:stack_and_tls:1571]
+    f03cc000-f03cdfff ---         0      2000
+    f03ce000-f04ccfff rw-         0     ff000  [anon:stack_and_tls:1570]
+    f04cd000-f04cdfff ---         0      1000
+    f04ce000-f04d9fff r--         0      c000  /system/lib/libbase.so (BuildId: f0df3e21334e7c65f09a04aca7f681f9) (load bias 0x1000)
+    f04da000-f04f6fff r-x      b000     1d000  /system/lib/libbase.so (BuildId: f0df3e21334e7c65f09a04aca7f681f9) (load bias 0x1000)
+    f04f7000-f04f7fff r--     27000      1000  /system/lib/libbase.so (BuildId: f0df3e21334e7c65f09a04aca7f681f9) (load bias 0x1000)
+    f04f8000-f04f8fff rw-     27000      1000  /system/lib/libbase.so (BuildId: f0df3e21334e7c65f09a04aca7f681f9) (load bias 0x1000)
+    f0500000-f05fffff rw-         0    100000  [anon:libc_malloc]
+    f0602000-f0621fff r--         0     20000  /dev/__properties__/u:object_r:vendor_mtk_md_version_prop:s0
+    f0622000-f062cfff rw-         0      b000  [anon:libc_malloc]
+    f0637000-f0640fff rw-         0      a000  [anon:libc_malloc]
+    f0641000-f0642fff r--         0      2000  /system/lib/libnetd_client.so (BuildId: c61c6549f6d81aa56f3b72fca3f5a14b) (load bias 0x1000)
+    f0643000-f0643fff ---         0      1000
+    f0644000-f0648fff r-x      2000      5000  /system/lib/libnetd_client.so (BuildId: c61c6549f6d81aa56f3b72fca3f5a14b) (load bias 0x1000)
+    f0649000-f0649fff r--      6000      1000  /system/lib/libnetd_client.so (BuildId: c61c6549f6d81aa56f3b72fca3f5a14b) (load bias 0x1000)
+    f064a000-f064afff rw-      6000      1000  /system/lib/libnetd_client.so (BuildId: c61c6549f6d81aa56f3b72fca3f5a14b) (load bias 0x1000)
+    f064b000-f066afff rw-         0     20000  [anon:.bss]
+    f0675000-f067ffff rw-         0      b000  [anon:libc_malloc]
+    f0680000-f0684fff r--         0      5000  /system/lib/libcutils.so (BuildId: b86b0e40b155791bf6b7a739d0bb38c2) (load bias 0x1000)
+    f0685000-f068bfff r-x      4000      7000  /system/lib/libcutils.so (BuildId: b86b0e40b155791bf6b7a739d0bb38c2) (load bias 0x1000)
+    f068c000-f068dfff r--      a000      2000  /system/lib/libcutils.so (BuildId: b86b0e40b155791bf6b7a739d0bb38c2) (load bias 0x1000)
+    f068e000-f068efff rw-      b000      1000  /system/lib/libcutils.so (BuildId: b86b0e40b155791bf6b7a739d0bb38c2) (load bias 0x1000)
+    f0691000-f06a1fff rw-         0     11000  [anon:libc_malloc]
+    f06a7000-f06c7fff rw-         0     21000  [anon:libc_malloc]
+    f06de000-f06e8fff rw-         0      b000  [anon:libc_malloc]
+    f06ea000-f06f4fff rw-         0      b000  [anon:libc_malloc]
+    f06f5000-f0758fff rw-         0     64000  [anon:linker_alloc]
+    f0759000-f0784fff r--         0     2c000  /apex/com.android.runtime/lib/bionic/libc.so (BuildId: c3f479705b82c55801158aefde571341) (load bias 0x1000)
+    f0785000-f080cfff r-x     2b000     88000  /apex/com.android.runtime/lib/bionic/libc.so (BuildId: c3f479705b82c55801158aefde571341) (load bias 0x1000)
+    f080d000-f0811fff r--     b2000      5000  /apex/com.android.runtime/lib/bionic/libc.so (BuildId: c3f479705b82c55801158aefde571341) (load bias 0x1000)
+    f0812000-f0812fff rw-     b6000      1000  /apex/com.android.runtime/lib/bionic/libc.so (BuildId: c3f479705b82c55801158aefde571341) (load bias 0x1000)
+    f0813000-f0816fff rw-         0      4000  [anon:.bss]
+    f0817000-f0817fff r--         0      1000  [anon:.bss]
+    f0818000-f0823fff rw-         0      c000  [anon:.bss]
+    f0825000-f0825fff rw-         0      1000  [anon:libc_malloc]
+    f0831000-f0846fff rw-         0     16000  [anon:libc_malloc]
+    f0847000-f084ffff r--         0      9000  /apex/com.android.runtime/lib/bionic/libm.so (BuildId: 472ab5cba2223997f46fd7548a6bd73d) (load bias 0x1000)
+    f0850000-f0864fff r-x      8000     15000  /apex/com.android.runtime/lib/bionic/libm.so (BuildId: 472ab5cba2223997f46fd7548a6bd73d) (load bias 0x1000)
+    f0865000-f0865fff r--     1c000      1000  /apex/com.android.runtime/lib/bionic/libm.so (BuildId: 472ab5cba2223997f46fd7548a6bd73d) (load bias 0x1000)
+    f0866000-f0866fff rw-     1c000      1000  /apex/com.android.runtime/lib/bionic/libm.so (BuildId: 472ab5cba2223997f46fd7548a6bd73d) (load bias 0x1000)
+    f0869000-f0873fff rw-         0      b000  [anon:libc_malloc]
+    f0876000-f087cfff rw-         0      7000  [anon:libc_malloc]
+    f0884000-f0889fff rw-         0      6000  [anon:libc_malloc]
+    f088a000-f08a3fff rw-         0     1a000  [anon:libc_malloc]
+    f08a4000-f08a9fff rw-         0      6000  [anon:libc_malloc]
+    f08aa000-f08aafff r-x         0      1000  /vendor/lib/libverno.so (BuildId: 54626570e25e909675b62d4b090ae23af11c6689)
+    f08ab000-f08abfff r--         0      1000  /vendor/lib/libverno.so (BuildId: 54626570e25e909675b62d4b090ae23af11c6689)
+    f08ac000-f08acfff rw-      1000      1000  /vendor/lib/libverno.so (BuildId: 54626570e25e909675b62d4b090ae23af11c6689)
+    f08ad000-f08bbfff rw-         0      f000  [anon:libc_malloc]
+    f08c1000-f08d0fff rw-         0     10000  [anon:libc_malloc]
+    f08d1000-f0950fff r-x         0     80000  /vendor/lib/libvolte_core_shr.so (BuildId: 7e7b5b856cfef6e997fc026865b7215931cdfbaa)
+    f0951000-f0952fff r--     7f000      2000  /vendor/lib/libvolte_core_shr.so (BuildId: 7e7b5b856cfef6e997fc026865b7215931cdfbaa)
+    f0953000-f0954fff rw-     81000      2000  /vendor/lib/libvolte_core_shr.so (BuildId: 7e7b5b856cfef6e997fc026865b7215931cdfbaa)
+    f0955000-f0966fff rw-         0     12000  [anon:libc_malloc]
+    f0968000-f0984fff rw-         0     1d000  [anon:libc_malloc]
+    f0985000-f09b7fff r--         0     33000  /system/lib/libc++.so (BuildId: 3fa832c317b4e924cf0d0a5779adb44a) (load bias 0x1000)
+    f09b8000-f09f6fff r-x     32000     3f000  /system/lib/libc++.so (BuildId: 3fa832c317b4e924cf0d0a5779adb44a) (load bias 0x1000)
+    f09f7000-f09fafff r--     70000      4000  /system/lib/libc++.so (BuildId: 3fa832c317b4e924cf0d0a5779adb44a) (load bias 0x1000)
+    f09fb000-f09fbfff rw-     73000      1000  /system/lib/libc++.so (BuildId: 3fa832c317b4e924cf0d0a5779adb44a) (load bias 0x1000)
+    f09fc000-f09fcfff rw-         0      1000  [anon:.bss]
+    f09fe000-f0a25fff rw-         0     28000  [anon:libc_malloc]
+    f0a26000-f0a28fff r--         0      3000  /system/lib/liblog.so (BuildId: 87e72dace62234e57df1e1227bce5a6f) (load bias 0x1000)
+    f0a29000-f0a30fff r-x      2000      8000  /system/lib/liblog.so (BuildId: 87e72dace62234e57df1e1227bce5a6f) (load bias 0x1000)
+    f0a31000-f0a31fff r--      9000      1000  /system/lib/liblog.so (BuildId: 87e72dace62234e57df1e1227bce5a6f) (load bias 0x1000)
+    f0a32000-f0a32fff rw-      9000      1000  /system/lib/liblog.so (BuildId: 87e72dace62234e57df1e1227bce5a6f) (load bias 0x1000)
+    f0a33000-f0a45fff rw-         0     13000  [anon:libc_malloc]
+    f0a46000-f0a46fff r--         0      1000  /apex/com.android.runtime/lib/bionic/libdl.so (BuildId: 63546a18da41b6c5e841b99b30ec4228) (load bias 0x1000)
+    f0a47000-f0a47fff r-x         0      1000  /apex/com.android.runtime/lib/bionic/libdl.so (BuildId: 63546a18da41b6c5e841b99b30ec4228) (load bias 0x1000)
+    f0a48000-f0a48fff r--         0      1000  /apex/com.android.runtime/lib/bionic/libdl.so (BuildId: 63546a18da41b6c5e841b99b30ec4228) (load bias 0x1000)
+    f0a49000-f0a49fff ---         0      1000
+    f0a4a000-f0a4afff r--         0      1000  [anon:.bss]
+    f0a4b000-f0a58fff rw-         0      e000  [anon:libc_malloc]
+    f0a5b000-f0a5bfff rw-         0      1000  [anon:libc_malloc]
+    f0a5f000-f0a67fff rw-         0      9000  [anon:libc_malloc]
+    f0a68000-f0a87fff r--         0     20000  /dev/__properties__/u:object_r:vendor_mtk_app_prop:s0
+    f0a88000-f0abafff r--         0     33000  /apex/com.android.vndk.v31/lib/libc++.so (BuildId: 9269734603b2809fe2849fcd2abf689c) (load bias 0x1000)
+    f0abb000-f0af9fff r-x     32000     3f000  /apex/com.android.vndk.v31/lib/libc++.so (BuildId: 9269734603b2809fe2849fcd2abf689c) (load bias 0x1000)
+    f0afa000-f0afdfff r--     70000      4000  /apex/com.android.vndk.v31/lib/libc++.so (BuildId: 9269734603b2809fe2849fcd2abf689c) (load bias 0x1000)
+    f0afe000-f0afefff rw-     73000      1000  /apex/com.android.vndk.v31/lib/libc++.so (BuildId: 9269734603b2809fe2849fcd2abf689c) (load bias 0x1000)
+    f0aff000-f0afffff rw-         0      1000  [anon:.bss]
+    f0b00000-f0b09fff rw-         0      a000  [anon:libc_malloc]
+    f0b0a000-f0b0efff r--         0      5000  /apex/com.android.vndk.v31/lib/libcutils.so (BuildId: ad19fc12173f10c81463d635ab6df35e) (load bias 0x1000)
+    f0b0f000-f0b14fff r-x      4000      6000  /apex/com.android.vndk.v31/lib/libcutils.so (BuildId: ad19fc12173f10c81463d635ab6df35e) (load bias 0x1000)
+    f0b15000-f0b16fff r--      9000      2000  /apex/com.android.vndk.v31/lib/libcutils.so (BuildId: ad19fc12173f10c81463d635ab6df35e) (load bias 0x1000)
+    f0b17000-f0b17fff rw-      a000      1000  /apex/com.android.vndk.v31/lib/libcutils.so (BuildId: ad19fc12173f10c81463d635ab6df35e) (load bias 0x1000)
+    f0b1f000-f0b3efff r--         0     20000  /dev/__properties__/u:object_r:build_prop:s0
+    f0b3f000-f0b3ffff r--         0      1000  [anon:cfi shadow]
+    f0b40000-f0b45fff ---         0      6000  [anon:cfi shadow]
+    f0b46000-f0b46fff r--         0      1000  [anon:cfi shadow]
+    f0b47000-f0b52fff r--         0      c000  /apex/com.android.vndk.v31/lib/libbase.so (BuildId: 077de0f972981146907fdc52c210f51a) (load bias 0x1000)
+    f0b53000-f0b6ffff r-x      b000     1d000  /apex/com.android.vndk.v31/lib/libbase.so (BuildId: 077de0f972981146907fdc52c210f51a) (load bias 0x1000)
+    f0b70000-f0b70fff r--     27000      1000  /apex/com.android.vndk.v31/lib/libbase.so (BuildId: 077de0f972981146907fdc52c210f51a) (load bias 0x1000)
+    f0b71000-f0b71fff rw-     27000      1000  /apex/com.android.vndk.v31/lib/libbase.so (BuildId: 077de0f972981146907fdc52c210f51a) (load bias 0x1000)
+    f0b72000-f0b75fff rw-         0      4000  [anon:libc_malloc]
+    f0b76000-f0b95fff r--         0     20000  /dev/__properties__/u:object_r:heapprofd_prop:s0
+    f0b96000-f0b9dfff r-x         0      8000  /vendor/lib/libvolte_xdmc_shr.so (BuildId: 5cb922354ef7abc4f464247388315b7fd13b187c)
+    f0b9e000-f0b9efff r--      7000      1000  /vendor/lib/libvolte_xdmc_shr.so (BuildId: 5cb922354ef7abc4f464247388315b7fd13b187c)
+    f0b9f000-f0b9ffff rw-      8000      1000  /vendor/lib/libvolte_xdmc_shr.so (BuildId: 5cb922354ef7abc4f464247388315b7fd13b187c)
+    f0ba0000-f0baafff rw-         0      b000  [anon:libc_malloc]
+    f0bab000-f0babfff ---         0      1000
+    f0bac000-f0baffff rw-         0      4000  [anon:thread signal stack]
+    f0bb0000-f0bcffff r--         0     20000  /dev/__properties__/u:object_r:libc_debug_prop:s0
+    f0bd0000-f0beffff r--         0     20000  /dev/__properties__/u:object_r:debug_prop:s0
+    f0bf0000-f0bf0fff rw-         0      1000  [anon:bionic_alloc_small_objects]
+    f0bf1000-f0bf1fff rw-         0      1000  [anon:libc_malloc]
+    f0bf7000-f0bf7fff ---         0      1000
+    f0bf8000-f0bfbfff rw-         0      4000  [anon:thread signal stack]
+    f0bfc000-f0c0afff rw-         0      f000  [anon:libc_malloc]
+    f0c0b000-f0c2afff r--         0     20000  /dev/__properties__/properties_serial
+    f0c2b000-f0c2efff rw-         0      4000  [anon:System property context nodes]
+    f0c2f000-f0c4cfff r--         0     1e000  /dev/__properties__/property_info
+    f0c4d000-f0c4dfff ---         0      1000
+    f0c4e000-f0c50fff rw-         0      3000  [anon:stack_and_tls:main]
+    f0c51000-f0c51fff ---         0      1000
+    f0c5f000-f0c5ffff ---         0      1000
+    f0c60000-f0c63fff rw-         0      4000  [anon:thread signal stack]
+    f0c64000-f0c83fff r--         0     20000  /dev/__properties__/u:object_r:log_tag_prop:s0
+    f0c85000-f0c87fff rw-         0      3000  [anon:libc_malloc]
+    f0c8d000-f0c95fff rw-         0      9000  [anon:libc_malloc]
+    f0c96000-f0cb5fff r--         0     20000  /dev/__properties__/u:object_r:vendor_socket_hook_prop:s0
+    f0cb6000-f0d19fff r--         0     64000  [anon:linker_alloc]
+    f0d1a000-f0d1bfff rw-         0      2000  [anon:bionic_alloc_small_objects]
+    f0d1c000-f0d1dfff rw-         0      2000  [anon:libc_malloc]
+    f0d1e000-f0d81fff r--         0     64000  [anon:linker_alloc]
+    f0d82000-f0d82fff rw-         0      1000  [anon:bionic_alloc_lob]
+    f0d83000-f0d85fff rw-         0      3000  [anon:bionic_alloc_small_objects]
+    f0d86000-f0d86fff r--         0      1000  [anon:atexit handlers]
+    f0d87000-f0d90fff rw-         0      a000  [anon:bionic_alloc_small_objects]
+    f0d91000-f0d91fff rw-         0      1000  [anon:bionic_alloc_small_objects]
+    f0d92000-f0db1fff r--         0     20000  /dev/__properties__/u:object_r:vndk_prop:s0
+    f0db2000-f0db2fff rw-         0      1000  [anon:bionic_alloc_small_objects]
+    f0db3000-f0e16fff r--         0     64000  [anon:linker_alloc]
+    f0e17000-f0e36fff r--         0     20000  /dev/__properties__/u:object_r:debug_prop:s0
+    f0e37000-f0e56fff r--         0     20000  /dev/__properties__/u:object_r:build_prop:s0
+    f0e57000-f0e57fff ---         0      1000
+    f0e58000-f0e5ffff rw-         0      8000
+    f0e60000-f0e60fff ---         0      1000
+    f0e61000-f0e80fff r--         0     20000  /dev/__properties__/properties_serial
+    f0e81000-f0e84fff rw-         0      4000  [anon:System property context nodes]
+    f0e85000-f0ea2fff r--         0     1e000  /dev/__properties__/property_info
+    f0ea3000-f0f06fff r--         0     64000  [anon:linker_alloc]
+    f0f07000-f0f08fff rw-         0      2000  [anon:bionic_alloc_small_objects]
+    f0f09000-f0f09fff r--         0      1000  [anon:atexit handlers]
+    f0f0a000-f0f0afff ---         0      1000
+    f0f0b000-f0f0efff rw-         0      4000  [anon:thread signal stack]
+    f0f0f000-f0f0ffff rw-         0      1000  [anon:arc4random data]
+    f0f10000-f0f11fff rw-         0      2000  [anon:libc_malloc]
+    f0f12000-f0f12fff rw-         0      1000  [anon:arc4random data]
+    f0f13000-f0f2efff r--         0     1c000  /apex/com.android.runtime/bin/linker (BuildId: b55971db965c409080102b2369efcd68) (load bias 0x1000)
+    f0f2f000-f0fd3fff r-x     1b000     a5000  /apex/com.android.runtime/bin/linker (BuildId: b55971db965c409080102b2369efcd68) (load bias 0x1000)
+    f0fd4000-f0fd8fff r--     bf000      5000  /apex/com.android.runtime/bin/linker (BuildId: b55971db965c409080102b2369efcd68) (load bias 0x1000)
+    f0fd9000-f0fd9fff rw-     c3000      1000  /apex/com.android.runtime/bin/linker (BuildId: b55971db965c409080102b2369efcd68) (load bias 0x1000)
+    f0fda000-f0fdcfff rw-         0      3000  [anon:.bss]
+    f0fdd000-f0fddfff r--         0      1000  [anon:.bss]
+    f0fde000-f0fe3fff rw-         0      6000  [anon:.bss]
+    ff9ef000-ffa0ffff rw-         0     21000  [stack]
+    ffff0000-ffff0fff r-x         0      1000  [vectors]
+--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+Cmdline: /vendor/bin/volte_imcb
+pid: 1544, tid: 1570, name: volte_imcb  >>> /vendor/bin/volte_imcb <<<
+uid: 1000
+    r0  0000001b  r1  f04ca1ac  r2  f04ca1a8  r3  00000000
+    r4  f07f31d4  r5  f04ca1ac  r6  f04ca1a8  r7  0000016e
+    r8  00000000  r9  f0813274  r10 ffa0e8b8  r11 f04ca1c0
+    ip  0000001b  sp  f04ca0a8  lr  f0645805  pc  f07f31dc
+
+backtrace:
+      #00 pc 0009a1dc  /apex/com.android.runtime/lib/bionic/libc.so (__accept4+8) (BuildId: c3f479705b82c55801158aefde571341)
+      #01 pc 00004803  /system/lib/libnetd_client.so ((anonymous namespace)::netdClientAccept4(int, sockaddr*, int*, int) (.cfi)+50) (BuildId: c61c6549f6d81aa56f3b72fca3f5a14b)
+      #02 pc 00060c87  /apex/com.android.runtime/lib/bionic/libc.so (accept4+22) (BuildId: c3f479705b82c55801158aefde571341)
+      #03 pc 0000dadc  /vendor/bin/volte_imcb (BuildId: c8017b6c413c84e14cc8cc248615967b5034b9c1)
+      #04 pc 000a8cc7  /apex/com.android.runtime/lib/bionic/libc.so (__pthread_start(void*)+40) (BuildId: c3f479705b82c55801158aefde571341)
+      #05 pc 00061ee5  /apex/com.android.runtime/lib/bionic/libc.so (__start_thread+30) (BuildId: c3f479705b82c55801158aefde571341)
+--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+Cmdline: /vendor/bin/volte_imcb
+pid: 1544, tid: 1575, name: volte_imcb  >>> /vendor/bin/volte_imcb <<<
+uid: 1000
+    r0  00000007  r1  f01c7164  r2  00000008  r3  00000002
+    r4  f01c71e0  r5  f01c71e0  r6  f01c71e0  r7  00000003
+    r8  00000608  r9  f0813274  r10 ffa0e6e8  r11 f01c71c0
+    ip  00000078  sp  f01c7020  lr  03f2f2dc  pc  f07f232c
+
+backtrace:
+      #00 pc 0009932c  /apex/com.android.runtime/lib/bionic/libc.so (read+8) (BuildId: c3f479705b82c55801158aefde571341)
+      #01 pc 0000a2d8  /vendor/bin/volte_imcb (BuildId: c8017b6c413c84e14cc8cc248615967b5034b9c1)
+      #02 pc 000a8cc7  /apex/com.android.runtime/lib/bionic/libc.so (__pthread_start(void*)+40) (BuildId: c3f479705b82c55801158aefde571341)
+      #03 pc 00061ee5  /apex/com.android.runtime/lib/bionic/libc.so (__start_thread+30) (BuildId: c3f479705b82c55801158aefde571341)
+--- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+Cmdline: /vendor/bin/volte_imcb
+pid: 1544, tid: 1600, name: volte_imcb  >>> /vendor/bin/volte_imcb <<<
+uid: 1000
+    r0  fffffffc  r1  efdfa19c  r2  00001000  r3  efdfb19c
+    r4  00000d80  r5  f0a66400  r6  efdfb1e0  r7  00000003
+    r8  00000608  r9  f0813274  r10 ffa0e8d0  r11 efdfb1c0
+    ip  00000078  sp  efdfa138  lr  03f32230  pc  f07f2330
+
+backtrace:
+      #00 pc 00099330  /apex/com.android.runtime/lib/bionic/libc.so (read+12) (BuildId: c3f479705b82c55801158aefde571341)
+      #01 pc 0000d22c  /vendor/bin/volte_imcb (BuildId: c8017b6c413c84e14cc8cc248615967b5034b9c1)
+      #02 pc 000a8cc7  /apex/com.android.runtime/lib/bionic/libc.so (__pthread_start(void*)+40) (BuildId: c3f479705b82c55801158aefde571341)
+      #03 pc 00061ee5  /apex/com.android.runtime/lib/bionic/libc.so (__start_thread+30) (BuildId: c3f479705b82c55801158aefde571341)
+
+open files:
+    fd 0: /dev/null (unowned)
+    fd 1: /dev/null (unowned)
+    fd 2: /dev/null (unowned)
+    fd 3: socket:[27820] (unowned)
+    fd 4: /dev/ptmx (unowned)
+    fd 6: /dev/ptmx (unowned)
+    fd 7: /dev/ptmx (unowned)
+    fd 8: socket:[24919] (unowned)
+    fd 9: pipe:[24920] (unowned)
+    fd 10: pipe:[24920] (unowned)
+    fd 11: /dev/ccci_imsc (unowned)
+    fd 27: socket:[13098] (unowned)
+    fd 28: socket:[13100] (unowned)
+    fd 29: socket:[13102] (unowned)

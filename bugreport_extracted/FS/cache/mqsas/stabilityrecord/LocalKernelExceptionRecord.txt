@@ -1,0 +1,7 @@
+---------- kernel reboot records ----------
+record time      :2026-10-06 16:59:07
+kernelreboot     :Kernel Exception
+miui version     :V13.0.2.0.SJOMIXM
+process          :lk_crash
+dgt              :339f0fa6267fc3d5595ad896e2fe2b54
+------------------------------------

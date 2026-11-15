@@ -74,6 +74,7 @@ class AppConstants {
   static const String notificationsKey = 'notifications_enabled';
   static String athanEnabledKey = 'athan_enabled';
   static const String hijriAdjustmentKey = 'hijri_adjustment';
+  static const String prayerTimeOffsetsKey = 'prayer_time_offsets';
 
   // Default Settings
   static const double defaultLatitude = 30.0444; // Cairo
