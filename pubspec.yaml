@@ -104,9 +104,11 @@ flutter:
     - assets/quran.db
     # Hadith SQLite database (replaces 9 JSON files ~221MB → ~32MB GZip compressed)
     - assets/hadith_database.db.gz
+    - assets/data/
     - assets/data/hadiths.json
     - assets/data/hafs_smart_v8.json
     - assets/data/fiqh/
+    - assets/data/seerah/
     - assets/images/app_icon.png
     - assets/images/duas.png
     - assets/images/muhammed.png
@@ -131,7 +133,6 @@ flutter:
     - assets/audio/
     - assets/fonts/
     - assets/images/needle.svg
-    - assets/data/fiqh/
     # ── Quran SVG (KFQC / Hafs) ──────────────────────────────────────────
     # JSON polygon files for all 604 pages (hit-test data, ~3 MB total)
     - assets/quran_svg/hafs/kfqc/json/

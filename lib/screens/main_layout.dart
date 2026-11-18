@@ -27,6 +27,7 @@ import 'radio_page.dart';
 import 'calendar_page.dart';
 import 'hadith_library_page.dart';
 import 'fiqh_library_page.dart';
+import 'encyclopedia_screen.dart';
 import '../features/quran_madinah/ui/index_screen.dart';
 import '../features/quran_madinah/ui/mushaf_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -469,6 +470,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   isDark,
                   hijriDateMap['monthIndex'] as int,
                 ),
+              ),
+              SliverToBoxAdapter(
+                child: _buildEncyclopediaCard(context, isDark),
               ),
               SliverToBoxAdapter(child: _buildServicesSection(context, isDark)),
               SliverToBoxAdapter(
@@ -1008,6 +1012,100 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   // ---------------------------------------------------------------------------
+  //  Islamic Encyclopedia Card
+  // ---------------------------------------------------------------------------
+  Widget _buildEncyclopediaCard(BuildContext context, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.15)
+                : Colors.black.withValues(alpha: 0.1),
+            width: 0.8,
+          ),
+          boxShadow: isDark
+              ? []
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 15,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const EncyclopediaScreen()),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD4AF37).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.menu_book_outlined,
+                      color: Color(0xFFD4AF37),
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'الموسوعة الإسلامية',
+                          style: GoogleFonts.tajawal(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFFD4AF37),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'السيرة والتاريخ والشخصيات والأحداث',
+                          style: GoogleFonts.tajawal(
+                            fontSize: 13,
+                            color: isDark
+                                ? Colors.white70
+                                : const Color(0xFF546E7A),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_back_ios_new,
+                    size: 14,
+                    color: isDark ? Colors.white38 : Colors.grey[400],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   //  Services Grid
   // ---------------------------------------------------------------------------
   Widget _buildServicesSection(BuildContext context, bool isDark) {
@@ -1095,6 +1193,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'onTap': () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const FiqhLibraryPage()),
+        ),
+      },
+      {
+        'title': 'الموسوعة',
+        'icon': Icons.menu_book_outlined,
+        'onTap': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const EncyclopediaScreen()),
         ),
       },
     ];
