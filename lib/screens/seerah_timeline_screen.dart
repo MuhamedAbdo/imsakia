@@ -72,12 +72,12 @@ class _SeerahTimelineScreenState extends State<SeerahTimelineScreen> {
       final List<SeerahEvent> allEvents = [];
       for (final jsonString in results) {
         final List<dynamic> data = json.decode(jsonString);
-        allEvents.addAll(
-          data.map((item) => SeerahEvent.fromJson(item as Map<String, dynamic>)),
-        );
+        final fileEvents = data
+            .map((item) => SeerahEvent.fromJson(item as Map<String, dynamic>))
+            .toList();
+        fileEvents.sort((a, b) => a.sequence.compareTo(b.sequence));
+        allEvents.addAll(fileEvents);
       }
-
-      allEvents.sort((a, b) => a.sequence.compareTo(b.sequence));
 
       if (mounted) {
         setState(() {
@@ -375,6 +375,7 @@ class _SeerahTimelineScreenState extends State<SeerahTimelineScreen> {
 
                                   return _buildTimelineItem(
                                     event: event,
+                                    displayIndex: index + 1,
                                     isFirst: isFirst,
                                     isLast: isLast,
                                     isDark: isDark,
@@ -451,6 +452,7 @@ class _SeerahTimelineScreenState extends State<SeerahTimelineScreen> {
 
   Widget _buildTimelineItem({
     required SeerahEvent event,
+    required int displayIndex,
     required bool isFirst,
     required bool isLast,
     required bool isDark,
@@ -476,7 +478,7 @@ class _SeerahTimelineScreenState extends State<SeerahTimelineScreen> {
                   color: isFirst ? Colors.transparent : lineColor,
                 ),
                 // Glowing Node with sequence number
-                _buildTimelineNode(event, isDark),
+                _buildTimelineNode(displayIndex, isDark),
                 // Bottom line connector
                 Expanded(
                   child: Container(
@@ -500,7 +502,7 @@ class _SeerahTimelineScreenState extends State<SeerahTimelineScreen> {
     );
   }
 
-  Widget _buildTimelineNode(SeerahEvent event, bool isDark) {
+  Widget _buildTimelineNode(int displayIndex, bool isDark) {
     final accent = _getAccentColor(isDark);
 
     return Container(
@@ -523,7 +525,7 @@ class _SeerahTimelineScreenState extends State<SeerahTimelineScreen> {
       ),
       child: Center(
         child: Text(
-          '${event.sequence}',
+          '$displayIndex',
           style: GoogleFonts.tajawal(
             fontSize: 12,
             fontWeight: FontWeight.bold,
