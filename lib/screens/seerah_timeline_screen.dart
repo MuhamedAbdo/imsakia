@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../models/seerah_event.dart';
+import '../providers/font_settings_provider.dart';
 
 class SeerahTimelineScreen extends StatefulWidget {
   const SeerahTimelineScreen({super.key});
@@ -655,7 +657,7 @@ class _SeerahTimelineScreenState extends State<SeerahTimelineScreen> {
                   style: GoogleFonts.tajawal(
                     fontSize: 13,
                     color: isDark ? Colors.white70 : const Color(0xFF424242),
-                    height: 1.5,
+                    height: Provider.of<FontSettingsProvider>(context).lineHeight,
                   ),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
@@ -707,6 +709,7 @@ class _SeerahTimelineScreenState extends State<SeerahTimelineScreen> {
             minChildSize: 0.5,
             maxChildSize: 0.95,
             builder: (context, scrollController) {
+              final fontSettings = Provider.of<FontSettingsProvider>(context);
               return Container(
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
@@ -873,7 +876,7 @@ class _SeerahTimelineScreenState extends State<SeerahTimelineScreen> {
                               event.summary,
                               style: GoogleFonts.tajawal(
                                 fontSize: 14,
-                                height: 1.6,
+                                height: fontSettings.lineHeight,
                                 fontWeight: FontWeight.w500,
                                 color: isDark
                                     ? Colors.white.withValues(alpha: 0.85)
@@ -937,7 +940,7 @@ class _SeerahTimelineScreenState extends State<SeerahTimelineScreen> {
                                       detail,
                                       style: GoogleFonts.tajawal(
                                         fontSize: 13.5,
-                                        height: 1.6,
+                                        height: fontSettings.lineHeight,
                                         color: isDark
                                             ? Colors.white70
                                             : const Color(0xFF424242),
@@ -1019,7 +1022,7 @@ class _SeerahTimelineScreenState extends State<SeerahTimelineScreen> {
                                               lesson,
                                               style: GoogleFonts.tajawal(
                                                 fontSize: 13,
-                                                height: 1.55,
+                                                height: fontSettings.lineHeight,
                                                 fontWeight: FontWeight.w500,
                                                 color: isDark
                                                     ? Colors.white

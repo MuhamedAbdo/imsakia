@@ -437,49 +437,54 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       settings.hijriAdjustment,
     );
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: isDark
-            ? const Color(0xFF121212)
-            : const Color(0xFFF7F8FA),
-        body: RefreshIndicator(
-          onRefresh: _loadPrayerTimes,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(child: _buildDynamicHeader(context, isDark)),
-              SliverToBoxAdapter(child: _buildWarningBanner()),
-              SliverToBoxAdapter(
-                child: _buildHijriCard(
-                  context,
-                  hijriDateMap['formatted'] as String,
-                  isDark,
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: const TextScaler.linear(1.0),
+      ),
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          backgroundColor: isDark
+              ? const Color(0xFF121212)
+              : const Color(0xFFF7F8FA),
+          body: RefreshIndicator(
+            onRefresh: _loadPrayerTimes,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(child: _buildDynamicHeader(context, isDark)),
+                SliverToBoxAdapter(child: _buildWarningBanner()),
+                SliverToBoxAdapter(
+                  child: _buildHijriCard(
+                    context,
+                    hijriDateMap['formatted'] as String,
+                    isDark,
+                  ),
                 ),
-              ),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: EventCardWidget(),
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: EventCardWidget(),
+                  ),
                 ),
-              ),
-              SliverToBoxAdapter(child: _buildQuranCard(context, isDark)),
-              SliverToBoxAdapter(
-                child: _buildHorizontalPrayerRow(
-                  context,
-                  isDark,
-                  hijriDateMap['monthIndex'] as int,
+                SliverToBoxAdapter(child: _buildQuranCard(context, isDark)),
+                SliverToBoxAdapter(
+                  child: _buildHorizontalPrayerRow(
+                    context,
+                    isDark,
+                    hijriDateMap['monthIndex'] as int,
+                  ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: _buildEncyclopediaCard(context, isDark),
-              ),
-              SliverToBoxAdapter(child: _buildServicesSection(context, isDark)),
-              SliverToBoxAdapter(
-                child: _buildBukhariDailyCard(context, isDark),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 150)),
-            ],
+                SliverToBoxAdapter(
+                  child: _buildEncyclopediaCard(context, isDark),
+                ),
+                SliverToBoxAdapter(child: _buildServicesSection(context, isDark)),
+                SliverToBoxAdapter(
+                  child: _buildBukhariDailyCard(context, isDark),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 150)),
+              ],
+            ),
           ),
         ),
       ),

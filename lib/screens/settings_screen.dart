@@ -7,6 +7,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/settings_provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/font_settings_provider.dart';
 import '../features/athan/providers/athan_provider.dart';
 import '../features/athan_library/providers/athan_library_provider.dart';
 import '../features/athan_library/ui/athan_library_screen.dart';
@@ -356,6 +357,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                   _buildThemeSelector(isDark),
                 ],
               ),
+              const SizedBox(height: 15),
+              // 7. إعدادات القراءة والخط
+              _buildFontSettingsSection(isDark),
               const SizedBox(height: 30),
               _buildSaveButton(),
             ],
@@ -509,6 +513,214 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFontSettingsSection(bool isDark) {
+    return Consumer<FontSettingsProvider>(
+      builder: (context, fontSettings, child) {
+        final percentage = (fontSettings.fontScale * 100).round();
+        final lineHeightVal = fontSettings.lineHeight;
+
+        return _buildSection(
+          sectionIndex: 6,
+          title: 'إعدادات القراءة والخط',
+          icon: Icons.format_size_rounded,
+          children: [
+            // Header with reset button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'حجم ونمط خطوط القراءة',
+                  style: GoogleFonts.tajawal(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => fontSettings.resetToDefault(),
+                  icon: const Icon(Icons.refresh_rounded, size: 16, color: Colors.green),
+                  label: Text(
+                    'استعادة الافتراضي',
+                    style: GoogleFonts.tajawal(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // 1. Font scale slider
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'حجم الخط',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$percentage%',
+                        style: GoogleFonts.tajawal(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: Colors.green,
+                    inactiveTrackColor: isDark ? Colors.white12 : Colors.black12,
+                    thumbColor: Colors.green,
+                    overlayColor: Colors.green.withValues(alpha: 0.2),
+                  ),
+                  child: Slider(
+                    value: fontSettings.fontScale,
+                    min: FontSettingsProvider.minFontScale,
+                    max: FontSettingsProvider.maxFontScale,
+                    divisions: 11,
+                    onChanged: (val) => fontSettings.setFontScale(val),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // 2. Line height slider
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'التباعد بين الأسطر',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        lineHeightVal.toStringAsFixed(1),
+                        style: GoogleFonts.tajawal(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: Colors.blue,
+                    inactiveTrackColor: isDark ? Colors.white12 : Colors.black12,
+                    thumbColor: Colors.blue,
+                    overlayColor: Colors.blue.withValues(alpha: 0.2),
+                  ),
+                  child: Slider(
+                    value: fontSettings.lineHeight,
+                    min: FontSettingsProvider.minLineHeight,
+                    max: FontSettingsProvider.maxLineHeight,
+                    divisions: 8,
+                    onChanged: (val) => fontSettings.setLineHeight(val),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // 3. Live Preview Box
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF7F5EE),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? Colors.white12 : const Color(0xFFE0DDD2),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.preview_rounded, size: 16, color: Colors.grey),
+                      const SizedBox(width: 6),
+                      Text(
+                        'معاينة حية',
+                        style: GoogleFonts.tajawal(
+                          fontSize: 11,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'عنوان رئيسي تجريبي',
+                    style: GoogleFonts.tajawal(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : const Color(0xFF1B5E20),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'عنوان فرعي يوضح التباين النسبي والخطوط',
+                    style: GoogleFonts.tajawal(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white70 : const Color(0xFF555555),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'عن عمر بن الخطاب رضي الله عنه قال: سمعت رسول الله صلى الله عليه وسلم يقول: "إنما الأعمال بالنيات، وإنما لكل امرئ ما نوى فمن كانت هجرته إلى الله ورسوله فهجرته إلى الله ورسوله".',
+                    style: GoogleFonts.amiri(
+                      fontSize: 15,
+                      height: lineHeightVal,
+                      color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF2C2C2C),
+                    ),
+                    textAlign: TextAlign.justify,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/hadith_item.dart';
 import '../services/bookmark_service.dart';
+import '../providers/font_settings_provider.dart';
 
 class HadithReadingPage extends StatefulWidget {
   final List<HadithItem> allHadiths;
@@ -32,13 +33,7 @@ class HadithReadingPage extends StatefulWidget {
 class _HadithReadingPageState extends State<HadithReadingPage> {
   late PageController _pageController;
   late int _currentIndex;
-  double _currentFontSize = 18.0; // حجم الخط الحالي
-  double _currentLineHeight = 1.6; // التباعد بين الأسطر الحالي
   final Set<int> _bookmarkedHadiths = <int>{};
-
-  // ValueNotifier for font settings to ensure proper state propagation
-  final _fontSizeNotifier = ValueNotifier<double>(18.0);
-  final _lineHeightNotifier = ValueNotifier<double>(1.6);
 
   @override
   void initState() {
@@ -55,7 +50,6 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
     }
     _currentIndex = idx;
     _pageController = PageController(initialPage: _currentIndex);
-    _loadSettings();
     _loadBookmarks();
   }
 
@@ -80,26 +74,7 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
   @override
   void dispose() {
     _pageController.dispose();
-    _saveSettings(); // حفظ الإعدادات عند الخروج
     super.dispose();
-  }
-
-  /// تحميل إعدادات الخط والتباعد المحفوظة
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _currentFontSize = prefs.getDouble('hadith_font_size') ?? 18.0;
-      _currentLineHeight = prefs.getDouble('hadith_line_height') ?? 1.6;
-      _fontSizeNotifier.value = _currentFontSize;
-      _lineHeightNotifier.value = _currentLineHeight;
-    });
-  }
-
-  /// حفظ إعدادات الخط والتباعد
-  Future<void> _saveSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('hadith_font_size', _fontSizeNotifier.value);
-    await prefs.setDouble('hadith_line_height', _lineHeightNotifier.value);
   }
 
   Future<void> _toggleBookmark() async {
@@ -132,127 +107,6 @@ class _HadithReadingPageState extends State<HadithReadingPage> {
         ),
       );
     }
-  }
-
-  void _showFontSettingsSheet(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.4,
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-        ),
-        child: Column(
-          children: [
-            // Header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: widget.coverColor,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(25),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'إعدادات الخط',
-                    style: GoogleFonts.tajawal(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
-            // Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    // Font size slider
-                    ValueListenableBuilder<double>(
-                      valueListenable: _fontSizeNotifier,
-                      builder: (context, fontSize, child) {
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'حجم الخط',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Slider(
-                              value: fontSize,
-                              min: 12,
-                              max: 24,
-                              divisions: 12,
-                              label: fontSize.round().toString(),
-                              onChanged: (value) {
-                                _fontSizeNotifier.value = value;
-                              },
-                              onChangeEnd: (value) {
-                                _saveSettings();
-                              },
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    // Line height slider
-                    ValueListenableBuilder<double>(
-                      valueListenable: _lineHeightNotifier,
-                      builder: (context, lineHeight, child) {
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'التباعد بين الأسطر',
-                              style: GoogleFonts.tajawal(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Slider(
-                              value: lineHeight,
-                              min: 1.0,
-                              max: 2.0,
-                              divisions: 10,
-                              label: lineHeight.toStringAsFixed(1),
-                              onChanged: (value) {
-                                _lineHeightNotifier.value = value;
-                              },
-                              onChangeEnd: (value) {
-                                _saveSettings();
-                              },
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   void _shareHadith() async {
@@ -340,25 +194,15 @@ ${currentHadith.description}
               const SizedBox(height: 16),
 
               // Hadith text
-              ValueListenableBuilder<double>(
-                valueListenable: _fontSizeNotifier,
-                builder: (context, fontSize, child) {
-                  return ValueListenableBuilder<double>(
-                    valueListenable: _lineHeightNotifier,
-                    builder: (context, lineHeight, child) {
-                      return Text(
-                        hadith.hadith,
-                        textAlign: TextAlign.right,
-                        style: GoogleFonts.amiri(
-                          fontSize: fontSize,
-                          height: lineHeight,
-                          color: isDark ? Colors.white : Colors.black87,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      );
-                    },
-                  );
-                },
+              Text(
+                hadith.hadith,
+                textAlign: TextAlign.right,
+                style: GoogleFonts.amiri(
+                  fontSize: 18,
+                  height: Provider.of<FontSettingsProvider>(context).lineHeight,
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontWeight: FontWeight.w400,
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -516,8 +360,8 @@ ${currentHadith.description}
               hadith.description,
               textAlign: TextAlign.right,
               style: GoogleFonts.tajawal(
-                fontSize: _currentFontSize,
-                height: _currentLineHeight,
+                fontSize: 16,
+                height: Provider.of<FontSettingsProvider>(context, listen: false).lineHeight,
                 color: isDark ? Colors.white70 : Colors.black87,
               ),
             ),
@@ -586,11 +430,6 @@ ${currentHadith.description}
           ),
           centerTitle: true,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.text_fields, color: Colors.white),
-              onPressed: () => _showFontSettingsSheet(context),
-              tooltip: 'إعدادات الخط',
-            ),
             IconButton(
               icon: Icon(
                 _bookmarkedHadiths.contains(_currentHadithNumber)

@@ -5,6 +5,7 @@ import 'package:imsakia/providers/bukhari_provider.dart';
 import 'package:imsakia/providers/quran_provider.dart';
 import 'package:provider/provider.dart';
 import '../models/bukhari_model.dart';
+import '../providers/font_settings_provider.dart';
 import 'bukhari_hadith_reading_page.dart';
 
 class BukhariLibraryPage extends StatefulWidget {
@@ -109,61 +110,6 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
     return spans;
   }
 
-  void _showFontSizeDialog() {
-    final quranProvider = Provider.of<QuranProvider>(context, listen: false);
-    showDialog(
-      context: context,
-      builder: (context) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            'حجم خط الأحاديث',
-            style: GoogleFonts.tajawal(fontWeight: FontWeight.w600),
-          ),
-          content: StatefulBuilder(
-            builder: (context, dialogSetState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${quranProvider.fontSize.toInt()}',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                  Slider(
-                    value: quranProvider.fontSize,
-                    min: 16.0,
-                    max: 45.0,
-                    divisions: 29,
-                    onChanged: (value) {
-                      quranProvider.setFontSize(value);
-                      dialogSetState(() {});
-                    },
-                  ),
-                ],
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'تم',
-                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -200,12 +146,6 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
               icon: const Icon(Icons.arrow_back_ios, color: appBarContentColor),
               onPressed: _onBack,
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.text_fields),
-                onPressed: _showFontSizeDialog,
-              ),
-            ],
           ),
           body: Column(
             children: [
@@ -430,7 +370,7 @@ class _BukhariLibraryPageState extends State<BukhariLibraryPage> {
               text: TextSpan(
                 style: GoogleFonts.amiri(
                   fontSize: fontSize,
-                  height: 1.6,
+                  height: Provider.of<FontSettingsProvider>(context).lineHeight,
                   color: isDarkMode ? Colors.white : Colors.black87,
                 ),
                 children: _getHighlightedText(

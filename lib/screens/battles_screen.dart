@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../models/battle_event.dart';
+import '../providers/font_settings_provider.dart';
 
 class BattlesScreen extends StatefulWidget {
   const BattlesScreen({super.key});
@@ -646,7 +648,7 @@ class _BattlesScreenState extends State<BattlesScreen> {
                   style: GoogleFonts.tajawal(
                     fontSize: 13,
                     color: isDark ? Colors.white70 : const Color(0xFF424242),
-                    height: 1.5,
+                    height: Provider.of<FontSettingsProvider>(context).lineHeight,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -698,6 +700,7 @@ class _BattlesScreenState extends State<BattlesScreen> {
             minChildSize: 0.5,
             maxChildSize: 0.95,
             builder: (context, scrollController) {
+              final fontSettings = Provider.of<FontSettingsProvider>(context);
               return Container(
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
@@ -887,7 +890,7 @@ class _BattlesScreenState extends State<BattlesScreen> {
                             battle.summary,
                             style: GoogleFonts.tajawal(
                               fontSize: 14,
-                              height: 1.6,
+                              height: fontSettings.lineHeight,
                               color: isDark ? Colors.white70 : const Color(0xFF424242),
                             ),
                           ),
@@ -1243,7 +1246,7 @@ class _BattlesScreenState extends State<BattlesScreen> {
         text,
         style: GoogleFonts.tajawal(
           fontSize: 13,
-          height: 1.6,
+          height: Provider.of<FontSettingsProvider>(context).lineHeight,
           color: isDark ? Colors.white70 : const Color(0xFF333333),
         ),
       ),
@@ -1286,7 +1289,7 @@ class _BattlesScreenState extends State<BattlesScreen> {
               text,
               style: GoogleFonts.tajawal(
                 fontSize: 13,
-                height: 1.5,
+                height: Provider.of<FontSettingsProvider>(context).lineHeight,
                 color: isDark ? Colors.white70 : const Color(0xFF333333),
               ),
             ),
@@ -1323,7 +1326,7 @@ class _BattlesScreenState extends State<BattlesScreen> {
               text,
               style: GoogleFonts.tajawal(
                 fontSize: 13,
-                height: 1.5,
+                height: Provider.of<FontSettingsProvider>(context).lineHeight,
                 color: isDark ? Colors.white70 : const Color(0xFF333333),
               ),
             ),

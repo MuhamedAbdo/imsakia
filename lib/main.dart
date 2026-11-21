@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'providers/theme_provider.dart';
 import 'providers/settings_provider.dart';
+import 'providers/font_settings_provider.dart';
 import 'providers/quran_provider.dart';
 import 'providers/quran_audio_provider.dart';
 import 'providers/bukhari_provider.dart'; // تأكد من وجود هذا الاستيراد
@@ -474,6 +475,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: widget.settingsProvider),
+        ChangeNotifierProvider(create: (_) => FontSettingsProvider(widget.prefs)),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider.value(value: HadithService.instance),
         ChangeNotifierProvider(create: (_) => QuranProvider()),
@@ -490,8 +492,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
-          return Consumer<SettingsProvider>(
-            builder: (context, settingsProvider, child) {
+          return Consumer2<SettingsProvider, FontSettingsProvider>(
+            builder: (context, settingsProvider, fontSettings, child) {
               themeProvider.syncWithSettingsProvider(
                 settingsProvider.themeMode,
               );
@@ -537,7 +539,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                   return MediaQuery(
                     data: MediaQuery.of(
                       context,
-                    ).copyWith(textScaler: TextScaler.noScaling),
+                    ).copyWith(
+                      textScaler: TextScaler.linear(fontSettings.fontScale),
+                    ),
                     child: child!,
                   );
                 },

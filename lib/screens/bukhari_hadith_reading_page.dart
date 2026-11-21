@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/bukhari_model.dart';
 import '../providers/quran_provider.dart';
+import '../providers/font_settings_provider.dart';
 import 'package:provider/provider.dart';
 
 class BukhariHadithReadingPage extends StatelessWidget {
@@ -167,7 +168,7 @@ _________________________
                   hadith.text,
                   style: GoogleFonts.amiri(
                     fontSize: fontSize,
-                    height: 1.8,
+                    height: Provider.of<FontSettingsProvider>(context).lineHeight,
                     color: isDarkMode ? Colors.white : Colors.black87,
                     fontWeight: FontWeight.w500,
                   ),

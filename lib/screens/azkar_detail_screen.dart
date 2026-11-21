@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../models/azkar.dart';
 import '../services/azkar_service.dart';
 import '../utils/app_constants.dart';
+import '../providers/font_settings_provider.dart';
 
 class AzkarDetailScreen extends StatefulWidget {
   final AzkarCategory category;
@@ -19,7 +20,6 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
     with TickerProviderStateMixin {
   late AnimationController _progressController;
   late Animation<double> _progressAnimation;
-  double _fontSize = 18.0;
 
   @override
   void initState() {
@@ -31,33 +31,12 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
     _progressAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _progressController, curve: Curves.easeInOut),
     );
-    _loadSettings();
   }
 
   @override
   void dispose() {
     _progressController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadSettings() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      setState(() {
-        _fontSize = prefs.getDouble('azkar_font_size') ?? 18.0;
-      });
-    } catch (e) {
-      debugPrint('❌ Error loading Azkar settings: $e');
-    }
-  }
-
-  Future<void> _saveSettings() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble('azkar_font_size', _fontSize);
-    } catch (e) {
-      debugPrint('❌ Error saving Azkar settings: $e');
-    }
   }
 
   void _incrementZikr(Azkar azkar) {
@@ -150,87 +129,11 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
     );
   }
 
-  void _showFontSizeDialog() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    showDialog(
-      context: context,
-      builder: (context) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            'تغيير حجم الخط',
-            style: GoogleFonts.tajawal(
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-          content: StatefulBuilder(
-            builder: (context, dialogSetState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${_fontSize.toInt()}',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AppConstants.primaryColor,
-                    ),
-                  ),
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: AppConstants.primaryColor,
-                      inactiveTrackColor: isDark ? Colors.white12 : Colors.black12,
-                      thumbColor: AppConstants.primaryColor,
-                      // استخدام .withValues بدلاً من .withOpacity
-                      overlayColor: AppConstants.primaryColor.withValues(alpha: 0.2),
-                    ),
-                    child: Slider(
-                      value: _fontSize,
-                      min: 16.0,
-                      max: 34.0,
-                      divisions: 18,
-                      onChanged: (value) {
-                        dialogSetState(() => _fontSize = value);
-                        setState(() => _fontSize = value);
-                      },
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppConstants.primaryColor,
-                foregroundColor: Colors.white, 
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () {
-                _saveSettings();
-                Navigator.of(context).pop();
-              },
-              child: Text(
-                'حفظ',
-                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fontSettings = Provider.of<FontSettingsProvider>(context);
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -253,10 +156,6 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
             IconButton(
               onPressed: _resetCounters,
               icon: const Icon(Icons.refresh),
-            ),
-            IconButton(
-              onPressed: _showFontSizeDialog,
-              icon: const Icon(Icons.text_fields),
             ),
           ],
         ),
@@ -281,7 +180,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
                   itemCount: widget.category.azkar.length,
                   itemBuilder: (context, index) =>
-                      _buildAzkarCard(widget.category.azkar[index]),
+                      _buildAzkarCard(widget.category.azkar[index], fontSettings),
                 ),
               ),
             ],
@@ -360,7 +259,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
     );
   }
 
-  Widget _buildAzkarCard(Azkar azkar) {
+  Widget _buildAzkarCard(Azkar azkar, FontSettingsProvider fontSettings) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return AnimatedContainer(
@@ -408,7 +307,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                   child: Text(
                     azkar.header!,
                     style: GoogleFonts.tajawal(
-                      fontSize: _fontSize * 0.8,
+                      fontSize: 16,
                       color: isDark
                           ? Colors.amber.shade300
                           : AppConstants.primaryColor,
@@ -422,8 +321,8 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
               Text(
                 azkar.text,
                 style: GoogleFonts.amiri(
-                  fontSize: _fontSize,
-                  height: 1.8,
+                  fontSize: 20,
+                  height: fontSettings.lineHeight,
                   fontWeight: FontWeight.w600,
                   color: azkar.isCompleted
                       ? (isDark ? Colors.greenAccent : Colors.green.shade900)
@@ -454,8 +353,8 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                   child: Text(
                     azkar.comment!,
                     style: GoogleFonts.tajawal(
-                      fontSize: _fontSize * 0.7,
-                      height: 1.5,
+                      fontSize: 14,
+                      height: fontSettings.lineHeight,
                       color: isDark
                           ? Colors.grey.shade300
                           : Colors.grey.shade700,

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../services/fasting_fiqh_service.dart';
 import '../models/fasting_fiqh_question.dart';
+import '../providers/font_settings_provider.dart';
 
 class FastingFiqhScreen extends StatefulWidget {
   const FastingFiqhScreen({super.key});
@@ -15,7 +17,6 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
   List<FastingFiqhQuestion> _filteredQuestions = [];
   List<FastingFiqhQuestion> _allQuestions = [];
   bool _isSearching = false;
-  double _answerFontSize = 16.0; // حجم الخط الافتراضي
 
   @override
   void initState() {
@@ -42,64 +43,6 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
     });
   }
 
-  void _showFontSizeDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            'حجم خط الإجابة',
-            style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
-          ),
-          content: StatefulBuilder(
-            builder: (context, setDialogState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${_answerFontSize.toInt()}',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Slider(
-                    value: _answerFontSize,
-                    min: 14,
-                    max: 32,
-                    divisions: 9,
-                    activeColor: Theme.of(context).primaryColor,
-                    onChanged: (value) {
-                      setDialogState(() => _answerFontSize = value);
-                      setState(() => _answerFontSize = value);
-                    },
-                  ),
-                  Text(
-                    'هذا النص للمعاينة',
-                    style: GoogleFonts.tajawal(fontSize: _answerFontSize),
-                  ),
-                ],
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'تم',
-                style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -122,13 +65,6 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
           centerTitle: true,
           backgroundColor: primaryColor,
           elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.format_size, color: Colors.white),
-              onPressed: _showFontSizeDialog,
-              tooltip: 'تغيير حجم الخط',
-            ),
-          ],
         ),
         body: Column(
           children: [
@@ -290,8 +226,8 @@ class _FastingFiqhScreenState extends State<FastingFiqhScreen> {
                   Text(
                     question.answer,
                     style: GoogleFonts.tajawal(
-                      fontSize: _answerFontSize,
-                      height: 1.8,
+                      fontSize: 16.0,
+                      height: Provider.of<FontSettingsProvider>(context).lineHeight,
                       color: isDark ? Colors.grey[300] : Colors.grey[800],
                     ),
                   ),
