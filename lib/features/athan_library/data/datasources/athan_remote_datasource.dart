@@ -15,7 +15,7 @@ abstract class AthanRemoteDataSource {
 /// التطبيق الفعلي باستخدام حزمة http والتخزين المؤقت المحلي
 class AthanRemoteDataSourceImpl implements AthanRemoteDataSource {
   static const String _apiUrl =
-      'https://gist.githubusercontent.com/MuhamedAbdo/11e230a238e9648bcc22cb37f941555a/raw/bf796cd5641d4e862c69605c2eaa880fb4cb9b12/athan_api.json';
+      'https://gist.githubusercontent.com/MuhamedAbdo/11e230a238e9648bcc22cb37f941555a/raw/athan_api.json';
   static const String _cacheKey = 'cached_athan_api_json';
   static const String _cacheFileName = 'athan_api_cache.json';
 

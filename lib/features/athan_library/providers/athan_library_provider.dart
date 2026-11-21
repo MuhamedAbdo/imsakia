@@ -54,18 +54,20 @@ class AthanLibraryProvider with ChangeNotifier {
   final Map<String, String> _assignedNames = {};
 
   // ─── Getters ──────────────────────────────────────────────────────────────
-  /// قائمة الأذان العادي (في وضع عدم الاتصال تُعرض فقط الأصوات المحمّلة محلياً)
+  /// قائمة الأذان العادي (في وضع عدم الاتصال تُعرض فقط الأصوات المحمّلة محلياً، ومستبعد منها التكبيرات)
   List<AthanModel> get normalAthans {
-    final list = _allAthans.where((a) => !a.isFajr);
+    final list = _allAthans
+        .where((a) => !a.isFajr && !a.name.contains('تكبيرات'));
     if (_isOffline) {
       return list.where((a) => isDownloaded(a.id)).toList();
     }
     return list.toList();
   }
 
-  /// قائمة أذان الفجر (في وضع عدم الاتصال تُعرض فقط الأصوات المحمّلة محلياً)
+  /// قائمة أذان الفجر (في وضع عدم الاتصال تُعرض فقط الأصوات المحمّلة محلياً، ومستبعد منها التكبيرات)
   List<AthanModel> get fajrAthans {
-    final list = _allAthans.where((a) => a.isFajr);
+    final list = _allAthans
+        .where((a) => a.isFajr && !a.name.contains('تكبيرات'));
     if (_isOffline) {
       return list.where((a) => isDownloaded(a.id)).toList();
     }
@@ -78,7 +80,9 @@ class AthanLibraryProvider with ChangeNotifier {
   String? get playingId => _playingId;
 
   /// هل تتوفر أي أصوات محملة محلياً على الجهاز
-  bool get hasOfflineAthans => _allAthans.any((a) => isDownloaded(a.id));
+  bool get hasOfflineAthans => _allAthans
+      .where((a) => !a.name.contains('تكبيرات'))
+      .any((a) => isDownloaded(a.id));
 
   /// إرجاع اسم الأذان السحابي المعين لصلاة معينة، أو null إذا لم يكن هناك واحد.
   String? getAssignedNameFor(String prayerKey) => _assignedNames[prayerKey];
@@ -209,7 +213,8 @@ class AthanLibraryProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      _allAthans = await _remoteDataSource.fetchAthans();
+      final fetched = await _remoteDataSource.fetchAthans();
+      _allAthans = fetched.where((a) => !a.name.contains('تكبيرات')).toList();
       _isOffline = false;
       _errorMessage = null;
     } catch (e) {
@@ -223,7 +228,8 @@ class AthanLibraryProvider with ChangeNotifier {
       // استرجاع القائمة المخزنة مؤقتاً
       final cachedAthans = await _remoteDataSource.getCachedAthans();
       if (cachedAthans.isNotEmpty) {
-        _allAthans = cachedAthans;
+        _allAthans =
+            cachedAthans.where((a) => !a.name.contains('تكبيرات')).toList();
       }
 
       // التحقق هل توجد أصوات محملة محلياً يمكن عرضها في وضع عدم الاتصال
