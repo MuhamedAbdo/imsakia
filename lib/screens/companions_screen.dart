@@ -783,7 +783,7 @@ class _CompanionsScreenState extends State<CompanionsScreen> {
                           // Islam Story Section
                           _buildSectionHeader(
                             icon: Icons.wb_sunny_outlined,
-                            title: 'إسلامه ونشأته',
+                            title: companion.isFemale ? 'إسلامها ونشأتها' : 'إسلامه ونشأته',
                             accentColor: accent,
                             isDark: isDark,
                           ),
@@ -845,7 +845,7 @@ class _CompanionsScreenState extends State<CompanionsScreen> {
                           if (companion.keyMoments.isNotEmpty) ...[
                             _buildSectionHeader(
                               icon: Icons.flag_outlined,
-                              title: 'مواقف خالدة من حياته',
+                              title: companion.isFemale ? 'مواقف خالدة من حياتها' : 'مواقف خالدة من حياته',
                               accentColor: accent,
                               isDark: isDark,
                             ),

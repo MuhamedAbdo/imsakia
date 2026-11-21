@@ -31,6 +31,11 @@ class Companion {
     required this.source,
   });
 
+  bool get isFemale =>
+      category == 'mothers' ||
+      name.contains('بنت') ||
+      name.startsWith('أم ');
+
   factory Companion.fromJson(Map<String, dynamic> json) {
     return Companion(
       id: json['id'] as String? ?? '',
