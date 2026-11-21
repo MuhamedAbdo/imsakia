@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'seerah_timeline_screen.dart';
+import 'battles_screen.dart';
 
 class EncyclopediaScreen extends StatelessWidget {
   const EncyclopediaScreen({super.key});
@@ -84,7 +85,7 @@ class EncyclopediaScreen extends StatelessWidget {
 
                 // Availability Status Badge
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
                     color: isDark
                         ? const Color(0xFFD4AF37).withValues(alpha: 0.15)
@@ -104,12 +105,16 @@ class EncyclopediaScreen extends StatelessWidget {
                         color: Color(0xFFD4AF37),
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        'السيرة النبوية متاحة الآن • باقي الأقسام قريباً',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFFD4AF37),
+                      Flexible(
+                        child: Text(
+                          'السيرة والغزوات متاحة الآن • البقية قريباً',
+                          softWrap: true,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.tajawal(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFFD4AF37),
+                          ),
                         ),
                       ),
                     ],
@@ -187,6 +192,14 @@ class EncyclopediaScreen extends StatelessWidget {
                         title: 'الغزوات والسرايا',
                         subtitle: 'أحداث ودروس المعارك الإسلامية الخالدة',
                         isDark: isDark,
+                        isAvailable: true,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const BattlesScreen(),
+                            ),
+                          );
+                        },
                       ),
                       const Divider(height: 20, thickness: 0.5),
                       _buildTopicRow(
@@ -209,7 +222,7 @@ class EncyclopediaScreen extends StatelessWidget {
 
                 // Note
                 Text(
-                  'تم إطلاق قسم السيرة النبوية المطهرة بتصميم الخط الزمني، ونعمل على استكمال بقية الأبواب قريباً بإذن الله.',
+                  'تم إطلاق قسمي السيرة النبوية المطهرة والغزوات والسرايا، ونعمل على استكمال بقية الأبواب قريباً بإذن الله.',
                   style: GoogleFonts.tajawal(
                     fontSize: 13,
                     color: isDark ? Colors.white38 : Colors.black38,
