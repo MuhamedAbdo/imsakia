@@ -26,6 +26,7 @@ class _CompanionsScreenState extends State<CompanionsScreen> {
   final List<Map<String, String>> _categories = [
     {'id': 'all', 'label': 'الكل'},
     {'id': 'ashara', 'label': 'المبشرون بالجنة'},
+    {'id': 'mothers', 'label': 'أمهات المؤمنين'},
     {'id': 'ahl_albayt_women', 'label': 'آل البيت والصحابيات'},
     {'id': 'men', 'label': 'رجال حول الرسول'},
   ];
@@ -63,6 +64,7 @@ class _CompanionsScreenState extends State<CompanionsScreen> {
 
       final results = await Future.wait([
         rootBundle.loadString('assets/data/companions/01_ashara.json'),
+        rootBundle.loadString('assets/data/companions/04_mothers_of_believers.json'),
         rootBundle.loadString('assets/data/companions/02_ahl_albayt_women.json'),
         rootBundle.loadString('assets/data/companions/03_men_around_prophet.json'),
       ]);
@@ -72,17 +74,22 @@ class _CompanionsScreenState extends State<CompanionsScreen> {
           .toList();
       asharaList.sort((a, b) => a.sequence.compareTo(b.sequence));
 
-      final List<Companion> ahlAlbaytList = (json.decode(results[1]) as List<dynamic>)
+      final List<Companion> mothersList = (json.decode(results[1]) as List<dynamic>)
+          .map((item) => Companion.fromJson(item as Map<String, dynamic>))
+          .toList();
+      mothersList.sort((a, b) => a.sequence.compareTo(b.sequence));
+
+      final List<Companion> ahlAlbaytList = (json.decode(results[2]) as List<dynamic>)
           .map((item) => Companion.fromJson(item as Map<String, dynamic>))
           .toList();
       ahlAlbaytList.sort((a, b) => a.sequence.compareTo(b.sequence));
 
-      final List<Companion> menList = (json.decode(results[2]) as List<dynamic>)
+      final List<Companion> menList = (json.decode(results[3]) as List<dynamic>)
           .map((item) => Companion.fromJson(item as Map<String, dynamic>))
           .toList();
       menList.sort((a, b) => a.sequence.compareTo(b.sequence));
 
-      final combined = [...asharaList, ...ahlAlbaytList, ...menList];
+      final combined = [...asharaList, ...mothersList, ...ahlAlbaytList, ...menList];
 
       if (mounted) {
         setState(() {
