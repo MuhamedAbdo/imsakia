@@ -5,7 +5,7 @@ import '../data/models/athan_model.dart';
 import '../providers/athan_library_provider.dart';
 import '../../athan/providers/athan_provider.dart';
 
-/// شاشة مكتبة الأذان الكاملة
+/// شاشة مكتبة الأذان الكاملة مع دعم وضع عدم الاتصال
 class AthanLibraryScreen extends StatefulWidget {
   const AthanLibraryScreen({super.key});
 
@@ -53,7 +53,7 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
     final isPlaying = provider.playingId == athan.id;
 
     if (isPlaying) {
-      // إيقاف صريح بطلب المستخدم — هذا هو الاستخدام الصحيح لـ stop().
+      // إيقاف صريح بطلب المستخدم
       await _player.stop();
       provider.setPlayingId(null);
       return;
@@ -62,7 +62,7 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
     // مؤشّر التحميل الفوري (يتحول زر التشغيل إلى إيقاف أثناء الإعداد).
     provider.setPlayingId(athan.id);
 
-    // الإصلاح الثالث: إذا كان الصوت محمّلًا محليًا فعاينه من القرص بدل البثّ البعيد.
+    // إذا كان الصوت محمّلًا محليًا فعاينه من القرص بدل البثّ البعيد.
     final String? localPath = provider.isDownloaded(athan.id)
         ? provider.localPathOf(athan.id)
         : null;
@@ -71,7 +71,6 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
       // إذا اختار المستخدم مصدرًا آخر أثناء المحاولة، أوقف هذه المحاولة بصمت.
       if (!mounted || provider.playingId != athan.id) return;
       try {
-        // setUrl/setFilePath وحدها تُصفّر المصدر السابق بأمان (لا حاجة لـ stop() هنا).
         if (localPath != null) {
           await _player.setFilePath(localPath);
         } else {
@@ -80,13 +79,13 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
         await _player.play();
         return; // نجاح
       } on PlayerInterruptedException {
-        // المستخدم انتقل عمدًا إلى ملف آخر قبل اكتمال التحميل — ليس فشل خادم ولا عطلًا.
+        // المستخدم انتقل عمدًا إلى ملف آخر قبل اكتمال التحميل — تجاهل بصمت.
         return;
       } catch (e) {
-        // فقدت هذه المعاينة التركيز (اختيار أحدث) — تجاهل بصمت.
+        // فقدت هذه المعاينة التركيز — تجاهل بصمت.
         if (!mounted || provider.playingId != athan.id) return;
 
-        // الإصلاح الأول: إعادة محاولة محدودة على أخطاء الخادم/المصدر المؤقتة فقط.
+        // إعادة محاولة محدودة على أخطاء الخادم/المصدر المؤقتة فقط.
         final bool transient = localPath == null && _isTransientSourceError(e);
         if (transient && attempt < _previewMaxAttempts) {
           await Future.delayed(const Duration(milliseconds: 700));
@@ -95,12 +94,16 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
 
         provider.setPlayingId(null);
         if (mounted) {
+          // رسالة للمستخدم بدون تفاصيل تقنية (e.toString())
           final String message = transient
               ? 'الخادم لم يستجب الآن، حاول مجددًا بعد قليل'
-              : 'تعذّر تشغيل الصوت: $e';
+              : 'تعذّر تشغيل الصوت، يرجى المحاولة مرة أخرى';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(message),
+              content: Text(
+                message,
+                style: const TextStyle(fontFamily: 'Tajawal'),
+              ),
               backgroundColor: Colors.red.shade700,
             ),
           );
@@ -110,11 +113,9 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
     }
   }
 
-  /// يميّز أخطاء المصدر/الخادم المؤقتة (HTTP 5xx / انقطاع اتصال) عن غيرها،
-  /// حتى لا نُعيد المحاولة على كل خطأ بلا تمييز (مثل 404 أو رابط غير صالح).
+  /// يميّز أخطاء المصدر/الخادم المؤقتة (HTTP 5xx / انقطاع اتصال) عن غيرها
   bool _isTransientSourceError(Object e) {
     if (e is PlayerException) {
-      // على أندرويد: code = ExoPlaybackException.type، و TYPE_SOURCE == 1.
       if (e.code != 1) return false;
       final m = (e.message ?? '').toLowerCase();
       return m.contains('response code: 5') ||
@@ -146,7 +147,8 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
           'maghrib': 'المغرب',
           'isha': 'العشاء',
         };
-        successMessage = 'تم تعيين "${athan.name}" لصلاة ${prayerNamesAr[prayerKey]} ✓';
+        successMessage =
+            'تم تعيين "${athan.name}" لصلاة ${prayerNamesAr[prayerKey]} ✓';
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -174,7 +176,10 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('فشل التحميل، تحقق من الاتصال بالإنترنت'),
+          content: const Text(
+            'فشل التحميل، تحقق من الاتصال بالإنترنت',
+            style: TextStyle(fontFamily: 'Tajawal'),
+          ),
           backgroundColor: Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -223,7 +228,8 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.all_inclusive, color: Color(0xFF1B5E20)),
-                title: const Text('تعيين كأذان موحد لجميع الصلوات', style: TextStyle(fontFamily: 'Tajawal')),
+                title: const Text('تعيين كأذان موحد لجميع الصلوات',
+                    style: TextStyle(fontFamily: 'Tajawal')),
                 onTap: () {
                   Navigator.pop(context);
                   _downloadAndSet(athan, prayerKey: 'all');
@@ -231,7 +237,8 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
               ),
               ListTile(
                 leading: const Icon(Icons.wb_sunny, color: Colors.orange),
-                title: const Text('صلاة الظهر', style: TextStyle(fontFamily: 'Tajawal')),
+                title: const Text('صلاة الظهر',
+                    style: TextStyle(fontFamily: 'Tajawal')),
                 onTap: () {
                   Navigator.pop(context);
                   _downloadAndSet(athan, prayerKey: 'dhuhr');
@@ -239,7 +246,8 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
               ),
               ListTile(
                 leading: const Icon(Icons.wb_twilight, color: Colors.deepOrange),
-                title: const Text('صلاة العصر', style: TextStyle(fontFamily: 'Tajawal')),
+                title: const Text('صلاة العصر',
+                    style: TextStyle(fontFamily: 'Tajawal')),
                 onTap: () {
                   Navigator.pop(context);
                   _downloadAndSet(athan, prayerKey: 'asr');
@@ -247,7 +255,8 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
               ),
               ListTile(
                 leading: const Icon(Icons.nights_stay, color: Colors.indigo),
-                title: const Text('صلاة المغرب', style: TextStyle(fontFamily: 'Tajawal')),
+                title: const Text('صلاة المغرب',
+                    style: TextStyle(fontFamily: 'Tajawal')),
                 onTap: () {
                   Navigator.pop(context);
                   _downloadAndSet(athan, prayerKey: 'maghrib');
@@ -255,7 +264,8 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
               ),
               ListTile(
                 leading: const Icon(Icons.star, color: Colors.deepPurple),
-                title: const Text('صلاة العشاء', style: TextStyle(fontFamily: 'Tajawal')),
+                title: const Text('صلاة العشاء',
+                    style: TextStyle(fontFamily: 'Tajawal')),
                 onTap: () {
                   Navigator.pop(context);
                   _downloadAndSet(athan, prayerKey: 'isha');
@@ -345,30 +355,75 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
             );
           }
 
-          // ─── حالة الخطأ ──────────────────────────────────────────────────
-          if (provider.errorMessage != null) {
+          // ─── حالة انقطاع الإنترنت مع عدم وجود أي أصوات محمّلة مسبقاً ──────
+          if (provider.errorMessage != null ||
+              (provider.isOffline && !provider.hasOfflineAthans)) {
             return Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.wifi_off_rounded,
-                        size: 64, color: Colors.red.shade400),
-                    const SizedBox(height: 16),
-                    Text(
-                      provider.errorMessage!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontFamily: 'Tajawal'),
+                    Container(
+                      width: 84,
+                      height: 84,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.red.shade900.withAlpha(40)
+                            : const Color(0xFFFDECEA),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.wifi_off_rounded,
+                        size: 42,
+                        color: isDark
+                            ? Colors.red.shade300
+                            : const Color(0xFFD32F2F),
+                      ),
                     ),
                     const SizedBox(height: 20),
+                    Text(
+                      'لا يوجد اتصال بالإنترنت',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'Tajawal',
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'يرجى التحقق من اتصالك بالإنترنت لتصفح وتحميل أصوات الأذان.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'Tajawal',
+                        fontSize: 14,
+                        height: 1.5,
+                        color: isDark ? Colors.white60 : Colors.black54,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     FilledButton.icon(
                       onPressed: provider.fetchAthans,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('إعادة المحاولة',
-                          style: TextStyle(fontFamily: 'Tajawal')),
+                      icon: const Icon(Icons.refresh_rounded, size: 20),
+                      label: const Text(
+                        'إعادة المحاولة',
+                        style: TextStyle(
+                          fontFamily: 'Tajawal',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
                       style: FilledButton.styleFrom(
                         backgroundColor: accentColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ],
@@ -377,35 +432,136 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
             );
           }
 
-          // ─── القوائم ─────────────────────────────────────────────────────
-          return TabBarView(
-            controller: _tabController,
+          // ─── القوائم (وضع الاتصال أو وضع عدم الاتصال مع أصوات محملة) ────────
+          return Column(
             children: [
-              _AthanList(
-                athans: provider.normalAthans,
-                provider: provider,
-                cardColor: cardColor,
-                surfaceColor: surfaceColor,
-                accentColor: accentColor,
-                primaryColor: primaryColor,
-                isDark: isDark,
-                onPreview: _togglePreview,
-                onSetPressed: _onSetAthanPressed,
-              ),
-              _AthanList(
-                athans: provider.fajrAthans,
-                provider: provider,
-                cardColor: cardColor,
-                surfaceColor: surfaceColor,
-                accentColor: accentColor,
-                primaryColor: primaryColor,
-                isDark: isDark,
-                onPreview: _togglePreview,
-                onSetPressed: _onSetAthanPressed,
+              // شريط التنبيه الهادئ عند عدم توفر الإنترنت
+              if (provider.isOffline)
+                _OfflineBanner(
+                  isDark: isDark,
+                  onRetry: provider.fetchAthans,
+                ),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _AthanList(
+                      athans: provider.normalAthans,
+                      provider: provider,
+                      cardColor: cardColor,
+                      surfaceColor: surfaceColor,
+                      accentColor: accentColor,
+                      primaryColor: primaryColor,
+                      isDark: isDark,
+                      onPreview: _togglePreview,
+                      onSetPressed: _onSetAthanPressed,
+                    ),
+                    _AthanList(
+                      athans: provider.fajrAthans,
+                      provider: provider,
+                      cardColor: cardColor,
+                      surfaceColor: surfaceColor,
+                      accentColor: accentColor,
+                      primaryColor: primaryColor,
+                      isDark: isDark,
+                      onPreview: _togglePreview,
+                      onSetPressed: _onSetAthanPressed,
+                    ),
+                  ],
+                ),
               ),
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+// ─── شريط التنبيه الهادئ لوضع عدم الاتصال ─────────────────────────────────────
+class _OfflineBanner extends StatelessWidget {
+  final bool isDark;
+  final VoidCallback onRetry;
+
+  const _OfflineBanner({
+    required this.isDark,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF2C2416) : const Color(0xFFFFF8E1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF6B5320) : const Color(0xFFFFE082),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.wifi_off_rounded,
+            size: 20,
+            color: isDark ? const Color(0xFFFFD54F) : const Color(0xFFE65100),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'لا يوجد اتصال بالإنترنت — يتم عرض الأصوات المحمّلة على جهازك فقط',
+              style: TextStyle(
+                fontFamily: 'Tajawal',
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark
+                    ? const Color(0xFFFFECB3)
+                    : const Color(0xFF5D4037),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: onRetry,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFF4A3B18)
+                    : const Color(0xFFFFECB3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.refresh_rounded,
+                    size: 14,
+                    color: isDark
+                        ? const Color(0xFFFFD54F)
+                        : const Color(0xFFE65100),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'إعادة المحاولة',
+                    style: TextStyle(
+                      fontFamily: 'Tajawal',
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: isDark
+                          ? const Color(0xFFFFD54F)
+                          : const Color(0xFFE65100),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -438,12 +594,49 @@ class _AthanList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (athans.isEmpty) {
-      return const Center(
-        child: Text('لا توجد أذانات',
-            style: TextStyle(fontFamily: 'Tajawal')),
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                provider.isOffline
+                    ? Icons.folder_open_rounded
+                    : Icons.music_off_rounded,
+                size: 48,
+                color: isDark ? Colors.white24 : Colors.black26,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                provider.isOffline
+                    ? 'لا توجد أصوات محمّلة في هذا التبويب'
+                    : 'لا توجد أذانات',
+                style: TextStyle(
+                  fontFamily: 'Tajawal',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white70 : Colors.black87,
+                ),
+              ),
+              if (provider.isOffline) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'يمكنك تحميل أصوات جديدة عند الاتصال بالإنترنت',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Tajawal',
+                    fontSize: 12.5,
+                    color: isDark ? Colors.white38 : Colors.black45,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       );
     }
-    
+
     // ─── ترتيب الأذانات: المحملة تظهر في الأعلى ────────────────────────────────
     final sortedAthans = List<AthanModel>.from(athans)..sort((a, b) {
       final aDownloaded = provider.isDownloaded(a.id);
@@ -524,7 +717,8 @@ class _AthanCard extends StatelessWidget {
           'maghrib': 'المغرب',
           'isha': 'العشاء'
         };
-        final names = assignedPrayers.map((p) => prayerNames[p] ?? p).join('، ');
+        final names =
+            assignedPrayers.map((p) => prayerNames[p] ?? p).join('، ');
         badgeText = '✓ معين: $names';
       }
     }

@@ -9,7 +9,7 @@ import '../data/models/athan_model.dart';
 /// حالات تحميل الملف
 enum DownloadStatus { idle, downloading, done, error }
 
-/// Provider لإدارة مكتبة الأذان (جلب البيانات، التشغيل، التحميل، الحفظ)
+/// Provider لإدارة مكتبة الأذان (جلب البيانات، التشغيل، التحميل، الحفظ، ودعم وضع عدم الاتصال)
 class AthanLibraryProvider with ChangeNotifier {
   // ─── مفاتيح SharedPreferences للصلوات ──────────────────────────────────────
   static String _keyIdFor(String prayerKey) => 'athan_library_id_$prayerKey';
@@ -32,6 +32,7 @@ class AthanLibraryProvider with ChangeNotifier {
   // ─── State ────────────────────────────────────────────────────────────────
   List<AthanModel> _allAthans = [];
   bool _isLoading = false;
+  bool _isOffline = false;
   String? _errorMessage;
 
   /// الأذان الذي يُعاد تشغيله حاليًا (null = لا يوجد)
@@ -53,13 +54,31 @@ class AthanLibraryProvider with ChangeNotifier {
   final Map<String, String> _assignedNames = {};
 
   // ─── Getters ──────────────────────────────────────────────────────────────
-  List<AthanModel> get normalAthans =>
-      _allAthans.where((a) => !a.isFajr).toList();
-  List<AthanModel> get fajrAthans =>
-      _allAthans.where((a) => a.isFajr).toList();
+  /// قائمة الأذان العادي (في وضع عدم الاتصال تُعرض فقط الأصوات المحمّلة محلياً)
+  List<AthanModel> get normalAthans {
+    final list = _allAthans.where((a) => !a.isFajr);
+    if (_isOffline) {
+      return list.where((a) => isDownloaded(a.id)).toList();
+    }
+    return list.toList();
+  }
+
+  /// قائمة أذان الفجر (في وضع عدم الاتصال تُعرض فقط الأصوات المحمّلة محلياً)
+  List<AthanModel> get fajrAthans {
+    final list = _allAthans.where((a) => a.isFajr);
+    if (_isOffline) {
+      return list.where((a) => isDownloaded(a.id)).toList();
+    }
+    return list.toList();
+  }
+
   bool get isLoading => _isLoading;
+  bool get isOffline => _isOffline;
   String? get errorMessage => _errorMessage;
   String? get playingId => _playingId;
+
+  /// هل تتوفر أي أصوات محملة محلياً على الجهاز
+  bool get hasOfflineAthans => _allAthans.any((a) => isDownloaded(a.id));
 
   /// إرجاع اسم الأذان السحابي المعين لصلاة معينة، أو null إذا لم يكن هناك واحد.
   String? getAssignedNameFor(String prayerKey) => _assignedNames[prayerKey];
@@ -68,7 +87,8 @@ class AthanLibraryProvider with ChangeNotifier {
   String? getAssignedIdFor(String prayerKey) => _assignedIds[prayerKey];
 
   /// هل الصلاة المعينة لها أذان سحابي؟
-  bool hasCloudAthanFor(String prayerKey) => _assignedIds.containsKey(prayerKey) && _assignedNames.containsKey(prayerKey);
+  bool hasCloudAthanFor(String prayerKey) =>
+      _assignedIds.containsKey(prayerKey) && _assignedNames.containsKey(prayerKey);
 
   /// هل هذا الأذان معين لأي صلاة؟
   bool isAssigned(String id) => _assignedIds.containsValue(id);
@@ -87,15 +107,14 @@ class AthanLibraryProvider with ChangeNotifier {
 
   /// هل الملف موجود على القرص؟ يتحقق من الذاكرة أولاً ثم القرص
   bool isDownloaded(String id) {
-    // التحقق من الـ cache أولاً
     if (_downloadStatus[id] == DownloadStatus.done &&
         _localPaths.containsKey(id)) {
-      return true;
+      final p = _localPaths[id]!;
+      if (File(p).existsSync()) return true;
     }
-    // التحقق من القرص مباشرةً (يغطي حالة إعادة تشغيل التطبيق)
     final cachedPath = _localPaths[id];
-    if (cachedPath != null) {
-      return File(cachedPath).existsSync();
+    if (cachedPath != null && File(cachedPath).existsSync()) {
+      return true;
     }
     return false;
   }
@@ -126,6 +145,7 @@ class AthanLibraryProvider with ChangeNotifier {
             if (id.isNotEmpty && await entity.exists()) {
               _localPaths[id] = entity.path;
               _downloadStatus[id] = DownloadStatus.done;
+              _downloadProgress[id] = 1.0;
             }
           }
         }
@@ -157,7 +177,7 @@ class AthanLibraryProvider with ChangeNotifier {
   /// مسح الأذان السحابي لصلاة معينة (أو لكل الصلوات إذا كان prayerKey == 'all').
   Future<void> clearDefault({required String prayerKey}) async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     if (prayerKey == 'all') {
       final normalPrayers = ['dhuhr', 'asr', 'maghrib', 'isha'];
       for (var p in normalPrayers) {
@@ -173,10 +193,12 @@ class AthanLibraryProvider with ChangeNotifier {
       _assignedNames.remove(prayerKey);
       await prefs.remove(_keyIdFor(prayerKey));
       await prefs.remove(_keyNameFor(prayerKey));
-      final fallbackPath = prayerKey == 'fajr' ? "assets/audio/fajr_makkah.mp3" : "assets/audio/athan_makkah.mp3";
+      final fallbackPath = prayerKey == 'fajr'
+          ? "assets/audio/fajr_makkah.mp3"
+          : "assets/audio/athan_makkah.mp3";
       await prefs.setString(_keyPathFor(prayerKey), fallbackPath);
     }
-    
+
     notifyListeners();
   }
 
@@ -188,8 +210,31 @@ class AthanLibraryProvider with ChangeNotifier {
 
     try {
       _allAthans = await _remoteDataSource.fetchAthans();
+      _isOffline = false;
+      _errorMessage = null;
     } catch (e) {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      debugPrint(
+          '[AthanLibrary] Network fetch failed: $e. Checking offline cache...');
+      _isOffline = true;
+
+      // تحديث قائمة الملفات المحلية المحفوظة على القرص
+      await _scanLocalFiles();
+
+      // استرجاع القائمة المخزنة مؤقتاً
+      final cachedAthans = await _remoteDataSource.getCachedAthans();
+      if (cachedAthans.isNotEmpty) {
+        _allAthans = cachedAthans;
+      }
+
+      // التحقق هل توجد أصوات محملة محلياً يمكن عرضها في وضع عدم الاتصال
+      final hasLocal = _allAthans.any((a) => isDownloaded(a.id));
+      if (!hasLocal) {
+        // لا يوجد أي صوت محمل مسبقاً، نعيّن علامة لإظهار واجهة عدم الاتصال
+        // دون استخدام e.toString() لحجب الأخطاء التقنية عن المستخدم نهائياً
+        _errorMessage = 'NO_OFFLINE_ATHANS';
+      } else {
+        _errorMessage = null;
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -203,7 +248,8 @@ class AthanLibraryProvider with ChangeNotifier {
   }
 
   // ─── Download & Set ───────────────────────────────────────────────────────
-  Future<String?> downloadAndSet(AthanModel athan, {required String prayerKey}) async {
+  Future<String?> downloadAndSet(AthanModel athan,
+      {required String prayerKey}) async {
     final dir = await getApplicationDocumentsDirectory();
     // ✅ اسم فريد ثابت لكل أذان بناءً على ID — لا يتغير بين الجلسات
     final fileName = '$_filePrefix${athan.id}.mp3';
@@ -211,15 +257,18 @@ class AthanLibraryProvider with ChangeNotifier {
 
     // ─── تحقق 1: هل الملف موجود في الذاكرة (نفس الجلسة)؟ ─────────────────
     if (_localPaths.containsKey(athan.id)) {
-      debugPrint('[AthanLibrary] ✅ Cache hit for ${athan.id}, setting as default for $prayerKey');
-      await _saveAsDefault(athan, prayerKey: prayerKey, localPath: _localPaths[athan.id]!);
+      debugPrint(
+          '[AthanLibrary] ✅ Cache hit for ${athan.id}, setting as default for $prayerKey');
+      await _saveAsDefault(athan,
+          prayerKey: prayerKey, localPath: _localPaths[athan.id]!);
       return _localPaths[athan.id];
     }
 
     // ─── تحقق 2: هل الملف موجود على القرص (جلسة سابقة)؟ ──────────────────
     final file = File(filePath);
     if (await file.exists()) {
-      debugPrint('[AthanLibrary] 💾 Disk hit for ${athan.id}, skipping download');
+      debugPrint(
+          '[AthanLibrary] 💾 Disk hit for ${athan.id}, skipping download');
       _localPaths[athan.id] = filePath;
       _downloadStatus[athan.id] = DownloadStatus.done;
       _downloadProgress[athan.id] = 1.0;
@@ -267,7 +316,8 @@ class AthanLibraryProvider with ChangeNotifier {
     }
   }
 
-  Future<void> _saveAsDefault(AthanModel athan, {required String prayerKey, String? localPath}) async {
+  Future<void> _saveAsDefault(AthanModel athan,
+      {required String prayerKey, String? localPath}) async {
     final prefs = await SharedPreferences.getInstance();
     final path = localPath ?? _localPaths[athan.id] ?? '';
 
@@ -287,11 +337,7 @@ class AthanLibraryProvider with ChangeNotifier {
       await prefs.setString(_keyNameFor(prayerKey), athan.name);
       if (path.isNotEmpty) await prefs.setString(_keyPathFor(prayerKey), path);
     }
-    
+
     notifyListeners();
   }
-
-  // 🛡️ ملاحظة: الدالة getDefaultAthanPath لم تعد مستخدمة عالمياً بنفس الطريقة،
-  // لأن مسار الأذان يتم حفظه الآن مباشرة في مفتاح "athan_path_$prayerKey" الذي يعتمد عليه
-  // التطبيق ونظام الأندرويد الأصلي (Native). تم التخلص من الدالة لعدم الحاجة إليها.
 }
