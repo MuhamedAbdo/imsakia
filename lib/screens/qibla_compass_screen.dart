@@ -148,9 +148,13 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: const TextScaler.linear(1.0),
+      ),
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
         backgroundColor: isDarkMode
             ? const Color(0xFF0A0A0A)
             : const Color(0xFFF5F5F0),
@@ -177,7 +181,8 @@ class _QiblaCompassScreenState extends State<QiblaCompassScreen> {
             ? Center(child: Text(_error, style: GoogleFonts.tajawal()))
             : _buildCompassUI(isDarkMode),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildCompassUI(bool isDarkMode) {

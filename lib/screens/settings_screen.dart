@@ -281,22 +281,26 @@ class _SettingsScreenState extends State<SettingsScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: isDark
-            ? const Color(0xFF121212)
-            : const Color(0xFFF8F9FA),
-        appBar: widget.isFirstTimeSetup
-            ? null
-            : AppBar(
-                title: Text(
-                  'إعدادات المواقيت',
-                  style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: const TextScaler.linear(1.0),
+      ),
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          backgroundColor: isDark
+              ? const Color(0xFF121212)
+              : const Color(0xFFF8F9FA),
+          appBar: widget.isFirstTimeSetup
+              ? null
+              : AppBar(
+                  title: Text(
+                    'إعدادات المواقيت',
+                    style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+                  ),
+                  centerTitle: true,
                 ),
-                centerTitle: true,
-              ),
-        body: SingleChildScrollView(
+          body: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
@@ -366,7 +370,8 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildHijriAdjustmentControl() {
@@ -531,14 +536,18 @@ class _SettingsScreenState extends State<SettingsScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'حجم ونمط خطوط القراءة',
-                  style: GoogleFonts.tajawal(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white70 : Colors.black87,
+                Expanded(
+                  child: Text(
+                    'حجم ونمط خطوط القراءة',
+                    style: GoogleFonts.tajawal(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white70 : Colors.black87,
+                    ),
+                    softWrap: true,
                   ),
                 ),
+                const SizedBox(width: 8),
                 TextButton.icon(
                   onPressed: () => fontSettings.resetToDefault(),
                   icon: const Icon(Icons.refresh_rounded, size: 16, color: Colors.green),
@@ -660,62 +669,67 @@ class _SettingsScreenState extends State<SettingsScreen>
             const SizedBox(height: 16),
 
             // 3. Live Preview Box
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF7F5EE),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark ? Colors.white12 : const Color(0xFFE0DDD2),
-                ),
+            MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(fontSettings.fontScale),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.preview_rounded, size: 16, color: Colors.grey),
-                      const SizedBox(width: 6),
-                      Text(
-                        'معاينة حية',
-                        style: GoogleFonts.tajawal(
-                          fontSize: 11,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.bold,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF7F5EE),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? Colors.white12 : const Color(0xFFE0DDD2),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.preview_rounded, size: 16, color: Colors.grey),
+                        const SizedBox(width: 6),
+                        Text(
+                          'معاينة حية',
+                          style: GoogleFonts.tajawal(
+                            fontSize: 11,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'عنوان رئيسي تجريبي',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : const Color(0xFF1B5E20),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'عنوان رئيسي تجريبي',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : const Color(0xFF1B5E20),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'عنوان فرعي يوضح التباين النسبي والخطوط',
-                    style: GoogleFonts.tajawal(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white70 : const Color(0xFF555555),
+                    const SizedBox(height: 6),
+                    Text(
+                      'عنوان فرعي يوضح التباين النسبي والخطوط',
+                      style: GoogleFonts.tajawal(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white70 : const Color(0xFF555555),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'عن عمر بن الخطاب رضي الله عنه قال: سمعت رسول الله صلى الله عليه وسلم يقول: "إنما الأعمال بالنيات، وإنما لكل امرئ ما نوى فمن كانت هجرته إلى الله ورسوله فهجرته إلى الله ورسوله".',
-                    style: GoogleFonts.amiri(
-                      fontSize: 15,
-                      height: lineHeightVal,
-                      color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF2C2C2C),
+                    const SizedBox(height: 10),
+                    Text(
+                      'عن عمر بن الخطاب رضي الله عنه قال: سمعت رسول الله صلى الله عليه وسلم يقول: "إنما الأعمال بالنيات، وإنما لكل امرئ ما نوى فمن كانت هجرته إلى الله ورسوله فهجرته إلى الله ورسوله".',
+                      style: GoogleFonts.amiri(
+                        fontSize: 15,
+                        height: lineHeightVal,
+                        color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF2C2C2C),
+                      ),
+                      textAlign: TextAlign.justify,
                     ),
-                    textAlign: TextAlign.justify,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],

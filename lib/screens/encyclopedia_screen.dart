@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'seerah_timeline_screen.dart';
 import 'battles_screen.dart';
+import 'companions_screen.dart';
 
 class EncyclopediaScreen extends StatelessWidget {
   const EncyclopediaScreen({super.key});
@@ -10,9 +11,13 @@ class EncyclopediaScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: const TextScaler.linear(1.0),
+      ),
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
         backgroundColor: isDark
             ? const Color(0xFF121212)
             : const Color(0xFFF7F8FA),
@@ -107,7 +112,7 @@ class EncyclopediaScreen extends StatelessWidget {
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
-                          'السيرة والغزوات متاحة الآن • البقية قريباً',
+                          'السيرة والغزوات والصحابة متاحة الآن',
                           softWrap: true,
                           textAlign: TextAlign.center,
                           style: GoogleFonts.tajawal(
@@ -207,6 +212,14 @@ class EncyclopediaScreen extends StatelessWidget {
                         title: 'سير الصحابة الكرام',
                         subtitle: 'سير أعلام الهدى ورجال حول الرسول ﷺ',
                         isDark: isDark,
+                        isAvailable: true,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const CompanionsScreen(),
+                            ),
+                          );
+                        },
                       ),
                       const Divider(height: 20, thickness: 0.5),
                       _buildTopicRow(
@@ -222,7 +235,7 @@ class EncyclopediaScreen extends StatelessWidget {
 
                 // Note
                 Text(
-                  'تم إطلاق قسمي السيرة النبوية المطهرة والغزوات والسرايا، ونعمل على استكمال بقية الأبواب قريباً بإذن الله.',
+                  'تم إطلاق أقسام السيرة النبوية المطهرة والغزوات والسرايا وسير الصحابة الكرام، ونعمل على استكمال بقية الأبواب قريباً بإذن الله.',
                   style: GoogleFonts.tajawal(
                     fontSize: 13,
                     color: isDark ? Colors.white38 : Colors.black38,
@@ -235,7 +248,8 @@ class EncyclopediaScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildTopicRow({
@@ -269,12 +283,15 @@ class EncyclopediaScreen extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.tajawal(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : const Color(0xFF263238),
+                    Flexible(
+                      child: Text(
+                        title,
+                        softWrap: true,
+                        style: GoogleFonts.tajawal(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : const Color(0xFF263238),
+                        ),
                       ),
                     ),
                     if (isAvailable) ...[

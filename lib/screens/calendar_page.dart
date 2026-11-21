@@ -149,9 +149,13 @@ class _CalendarPageState extends State<CalendarPage>
     if (_tabController == null) return const SizedBox.shrink();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: const TextScaler.linear(1.0),
+      ),
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
         backgroundColor: isDarkMode
             ? const Color(0xFF121212)
             : const Color(0xFFF5F5F0),
@@ -201,7 +205,8 @@ class _CalendarPageState extends State<CalendarPage>
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildCustomHeader(bool isDarkMode) {

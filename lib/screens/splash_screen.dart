@@ -225,7 +225,11 @@ class _SplashScreenState extends State<SplashScreen>
       _navigationTimer = null;
     }
 
-    return Scaffold(
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        textScaler: const TextScaler.linear(1.0),
+      ),
+      child: Scaffold(
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -517,7 +521,8 @@ class _SplashScreenState extends State<SplashScreen>
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildBackgroundDecorations() {

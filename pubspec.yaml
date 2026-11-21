@@ -110,6 +110,7 @@ flutter:
     - assets/data/fiqh/
     - assets/data/seerah/
     - assets/data/battles/
+    - assets/data/companions/
     - assets/images/app_icon.png
     - assets/images/duas.png
     - assets/images/muhammed.png
