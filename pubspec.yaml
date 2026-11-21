@@ -111,6 +111,7 @@ flutter:
     - assets/data/seerah/
     - assets/data/battles/
     - assets/data/companions/
+    - assets/data/history/
     - assets/images/app_icon.png
     - assets/images/duas.png
     - assets/images/muhammed.png

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'seerah_timeline_screen.dart';
 import 'battles_screen.dart';
 import 'companions_screen.dart';
+import 'history_screen.dart';
 
 class EncyclopediaScreen extends StatelessWidget {
   const EncyclopediaScreen({super.key});
@@ -112,7 +113,7 @@ class EncyclopediaScreen extends StatelessWidget {
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
-                          'السيرة والغزوات والصحابة متاحة الآن',
+                          'جميع أقسام الموسوعة الإسلامية متاحة الآن',
                           softWrap: true,
                           textAlign: TextAlign.center,
                           style: GoogleFonts.tajawal(
@@ -227,6 +228,14 @@ class EncyclopediaScreen extends StatelessWidget {
                         title: 'التاريخ والحضارة الإسلامية',
                         subtitle: 'عصور الإشعاع الحضاري والأحداث التاريخية',
                         isDark: isDark,
+                        isAvailable: true,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const HistoryScreen(),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -235,7 +244,7 @@ class EncyclopediaScreen extends StatelessWidget {
 
                 // Note
                 Text(
-                  'تم إطلاق أقسام السيرة النبوية المطهرة والغزوات والسرايا وسير الصحابة الكرام، ونعمل على استكمال بقية الأبواب قريباً بإذن الله.',
+                  'تم إطلاق جميع أبواب الموسوعة الإسلامية: السيرة النبوية المطهرة، الغزوات والسرايا، سير الصحابة الكرام، والتاريخ والحضارة الإسلامية.',
                   style: GoogleFonts.tajawal(
                     fontSize: 13,
                     color: isDark ? Colors.white38 : Colors.black38,
