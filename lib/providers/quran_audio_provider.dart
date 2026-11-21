@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,10 +32,16 @@ class QuranAudioProvider extends ChangeNotifier {
   // رقم السورة الحالية التي يتم تشغيلها
   int? _currentSuraNumber;
 
+  // Concurrency & generation guards
+  int _loadGeneration = 0;
+  bool _isLoadingAudio = false;
+  int? _lastCompletedSuraHandled;
+
   String get currentReciterFolder => _currentReciterFolder;
   int? get currentPlayingAyaIndex => _currentPlayingAyaIndex;
   int? get currentSuraNumber => _currentSuraNumber;
   AudioPlayer get player => _player;
+  bool get isLoadingAudio => _isLoadingAudio;
 
   bool _isDownloading = false;
   double _downloadProgress = 0.0;
@@ -53,6 +60,7 @@ class QuranAudioProvider extends ChangeNotifier {
 
     // الاستماع لتغير الآية (Index) في طابور التشغيل
     _player.currentIndexStream.listen((index) {
+      if (_isLoadingAudio) return;
       if (index != null) {
         if (_isSingleAyah) {
           _currentPlayingAyaIndex = _singleAyahNumber;
@@ -79,15 +87,22 @@ class QuranAudioProvider extends ChangeNotifier {
     // الاستماع لحالة التشغيل لإعادة التعيين عند الانتهاء أو الانتقال للسورة التالية
     _player.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
-        if (!_isSingleAyah && _currentSuraNumber != null && _currentSuraNumber! < 114) {
-          // الانتقال التلقائي للسورة التالية (التشغيل المتواصل)
-          final nextSura = _currentSuraNumber! + 1;
+        if (!_isLoadingAudio &&
+            !_isSingleAyah &&
+            _currentSuraNumber != null &&
+            _currentSuraNumber! < 114) {
+          final completedSura = _currentSuraNumber!;
+          if (_lastCompletedSuraHandled == completedSura) {
+            return;
+          }
+          _lastCompletedSuraHandled = completedSura;
+          final nextSura = completedSura + 1;
           final totalAyahs = quran.getVerseCount(nextSura);
-          // نستخدم Future.microtask لتجنب تداخل الأحداث أثناء تغيير الـ state
-          Future.microtask(() => loadAndPlaySura(nextSura, totalAyahs));
-        } else {
+          loadAndPlaySura(nextSura, totalAyahs);
+        } else if (!_isLoadingAudio) {
           _currentPlayingAyaIndex = null;
           _currentSuraNumber = null;
+          _lastCompletedSuraHandled = null;
           notifyListeners();
         }
       }
@@ -97,6 +112,21 @@ class QuranAudioProvider extends ChangeNotifier {
     _player.playingStream.listen((playing) {
       notifyListeners();
     });
+  }
+
+  bool _isCancellationException(Object e) {
+    if (e is PlatformException) {
+      final code = e.code.toLowerCase();
+      final msg = (e.message ?? '').toLowerCase();
+      return code == 'abort' ||
+          msg.contains('abort') ||
+          msg.contains('loading interrupted') ||
+          msg.contains('interrupted');
+    }
+    final str = e.toString().toLowerCase();
+    return str.contains('loading interrupted') ||
+        str.contains('abort') ||
+        str.contains('interrupted');
   }
 
   Future<void> _initReciter() async {
@@ -132,6 +162,9 @@ class QuranAudioProvider extends ChangeNotifier {
   Future<void> changeReciter(String reciterFolder) async {
     if (_currentReciterFolder == reciterFolder) return;
     
+    _loadGeneration++;
+    _isLoadingAudio = false;
+    _lastCompletedSuraHandled = null;
     _currentReciterFolder = reciterFolder;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('quran_reciter_folder', reciterFolder);
@@ -145,18 +178,18 @@ class QuranAudioProvider extends ChangeNotifier {
 
   /// تحميل السورة وبدء التشغيل
   Future<void> loadAndPlaySura(int suraNumber, int totalAyahs, {int startAyah = 1}) async {
-    try {
-      _isSingleAyah = false;
-      _currentSuraNumber = suraNumber;
-      _currentPlayingAyaIndex = startAyah;
-      notifyListeners();
+    final gen = ++_loadGeneration;
+    _isLoadingAudio = true;
+    _isSingleAyah = false;
 
+    try {
       final List<AudioSource> audioSources = [];
       String suraStr = suraNumber.toString().padLeft(3, '0');
       
       final dir = await getApplicationDocumentsDirectory();
 
       for (int i = 1; i <= totalAyahs; i++) {
+        if (gen != _loadGeneration) return;
         String ayaStr = i.toString().padLeft(3, '0');
         String fileName = '$suraStr$ayaStr.mp3';
         String localPath = '${dir.path}/$_currentReciterFolder/$fileName';
@@ -169,23 +202,47 @@ class QuranAudioProvider extends ChangeNotifier {
         }
       }
 
+      if (gen != _loadGeneration) return;
+
       // تعيين المصدر للمشغل وبدء التشغيل مع تحديد نقطة البداية
       await _player.setAudioSources(audioSources, initialIndex: startAyah - 1);
-      _player.play();
+      
+      if (gen != _loadGeneration) return;
+
+      _currentSuraNumber = suraNumber;
+      _currentPlayingAyaIndex = startAyah;
+      _lastCompletedSuraHandled = null;
+      _isLoadingAudio = false;
+      _updateBackgroundMediaItem();
+      notifyListeners();
+
+      await _player.play();
     } catch (e) {
-      debugPrint("Error loading sura audio: $e");
+      if (_isCancellationException(e)) {
+        debugPrint("Expected playback load cancellation: $e");
+      } else {
+        debugPrint("Error loading sura audio: $e");
+        if (gen == _loadGeneration) {
+          _isLoadingAudio = false;
+          _currentPlayingAyaIndex = null;
+          _currentSuraNumber = null;
+          notifyListeners();
+        }
+      }
+    } finally {
+      if (gen == _loadGeneration && _isLoadingAudio) {
+        _isLoadingAudio = false;
+      }
     }
   }
 
   /// تحميل وتشغيل آية واحدة
   Future<void> playSingleAyah(int suraNumber, int ayaNumber) async {
-    try {
-      _isSingleAyah = true;
-      _singleAyahNumber = ayaNumber;
-      _currentSuraNumber = suraNumber;
-      _currentPlayingAyaIndex = ayaNumber;
-      notifyListeners();
+    final gen = ++_loadGeneration;
+    _isLoadingAudio = true;
+    _lastCompletedSuraHandled = null;
 
+    try {
       String suraStr = suraNumber.toString().padLeft(3, '0');
       String ayaStr = ayaNumber.toString().padLeft(3, '0');
       String fileName = '$suraStr$ayaStr.mp3';
@@ -194,20 +251,52 @@ class QuranAudioProvider extends ChangeNotifier {
       String localPath = '${dir.path}/$_currentReciterFolder/$fileName';
       String url = 'https://everyayah.com/data/$_currentReciterFolder/$fileName';
 
+      final AudioSource source;
       if (await File(localPath).exists()) {
-        await _player.setAudioSource(AudioSource.file(localPath));
+        source = AudioSource.file(localPath);
       } else {
-        await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
+        source = AudioSource.uri(Uri.parse(url));
       }
+
+      if (gen != _loadGeneration) return;
+
+      await _player.setAudioSource(source);
+
+      if (gen != _loadGeneration) return;
+
+      _isSingleAyah = true;
+      _singleAyahNumber = ayaNumber;
+      _currentSuraNumber = suraNumber;
+      _currentPlayingAyaIndex = ayaNumber;
+      _isLoadingAudio = false;
       _updateBackgroundMediaItem();
-      _player.play();
+      notifyListeners();
+
+      await _player.play();
     } catch (e) {
-      debugPrint("Error loading single ayah audio: $e");
+      if (_isCancellationException(e)) {
+        debugPrint("Expected single ayah playback cancellation: $e");
+      } else {
+        debugPrint("Error loading single ayah audio: $e");
+        if (gen == _loadGeneration) {
+          _isLoadingAudio = false;
+          _currentPlayingAyaIndex = null;
+          _currentSuraNumber = null;
+          notifyListeners();
+        }
+      }
+    } finally {
+      if (gen == _loadGeneration && _isLoadingAudio) {
+        _isLoadingAudio = false;
+      }
     }
   }
 
   /// إيقاف التشغيل
   Future<void> stop() async {
+    _loadGeneration++;
+    _isLoadingAudio = false;
+    _lastCompletedSuraHandled = null;
     await _player.stop();
     _currentSuraNumber = null;
     _currentPlayingAyaIndex = null;

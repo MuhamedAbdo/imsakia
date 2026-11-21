@@ -102,17 +102,26 @@ class HadithLibraryPage extends StatelessWidget {
             const SizedBox(width: 8),
           ],
         ),
-        body: GridView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 20,
-            mainAxisSpacing: 25,
-            childAspectRatio: 2 / 3,
-          ),
-          itemCount: books.length,
-          itemBuilder: (context, index) {
-            return BookCard(book: books[index]);
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final count = constraints.maxWidth >= 1300
+                ? 5
+                : (constraints.maxWidth >= 1000
+                    ? 4
+                    : (constraints.maxWidth >= 650 ? 3 : 2));
+            return GridView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: count,
+                crossAxisSpacing: 20,
+                mainAxisSpacing: 25,
+                childAspectRatio: 2 / 3,
+              ),
+              itemCount: books.length,
+              itemBuilder: (context, index) {
+                return BookCard(book: books[index]);
+              },
+            );
           },
         ),
       ),

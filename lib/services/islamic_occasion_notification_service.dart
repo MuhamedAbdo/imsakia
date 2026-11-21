@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -91,6 +92,7 @@ class IslamicOccasionNotificationService {
   ///  - [force] = true  → يتجاوز العلم دائماً (استدعاء صريح من scheduleAllPrayers)
   ///  - [_needsRescheduleAfterBootKey] = true → يتجاوز العلم بعد الإقلاع (Fix 5)
   Future<void> scheduleOccasionNotifications({bool force = false}) {
+    if (!Platform.isAndroid) return Future.value();
     if (_inFlightSchedule != null) {
       Logger.debug(
         'OccasionNotif: Scheduling already in flight, sharing active task.',
@@ -339,6 +341,7 @@ class IslamicOccasionNotificationService {
     required String payload,
     required String channelId,
   }) async {
+    if (!Platform.isAndroid) return false;
     try {
       final timeInMillis = scheduledDateTime.millisecondsSinceEpoch;
 
@@ -376,6 +379,7 @@ class IslamicOccasionNotificationService {
 
   /// يلغي كافة إشعارات المناسبات والصيام والمخصصة دفعة واحدة بناءً على ما تم حفظه.
   Future<void> _cancelAll() async {
+    if (!Platform.isAndroid) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       final activeIds = prefs.getStringList(_activeNativeIdsKey) ?? [];
@@ -405,6 +409,7 @@ class IslamicOccasionNotificationService {
 
   /// إلغاء خارجي عند الحاجة (مثلاً عند تعطيل الإشعارات من الإعدادات).
   Future<void> cancelAll() async {
+    if (!Platform.isAndroid) return;
     await _cancelAll();
     Logger.debug('OccasionNotif [Native]: External cancelAll done.');
   }

@@ -36,6 +36,7 @@ import 'settings_screen.dart';
 import 'tasbih_screen.dart';
 import '../features/audio/screens/audio_reciters_screen.dart';
 import '../widgets/event_card_widget.dart';
+import '../desktop/windows_desktop_shell.dart';
 
 // =============================================================================
 //  UnderDevelopmentPage
@@ -225,6 +226,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    if (Platform.isWindows) {
+      return const WindowsDesktopShell();
+    }
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return PopScope(
       canPop: false,
@@ -1209,6 +1213,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       },
     ];
+
+    if (Platform.isWindows) {
+      services.removeWhere((item) => item['title'] == 'القبلة');
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),

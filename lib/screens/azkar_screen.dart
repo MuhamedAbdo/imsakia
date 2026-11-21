@@ -192,17 +192,24 @@ class _AzkarScreenState extends State<AzkarScreenWidget> {
           return _buildEmptyState();
         }
 
-        return GridView.builder(
-          padding: const EdgeInsets.all(20.0),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 20.0,
-            mainAxisSpacing: 20.0,
-            childAspectRatio: 0.95,
-          ),
-          itemCount: categories.length,
-          itemBuilder: (context, index) =>
-              _buildCategoryCard(categories[index]),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final count = constraints.maxWidth >= 1100
+                ? 4
+                : (constraints.maxWidth >= 700 ? 3 : 2);
+            return GridView.builder(
+              padding: const EdgeInsets.all(20.0),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: count,
+                crossAxisSpacing: 20.0,
+                mainAxisSpacing: 20.0,
+                childAspectRatio: 0.95,
+              ),
+              itemCount: categories.length,
+              itemBuilder: (context, index) =>
+                  _buildCategoryCard(categories[index]),
+            );
+          },
         );
       },
     );

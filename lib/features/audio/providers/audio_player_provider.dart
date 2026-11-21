@@ -52,7 +52,11 @@ class AudioPlayerProvider with ChangeNotifier {
   }
 
   Future<void> _initAudioSession() async {
-    final session = await AudioSession.instance;
+    if (!kIsWeb && Platform.isWindows) {
+      return;
+    }
+    try {
+      final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
 
     session.interruptionEventStream.listen((event) {
@@ -78,6 +82,9 @@ class AudioPlayerProvider with ChangeNotifier {
         }
       }
     });
+    } catch (e) {
+      debugPrint('Error configuring audio session: $e');
+    }
   }
 
   void _setupAudioListeners() {

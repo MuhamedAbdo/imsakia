@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:adhan/adhan.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
@@ -122,6 +123,8 @@ class PrayerTimesService {
 
   /// يزامن بيانات مواقيت الصلاة والمناسبات مع ويدجت الشاشة الرئيسية
   Future<void> updateWidgetData({bool force = false}) async {
+    if (!Platform.isAndroid) return;
+
     if (MyApp.isAthanShowing) {
       Logger.info("Skipping widget update (Athan is playing)");
       return;
@@ -401,20 +404,22 @@ class PrayerTimesService {
 
         final idOffset = dayOffset * 10; // Today: 0, Tomorrow: 10
 
-        times.forEach((name, time) {
-          int baseId = _getPrayerId(name);
-          if (time.isAfter(now)) {
-            AthanManager.scheduleNextAthan(
-              alarmId: baseId + idOffset,
-              time: time,
-              isFajr: name == 'fajr',
-              prayerName: _getArabicName(name),
-            );
-          } else if (dayOffset == 0) {
-            // Cancel any stale alarm for today that was shifted backwards into the past
-            AthanManager.cancelAthan(baseId);
-          }
-        });
+        if (Platform.isAndroid) {
+          times.forEach((name, time) {
+            int baseId = _getPrayerId(name);
+            if (time.isAfter(now)) {
+              AthanManager.scheduleNextAthan(
+                alarmId: baseId + idOffset,
+                time: time,
+                isFajr: name == 'fajr',
+                prayerName: _getArabicName(name),
+              );
+            } else if (dayOffset == 0) {
+              // Cancel any stale alarm for today that was shifted backwards into the past
+              AthanManager.cancelAthan(baseId);
+            }
+          });
+        }
 
         // 📿 جدولة إشعارات أذكار الصباح والمساء لليوم الحالي فقط بناءً على الأوقات المعدلة
         if (dayOffset == 0) {

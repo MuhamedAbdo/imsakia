@@ -47,9 +47,11 @@ class EncyclopediaScreen extends StatelessWidget {
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 850),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
                 // Icon Container
                 Container(
                   width: 120,
@@ -258,7 +260,8 @@ class EncyclopediaScreen extends StatelessWidget {
         ),
       ),
     ),
-  );
+  ),
+);
   }
 
   Widget _buildTopicRow({

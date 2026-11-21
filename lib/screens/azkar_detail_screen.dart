@@ -172,18 +172,23 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen>
                   : [AppConstants.backgroundColor, AppConstants.surfaceColor],
             ),
           ),
-          child: Column(
-            children: [
-              _buildOverallProgressCard(isDark),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                  itemCount: widget.category.azkar.length,
-                  itemBuilder: (context, index) =>
-                      _buildAzkarCard(widget.category.azkar[index], fontSettings),
-                ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 850),
+              child: Column(
+                children: [
+                  _buildOverallProgressCard(isDark),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                      itemCount: widget.category.azkar.length,
+                      itemBuilder: (context, index) =>
+                          _buildAzkarCard(widget.category.azkar[index], fontSettings),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

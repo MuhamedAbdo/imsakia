@@ -74,46 +74,53 @@ class _AllahNamesPageState extends State<AllahNamesPage> {
   }
 
   Widget _buildGridView(Color accentColor) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(10),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 1,
-      ),
-      itemCount: allahNamesAr.length,
-      itemBuilder: (context, index) {
-        return GestureDetector(
-          onTap: () => _navigateToDetail(index),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // صورة الإطار الخلفية
-              Image.asset(
-                'assets/images/nameborder.png',
-                width: 100,
-                height: 100,
-                fit: BoxFit.contain,
-              ),
-              // اسم الله
-              Padding(
-                padding: const EdgeInsets.all(
-                  18.0,
-                ), // لضمان بقاء النص داخل حدود الإطار
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    allahNamesAr[index]["name"] ?? "",
-                    style: TextStyle(
-                      color: accentColor,
-                      fontSize: 16,
-                      fontFamily: 'cairo',
-                      fontWeight: FontWeight.bold,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final count = constraints.maxWidth >= 1100
+            ? 6
+            : (constraints.maxWidth >= 700 ? 5 : 3);
+        return GridView.builder(
+          padding: const EdgeInsets.all(10),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: count,
+            childAspectRatio: 1,
+          ),
+          itemCount: allahNamesAr.length,
+          itemBuilder: (context, index) {
+            return GestureDetector(
+              onTap: () => _navigateToDetail(index),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // صورة الإطار الخلفية
+                  Image.asset(
+                    'assets/images/nameborder.png',
+                    width: 100,
+                    height: 100,
+                    fit: BoxFit.contain,
+                  ),
+                  // اسم الله
+                  Padding(
+                    padding: const EdgeInsets.all(
+                      18.0,
+                    ), // لضمان بقاء النص داخل حدود الإطار
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        allahNamesAr[index]["name"] ?? "",
+                        style: TextStyle(
+                          color: accentColor,
+                          fontSize: 16,
+                          fontFamily: 'cairo',
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

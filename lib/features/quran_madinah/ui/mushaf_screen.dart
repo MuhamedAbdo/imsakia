@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -45,6 +47,9 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
   // ── Vertical mode ──────────────────────────────────────────────────────────
   bool _isVerticalMode = false;
 
+  /// Keyboard navigation focus node for desktop
+  final FocusNode _focusNode = FocusNode(debugLabel: 'MushafDesktopKeyboard');
+
   /// Key used to call public methods on [VerticalMushafViewState] from the
   /// AppBar without lifting all auto-scroll state into this widget.
   final GlobalKey<VerticalMushafViewState> _verticalKey =
@@ -57,6 +62,9 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   void _updateAllowedOrientations() {
+    if (!kIsWeb && Platform.isWindows) {
+      return;
+    }
     if (_isVerticalMode) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
@@ -75,6 +83,9 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
   @override
   void initState() {
     super.initState();
+    if (!kIsWeb && Platform.isWindows) {
+      _isVerticalMode = true;
+    }
     WidgetsBinding.instance.addObserver(this);
     _updateAllowedOrientations();
     _currentPage    = widget.initialPage;
@@ -88,7 +99,7 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
   }
 
   void _onAudioProviderChanged() {
-    if (!mounted || _isVerticalMode) return;
+    if (!mounted) return;
     
     final playing = _audioProvider.player.playing;
     final aya = _audioProvider.currentPlayingAyaIndex;
@@ -97,11 +108,15 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
     if (playing && aya != null && sura != null) {
       final page = quran.getPageNumber(sura, aya);
       if (page != _currentPage) {
-        _pageController.animateToPage(
-          page - 1,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeInOut,
-        );
+        if (_isVerticalMode) {
+          _verticalKey.currentState?.animateToPage(page);
+        } else {
+          _pageController.animateToPage(
+            page - 1,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOut,
+          );
+        }
       }
     }
   }
@@ -125,6 +140,7 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
     WidgetsBinding.instance.removeObserver(this);
     _audioProvider.removeListener(_onAudioProviderChanged);
     _pageController.dispose();
+    _focusNode.dispose();
 
     // إيقاف الصوت وإنهاء الـ Foreground Service بطريقة آمنة دون تدمير المشغل
     _audioProvider.stopAndKillService();
@@ -186,39 +202,209 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
     }
   }
 
+  // ── Navigation helpers ─────────────────────────────────────────────────────
+
+  void _navigateToPage(int targetPage) {
+    if (targetPage < 1 || targetPage > 604 || targetPage == _currentPage) return;
+    
+    if (_isVerticalMode) {
+      _verticalKey.currentState?.animateToPage(targetPage);
+    } else {
+      _pageController.animateToPage(
+        targetPage - 1,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _goToPreviousPage() {
+    if (_currentPage > 1) {
+      _navigateToPage(_currentPage - 1);
+    }
+  }
+
+  void _goToNextPage() {
+    if (_currentPage < 604) {
+      _navigateToPage(_currentPage + 1);
+    }
+  }
+
   // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final quranProvider = context.watch<QuranProvider>();
+    final isWindows = !kIsWeb && Platform.isWindows;
+
+    final Widget readingView = _isVerticalMode
+        ? VerticalMushafView(
+            key: _verticalKey,
+            initialPage: _currentPage,
+            onPageChanged: (p) => _onVerticalPageChanged(p, quranProvider),
+            // When auto-scroll starts/stops, rebuild so the AppBar icon updates.
+            onAutoScrollChanged: () => setState(() {}),
+          )
+        : PageView.builder(
+            controller: _pageController,
+            reverse: true,
+            itemCount: 604,
+            allowImplicitScrolling: true,
+            onPageChanged: (i) => _onHorizontalPageChanged(i, quranProvider),
+            itemBuilder: (context, index) {
+              final pn = index + 1;
+              return MushafSvgPageWidget(
+                key: ValueKey('svg_page_$pn'),
+                pageNumber: pn,
+              );
+            },
+          );
+
+    final Widget bodyContent = isWindows
+        ? Focus(
+            focusNode: _focusNode,
+            autofocus: true,
+            canRequestFocus: true,
+            onKeyEvent: (node, event) {
+              if (event is! KeyDownEvent) {
+                return KeyEventResult.ignored;
+              }
+
+              // Do not steal keyboard input if a text field or editable has focus
+              final primaryFocus = FocusManager.instance.primaryFocus;
+              if (primaryFocus != null && primaryFocus.context != null) {
+                final isEditable = primaryFocus.context!.findAncestorWidgetOfExactType<EditableText>() != null;
+                if (isEditable) {
+                  return KeyEventResult.ignored;
+                }
+              }
+
+              // Arrow Left / PageDown: Next page
+              // Arrow Right / PageUp: Previous page
+              if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+                  event.logicalKey == LogicalKeyboardKey.pageDown) {
+                _goToNextPage();
+                return KeyEventResult.handled;
+              } else if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                         event.logicalKey == LogicalKeyboardKey.pageUp) {
+                _goToPreviousPage();
+                return KeyEventResult.handled;
+              }
+
+              return KeyEventResult.ignored;
+            },
+            child: GestureDetector(
+              onTap: () {
+                if (!_focusNode.hasFocus) {
+                  _focusNode.requestFocus();
+                }
+              },
+              behavior: HitTestBehavior.translucent,
+              child: Stack(
+                children: [
+                  readingView,
+                  // Desktop Previous Page Control (Right side)
+                  Positioned(
+                    right: 20,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: _buildDesktopNavButton(isNext: false),
+                    ),
+                  ),
+                  // Desktop Next Page Control (Left side)
+                  Positioned(
+                    left: 20,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: _buildDesktopNavButton(isNext: true),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        : readingView;
 
     return Scaffold(
       appBar: _buildAppBar(context, quranProvider),
-      body: _isVerticalMode
-          ? VerticalMushafView(
-              key: _verticalKey,
-              initialPage: _currentPage,
-              onPageChanged: (p) => _onVerticalPageChanged(p, quranProvider),
-              // When auto-scroll starts/stops, rebuild so the AppBar icon updates.
-              onAutoScrollChanged: () => setState(() {}),
-            )
-          : PageView.builder(
-              controller: _pageController,
-              reverse: true,
-              itemCount: 604,
-              allowImplicitScrolling: true,
-              onPageChanged: (i) => _onHorizontalPageChanged(i, quranProvider),
-              itemBuilder: (context, index) {
-                final pn = index + 1;
-                return MushafSvgPageWidget(
-                  key: ValueKey('svg_page_$pn'),
-                  pageNumber: pn,
-                );
-              },
-            ),
+      body: bodyContent,
       // The page-number bar is only shown in horizontal mode.
       bottomNavigationBar:
           _isVerticalMode ? null : _buildPageNumberBar(context),
+    );
+  }
+
+  Widget _buildDesktopNavButton({required bool isNext}) {
+    final canNavigate = isNext ? _currentPage < 604 : _currentPage > 1;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
+    final icon = isNext
+        ? Icons.chevron_left_rounded
+        : Icons.chevron_right_rounded;
+    final tooltip = isNext
+        ? (_currentPage < 604
+            ? 'الصفحة التالية (صفحة ${_currentPage + 1}) [سهم يسار / PageDown]'
+            : 'نهاية المصحف')
+        : (_currentPage > 1
+            ? 'الصفحة السابقة (صفحة ${_currentPage - 1}) [سهم يمين / PageUp]'
+            : 'بداية المصحف');
+    final label = isNext ? 'الصفحة التالية' : 'الصفحة السابقة';
+
+    return Semantics(
+      button: true,
+      enabled: canNavigate,
+      label: label,
+      child: Tooltip(
+        message: tooltip,
+        preferBelow: false,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: canNavigate ? (isNext ? _goToNextPage : _goToPreviousPage) : null,
+            borderRadius: BorderRadius.circular(24),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: canNavigate
+                    ? (isDark
+                        ? const Color(0xFF1E1E1E).withValues(alpha: 0.85)
+                        : Colors.white.withValues(alpha: 0.92))
+                    : (isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.04)),
+                border: Border.all(
+                  color: canNavigate
+                      ? primaryColor.withValues(alpha: isDark ? 0.35 : 0.25)
+                      : Colors.grey.withValues(alpha: 0.15),
+                  width: 1.2,
+                ),
+                boxShadow: canNavigate
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Icon(
+                icon,
+                size: 26,
+                color: canNavigate
+                    ? primaryColor
+                    : Colors.grey.withValues(alpha: 0.35),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -620,7 +806,7 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
               final page = int.tryParse(ctrl.text);
               if (page != null && page >= 1 && page <= 604) {
                 Navigator.pop(context);
-                _pageController.jumpToPage(page - 1);
+                _navigateToPage(page);
               }
             },
             child: const Text('انتقال'),

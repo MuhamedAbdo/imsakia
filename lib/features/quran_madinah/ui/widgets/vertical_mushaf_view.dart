@@ -77,7 +77,7 @@ class VerticalMushafViewState extends State<VerticalMushafView> {
     // Jump to the correct page after the first frame so the ListView has
     // performed its initial layout and the ScrollController has a client.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _jumpToPage(_currentPage);
+      if (mounted) _jumpToPage(_currentPage, toTop: false);
     });
   }
 
@@ -126,7 +126,19 @@ class VerticalMushafViewState extends State<VerticalMushafView> {
   // ── Public API ──────────────────────────────────────────────────────────────
 
   /// Immediately scrolls to [page] within the vertical list.
-  void jumpToPage(int page) => _jumpToPage(page);
+  void jumpToPage(int page, {bool toTop = true}) => _jumpToPage(page, toTop: toTop);
+
+  /// Smoothly scrolls to [page] within the vertical list.
+  void animateToPage(
+    int page, {
+    Duration duration = const Duration(milliseconds: 350),
+    Curve curve = Curves.easeInOutCubic,
+  }) {
+    if (!_vCtrl.hasClients) return;
+    final iw = _itemWidth(context);
+    final targetOff = _offsetFor(page, iw).clamp(0.0, _vCtrl.position.maxScrollExtent);
+    _vCtrl.animateTo(targetOff, duration: duration, curve: curve);
+  }
 
   /// Starts or stops the auto-scroll engine.
   void toggleAutoScroll() {
@@ -166,13 +178,15 @@ class VerticalMushafViewState extends State<VerticalMushafView> {
     }
   }
 
-  void _jumpToPage(int page) {
+  void _jumpToPage(int page, {bool toTop = false}) {
     if (!_vCtrl.hasClients) return;
     final iw  = _itemWidth(context);
     double fraction = 0.0;
-    try {
-      fraction = context.read<QuranProvider>().getPageOffset(page);
-    } catch (_) {}
+    if (!toTop) {
+      try {
+        fraction = context.read<QuranProvider>().getPageOffset(page);
+      } catch (_) {}
+    }
     final baseOff = _offsetFor(page, iw);
     final exactOff = (baseOff + fraction * _pageH(page, iw))
         .clamp(0.0, _vCtrl.position.maxScrollExtent);

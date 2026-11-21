@@ -187,22 +187,27 @@ class _CalendarPageState extends State<CalendarPage>
             ],
           ),
         ),
-        body: Column(
-          children: [
-            _buildCustomHeader(isDarkMode),
-            _buildDaysOfWeekHeader(isDarkMode),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildHijriCustomGridView(isDarkMode),
-                  _buildGregorianView(isDarkMode),
-                ],
-              ),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: Column(
+              children: [
+                _buildCustomHeader(isDarkMode),
+                _buildDaysOfWeekHeader(isDarkMode),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildHijriCustomGridView(isDarkMode),
+                      _buildGregorianView(isDarkMode),
+                    ],
+                  ),
+                ),
+                if (_selectedDay != null)
+                  _buildSelectedDateCard(_selectedDay!, isDarkMode),
+              ],
             ),
-            if (_selectedDay != null)
-              _buildSelectedDateCard(_selectedDay!, isDarkMode),
-          ],
+          ),
         ),
       ),
     ),

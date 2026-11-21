@@ -161,36 +161,41 @@ class _RadioPageState extends State<RadioPage> {
         children: [
           isLoading
               ? const Center(child: CircularProgressIndicator())
-              : ListView.builder(
-                  itemCount: filteredRadios.length,
-                  padding: const EdgeInsets.only(
-                    bottom: 80,
-                  ), // مساحة للبار السفلي
-                  itemBuilder: (context, index) {
-                    final radio = filteredRadios[index];
-                    bool isThisPlaying = currentIndex == index && isPlaying;
+              : Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 850),
+                    child: ListView.builder(
+                      itemCount: filteredRadios.length,
+                      padding: const EdgeInsets.only(
+                        bottom: 80,
+                      ), // مساحة للبار السفلي
+                      itemBuilder: (context, index) {
+                        final radio = filteredRadios[index];
+                        bool isThisPlaying = currentIndex == index && isPlaying;
 
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      child: ListTile(
-                        leading: Icon(
-                          isThisPlaying
-                              ? Icons.pause_circle_filled
-                              : Icons.play_circle_fill,
-                          color: accentColor,
-                          size: 40,
-                        ),
-                        title: Text(
-                          radio['name'],
-                          style: const TextStyle(fontFamily: 'Tajawal'),
-                        ),
-                        onTap: () => playRadio(index, radio),
-                      ),
-                    );
-                  },
+                        return Card(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          child: ListTile(
+                            leading: Icon(
+                              isThisPlaying
+                                  ? Icons.pause_circle_filled
+                                  : Icons.play_circle_fill,
+                              color: accentColor,
+                              size: 40,
+                            ),
+                            title: Text(
+                              radio['name'],
+                              style: const TextStyle(fontFamily: 'Tajawal'),
+                            ),
+                            onTap: () => playRadio(index, radio),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
 
           if (currentIndex != -1)

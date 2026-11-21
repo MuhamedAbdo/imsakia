@@ -82,14 +82,16 @@ void main() async {
   // 🛡️ SOVEREIGN PROTOCOL: Emergency Athan Mode Check
   const channel = MethodChannel('imsakia/notifications');
   bool isEmergencyAthan = false;
-  try {
-    isEmergencyAthan =
-        await channel.invokeMethod<bool>('isEmergencyAthanMode') ?? false;
-  } on MissingPluginException {
-    // الـ method مش موجودة على الجانب الـ native — نتعامل كحالة طبيعية
-    isEmergencyAthan = false;
-  } catch (_) {
-    isEmergencyAthan = false;
+  if (Platform.isAndroid) {
+    try {
+      isEmergencyAthan =
+          await channel.invokeMethod<bool>('isEmergencyAthanMode') ?? false;
+    } on MissingPluginException {
+      // الـ method مش موجودة على الجانب الـ native — نتعامل كحالة طبيعية
+      isEmergencyAthan = false;
+    } catch (_) {
+      isEmergencyAthan = false;
+    }
   }
 
   if (isEmergencyAthan) {
@@ -101,25 +103,27 @@ void main() async {
   }
 
   // 🔔 Cold Start: التحقق من فتح التطبيق بالنقر على إشعار أذكار/مناسبة
-  try {
-    final notificationPayload = await channel.invokeMethod<String?>(
-      'getInitialNotificationPayload',
-    );
-    if (notificationPayload != null && notificationPayload.isNotEmpty) {
-      if (notificationPayload.startsWith('azkar_') ||
-          notificationPayload.startsWith('islamic_occasion') ||
-          notificationPayload.startsWith('fasting_reminder') ||
-          notificationPayload.startsWith('custom_occasion')) {
-        pendingAzkarRoutePayload = notificationPayload;
-        debugPrint(
-          'main: notification payload captured on cold start: $notificationPayload',
-        );
+  if (Platform.isAndroid) {
+    try {
+      final notificationPayload = await channel.invokeMethod<String?>(
+        'getInitialNotificationPayload',
+      );
+      if (notificationPayload != null && notificationPayload.isNotEmpty) {
+        if (notificationPayload.startsWith('azkar_') ||
+            notificationPayload.startsWith('islamic_occasion') ||
+            notificationPayload.startsWith('fasting_reminder') ||
+            notificationPayload.startsWith('custom_occasion')) {
+          pendingAzkarRoutePayload = notificationPayload;
+          debugPrint(
+            'main: notification payload captured on cold start: $notificationPayload',
+          );
+        }
       }
+    } on MissingPluginException {
+      // الـ method غير موجودة بعد — لا بأس
+    } catch (e) {
+      debugPrint('main: getInitialNotificationPayload error: $e');
     }
-  } on MissingPluginException {
-    // الـ method غير موجودة بعد — لا بأس
-  } catch (e) {
-    debugPrint('main: getInitialNotificationPayload error: $e');
   }
 
   // Copy Athan assets to local storage for background isolate access
@@ -192,30 +196,32 @@ void main() async {
 
   Widget? overlayScreen;
 
-  // 1. تحقق من الأذان المعلق في Native SharedPreferences (Guaranteed Delivery)
-  final pendingPrayer = await AthanManager.getPendingAthan();
-  if (pendingPrayer != null && pendingPrayer.isNotEmpty) {
-    overlayScreen = AthanOverlayScreen(
-      prayerName: pendingPrayer,
-      isColdStart: true,
-    );
-    // ✅ نظّف فوراً بعد الاستهلاك
-    await AthanManager.clearPendingAthan();
-  } else if (notificationAppLaunchDetails?.didNotificationLaunchApp ?? false) {
-    // 2. تحقق من Notification Launch (Fallback)
-    final payload = notificationAppLaunchDetails?.notificationResponse?.payload;
-    if (payload != null) {
-      if (payload.startsWith('athan_overlay|')) {
-        final parts = payload.split('|');
-        if (parts.length >= 2) {
-          overlayScreen = AthanOverlayScreen(
-            prayerName: parts[1],
-            isColdStart: true,
-          );
+  if (Platform.isAndroid) {
+    // 1. تحقق من الأذان المعلق في Native SharedPreferences (Guaranteed Delivery)
+    final pendingPrayer = await AthanManager.getPendingAthan();
+    if (pendingPrayer != null && pendingPrayer.isNotEmpty) {
+      overlayScreen = AthanOverlayScreen(
+        prayerName: pendingPrayer,
+        isColdStart: true,
+      );
+      // ✅ نظّف فوراً بعد الاستهلاك
+      await AthanManager.clearPendingAthan();
+    } else if (notificationAppLaunchDetails?.didNotificationLaunchApp ?? false) {
+      // 2. تحقق من Notification Launch (Fallback)
+      final payload = notificationAppLaunchDetails?.notificationResponse?.payload;
+      if (payload != null) {
+        if (payload.startsWith('athan_overlay|')) {
+          final parts = payload.split('|');
+          if (parts.length >= 2) {
+            overlayScreen = AthanOverlayScreen(
+              prayerName: parts[1],
+              isColdStart: true,
+            );
+          }
+        } else if (payload == 'azkar_morning' || payload == 'azkar_evening') {
+          // 3. التقاط حمولة الأذكار وتخزينها للمرحلة التي تلي SplashScreen
+          pendingAzkarRoutePayload = payload;
         }
-      } else if (payload == 'azkar_morning' || payload == 'azkar_evening') {
-        // 3. التقاط حمولة الأذكار وتخزينها للمرحلة التي تلي SplashScreen
-        pendingAzkarRoutePayload = payload;
       }
     }
   }
@@ -251,24 +257,28 @@ void main() async {
 
   // 🔥 ONE-TIME CLEANUP: Clear orphaned alarms from other branches/versions
   // This ensures the Sovereign Athan system starts with a clean slate.
-  final hasCleanedOrphans =
-      prefs.getBool('orphaned_alarms_cleaned_v1') ?? false;
-  if (!hasCleanedOrphans) {
-    debugPrint("!!! HARDENED: Performing one-time orphaned alarm cleanup !!!");
-    await AthanManager.cancelAllAlarms();
-    await prefs.setBool('orphaned_alarms_cleaned_v1', true);
+  if (Platform.isAndroid) {
+    final hasCleanedOrphans =
+        prefs.getBool('orphaned_alarms_cleaned_v1') ?? false;
+    if (!hasCleanedOrphans) {
+      debugPrint("!!! HARDENED: Performing one-time orphaned alarm cleanup !!!");
+      await AthanManager.cancelAllAlarms();
+      await prefs.setBool('orphaned_alarms_cleaned_v1', true);
+    }
   }
 
   final hasCompletedSetup = prefs.getBool('setup_completed') ?? false;
 
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  if (Platform.isAndroid) {
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  }
 
   runApp(
     MyApp(
       settingsProvider: settingsProvider,
       prefs: prefs,
       initialOverlay: overlayScreen,
-      showPermissionsGate: !hasCompletedSetup,
+      showPermissionsGate: Platform.isAndroid && !hasCompletedSetup,
     ),
   );
 }
@@ -308,18 +318,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _isColdStartForAthan = widget.initialOverlay != null;
-    _setupMethodChannel();
-    // ✅ نظام الخروج الآمن: مسح أي علم سابق عند فتح التطبيق لضمان العمل الطبيعي
-    AthanManager.clearShouldExitFlag();
+    if (Platform.isAndroid) {
+      _setupMethodChannel();
+      // ✅ نظام الخروج الآمن: مسح أي علم سابق عند فتح التطبيق لضمان العمل الطبيعي
+      AthanManager.clearShouldExitFlag();
+    }
     // 🔄 Self-Healing: سجّل Observer لمراقبة دورة حياة التطبيق (Resume)
     WidgetsBinding.instance.addObserver(this);
     // 🔥 جدولة المنبهات وتحديث الويدجت عند فتح التطبيق
     // 🛡️ HARDENED: Skip this if we're showing an overlay to avoid heavy initialization & Geocoding issues
-    if (widget.initialOverlay == null) {
+    if (widget.initialOverlay == null && Platform.isAndroid) {
       // ✅ CRITICAL FIX: Re-enabled _rescheduleAndSync() — was disabled for "Single Variable Testing"
       // Without this, alarms are NEVER rescheduled on app launch = alarms degrade over time.
       Future.microtask(() => _rescheduleAndSync());
-    } else {
+    } else if (widget.initialOverlay != null) {
       debugPrint(
         "!!! HARDENED: Athan Overlay detected, skipping heavy background scheduling !!!",
       );
@@ -331,6 +343,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   /// هذا يضمن التعافي الفوري في حال مُسحت المنبهات من AlarmManager
   /// بسبب Force Stop أو ADB Debugging أو أي سبب قسري آخر.
   Future<void> _rescheduleAndSync() async {
+    if (!Platform.isAndroid) return;
     debugPrint(
       "!!! SELF-HEALING: Rescheduling all prayers on app launch/resume !!!",
     );
@@ -343,6 +356,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!Platform.isAndroid) return;
     // 🔄 Self-Healing: عند رجوع المستخدم للتطبيق بعد تشغيله في الخلفية
     // نُعيد جدولة المنبهات تلقائياً لضمان التعافي من أي مسح قسري
     if (state == AppLifecycleState.resumed && widget.initialOverlay == null) {
@@ -367,7 +381,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         PrayerTimesService.instance.updateWidgetData(force: true);
         IslamicOccasionNotificationService.instance
             .scheduleOccasionNotifications();
-        IslamicOccasionNotificationService.instance.scheduleOccasionNotifications();
       }
     }
   }
@@ -561,7 +574,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
 
     // 2️⃣ إكمال الإعدادات لأول مرة
-    if (widget.showPermissionsGate) {
+    if (widget.showPermissionsGate && Platform.isAndroid) {
       return const SequentialPermissionsScreen();
     }
 

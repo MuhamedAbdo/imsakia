@@ -106,33 +106,38 @@ class IndexScreen extends StatelessWidget {
 
               final surahs = quranProvider.surahs;
 
-              return ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                itemCount: surahs.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final surah = surahs[index];
-                  final suraNo = surah['sura_no'] as int;
-                  final arabicName = surah['sura_name_ar'] as String;
-                  final englishName = surah['sura_name_en'] as String;
-                  final ayahCount = surah['ayah_count'] as int;
-                  final startPage = surah['start_page'] as int;
-                  final isMadani = QuranProvider.isMadani(suraNo);
-                  final imageAsset = isMadani
-                      ? 'assets/images/Madinah.png'
-                      : 'assets/images/Makkah.png';
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 850),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    itemCount: surahs.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final surah = surahs[index];
+                      final suraNo = surah['sura_no'] as int;
+                      final arabicName = surah['sura_name_ar'] as String;
+                      final englishName = surah['sura_name_en'] as String;
+                      final ayahCount = surah['ayah_count'] as int;
+                      final startPage = surah['start_page'] as int;
+                      final isMadani = QuranProvider.isMadani(suraNo);
+                      final imageAsset = isMadani
+                          ? 'assets/images/Madinah.png'
+                          : 'assets/images/Makkah.png';
 
-                  return _buildSurahCard(
-                    context: context,
-                    suraNo: suraNo,
-                    arabicName: arabicName,
-                    englishName: englishName,
-                    ayahCount: ayahCount,
-                    startPage: startPage,
-                    imageAsset: imageAsset,
-                    isDark: isDark,
-                  );
-                },
+                      return _buildSurahCard(
+                        context: context,
+                        suraNo: suraNo,
+                        arabicName: arabicName,
+                        englishName: englishName,
+                        ayahCount: ayahCount,
+                        startPage: startPage,
+                        imageAsset: imageAsset,
+                        isDark: isDark,
+                      );
+                    },
+                  ),
+                ),
               );
             },
           ),
@@ -153,22 +158,27 @@ class IndexScreen extends StatelessWidget {
       "الجزء السادس والعشرون", "الجزء السابع والعشرون", "الجزء الثامن والعشرون", "الجزء التاسع والعشرون", "الجزء الثلاثون"
     ];
 
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: 30,
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final juzNumber = index + 1;
-        final startPage = QuranUtils.juzStarts[juzNumber] ?? 1;
-        
-        return _buildJuzCard(
-          context: context,
-          juzNumber: juzNumber,
-          juzName: arabicJuzNames[index],
-          startPage: startPage,
-          isDark: isDark,
-        );
-      },
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 850),
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          itemCount: 30,
+          separatorBuilder: (context, index) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final juzNumber = index + 1;
+            final startPage = QuranUtils.juzStarts[juzNumber] ?? 1;
+            
+            return _buildJuzCard(
+              context: context,
+              juzNumber: juzNumber,
+              juzName: arabicJuzNames[index],
+              startPage: startPage,
+              isDark: isDark,
+            );
+          },
+        ),
+      ),
     );
   }
 

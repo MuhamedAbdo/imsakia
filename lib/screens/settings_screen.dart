@@ -302,8 +302,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
           body: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 850),
+              child: Column(
+                children: [
               if (widget.isFirstTimeSetup) _buildHeader(),
               // 1. الموقع الجغرافي
               _buildSection(
@@ -371,7 +374,9 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
       ),
     ),
-  );
+  ),
+),
+);
   }
 
   Widget _buildHijriAdjustmentControl() {
