@@ -5,7 +5,7 @@ import '../data/models/athan_model.dart';
 import '../providers/athan_library_provider.dart';
 import '../../athan/providers/athan_provider.dart';
 
-/// شاشة مكتبة الأذان الكاملة مع دعم وضع عدم الاتصال
+/// شاشة مكتبة الأذان الكاملة: تجمع الأصوات المدمجة في assets وأصوات السيرفر السحابية
 class AthanLibraryScreen extends StatefulWidget {
   const AthanLibraryScreen({super.key});
 
@@ -17,7 +17,6 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final AudioPlayer _player = AudioPlayer();
-  // نحتفظ بمرجع Provider مبكراً لتجنب استخدام BuildContext عبر async gaps
   late AthanLibraryProvider _libraryProvider;
 
   @override
@@ -44,8 +43,7 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
     super.dispose();
   }
 
-  // ─── Toggle preview playback ───────────────────────────────────────────────
-  // حد أقصى محاولتان إجماليًا: محاولة أولى + محاولة واحدة بعد backoff قصير.
+  // ─── معاينة الصوت ────────────────────────────────────────────────────────
   static const int _previewMaxAttempts = 2;
 
   Future<void> _togglePreview(AthanModel athan) async {
@@ -53,40 +51,35 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
     final isPlaying = provider.playingId == athan.id;
 
     if (isPlaying) {
-      // إيقاف صريح بطلب المستخدم
       await _player.stop();
       provider.setPlayingId(null);
       return;
     }
 
-    // مؤشّر التحميل الفوري (يتحول زر التشغيل إلى إيقاف أثناء الإعداد).
     provider.setPlayingId(athan.id);
 
-    // إذا كان الصوت محمّلًا محليًا فعاينه من القرص بدل البثّ البعيد.
     final String? localPath = provider.isDownloaded(athan.id)
         ? provider.localPathOf(athan.id)
         : null;
 
     for (var attempt = 1; attempt <= _previewMaxAttempts; attempt++) {
-      // إذا اختار المستخدم مصدرًا آخر أثناء المحاولة، أوقف هذه المحاولة بصمت.
       if (!mounted || provider.playingId != athan.id) return;
       try {
-        if (localPath != null) {
+        if (athan.isAsset && athan.assetPath != null) {
+          await _player.setAsset(athan.assetPath!);
+        } else if (localPath != null) {
           await _player.setFilePath(localPath);
         } else {
           await _player.setUrl(athan.url);
         }
         await _player.play();
-        return; // نجاح
+        return;
       } on PlayerInterruptedException {
-        // المستخدم انتقل عمدًا إلى ملف آخر قبل اكتمال التحميل — تجاهل بصمت.
         return;
       } catch (e) {
-        // فقدت هذه المعاينة التركيز — تجاهل بصمت.
         if (!mounted || provider.playingId != athan.id) return;
 
-        // إعادة محاولة محدودة على أخطاء الخادم/المصدر المؤقتة فقط.
-        final bool transient = localPath == null && _isTransientSourceError(e);
+        final bool transient = !athan.isAsset && localPath == null && _isTransientSourceError(e);
         if (transient && attempt < _previewMaxAttempts) {
           await Future.delayed(const Duration(milliseconds: 700));
           continue;
@@ -94,7 +87,6 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
 
         provider.setPlayingId(null);
         if (mounted) {
-          // رسالة للمستخدم بدون تفاصيل تقنية (e.toString())
           final String message = transient
               ? 'الخادم لم يستجب الآن، حاول مجددًا بعد قليل'
               : 'تعذّر تشغيل الصوت، يرجى المحاولة مرة أخرى';
@@ -113,7 +105,6 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
     }
   }
 
-  /// يميّز أخطاء المصدر/الخادم المؤقتة (HTTP 5xx / انقطاع اتصال) عن غيرها
   bool _isTransientSourceError(Object e) {
     if (e is PlayerException) {
       if (e.code != 1) return false;
@@ -129,16 +120,23 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
     return false;
   }
 
-  // ─── Download & Set ───────────────────────────────────────────────────────
+  // ─── التحميل والتعيين ───────────────────────────────────────────────────
   Future<void> _downloadAndSet(AthanModel athan, {required String prayerKey}) async {
+    final messenger = ScaffoldMessenger.of(context);
     final provider = context.read<AthanLibraryProvider>();
+    final athanProvider = context.read<AthanProvider>();
+
     final result = await provider.downloadAndSet(athan, prayerKey: prayerKey);
     if (!mounted) return;
 
     if (result != null) {
+      // مزامنة AthanProvider فورياً
+      await athanProvider.syncFromPrefs();
+      if (!mounted) return;
+
       final String successMessage;
       if (prayerKey == 'all') {
-        successMessage = 'تم تعيين "${athan.name}" لجميع الصلوات ✓';
+        successMessage = 'تم تعيين "${athan.name}" كأذان موحد لجميع الصلوات ✓';
       } else {
         final prayerNamesAr = {
           'fajr': 'الفجر',
@@ -151,7 +149,7 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
             'تم تعيين "${athan.name}" لصلاة ${prayerNamesAr[prayerKey]} ✓';
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Row(
             children: [
@@ -174,7 +172,7 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: const Text(
             'فشل التحميل، تحقق من الاتصال بالإنترنت',
@@ -214,21 +212,21 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.all(16.0),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
                 child: Text(
-                  'تخصيص الأذان',
-                  style: TextStyle(
+                  'تخصيص "${athan.name}"',
+                  style: const TextStyle(
                     fontFamily: 'Tajawal',
                     fontWeight: FontWeight.bold,
-                    fontSize: 18,
+                    fontSize: 17,
                   ),
                 ),
               ),
-              const Divider(),
+              const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.all_inclusive, color: Color(0xFF1B5E20)),
-                title: const Text('تعيين كأذان موحد لجميع الصلوات',
+                title: const Text('تعيين كأذان موحد لجميع الصلوات العادية',
                     style: TextStyle(fontFamily: 'Tajawal')),
                 onTap: () {
                   Navigator.pop(context);
@@ -237,7 +235,7 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
               ),
               ListTile(
                 leading: const Icon(Icons.wb_sunny, color: Colors.orange),
-                title: const Text('صلاة الظهر',
+                title: const Text('صلاة الظهر فقط',
                     style: TextStyle(fontFamily: 'Tajawal')),
                 onTap: () {
                   Navigator.pop(context);
@@ -246,7 +244,7 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
               ),
               ListTile(
                 leading: const Icon(Icons.wb_twilight, color: Colors.deepOrange),
-                title: const Text('صلاة العصر',
+                title: const Text('صلاة العصر فقط',
                     style: TextStyle(fontFamily: 'Tajawal')),
                 onTap: () {
                   Navigator.pop(context);
@@ -255,7 +253,7 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
               ),
               ListTile(
                 leading: const Icon(Icons.nights_stay, color: Colors.indigo),
-                title: const Text('صلاة المغرب',
+                title: const Text('صلاة المغرب فقط',
                     style: TextStyle(fontFamily: 'Tajawal')),
                 onTap: () {
                   Navigator.pop(context);
@@ -264,7 +262,7 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
               ),
               ListTile(
                 leading: const Icon(Icons.star, color: Colors.deepPurple),
-                title: const Text('صلاة العشاء',
+                title: const Text('صلاة العشاء فقط',
                     style: TextStyle(fontFamily: 'Tajawal')),
                 onTap: () {
                   Navigator.pop(context);
@@ -284,8 +282,8 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final Color primaryColor = const Color(0xFF1B5E20);
-    final Color accentColor = const Color(0xFF4CAF50);
+    const Color primaryColor = Color(0xFF1B5E20);
+    const Color accentColor = Color(0xFF4CAF50);
     final Color bgColor =
         isDark ? const Color(0xFF121212) : const Color(0xFFF5F8F5);
     final Color cardColor =
@@ -299,7 +297,7 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
         backgroundColor: isDark ? const Color(0xFF1A1A1A) : primaryColor,
         foregroundColor: Colors.white,
         title: const Text(
-          'مكتبة الأذان',
+          'مكتبة أصوات الأذان',
           style: TextStyle(
             fontFamily: 'Tajawal',
             fontWeight: FontWeight.bold,
@@ -327,115 +325,9 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
       ),
       body: Consumer<AthanLibraryProvider>(
         builder: (context, provider, _) {
-          // ─── حالة التحميل ────────────────────────────────────────────────
-          if (provider.isLoading) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 3,
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(accentColor),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'جارٍ تحميل قائمة الأذانات...',
-                    style: TextStyle(
-                      fontFamily: 'Tajawal',
-                      color: isDark ? Colors.white70 : Colors.black54,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          // ─── حالة انقطاع الإنترنت مع عدم وجود أي أصوات محمّلة مسبقاً ──────
-          if (provider.errorMessage != null ||
-              (provider.isOffline && !provider.hasOfflineAthans)) {
-            return Center(
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 84,
-                      height: 84,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.red.shade900.withAlpha(40)
-                            : const Color(0xFFFDECEA),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.wifi_off_rounded,
-                        size: 42,
-                        color: isDark
-                            ? Colors.red.shade300
-                            : const Color(0xFFD32F2F),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'لا يوجد اتصال بالإنترنت',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Tajawal',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'يرجى التحقق من اتصالك بالإنترنت لتصفح وتحميل أصوات الأذان.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Tajawal',
-                        fontSize: 14,
-                        height: 1.5,
-                        color: isDark ? Colors.white60 : Colors.black54,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    FilledButton.icon(
-                      onPressed: provider.fetchAthans,
-                      icon: const Icon(Icons.refresh_rounded, size: 20),
-                      label: const Text(
-                        'إعادة المحاولة',
-                        style: TextStyle(
-                          fontFamily: 'Tajawal',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: accentColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          // ─── القوائم (وضع الاتصال أو وضع عدم الاتصال مع أصوات محملة) ────────
           return Column(
             children: [
-              // شريط التنبيه الهادئ عند عدم توفر الإنترنت
+              // شريط التنبيه عند عدم توفر الإنترنت (الأصوات المدمجة تعمل دائماً)
               if (provider.isOffline)
                 _OfflineBanner(
                   isDark: isDark,
@@ -446,8 +338,10 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
                   controller: _tabController,
                   children: [
                     _AthanList(
-                      athans: provider.normalAthans,
+                      assetAthans: AthanLibraryProvider.assetNormalAthans,
+                      serverAthans: provider.normalAthans,
                       provider: provider,
+                      isFajr: false,
                       cardColor: cardColor,
                       surfaceColor: surfaceColor,
                       accentColor: accentColor,
@@ -457,8 +351,10 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
                       onSetPressed: _onSetAthanPressed,
                     ),
                     _AthanList(
-                      athans: provider.fajrAthans,
+                      assetAthans: AthanLibraryProvider.assetFajrAthans,
+                      serverAthans: provider.fajrAthans,
                       provider: provider,
+                      isFajr: true,
                       cardColor: cardColor,
                       surfaceColor: surfaceColor,
                       accentColor: accentColor,
@@ -478,7 +374,7 @@ class _AthanLibraryScreenState extends State<AthanLibraryScreen>
   }
 }
 
-// ─── شريط التنبيه الهادئ لوضع عدم الاتصال ─────────────────────────────────────
+// ─── شريط التنبيه لوضع عدم الاتصال ───────────────────────────────────────────
 class _OfflineBanner extends StatelessWidget {
   final bool isDark;
   final VoidCallback onRetry;
@@ -512,7 +408,7 @@ class _OfflineBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'لا يوجد اتصال بالإنترنت — يتم عرض الأصوات المحمّلة على جهازك فقط',
+              'لا يوجد اتصال بالإنترنت — تظهر الأصوات المدمجة والمحمّلة، ويمكنك تحميل المزيد عند الاتصال',
               style: TextStyle(
                 fontFamily: 'Tajawal',
                 fontSize: 12,
@@ -547,7 +443,7 @@ class _OfflineBanner extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'إعادة المحاولة',
+                    'تحديث',
                     style: TextStyle(
                       fontFamily: 'Tajawal',
                       fontSize: 11.5,
@@ -567,10 +463,12 @@ class _OfflineBanner extends StatelessWidget {
   }
 }
 
-// ─── Widget قائمة الأذانات ──────────────────────────────────────────────────
+// ─── قائمة الأصوات مع تقسيم المدمجة والسيرفر ──────────────────────────────────
 class _AthanList extends StatelessWidget {
-  final List<AthanModel> athans;
+  final List<AthanModel> assetAthans;
+  final List<AthanModel> serverAthans;
   final AthanLibraryProvider provider;
+  final bool isFajr;
   final Color cardColor;
   final Color surfaceColor;
   final Color accentColor;
@@ -580,8 +478,10 @@ class _AthanList extends StatelessWidget {
   final void Function(AthanModel) onSetPressed;
 
   const _AthanList({
-    required this.athans,
+    required this.assetAthans,
+    required this.serverAthans,
     required this.provider,
+    required this.isFajr,
     required this.cardColor,
     required this.surfaceColor,
     required this.accentColor,
@@ -593,52 +493,8 @@ class _AthanList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (athans.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                provider.isOffline
-                    ? Icons.folder_open_rounded
-                    : Icons.music_off_rounded,
-                size: 48,
-                color: isDark ? Colors.white24 : Colors.black26,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                provider.isOffline
-                    ? 'لا توجد أصوات محمّلة في هذا التبويب'
-                    : 'لا توجد أذانات',
-                style: TextStyle(
-                  fontFamily: 'Tajawal',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white70 : Colors.black87,
-                ),
-              ),
-              if (provider.isOffline) ...[
-                const SizedBox(height: 6),
-                Text(
-                  'يمكنك تحميل أصوات جديدة عند الاتصال بالإنترنت',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Tajawal',
-                    fontSize: 12.5,
-                    color: isDark ? Colors.white38 : Colors.black45,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      );
-    }
-
-    // ─── ترتيب الأذانات: المحملة تظهر في الأعلى ────────────────────────────────
-    final sortedAthans = List<AthanModel>.from(athans)..sort((a, b) {
+    // ترتيب أصوات السيرفر: المحمّلة تظهر أولاً
+    final sortedServerAthans = List<AthanModel>.from(serverAthans)..sort((a, b) {
       final aDownloaded = provider.isDownloaded(a.id);
       final bDownloaded = provider.isDownloaded(b.id);
       if (aDownloaded && !bDownloaded) return -1;
@@ -646,28 +502,198 @@ class _AthanList extends StatelessWidget {
       return 0;
     });
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      itemCount: sortedAthans.length,
-      itemBuilder: (context, index) {
-        final athan = sortedAthans[index];
-        return _AthanCard(
-          athan: athan,
-          provider: provider,
-          cardColor: cardColor,
-          surfaceColor: surfaceColor,
-          accentColor: accentColor,
-          primaryColor: primaryColor,
-          isDark: isDark,
-          onPreview: onPreview,
-          onSetPressed: onSetPressed,
-        );
-      },
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      children: [
+        // ─── القسم 1: الأصوات المدمجة في assets ──────────────────────────────
+        _buildSectionHeader(
+          title: isFajr ? 'أصوات أذان الفجر المدمجة' : 'أصوات الأذان المدمجة',
+          subtitle: 'جاهزة للاستخدام الفوري بدون إنترنت',
+          icon: Icons.offline_pin_rounded,
+          count: assetAthans.length,
+          iconColor: Colors.teal,
+        ),
+        const SizedBox(height: 8),
+        ...assetAthans.map((athan) => _AthanCard(
+              athan: athan,
+              provider: provider,
+              cardColor: cardColor,
+              surfaceColor: surfaceColor,
+              accentColor: accentColor,
+              primaryColor: primaryColor,
+              isDark: isDark,
+              onPreview: onPreview,
+              onSetPressed: onSetPressed,
+            )),
+
+        const SizedBox(height: 16),
+
+        // ─── القسم 2: أصوات السيرفر السحابية ─────────────────────────────────
+        _buildSectionHeader(
+          title: isFajr ? 'أصوات الفجر الإضافية (السيرفر)' : 'أصوات إضافية من السيرفر',
+          subtitle: 'أصوات منوعة يمكنك الاستماع إليها وتحميلها',
+          icon: Icons.cloud_download_rounded,
+          count: serverAthans.length,
+          iconColor: Colors.blueAccent,
+        ),
+        const SizedBox(height: 8),
+
+        if (provider.isLoading) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24.0),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'جارٍ فحص أصوات السيرفر...',
+                    style: TextStyle(
+                      fontFamily: 'Tajawal',
+                      fontSize: 13,
+                      color: isDark ? Colors.white60 : Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ] else if (sortedServerAthans.isEmpty) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withAlpha(8) : Colors.black.withAlpha(5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark ? Colors.white12 : Colors.black12,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  provider.isOffline
+                      ? Icons.wifi_off_rounded
+                      : Icons.music_off_rounded,
+                  color: isDark ? Colors.white38 : Colors.black38,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    provider.isOffline
+                        ? 'لا تتوفر أصوات سيرفر محمّلة حالياً، اتصل بالإنترنت لعرض وتحميل المزيد.'
+                        : 'لا توجد أصوات إضافية في هذا القسم حالياً.',
+                    style: TextStyle(
+                      fontFamily: 'Tajawal',
+                      fontSize: 13,
+                      color: isDark ? Colors.white60 : Colors.black54,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else ...[
+          ...sortedServerAthans.map((athan) => _AthanCard(
+                athan: athan,
+                provider: provider,
+                cardColor: cardColor,
+                surfaceColor: surfaceColor,
+                accentColor: accentColor,
+                primaryColor: primaryColor,
+                isDark: isDark,
+                onPreview: onPreview,
+                onSetPressed: onSetPressed,
+              )),
+        ],
+
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required int count,
+    required Color iconColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: iconColor.withAlpha(30),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontFamily: 'Tajawal',
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14.5,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    if (count > 0) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white12 : Colors.black.withAlpha(15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '$count',
+                          style: TextStyle(
+                            fontFamily: 'Tajawal',
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white70 : Colors.black54,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontFamily: 'Tajawal',
+                    fontSize: 11.5,
+                    color: isDark ? Colors.white54 : Colors.black45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ─── Widget بطاقة الأذان الواحد ─────────────────────────────────────────────
+// ─── بطاقة الأذان الواحد ───────────────────────────────────────────────────
 class _AthanCard extends StatelessWidget {
   final AthanModel athan;
   final AthanLibraryProvider provider;
@@ -700,6 +726,7 @@ class _AthanCard extends StatelessWidget {
     final isDownloaded = provider.isDownloaded(athan.id);
     final isDownloading = status == DownloadStatus.downloading;
 
+    // فحص الصلوات المعين لها هذا الأذان
     final assignedPrayers = provider.getPrayersAssignedTo(athan.id);
     String badgeText = '';
     if (assignedPrayers.isNotEmpty) {
@@ -726,16 +753,16 @@ class _AthanCard extends StatelessWidget {
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: isAssigned
             ? (isDark
                 ? const Color(0xFF1B4D20)
                 : const Color(0xFFE8F5E9))
             : cardColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: isAssigned
-            ? Border.all(color: accentColor, width: 1.5)
+            ? Border.all(color: accentColor, width: 1.6)
             : Border.all(
                 color: isDark
                     ? Colors.white12
@@ -743,134 +770,189 @@ class _AthanCard extends StatelessWidget {
               ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(isDark ? 40 : 10),
-            blurRadius: 8,
+            color: Colors.black.withAlpha(isDark ? 30 : 8),
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ─── صف المحتوى الرئيسي ───────────────────────────────────────
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              children: [
-                // أيقونة الأذان
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: surfaceColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    athan.isFajr ? Icons.nightlight_round : Icons.mosque,
-                    color: accentColor,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          // النقر على البطاقة يتيح اختيار وتعيين الصوت مباشرة
+          onTap: isDownloading ? null : () => onSetPressed(athan),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  children: [
+                    // أيقونة الفجر أو المسجد
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: isAssigned
+                            ? accentColor.withAlpha(35)
+                            : surfaceColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        athan.isFajr ? Icons.nightlight_round : Icons.mosque,
+                        color: isAssigned ? Colors.white : accentColor,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
 
-                // اسم الأذان + شارة "الافتراضي"
-                Expanded(
+                    // اسم الأذان + الشارات
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  athan.name,
+                                  style: TextStyle(
+                                    fontFamily: 'Tajawal',
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14.5,
+                                    color: isDark ? Colors.white : Colors.black87,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (athan.isAsset) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Colors.teal.withAlpha(isDark ? 50 : 25),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.teal.withAlpha(80), width: 0.8),
+                                  ),
+                                  child: const Text(
+                                    'مدمج',
+                                    style: TextStyle(
+                                      fontFamily: 'Tajawal',
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.teal,
+                                    ),
+                                  ),
+                                ),
+                              ] else if (isDownloaded) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withAlpha(isDark ? 50 : 25),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.blue.withAlpha(80), width: 0.8),
+                                  ),
+                                  child: const Text(
+                                    'محمّل',
+                                    style: TextStyle(
+                                      fontFamily: 'Tajawal',
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          if (isAssigned) ...[
+                            const SizedBox(height: 3),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: accentColor,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                badgeText,
+                                style: const TextStyle(
+                                  fontFamily: 'Tajawal',
+                                  fontSize: 10,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    // زر الاستماع / المعاينة
+                    _PlayButton(
+                      isPlaying: isPlaying,
+                      accentColor: accentColor,
+                      onTap: () => onPreview(athan),
+                    ),
+                    const SizedBox(width: 8),
+
+                    // زر التعيين / التحميل
+                    _ActionButton(
+                      isAsset: athan.isAsset,
+                      isDownloaded: isDownloaded,
+                      isDownloading: isDownloading,
+                      isAssigned: isAssigned,
+                      accentColor: accentColor,
+                      primaryColor: primaryColor,
+                      onTap: isDownloading ? null : () => onSetPressed(athan),
+                    ),
+                  ],
+                ),
+              ),
+
+              // شريط تقدم التحميل
+              if (isDownloading)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        athan.name,
-                        style: TextStyle(
-                          fontFamily: 'Tajawal',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14.5,
-                          color: isDark ? Colors.white : Colors.black87,
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: progress > 0 ? progress : null,
+                          minHeight: 4,
+                          backgroundColor: isDark
+                              ? Colors.white12
+                              : Colors.black12,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(accentColor),
                         ),
                       ),
-                      if (isAssigned) ...[
-                        const SizedBox(height: 3),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: accentColor,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            badgeText,
-                            style: const TextStyle(
-                              fontFamily: 'Tajawal',
-                              fontSize: 10,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'جارٍ التحميل... ${(progress * 100).toInt()}%',
+                        style: TextStyle(
+                          fontFamily: 'Tajawal',
+                          fontSize: 10.5,
+                          color: isDark ? Colors.white60 : Colors.black45,
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
-
-                // زر التشغيل/الإيقاف
-                _PlayButton(
-                  isPlaying: isPlaying,
-                  accentColor: accentColor,
-                  onTap: () => onPreview(athan),
-                ),
-                const SizedBox(width: 8),
-
-                // زر التحميل والتعيين
-                _DownloadButton(
-                  isDownloaded: isDownloaded,
-                  isDownloading: isDownloading,
-                  isAssigned: isAssigned,
-                  accentColor: accentColor,
-                  primaryColor: primaryColor,
-                  onTap: isDownloading ? null : () => onSetPressed(athan),
-                ),
-              ],
-            ),
+            ],
           ),
-
-          // ─── شريط التقدم أثناء التحميل ────────────────────────────────
-          if (isDownloading)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 5,
-                      backgroundColor: isDark
-                          ? Colors.white12
-                          : Colors.black12,
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(accentColor),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'جارٍ التحميل... ${(progress * 100).toInt()}%',
-                    style: TextStyle(
-                      fontFamily: 'Tajawal',
-                      fontSize: 11,
-                      color: isDark ? Colors.white60 : Colors.black45,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
 }
 
-// ─── زر التشغيل المنفصل ─────────────────────────────────────────────────────
+// ─── زر الاستماع / المعاينة ────────────────────────────────────────────────
 class _PlayButton extends StatelessWidget {
   final bool isPlaying;
   final Color accentColor;
@@ -885,7 +967,7 @@ class _PlayButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 250),
+      duration: const Duration(milliseconds: 200),
       transitionBuilder: (child, anim) =>
           ScaleTransition(scale: anim, child: child),
       child: IconButton(
@@ -896,7 +978,8 @@ class _PlayButton extends StatelessWidget {
           backgroundColor:
               isPlaying ? accentColor : accentColor.withAlpha(30),
           foregroundColor: isPlaying ? Colors.white : accentColor,
-          fixedSize: const Size(38, 38),
+          fixedSize: const Size(36, 36),
+          padding: EdgeInsets.zero,
         ),
         icon: Icon(
           isPlaying ? Icons.stop_rounded : Icons.play_arrow_rounded,
@@ -907,8 +990,9 @@ class _PlayButton extends StatelessWidget {
   }
 }
 
-// ─── زر التحميل والتعيين ────────────────────────────────────────────────────
-class _DownloadButton extends StatelessWidget {
+// ─── زر التعيين والتحميل ───────────────────────────────────────────────────
+class _ActionButton extends StatelessWidget {
+  final bool isAsset;
   final bool isDownloaded;
   final bool isDownloading;
   final bool isAssigned;
@@ -916,7 +1000,8 @@ class _DownloadButton extends StatelessWidget {
   final Color primaryColor;
   final VoidCallback? onTap;
 
-  const _DownloadButton({
+  const _ActionButton({
+    required this.isAsset,
     required this.isDownloaded,
     required this.isDownloading,
     required this.isAssigned,
@@ -929,41 +1014,65 @@ class _DownloadButton extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isDownloading) {
       return const SizedBox(
-        width: 38,
-        height: 38,
+        width: 36,
+        height: 36,
         child: Padding(
           padding: EdgeInsets.all(8),
-          child: CircularProgressIndicator(strokeWidth: 2.5),
+          child: CircularProgressIndicator(strokeWidth: 2),
         ),
       );
     }
 
     if (isAssigned) {
       return Tooltip(
-        message: 'تم التعيين',
-        child: Icon(Icons.check_circle_rounded,
-            color: accentColor, size: 34),
+        message: 'محدد حالياً كصوت للأذان',
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: accentColor.withAlpha(35),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: accentColor, width: 1.2),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check_circle_rounded, color: accentColor, size: 16),
+              const SizedBox(width: 4),
+              Text(
+                'محدد',
+                style: TextStyle(
+                  fontFamily: 'Tajawal',
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                  color: accentColor,
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
+    final bool isReady = isAsset || isDownloaded;
+
     return Tooltip(
-      message: isDownloaded ? 'تعيين كافتراضي' : 'تحميل وتعيين',
+      message: isReady ? 'تعيين كصوت للأذان' : 'تحميل وتعيين كصوت للأذان',
       child: FilledButton.icon(
         onPressed: onTap,
         style: FilledButton.styleFrom(
-          backgroundColor: primaryColor,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+          backgroundColor: isReady ? primaryColor : const Color(0xFF2E7D32),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
           minimumSize: const Size(0, 36),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10)),
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
         icon: Icon(
-          isDownloaded ? Icons.check_rounded : Icons.download_rounded,
-          size: 16,
+          isReady ? Icons.check_rounded : Icons.download_rounded,
+          size: 15,
         ),
         label: Text(
-          isDownloaded ? 'تعيين' : 'تحميل',
+          isReady ? 'تعيين' : 'تحميل',
           style: const TextStyle(
             fontFamily: 'Tajawal',
             fontSize: 12,

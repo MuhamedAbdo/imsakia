@@ -181,22 +181,32 @@ class AthanProvider with ChangeNotifier {
     _prayerPaths[prayerKey] = path;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('athan_path_$prayerKey', path);
+
+    final String? matchingName = prayerKey == 'fajr'
+        ? _fajrMuezzins.where((m) => m.path == path).firstOrNull?.name
+        : _generalMuezzins.where((m) => m.path == path).firstOrNull?.name;
+    final String? matchingId = prayerKey == 'fajr'
+        ? _fajrMuezzins.where((m) => m.path == path).firstOrNull?.id
+        : _generalMuezzins.where((m) => m.path == path).firstOrNull?.id;
+
+    if (matchingName != null) {
+      await prefs.setString('athan_library_name_$prayerKey', matchingName);
+    }
+    if (matchingId != null) {
+      await prefs.setString('athan_library_id_$prayerKey', matchingId);
+    }
     
     if (_isUnifiedMuezzin && prayerKey != 'fajr') {
-       _prayerPaths['asr'] = path;
-       _prayerPaths['maghrib'] = path;
-       _prayerPaths['isha'] = path;
-       await prefs.setString('athan_path_asr', path);
-       await prefs.setString('athan_path_maghrib', path);
-       await prefs.setString('athan_path_isha', path);
-
-       // Clear cloud assignments for asr, maghrib, isha when setting a local asset
-       await prefs.remove('athan_library_id_asr');
-       await prefs.remove('athan_library_name_asr');
-       await prefs.remove('athan_library_id_maghrib');
-       await prefs.remove('athan_library_name_maghrib');
-       await prefs.remove('athan_library_id_isha');
-       await prefs.remove('athan_library_name_isha');
+      for (final p in ['asr', 'maghrib', 'isha']) {
+        _prayerPaths[p] = path;
+        await prefs.setString('athan_path_$p', path);
+        if (matchingName != null) {
+          await prefs.setString('athan_library_name_$p', matchingName);
+        }
+        if (matchingId != null) {
+          await prefs.setString('athan_library_id_$p', matchingId);
+        }
+      }
     }
 
     notifyListeners();

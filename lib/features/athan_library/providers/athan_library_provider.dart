@@ -20,6 +20,115 @@ class AthanLibraryProvider with ChangeNotifier {
   // ─── بادئة اسم الملف المحمَّل (ثابتة وفريدة لكل أذان) ────────────────────
   static const String _filePrefix = 'downloaded_athan_';
 
+  // ─── الأصوات المدمجة في الـ Assets (جاهزة بدون إنترنت) ───────────────────
+  static const List<AthanModel> assetNormalAthans = [
+    AthanModel(
+      id: "ab_egypt",
+      name: "عبد الباسط - مصر",
+      url: "",
+      isFajr: false,
+      assetPath: "assets/audio/athan_egypt_ab.mp3",
+    ),
+    AthanModel(
+      id: "saad_ghamdi",
+      name: "سعد الغامدي",
+      url: "",
+      isFajr: false,
+      assetPath: "assets/audio/athan_ghamdi.mp3",
+    ),
+    AthanModel(
+      id: "makkah",
+      name: "أذان مكة",
+      url: "",
+      isFajr: false,
+      assetPath: "assets/audio/athan_makkah.mp3",
+    ),
+    AthanModel(
+      id: "mishary",
+      name: "مشاري العفاسي",
+      url: "",
+      isFajr: false,
+      assetPath: "assets/audio/athan_mishari.mp3",
+    ),
+    AthanModel(
+      id: "rifaat",
+      name: "محمد رفعت",
+      url: "",
+      isFajr: false,
+      assetPath: "assets/audio/athan_rifaat.mp3",
+    ),
+    AthanModel(
+      id: "elbna",
+      name: "محمود علي البنا",
+      url: "",
+      isFajr: false,
+      assetPath: "assets/audio/elbna.mp3",
+    ),
+    AthanModel(
+      id: "aboelenin",
+      name: "أبو العينين شعيشع",
+      url: "",
+      isFajr: false,
+      assetPath: "assets/audio/aboelenin.mp3",
+    ),
+  ];
+
+  static const List<AthanModel> assetFajrAthans = [
+    AthanModel(
+      id: "ab_fajr",
+      name: "عبد الباسط (فجر)",
+      url: "",
+      isFajr: true,
+      assetPath: "assets/audio/fajr_abdulbaset.mp3",
+    ),
+    AthanModel(
+      id: "madinah_fajr",
+      name: "أذان المدينة المنورة",
+      url: "",
+      isFajr: true,
+      assetPath: "assets/audio/fajr_madinah.mp3",
+    ),
+    AthanModel(
+      id: "makkah_fajr",
+      name: "أذان مكة (فجر)",
+      url: "",
+      isFajr: true,
+      assetPath: "assets/audio/fajr_makkah.mp3",
+    ),
+    AthanModel(
+      id: "mishary_fajr",
+      name: "مشاري العفاسي (فجر)",
+      url: "",
+      isFajr: true,
+      assetPath: "assets/audio/fajr_mishari.mp3",
+    ),
+  ];
+
+  /// البحث عن صوت مدمج بالـ id
+  static AthanModel? findAssetById(String id) {
+    for (final a in assetNormalAthans) {
+      if (a.id == id) return a;
+    }
+    for (final a in assetFajrAthans) {
+      if (a.id == id) return a;
+    }
+    return null;
+  }
+
+  /// البحث عن صوت مدمج بمسار الـ asset
+  static AthanModel? findAssetByPath(String path) {
+    for (final a in assetNormalAthans) {
+      if (a.assetPath == path) return a;
+    }
+    for (final a in assetFajrAthans) {
+      if (a.assetPath == path) return a;
+    }
+    return null;
+  }
+
+  /// هل الـ id يتبع صوتاً مدمجاً في الـ assets
+  static bool isAssetId(String id) => findAssetById(id) != null;
+
   // ─── Data source ──────────────────────────────────────────────────────────
   final AthanRemoteDataSource _remoteDataSource;
 
@@ -54,7 +163,7 @@ class AthanLibraryProvider with ChangeNotifier {
   final Map<String, String> _assignedNames = {};
 
   // ─── Getters ──────────────────────────────────────────────────────────────
-  /// قائمة الأذان العادي (في وضع عدم الاتصال تُعرض فقط الأصوات المحمّلة محلياً، ومستبعد منها التكبيرات)
+  /// قائمة الأذان العادي من السيرفر (في وضع عدم الاتصال تُعرض فقط الأصوات المحمّلة محلياً، ومستبعد منها التكبيرات)
   List<AthanModel> get normalAthans {
     final list = _allAthans
         .where((a) => !a.isFajr && !a.name.contains('تكبيرات'));
@@ -64,7 +173,7 @@ class AthanLibraryProvider with ChangeNotifier {
     return list.toList();
   }
 
-  /// قائمة أذان الفجر (في وضع عدم الاتصال تُعرض فقط الأصوات المحمّلة محلياً، ومستبعد منها التكبيرات)
+  /// قائمة أذان الفجر من السيرفر (في وضع عدم الاتصال تُعرض فقط الأصوات المحمّلة محلياً، ومستبعد منها التكبيرات)
   List<AthanModel> get fajrAthans {
     final list = _allAthans
         .where((a) => a.isFajr && !a.name.contains('تكبيرات'));
@@ -79,20 +188,31 @@ class AthanLibraryProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String? get playingId => _playingId;
 
-  /// هل تتوفر أي أصوات محملة محلياً على الجهاز
+  /// هل تتوفر أي أصوات محملة محلياً على الجهاز من السيرفر
   bool get hasOfflineAthans => _allAthans
       .where((a) => !a.name.contains('تكبيرات'))
       .any((a) => isDownloaded(a.id));
 
-  /// إرجاع اسم الأذان السحابي المعين لصلاة معينة، أو null إذا لم يكن هناك واحد.
-  String? getAssignedNameFor(String prayerKey) => _assignedNames[prayerKey];
+  /// إرجاع اسم الأذان المعين لصلاة معينة
+  String getAssignedNameFor(String prayerKey) {
+    final name = _assignedNames[prayerKey];
+    if (name != null && name.isNotEmpty) return name;
+    return prayerKey == 'fajr' ? 'أذان مكة (فجر)' : 'أذان مكة';
+  }
 
-  /// إرجاع ID الأذان السحابي المعين لصلاة معينة، أو null إذا لم يكن هناك واحد.
-  String? getAssignedIdFor(String prayerKey) => _assignedIds[prayerKey];
+  /// إرجاع ID الأذان المعين لصلاة معينة
+  String getAssignedIdFor(String prayerKey) {
+    final id = _assignedIds[prayerKey];
+    if (id != null && id.isNotEmpty) return id;
+    return prayerKey == 'fajr' ? 'makkah_fajr' : 'makkah';
+  }
 
   /// هل الصلاة المعينة لها أذان سحابي؟
-  bool hasCloudAthanFor(String prayerKey) =>
-      _assignedIds.containsKey(prayerKey) && _assignedNames.containsKey(prayerKey);
+  bool hasCloudAthanFor(String prayerKey) {
+    final id = _assignedIds[prayerKey];
+    if (id == null) return false;
+    return !isAssetId(id);
+  }
 
   /// هل هذا الأذان معين لأي صلاة؟
   bool isAssigned(String id) => _assignedIds.containsValue(id);
@@ -105,12 +225,19 @@ class AthanLibraryProvider with ChangeNotifier {
         .toList();
   }
 
-  DownloadStatus downloadStatusOf(String id) =>
-      _downloadStatus[id] ?? DownloadStatus.idle;
-  double downloadProgressOf(String id) => _downloadProgress[id] ?? 0.0;
+  DownloadStatus downloadStatusOf(String id) {
+    if (isAssetId(id)) return DownloadStatus.done;
+    return _downloadStatus[id] ?? DownloadStatus.idle;
+  }
 
-  /// هل الملف موجود على القرص؟ يتحقق من الذاكرة أولاً ثم القرص
+  double downloadProgressOf(String id) {
+    if (isAssetId(id)) return 1.0;
+    return _downloadProgress[id] ?? 0.0;
+  }
+
+  /// هل الملف موجود وجاهز للاستخدام؟ الأصوات المدمجة دائماً true
   bool isDownloaded(String id) {
+    if (isAssetId(id)) return true;
     if (_downloadStatus[id] == DownloadStatus.done &&
         _localPaths.containsKey(id)) {
       final p = _localPaths[id]!;
@@ -123,13 +250,17 @@ class AthanLibraryProvider with ChangeNotifier {
     return false;
   }
 
-  /// مسار الملف المحلي المحمّل للأذان (إن وُجد) — يُستخدم للمعاينة من القرص.
-  String? localPathOf(String id) => _localPaths[id];
+  /// مسار الملف المحلي أو الـ asset للأذان
+  String? localPathOf(String id) {
+    final asset = findAssetById(id);
+    if (asset != null) return asset.assetPath;
+    return _localPaths[id];
+  }
 
   // ─── Init ─────────────────────────────────────────────────────────────────
   Future<void> _init() async {
     await _loadSavedDefaults();
-    await _scanLocalFiles(); // ✅ استعادة الملفات المحمّلة مسبقاً عند إعادة التشغيل
+    await _scanLocalFiles(); // استعادة الملفات المحمّلة مسبقاً عند إعادة التشغيل
     await fetchAthans();
   }
 
@@ -165,8 +296,25 @@ class AthanLibraryProvider with ChangeNotifier {
     for (var p in prayers) {
       final id = prefs.getString(_keyIdFor(p));
       final name = prefs.getString(_keyNameFor(p));
-      if (id != null) _assignedIds[p] = id;
-      if (name != null) _assignedNames[p] = name;
+      final path = prefs.getString(_keyPathFor(p));
+
+      if (id != null && id.isNotEmpty) {
+        _assignedIds[p] = id;
+      } else if (path != null && path.isNotEmpty) {
+        final asset = findAssetByPath(path);
+        _assignedIds[p] = asset?.id ?? (p == 'fajr' ? 'makkah_fajr' : 'makkah');
+      } else {
+        _assignedIds[p] = (p == 'fajr' ? 'makkah_fajr' : 'makkah');
+      }
+
+      if (name != null && name.isNotEmpty) {
+        _assignedNames[p] = name;
+      } else if (path != null && path.isNotEmpty) {
+        final asset = findAssetByPath(path);
+        _assignedNames[p] = asset?.name ?? (p == 'fajr' ? 'أذان مكة (فجر)' : 'أذان مكة');
+      } else {
+        _assignedNames[p] = (p == 'fajr' ? 'أذان مكة (فجر)' : 'أذان مكة');
+      }
     }
     notifyListeners();
   }
@@ -176,30 +324,30 @@ class AthanLibraryProvider with ChangeNotifier {
     await _loadSavedDefaults();
   }
 
-  /// مسح الأذان الافتراضي من المكتبة السحابية والعودة للأذان المحلي.
-  /// ملاحظة: لا يحذف الملف من القرص — يبقى "محمّل" ويمكن تعيينه مرة أخرى بدون إعادة تحميل.
-  /// مسح الأذان السحابي لصلاة معينة (أو لكل الصلوات إذا كان prayerKey == 'all').
+  /// مسح الأذان والعودة لأذان مكة الافتراضي
   Future<void> clearDefault({required String prayerKey}) async {
     final prefs = await SharedPreferences.getInstance();
 
     if (prayerKey == 'all') {
       final normalPrayers = ['dhuhr', 'asr', 'maghrib', 'isha'];
       for (var p in normalPrayers) {
-        _assignedIds.remove(p);
-        _assignedNames.remove(p);
-        await prefs.remove(_keyIdFor(p));
-        await prefs.remove(_keyNameFor(p));
-        // نُعيد المسار الافتراضي لأذان مكة حتى لا يتعطل الناتيف
+        _assignedIds[p] = 'makkah';
+        _assignedNames[p] = 'أذان مكة';
+        await prefs.setString(_keyIdFor(p), 'makkah');
+        await prefs.setString(_keyNameFor(p), 'أذان مكة');
         await prefs.setString(_keyPathFor(p), "assets/audio/athan_makkah.mp3");
       }
     } else {
-      _assignedIds.remove(prayerKey);
-      _assignedNames.remove(prayerKey);
-      await prefs.remove(_keyIdFor(prayerKey));
-      await prefs.remove(_keyNameFor(prayerKey));
+      final defaultId = prayerKey == 'fajr' ? 'makkah_fajr' : 'makkah';
+      final defaultName = prayerKey == 'fajr' ? 'أذان مكة (فجر)' : 'أذان مكة';
       final fallbackPath = prayerKey == 'fajr'
           ? "assets/audio/fajr_makkah.mp3"
           : "assets/audio/athan_makkah.mp3";
+
+      _assignedIds[prayerKey] = defaultId;
+      _assignedNames[prayerKey] = defaultName;
+      await prefs.setString(_keyIdFor(prayerKey), defaultId);
+      await prefs.setString(_keyNameFor(prayerKey), defaultName);
       await prefs.setString(_keyPathFor(prayerKey), fallbackPath);
     }
 
@@ -231,16 +379,7 @@ class AthanLibraryProvider with ChangeNotifier {
         _allAthans =
             cachedAthans.where((a) => !a.name.contains('تكبيرات')).toList();
       }
-
-      // التحقق هل توجد أصوات محملة محلياً يمكن عرضها في وضع عدم الاتصال
-      final hasLocal = _allAthans.any((a) => isDownloaded(a.id));
-      if (!hasLocal) {
-        // لا يوجد أي صوت محمل مسبقاً، نعيّن علامة لإظهار واجهة عدم الاتصال
-        // دون استخدام e.toString() لحجب الأخطاء التقنية عن المستخدم نهائياً
-        _errorMessage = 'NO_OFFLINE_ATHANS';
-      } else {
-        _errorMessage = null;
-      }
+      _errorMessage = null;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -254,10 +393,16 @@ class AthanLibraryProvider with ChangeNotifier {
   }
 
   // ─── Download & Set ───────────────────────────────────────────────────────
+  /// تعيين الأذان مباشرة (إذا كان مدمجاً أو محملاً) أو تحميله ثم تعيينه
   Future<String?> downloadAndSet(AthanModel athan,
       {required String prayerKey}) async {
+    // إذا كان صوتاً مدمجاً في الـ assets
+    if (athan.isAsset) {
+      await _saveAsDefault(athan, prayerKey: prayerKey, localPath: athan.assetPath!);
+      return athan.assetPath;
+    }
+
     final dir = await getApplicationDocumentsDirectory();
-    // ✅ اسم فريد ثابت لكل أذان بناءً على ID — لا يتغير بين الجلسات
     final fileName = '$_filePrefix${athan.id}.mp3';
     final filePath = '${dir.path}/$fileName';
 
@@ -325,7 +470,7 @@ class AthanLibraryProvider with ChangeNotifier {
   Future<void> _saveAsDefault(AthanModel athan,
       {required String prayerKey, String? localPath}) async {
     final prefs = await SharedPreferences.getInstance();
-    final path = localPath ?? _localPaths[athan.id] ?? '';
+    final path = localPath ?? (athan.isAsset ? athan.assetPath! : (_localPaths[athan.id] ?? ''));
 
     if (prayerKey == 'all') {
       final normalPrayers = ['dhuhr', 'asr', 'maghrib', 'isha'];
