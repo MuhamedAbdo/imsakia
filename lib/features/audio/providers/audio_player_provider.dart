@@ -20,19 +20,36 @@ class AudioPlayerProvider with ChangeNotifier {
 
   bool _isPlaying = false;
   bool _isBuffering = false;
+  bool _isLoading = false;
+  SurahAudio? _loadingSurah;
+  Reciter? _loadingReciter;
   Duration _currentPosition = Duration.zero;
   Duration _totalDuration = Duration.zero;
   String? _errorMessage;
   bool _isStopping = false;
 
   bool get isPlaying => _isPlaying;
-  bool get isBuffering => _isBuffering;
+  bool get isBuffering => _isBuffering || _isLoading;
+  bool get isLoading => _isLoading;
+  SurahAudio? get loadingSurah => _loadingSurah;
+  Reciter? get loadingReciter => _loadingReciter;
   Duration get currentPosition => _currentPosition;
   Duration get totalDuration => _totalDuration;
   SurahAudio? get currentSurah => _currentSurah;
   Reciter? get currentReciter => _currentReciter;
   List<SurahAudio> get currentPlaylist => _currentPlaylist;
   String? get errorMessage => _errorMessage;
+
+  bool isSurahLoading(int surahId, String reciterId) {
+    return _isLoading &&
+        _loadingSurah?.id == surahId &&
+        _loadingReciter?.id == reciterId;
+  }
+
+  bool isSurahSelected(int surahId, String reciterId) {
+    return _currentSurah?.id == surahId &&
+        _currentReciter?.id == reciterId;
+  }
 
   void clearError() {
     _errorMessage = null;
@@ -125,6 +142,14 @@ class AudioPlayerProvider with ChangeNotifier {
   }
 
   Future<void> playSurah(SurahAudio surah, Reciter reciter) async {
+    // Guard against concurrent invocations while already initializing/loading
+    if (_isLoading) {
+      if (_loadingSurah?.id == surah.id && _loadingReciter?.id == reciter.id) {
+        return;
+      }
+      return;
+    }
+
     if (surah.audioUrl.isEmpty && (surah.localPath == null || surah.localPath!.isEmpty)) {
       _errorMessage = "التسجيل غير متاح لهذا القارئ";
       notifyListeners();
@@ -133,38 +158,21 @@ class AudioPlayerProvider with ChangeNotifier {
 
     try {
       _errorMessage = null;
+      _isLoading = true;
+      _loadingSurah = surah;
+      _loadingReciter = reciter;
       _isBuffering = true;
       notifyListeners();
 
-      // 🛡️ Protection Layer: إذا كان المحرك منشغلاً بالتحميل، نوقفه فوراً وننتظر قليلاً لضمان الاستقرار
-      if (_audioPlayer.processingState == ProcessingState.loading || 
-          _audioPlayer.processingState == ProcessingState.buffering) {
-        await _audioPlayer.stop();
-        await Future.delayed(const Duration(milliseconds: 100));
+      // Pause previous playback cleanly without tearing down native player instance
+      if (_audioPlayer.playing) {
+        await _audioPlayer.pause();
       }
 
-      // 🛑 Mandatory delay to clear Native layer safely
-      await _audioPlayer.stop();
-      await Future.delayed(const Duration(milliseconds: 200));
-
-      _currentSurah = surah;
-      _currentReciter = reciter;
-      notifyListeners();
-
-      Uri? artUri = await _getArtUri();
-      
-      // Update audio_service explicitly
-      audioHandler?.setMediaItem(
-        id: surah.id.toString(),
-        title: "سورة ${surah.name}",
-        artist: reciter.name,
-        artUri: artUri ?? Uri.parse('https://raw.githubusercontent.com/ryanheise/audio_service/master/example/web/media/art.jpg'),
-      );
-
-
+      final artUri = await _getArtUri();
       await _audioPlayer.setVolume(1.0);
 
-      // 🌍 Play with Smart Retry & User-Agent
+      // Play with Smart Retry & User-Agent
       if (surah.localPath != null && surah.localPath!.isNotEmpty) {
         await _audioPlayer.setAudioSource(AudioSource.file(surah.localPath!));
       } else {
@@ -179,15 +187,38 @@ class AudioPlayerProvider with ChangeNotifier {
         
         await _invokePlayWithRetry(surah.audioUrl, tag);
       }
-      
+
+      // Update active playback metadata only after successful audio source initialization
+      _currentSurah = surah;
+      _currentReciter = reciter;
+      _currentPosition = Duration.zero;
+
+      // Update audio_service explicitly
+      audioHandler?.setMediaItem(
+        id: surah.id.toString(),
+        title: "سورة ${surah.name}",
+        artist: reciter.name,
+        artUri: artUri ?? Uri.parse('https://raw.githubusercontent.com/ryanheise/audio_service/master/example/web/media/art.jpg'),
+      );
+
       await _audioPlayer.play();
+      _isLoading = false;
+      _loadingSurah = null;
+      _loadingReciter = null;
       _isBuffering = false;
       notifyListeners();
     } catch (e) {
       debugPrint("Audio Playback Error: $e");
       _errorMessage = "حدث خطأ في الاتصال، يرجى المحاولة مرة أخرى";
+      _isLoading = false;
+      _loadingSurah = null;
+      _loadingReciter = null;
       _isBuffering = false;
-      stop(); // Non-blocking retry
+      _currentSurah = null;
+      _currentReciter = null;
+      try {
+        await _audioPlayer.stop();
+      } catch (_) {}
       notifyListeners();
     }
   }
@@ -239,10 +270,12 @@ class AudioPlayerProvider with ChangeNotifier {
   }
 
   Future<void> resume() async {
+    if (_isLoading) return;
     await _audioPlayer.play();
   }
 
   Future<void> togglePlayPause() async {
+    if (_isLoading) return;
     if (_isPlaying) {
       await pause();
     } else {
@@ -257,6 +290,10 @@ class AudioPlayerProvider with ChangeNotifier {
     try {
       // 🚨 Non-blocking Stop: نحدث الحالة داخلياً فوراً لتختفي الواجهة
       _isPlaying = false;
+      _isLoading = false;
+      _loadingSurah = null;
+      _loadingReciter = null;
+      _isBuffering = false;
       _currentSurah = null;
       _currentReciter = null;
       _currentPosition = Duration.zero;
@@ -271,6 +308,7 @@ class AudioPlayerProvider with ChangeNotifier {
   }
 
   Future<void> skipToNext() async {
+    if (_isLoading) return;
     if (_currentSurah == null || _currentReciter == null || _currentPlaylist.isEmpty) return;
     final currentIndex = _currentPlaylist.indexWhere((s) => s.id == _currentSurah!.id);
     if (currentIndex != -1 && currentIndex + 1 < _currentPlaylist.length) {
@@ -280,6 +318,7 @@ class AudioPlayerProvider with ChangeNotifier {
   }
 
   Future<void> skipToPrevious() async {
+    if (_isLoading) return;
     if (_currentSurah == null || _currentReciter == null || _currentPlaylist.isEmpty) return;
     if (_currentPosition.inSeconds > 5) {
       await seek(Duration.zero);

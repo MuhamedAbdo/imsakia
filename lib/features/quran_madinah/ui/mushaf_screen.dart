@@ -249,7 +249,7 @@ class _MushafScreenState extends State<MushafScreen>
           )
         : PageView.builder(
             controller: _pageController,
-            reverse: true,
+            reverse: isWindows ? false : true,
             itemCount: 604,
             allowImplicitScrolling: true,
             onPageChanged: (i) => _onHorizontalPageChanged(i, quranProvider),
@@ -284,15 +284,15 @@ class _MushafScreenState extends State<MushafScreen>
                 }
               }
 
-              // Arrow Left / PageDown: Next page
-              // Arrow Right / PageUp: Previous page
-              if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
-                  event.logicalKey == LogicalKeyboardKey.pageDown) {
-                _goToNextPage();
-                return KeyEventResult.handled;
-              } else if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+              // Arrow Right / PageUp: Previous page (decreases page number, shifts image left in RTL)
+              // Arrow Left / PageDown: Next page (increases page number, shifts image right in RTL)
+              if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
                   event.logicalKey == LogicalKeyboardKey.pageUp) {
                 _goToPreviousPage();
+                return KeyEventResult.handled;
+              } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+                  event.logicalKey == LogicalKeyboardKey.pageDown) {
+                _goToNextPage();
                 return KeyEventResult.handled;
               }
 
@@ -309,7 +309,7 @@ class _MushafScreenState extends State<MushafScreen>
                 children: [
                   readingView,
                   if (!_isVerticalMode) ...[
-                    // Desktop Previous Page Control (Right side)
+                    // Desktop Previous Page Control (Right side: 3 -> 2 -> 1, image moves left)
                     Positioned(
                       right: 20,
                       top: 0,
@@ -318,7 +318,7 @@ class _MushafScreenState extends State<MushafScreen>
                         child: _buildDesktopNavButton(isNext: false),
                       ),
                     ),
-                    // Desktop Next Page Control (Left side)
+                    // Desktop Next Page Control (Left side: 1 -> 2 -> 3, image moves right)
                     Positioned(
                       left: 20,
                       top: 0,
@@ -353,9 +353,12 @@ class _MushafScreenState extends State<MushafScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).colorScheme.primary;
 
+    // In LTR coordinate space:
+    // When isNext is true (left button), arrow points left (<-).
+    // When isNext is false (right button), arrow points right (->).
     final icon = isNext
-        ? Icons.arrow_forward_rounded
-        : Icons.arrow_back_rounded;
+        ? Icons.arrow_back_rounded
+        : Icons.arrow_forward_rounded;
     final tooltip = isNext
         ? (_currentPage < 604
               ? 'الصفحة التالية (صفحة ${_currentPage + 1}) [سهم يسار / PageDown]'
@@ -412,6 +415,7 @@ class _MushafScreenState extends State<MushafScreen>
               ),
               child: Icon(
                 icon,
+                textDirection: TextDirection.ltr,
                 size: 26,
                 color: canNavigate
                     ? primaryColor

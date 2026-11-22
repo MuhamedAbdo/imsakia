@@ -283,10 +283,12 @@ class _ReciterDetailScreenState extends State<ReciterDetailScreen> {
   ) {
     return Consumer2<AudioPlayerProvider, DownloadProvider>(
       builder: (context, audioProvider, downloadProvider, child) {
-        final isPlayingHere =
-            audioProvider.currentSurah?.id == surah.id &&
-            audioProvider.currentReciter?.id == widget.reciter.id;
-        final isAudioPlaying = isPlayingHere && audioProvider.isPlaying;
+        final isSelected =
+            audioProvider.isSurahSelected(surah.id, widget.reciter.id);
+        final isLoadingHere =
+            audioProvider.isSurahLoading(surah.id, widget.reciter.id);
+        final isAudioPlaying = isSelected && audioProvider.isPlaying;
+        final isRowActive = isSelected || isLoadingHere;
 
         final isDownloading = downloadProvider.isDownloading(
           widget.reciter.id,
@@ -309,7 +311,7 @@ class _ReciterDetailScreenState extends State<ReciterDetailScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: isPlayingHere
+            border: isRowActive
                 ? Border.all(color: Colors.blue, width: 1.5)
                 : null,
             boxShadow: [
@@ -326,13 +328,13 @@ class _ReciterDetailScreenState extends State<ReciterDetailScreen> {
             clipBehavior: Clip.antiAlias,
             child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: isPlayingHere
+              backgroundColor: isRowActive
                   ? Colors.blue
                   : (isDarkMode ? Colors.grey[800] : Colors.blue[50]),
               child: Text(
                 '${surah.id}',
                 style: GoogleFonts.tajawal(
-                  color: isPlayingHere
+                  color: isRowActive
                       ? Colors.white
                       : (isDarkMode ? Colors.white70 : Colors.blue),
                 ),
@@ -343,7 +345,7 @@ class _ReciterDetailScreenState extends State<ReciterDetailScreen> {
               style: GoogleFonts.tajawal(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: isPlayingHere
+                color: isRowActive
                     ? Colors.blue
                     : (isDarkMode ? Colors.white : Colors.black87),
               ),
@@ -421,46 +423,64 @@ class _ReciterDetailScreenState extends State<ReciterDetailScreen> {
                 const SizedBox(width: 8),
 
                 // Play / Pause Button
-                IconButton(
-                  icon: Icon(
-                    isAudioPlaying
-                        ? Icons.pause_circle_filled
-                        : Icons.play_circle_fill,
-                    color: isAudioPlaying
-                        ? Colors.blue
-                        : (isDarkMode ? Colors.white : Colors.blue[800]),
-                    size: 34,
+                if (isLoadingHere || (isSelected && audioProvider.isBuffering))
+                  const SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  IconButton(
+                    icon: Icon(
+                      isAudioPlaying
+                          ? Icons.pause_circle_filled
+                          : Icons.play_circle_fill,
+                      color: isAudioPlaying
+                          ? Colors.blue
+                          : (isDarkMode ? Colors.white : Colors.blue[800]),
+                      size: 34,
+                    ),
+                    onPressed: audioProvider.isLoading
+                        ? null
+                        : () async {
+                            if (isSelected) {
+                              await audioProvider.togglePlayPause();
+                            } else {
+                              // Offline Guard
+                              if (!isDownloaded) {
+                                final scaffoldMessenger = ScaffoldMessenger.of(context);
+                                var connectivityResult = await (Connectivity().checkConnectivity());
+                                if (connectivityResult.contains(ConnectivityResult.none)) {
+                                  if (mounted) {
+                                    scaffoldMessenger.showSnackBar(
+                                      const SnackBar(
+                                        content: Text("يرجى الاتصال بالإنترنت لتشغيل هذه السورة"),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+                              }
+                              
+                              // Ensure playlist is set up
+                              if (audioProvider.currentPlaylist != _allSurahs) {
+                                 audioProvider.setPlaylist(_allSurahs);
+                              }
+                              
+                              await audioProvider.playSurah(surah, widget.reciter);
+                            }
+                          },
                   ),
-                  onPressed: () async {
-                    if (isPlayingHere) {
-                      audioProvider.togglePlayPause();
-                    } else {
-                      // Offline Guard
-                      if (!isDownloaded) {
-                        final scaffoldMessenger = ScaffoldMessenger.of(context);
-                        var connectivityResult = await (Connectivity().checkConnectivity());
-                        if (connectivityResult.contains(ConnectivityResult.none)) {
-                          if (mounted) {
-                            scaffoldMessenger.showSnackBar(
-                              const SnackBar(
-                                content: Text("يرجى الاتصال بالإنترنت لتشغيل هذه السورة"),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                          return;
-                        }
-                      }
-                      
-                      // Ensure playlist is set up
-                      if (audioProvider.currentPlaylist != _allSurahs) {
-                         audioProvider.setPlaylist(_allSurahs);
-                      }
-                      
-                      audioProvider.playSurah(surah, widget.reciter);
-                    }
-                  },
-                ),
               ],
             ),
           ),
