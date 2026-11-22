@@ -234,7 +234,7 @@ class _WindowsDesktopHomeState extends State<WindowsDesktopHome> {
   Widget _buildNextPrayerHeroCard(BuildContext context, bool isDark) {
     final headerImage = _getHeaderImage();
     return Container(
-      height: 200,
+      height: 220,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
@@ -383,8 +383,9 @@ class _WindowsDesktopHomeState extends State<WindowsDesktopHome> {
   ) {
     final gregorianStr = DateFormat.yMMMMd('ar').format(DateTime.now());
     return Container(
-      height: 200,
-      padding: const EdgeInsets.all(20),
+      constraints: const BoxConstraints(minHeight: 220),
+      height: 220,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
         color: isDark
             ? const Color(0xFF1E2428)
@@ -406,12 +407,11 @@ class _WindowsDesktopHomeState extends State<WindowsDesktopHome> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(9),
                 decoration: BoxDecoration(
                   color: const Color(0xFFD4AF37).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
@@ -419,10 +419,10 @@ class _WindowsDesktopHomeState extends State<WindowsDesktopHome> {
                 child: const Icon(
                   Icons.calendar_today_rounded,
                   color: Color(0xFFD4AF37),
-                  size: 22,
+                  size: 20,
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,7 +430,7 @@ class _WindowsDesktopHomeState extends State<WindowsDesktopHome> {
                     Text(
                       formattedHijriDate,
                       style: GoogleFonts.tajawal(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
                         color: const Color(0xFFD4AF37),
                       ),
@@ -439,7 +439,7 @@ class _WindowsDesktopHomeState extends State<WindowsDesktopHome> {
                     Text(
                       gregorianStr,
                       style: GoogleFonts.tajawal(
-                        fontSize: 13,
+                        fontSize: 12,
                         color: isDark ? Colors.white70 : const Color(0xFF546E7A),
                         fontWeight: FontWeight.w500,
                       ),
@@ -462,11 +462,19 @@ class _WindowsDesktopHomeState extends State<WindowsDesktopHome> {
               ),
             ],
           ),
-          const Divider(height: 12),
+          const SizedBox(height: 6),
+          const Divider(height: 1, thickness: 0.6),
+          const SizedBox(height: 6),
           const Expanded(
-            child: SingleChildScrollView(
-              physics: BouncingScrollPhysics(),
-              child: EventCardWidget(),
+            child: Center(
+              child: EventCardWidget(
+                margin: EdgeInsets.zero,
+                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                imageSize: 64,
+                titleFontSize: 15,
+                countdownNumberFontSize: 22,
+                borderRadius: 18,
+              ),
             ),
           ),
         ],

@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
@@ -242,7 +244,9 @@ class _MushafSvgPageWidgetState extends State<MushafSvgPageWidget> {
     if (_loading) return _buildShimmer(context);
     if (_svgError) return _buildErrorState(context);
 
-    return Container(
+    final isWindows = !kIsWeb && Platform.isWindows;
+
+    final content = Container(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: LayoutBuilder(
         builder: (ctx, constraints) {
@@ -312,6 +316,13 @@ class _MushafSvgPageWidgetState extends State<MushafSvgPageWidget> {
         },
       ),
     );
+
+    return isWindows
+        ? Directionality(
+            textDirection: TextDirection.rtl,
+            child: content,
+          )
+        : content;
   }
 
   Widget _buildSvgLayer(bool isDark) {

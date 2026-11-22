@@ -247,7 +247,7 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
           )
         : PageView.builder(
             controller: _pageController,
-            reverse: true,
+            reverse: isWindows ? false : true,
             itemCount: 604,
             allowImplicitScrolling: true,
             onPageChanged: (i) => _onHorizontalPageChanged(i, quranProvider),
@@ -327,13 +327,20 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
           )
         : readingView;
 
-    return Scaffold(
+    final scaffold = Scaffold(
       appBar: _buildAppBar(context, quranProvider),
       body: bodyContent,
       // The page-number bar is only shown in horizontal mode.
       bottomNavigationBar:
           _isVerticalMode ? null : _buildPageNumberBar(context),
     );
+
+    return isWindows
+        ? Directionality(
+            textDirection: TextDirection.rtl,
+            child: scaffold,
+          )
+        : scaffold;
   }
 
   Widget _buildDesktopNavButton({required bool isNext}) {

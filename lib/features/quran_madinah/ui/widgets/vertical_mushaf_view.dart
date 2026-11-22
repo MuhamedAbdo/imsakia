@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:imsakia/features/quran_madinah/providers/quran_provider.dart';
@@ -200,8 +202,9 @@ class VerticalMushafViewState extends State<VerticalMushafView> {
     final iw = _itemWidth(context);
     final size = MediaQuery.of(context).size;
     final isLandscape = size.width > size.height;
+    final isWindows = !kIsWeb && Platform.isWindows;
 
-    return Stack(
+    final content = Stack(
       children: [
         // ── Scrollable content ───────────────────────────────────────────
         NotificationListener<ScrollNotification>(
@@ -302,6 +305,13 @@ class VerticalMushafViewState extends State<VerticalMushafView> {
                 ),
       ],
     );
+
+    return isWindows
+        ? Directionality(
+            textDirection: TextDirection.rtl,
+            child: content,
+          )
+        : content;
   }
 }
 
@@ -370,6 +380,7 @@ class _PageDivider extends StatelessWidget {
     return SizedBox(
       height: _kDivH,
       child: Row(
+        textDirection: TextDirection.rtl,
         children: [
           // Left fading gradient line
           Expanded(
@@ -558,6 +569,7 @@ class _SpeedBar extends StatelessWidget {
         ],
       ),
       child: Row(
+        textDirection: TextDirection.rtl,
         children: [
           stopButton,
           slowText,

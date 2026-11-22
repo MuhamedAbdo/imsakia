@@ -6,7 +6,22 @@ import '../services/hadith_service.dart';
 import '../widgets/neumorphic_box.dart';
 
 class EventCardWidget extends StatelessWidget {
-  const EventCardWidget({super.key});
+  final EdgeInsetsGeometry? margin;
+  final EdgeInsetsGeometry? padding;
+  final double? imageSize;
+  final double? titleFontSize;
+  final double? countdownNumberFontSize;
+  final double? borderRadius;
+
+  const EventCardWidget({
+    super.key,
+    this.margin,
+    this.padding,
+    this.imageSize,
+    this.titleFontSize,
+    this.countdownNumberFontSize,
+    this.borderRadius,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -38,37 +53,39 @@ class EventCardWidget extends StatelessWidget {
 
         return Container(
           width: double.infinity,
-          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          margin: margin ?? const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           child: NeumorphicBox(
-            borderRadius: 25,
+            borderRadius: borderRadius ?? 25,
             baseColor: baseColor.withValues(alpha: isDark ? 0.2 : 0.9),
             darkShadowColor: baseColor.withValues(alpha: 0.3),
             lightShadowColor: Colors.white.withValues(alpha: 0.1),
             child: Container(
-              padding: const EdgeInsets.all(20),
+              padding: padding ?? const EdgeInsets.all(20),
               child: Row(
                 textDirection: TextDirection.rtl,
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           event.title,
                           textAlign: TextAlign.right,
                           style: GoogleFonts.tajawal(
-                            fontSize: 18,
+                            fontSize: titleFontSize ?? 18,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         if (event.type == EventType.ramadan)
                           const _RamadanHadithContent()
                         else if (event.showCountdown)
                           _CountdownContent(
                             duration: eventService.getRemainingDurationToTarget(),
                             color: Colors.white,
+                            numberFontSize: countdownNumberFontSize ?? 22,
                           )
                         else
                           Text(
@@ -82,15 +99,15 @@ class EventCardWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 15),
+                  const SizedBox(width: 14),
                   GestureDetector(
                     onDoubleTap: () => eventService.refresh(),
                     child: Hero(
                       tag: 'event_image',
                       child: Image.asset(
                         event.imagePath,
-                        height: 80,
-                        width: 80,
+                        height: imageSize ?? 80,
+                        width: imageSize ?? 80,
                         fit: BoxFit.contain,
                       ),
                     ),
@@ -108,10 +125,12 @@ class EventCardWidget extends StatelessWidget {
 class _CountdownContent extends StatelessWidget {
   final Duration duration;
   final Color color;
+  final double numberFontSize;
 
   const _CountdownContent({
     required this.duration,
     required this.color,
+    this.numberFontSize = 22,
   });
 
   @override
@@ -121,20 +140,23 @@ class _CountdownContent extends StatelessWidget {
     return Row(
       textDirection: TextDirection.rtl,
       mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
         Text(
           '$days',
           style: GoogleFonts.oswald(
-            fontSize: 22,
+            fontSize: numberFontSize,
             fontWeight: FontWeight.bold,
             color: color,
           ),
         ),
-        const SizedBox(width: 5),
+        const SizedBox(width: 6),
         Text(
           'يوم',
           style: GoogleFonts.tajawal(
             fontSize: 16,
+            fontWeight: FontWeight.bold,
             color: color.withValues(alpha: 0.9),
           ),
         ),
