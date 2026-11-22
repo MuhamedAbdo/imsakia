@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:audio_service/audio_service.dart';
+import 'package:intl/intl.dart' hide TextDirection;
+
+import 'services/windows_athan_service.dart';
 
 import '../features/athan/services/athan_manager.dart';
 import '../features/audio/services/audio_handler.dart';
@@ -150,6 +153,7 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
   @override
   void initState() {
     super.initState();
+    WindowsAthanService.instance.addListener(_onAthanServiceChanged);
     _navigatorObserver = _ShellNavigatorObserver(
       onNavigationChanged: () {
         if (mounted) {
@@ -184,8 +188,13 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
 
   @override
   void dispose() {
+    WindowsAthanService.instance.removeListener(_onAthanServiceChanged);
     _selectedIndexNotifier.dispose();
     super.dispose();
+  }
+
+  void _onAthanServiceChanged() {
+    if (mounted) setState(() {});
   }
 
   bool get _canGoBack {
@@ -329,19 +338,19 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
                 },
               ),
               // Emergency Athan Alert if playing
-              floatingActionButton: StreamBuilder<MediaItem?>(
-                stream: audioHandler?.mediaItem,
-                builder: (context, snapshot) {
-                  if (snapshot.hasData && snapshot.data?.id == 'athan_alert') {
+              floatingActionButton: Builder(
+                builder: (context) {
+                  final winAthan = WindowsAthanService.instance;
+                  if (winAthan.isPlaying) {
                     return FloatingActionButton.extended(
-                      onPressed: () => AthanManager.stopAthan(),
+                      onPressed: () => winAthan.stopAthan(),
                       backgroundColor: Colors.redAccent,
                       icon: const Icon(
                         Icons.stop_circle_outlined,
                         color: Colors.white,
                       ),
                       label: Text(
-                        'إيقاف الأذان',
+                        'إيقاف ${winAthan.currentPlayingTitle ?? "الأذان"}',
                         style: GoogleFonts.tajawal(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -349,7 +358,29 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
                       ),
                     );
                   }
-                  return const SizedBox.shrink();
+                  return StreamBuilder<MediaItem?>(
+                    stream: audioHandler?.mediaItem,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData && snapshot.data?.id == 'athan_alert') {
+                        return FloatingActionButton.extended(
+                          onPressed: () => AthanManager.stopAthan(),
+                          backgroundColor: Colors.redAccent,
+                          icon: const Icon(
+                            Icons.stop_circle_outlined,
+                            color: Colors.white,
+                          ),
+                          label: Text(
+                            'إيقاف الأذان',
+                            style: GoogleFonts.tajawal(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  );
                 },
               ),
               floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
@@ -425,7 +456,12 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
 
           const Divider(height: 1, thickness: 0.8),
 
-          // 3. Sidebar Footer: Theme Mode & Collapse toggle
+          // 3. Quick Athan Test Button (Dedicated Windows-only feature)
+          _buildQuickAthanTestButton(context, isDark, isCollapsed),
+
+          const Divider(height: 1, thickness: 0.8),
+
+          // 4. Sidebar Footer: Theme Mode & Collapse toggle
           _buildSidebarFooter(context, isDark, isCollapsed, autoCollapse),
         ],
       ),
@@ -579,6 +615,289 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
       );
     }
     return content;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Quick Athan Test (3 Minutes) - Windows Desktop Feature
+  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildQuickAthanTestButton(
+    BuildContext context,
+    bool isDark,
+    bool isCollapsed,
+  ) {
+    final athanService = WindowsAthanService.instance;
+    final isScheduled = athanService.isTestScheduled;
+    final remaining = athanService.testRemainingDuration;
+    final remainingStr = remaining != null
+        ? '${remaining.inMinutes.toString().padLeft(2, '0')}:${remaining.inSeconds.remainder(60).toString().padLeft(2, '0')}'
+        : '';
+
+    const goldColor = Color(0xFFD4AF37);
+    const orangeColor = Color(0xFFFFA000);
+
+    if (isCollapsed) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Tooltip(
+          message: isScheduled
+              ? 'اختبار الأذان مجدول (متبقي: $remainingStr)'
+              : 'اختبار الأذان (بعد 3 دقائق)',
+          preferBelow: false,
+          child: IconButton(
+            onPressed: () => _onQuickTestTapped(context),
+            icon: Icon(
+              isScheduled ? Icons.timer_rounded : Icons.alarm_add_rounded,
+              size: 22,
+              color: isScheduled ? orangeColor : goldColor,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: isScheduled
+            ? (isDark
+                ? orangeColor.withValues(alpha: 0.15)
+                : const Color(0xFFFFF3E0))
+            : (isDark
+                ? goldColor.withValues(alpha: 0.08)
+                : const Color(0xFFF9F9F6)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isScheduled
+              ? orangeColor.withValues(alpha: 0.5)
+              : goldColor.withValues(alpha: 0.35),
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => _onQuickTestTapped(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              children: [
+                Icon(
+                  isScheduled ? Icons.timer_rounded : Icons.alarm_add_rounded,
+                  size: 20,
+                  color: isScheduled ? orangeColor : goldColor,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        isScheduled
+                            ? 'اختبار مجدول: $remainingStr'
+                            : 'اختبار الأذان (بعد 3 دقائق)',
+                        style: GoogleFonts.tajawal(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isScheduled
+                              ? orangeColor
+                              : (isDark ? Colors.white : const Color(0xFF1E2428)),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        isScheduled
+                            ? 'انقر للإلغاء أو التفاصيل'
+                            : 'تجربة الصوت وجدولة الأذان',
+                        style: GoogleFonts.tajawal(
+                          fontSize: 10,
+                          color: isDark ? Colors.white60 : const Color(0xFF546E7A),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                if (isScheduled)
+                  InkWell(
+                    onTap: () {
+                      athanService.cancelQuickTest();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('تم إلغاء اختبار الأذان المجدول.'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _onQuickTestTapped(BuildContext context) {
+    final athanService = WindowsAthanService.instance;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (athanService.isTestScheduled) {
+      final scheduledTime = athanService.testScheduledTime!;
+      final formattedTime = DateFormat('hh:mm:ss a', 'ar').format(scheduledTime);
+      final remaining = athanService.testRemainingDuration ?? Duration.zero;
+      final remainingMinutes = remaining.inMinutes;
+      final remainingSeconds = remaining.inSeconds.remainder(60);
+      final remainingStr =
+          '${remainingMinutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+
+      showDialog(
+        context: context,
+        builder: (dialogCtx) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: isDark ? const Color(0xFF1E2428) : Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                const Icon(Icons.timer_rounded, color: Color(0xFFFFA000)),
+                const SizedBox(width: 8),
+                Text(
+                  'اختبار الأذان قيد الانتظار',
+                  style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
+            content: Text(
+              'يوجد اختبار أذان مجدول بالفعل سيعمل في تمام:\n\n'
+              '⏰ $formattedTime (متبقي: $remainingStr)\n\n'
+              'سيعمل الأذان التجريبي حتى لو كان التطبيق مصغراً في شريط المهام (System Tray).\n\n'
+              'هل ترغب في إلغاء هذا الاختبار؟',
+              style: GoogleFonts.tajawal(fontSize: 13, height: 1.5),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogCtx).pop(),
+                child: Text('إبقاء الاختبار', style: GoogleFonts.tajawal()),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(Icons.cancel_outlined, size: 16),
+                label: Text(
+                  'إلغاء الاختبار',
+                  style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+                ),
+                onPressed: () {
+                  athanService.cancelQuickTest();
+                  Navigator.of(dialogCtx).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('تم إلغاء اختبار الأذان المجدول.'),
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      final scheduledTime = DateTime.now().add(const Duration(minutes: 3));
+      final formattedTime = DateFormat('hh:mm:ss a', 'ar').format(scheduledTime);
+
+      showDialog(
+        context: context,
+        builder: (dialogCtx) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: isDark ? const Color(0xFF1E2428) : Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                const Icon(Icons.alarm_add_rounded, color: Color(0xFFD4AF37)),
+                const SizedBox(width: 8),
+                Text(
+                  'جدولة اختبار الأذان (3 دقائق)',
+                  style: GoogleFonts.tajawal(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
+            content: Text(
+              'سيتم جدولة تشغيل الأذان التجريبي بعد 3 دقائق من الآن:\n\n'
+              '⏰ الموعد المتوقع: $formattedTime\n\n'
+              '• سيتم استخدام نفس صوت المؤذن وإعدادات الصوت المحددة.\n'
+              '• سيعمل الأذان في الموعد المحدد حتى لو قمت بتصغير النافذة لشريط المهام (System Tray).\n'
+              '• لن يؤثر هذا الاختبار بأي شكل على مواقيت الصلاة الفعلية أو إشعاراتها.\n\n'
+              'هل تريد بدء الجدولة الآن؟',
+              style: GoogleFonts.tajawal(fontSize: 13, height: 1.5),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogCtx).pop(),
+                child: Text('إلغاء', style: GoogleFonts.tajawal()),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF104A33),
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(Icons.check_circle_outline, size: 16),
+                label: Text(
+                  'جدولة الاختبار',
+                  style: GoogleFonts.tajawal(fontWeight: FontWeight.bold),
+                ),
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  Navigator.of(dialogCtx).pop();
+                  final success = await athanService.scheduleQuickTest();
+                  if (!mounted) return;
+                  if (success) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'تمت جدولة اختبار الأذان بنجاح في تمام $formattedTime (بعد 3 دقائق).',
+                        ),
+                        backgroundColor: const Color(0xFF104A33),
+                        duration: const Duration(seconds: 4),
+                        action: SnackBarAction(
+                          label: 'إلغاء',
+                          textColor: Colors.amberAccent,
+                          onPressed: () => athanService.cancelQuickTest(),
+                        ),
+                      ),
+                    );
+                  } else {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('يوجد اختبار مجدول بالفعل.'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildSidebarFooter(

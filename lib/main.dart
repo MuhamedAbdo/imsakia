@@ -34,6 +34,8 @@ import 'services/home_events_service.dart';
 import 'services/bookmark_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'desktop/services/windows_desktop_service.dart';
+import 'desktop/services/windows_athan_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 String? pendingAzkarRoutePayload; // المتغير العام لحفظ الحمولة (Payload)
@@ -136,6 +138,11 @@ void main() async {
   // notification plugin, so audioHandler is not null when the athan overlay opens.
   await initAudioService();
   await AthanManager.initialize();
+
+  if (Platform.isWindows) {
+    await WindowsDesktopService.instance.initialize();
+    await WindowsAthanService.instance.initialize();
+  }
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -327,10 +334,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     // 🔥 جدولة المنبهات وتحديث الويدجت عند فتح التطبيق
     // 🛡️ HARDENED: Skip this if we're showing an overlay to avoid heavy initialization & Geocoding issues
-    if (widget.initialOverlay == null && Platform.isAndroid) {
-      // ✅ CRITICAL FIX: Re-enabled _rescheduleAndSync() — was disabled for "Single Variable Testing"
-      // Without this, alarms are NEVER rescheduled on app launch = alarms degrade over time.
-      Future.microtask(() => _rescheduleAndSync());
+    if (widget.initialOverlay == null) {
+      if (Platform.isAndroid) {
+        // ✅ CRITICAL FIX: Re-enabled _rescheduleAndSync() — was disabled for "Single Variable Testing"
+        // Without this, alarms are NEVER rescheduled on app launch = alarms degrade over time.
+        Future.microtask(() => _rescheduleAndSync());
+      } else if (Platform.isWindows) {
+        Future.microtask(() => PrayerTimesService.instance.scheduleAllPrayers());
+      }
     } else if (widget.initialOverlay != null) {
       debugPrint(
         "!!! HARDENED: Athan Overlay detected, skipping heavy background scheduling !!!",

@@ -13,6 +13,7 @@ import 'package:home_widget/home_widget.dart';
 import 'home_events_service.dart';
 import '../main.dart';
 import 'islamic_occasion_notification_service.dart';
+import '../desktop/services/windows_athan_service.dart';
 
 class PrayerTimesService {
   static PrayerTimesService? _instance;
@@ -419,6 +420,8 @@ class PrayerTimesService {
               AthanManager.cancelAthan(baseId);
             }
           });
+        } else if (Platform.isWindows) {
+          WindowsAthanService.instance.onPrayerTimesCalculated(dayOffset, times);
         }
 
         // 📿 جدولة إشعارات أذكار الصباح والمساء لليوم الحالي فقط بناءً على الأوقات المعدلة

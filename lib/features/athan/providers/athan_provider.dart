@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../services/prayer_times_service.dart';
 import '../services/athan_manager.dart';
+import '../../../desktop/services/windows_athan_service.dart';
 
 
 class Muezzin {
@@ -135,7 +136,11 @@ class AthanProvider with ChangeNotifier {
     if (value) {
       PrayerTimesService.instance.scheduleAllPrayers();
     } else {
-      await AthanManager.cancelAllAlarms();
+      if (Platform.isAndroid) {
+        await AthanManager.cancelAllAlarms();
+      } else if (Platform.isWindows) {
+        WindowsAthanService.instance.cancelPrayerAlarms();
+      }
     }
     
     notifyListeners();

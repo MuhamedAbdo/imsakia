@@ -16,6 +16,8 @@ import '../widgets/neumorphic_box.dart';
 import '../features/audio/services/audio_handler.dart';
 import '../services/permissions_service.dart';
 import '../widgets/custom_localized_picker.dart';
+import '../desktop/services/windows_desktop_service.dart';
+import '../desktop/services/windows_athan_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool isFirstTimeSetup;
@@ -36,6 +38,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   String? _selectedCountry;
   String? _selectedState;
   int _tempAdjustment = 0; // عداد مؤقت يظهر للمستخدم فقط
+  bool _windowsAutoStartEnabled = false;
 
   // ⏱️ التعديلات اليدوية المؤقتة (Staged Calibration)
   PrayerCalibrationMode _stagedCalibrationMode = PrayerCalibrationMode.global;
@@ -93,6 +96,11 @@ class _SettingsScreenState extends State<SettingsScreen>
 
     WidgetsBinding.instance.addObserver(this);
     _refreshPermissionStatuses();
+    if (Platform.isWindows) {
+      WindowsDesktopService.instance.isAutoStartEnabled().then((enabled) {
+        if (mounted) setState(() => _windowsAutoStartEnabled = enabled);
+      });
+    }
   }
 
   @override
@@ -132,6 +140,20 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   // ignore: unused_element
   void _testPlayAthan(String prayerKey) async {
+    if (Platform.isWindows) {
+      if (WindowsAthanService.instance.isPlaying) {
+        await WindowsAthanService.instance.stopAthan();
+      } else {
+        await WindowsAthanService.instance.playAthan(
+          prayerKey: prayerKey,
+          prayerName: 'تجربة',
+          isTest: true,
+        );
+      }
+      if (mounted) setState(() {});
+      return;
+    }
+
     if (audioHandler == null) {
       try {
         await initAudioService();
@@ -350,9 +372,14 @@ class _SettingsScreenState extends State<SettingsScreen>
               // 4. ضبط المواقيت يدوياً
               _buildManualCalibrationSection(isDark),
               const SizedBox(height: 15),
-              // 5. الصلاحيات
-              _buildPermissionsSection(),
-              const SizedBox(height: 15),
+              // 5. الصلاحيات وإعدادات سطح المكتب
+              if (Platform.isWindows) ...[
+                _buildWindowsDesktopSettings(isDark),
+                const SizedBox(height: 15),
+              ] else ...[
+                _buildPermissionsSection(),
+                const SizedBox(height: 15),
+              ],
               // 6. التقويم والمظهر
               _buildSection(
                 sectionIndex: 5,
@@ -1564,6 +1591,50 @@ class _SettingsScreenState extends State<SettingsScreen>
           ],
         );
       },
+    );
+  }
+
+  /// قسم إعدادات سطح المكتب لويندوز (بدء التشغيل التلقائي مع النظام)
+  Widget _buildWindowsDesktopSettings(bool isDark) {
+    return _buildSection(
+      sectionIndex: 4,
+      title: 'بدء التشغيل والنظام (Windows)',
+      icon: Icons.desktop_windows_outlined,
+      children: [
+        SwitchListTile.adaptive(
+          title: Text(
+            'بدء تشغيل زاد تلقائياً مع ويندوز',
+            style: GoogleFonts.tajawal(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+          subtitle: Text(
+            'تشغيل التطبيق في الخلفية وشريط المهام (System Tray) عند تسجيل الدخول إلى ويندوز',
+            style: GoogleFonts.tajawal(
+              fontSize: 12,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
+          ),
+          value: _windowsAutoStartEnabled,
+          activeColor: Colors.green,
+          onChanged: (val) async {
+            setState(() => _windowsAutoStartEnabled = val);
+            final success =
+                await WindowsDesktopService.instance.setAutoStartEnabled(val);
+            if (!success && mounted) {
+              setState(() => _windowsAutoStartEnabled = !val);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('تعذّر تعديل إعداد بدء التشغيل التلقائي'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          contentPadding: EdgeInsets.zero,
+        ),
+      ],
     );
   }
 
