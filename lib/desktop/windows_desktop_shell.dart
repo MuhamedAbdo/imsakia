@@ -704,12 +704,7 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
       ),
       child: Row(
         children: [
-          // 1. Global Back Button
-          _buildBackButton(context, isDark),
-
-          const SizedBox(width: 14),
-
-          // 2. Section Icon & Title
+          // 1. Section Icon & Title (Right side in RTL)
           Icon(
             currentIcon,
             color: const Color(0xFFD4AF37),
@@ -730,7 +725,8 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
           ),
           const SizedBox(width: 8),
           const Spacer(),
-          // App title branding indicator
+
+          // 2. App title branding indicator
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
@@ -761,6 +757,10 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
               ],
             ),
           ),
+          const SizedBox(width: 14),
+
+          // 3. Global Back Button (Left side in RTL)
+          _buildBackButton(context, isDark),
         ],
       ),
     );
@@ -793,11 +793,8 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
             : Colors.black.withValues(alpha: 0.03))
         : Colors.transparent;
 
-    // Directional arrow: in RTL (Arabic), back points right (->)
-    final isRtl = Directionality.of(context) == TextDirection.rtl;
-    final IconData backIcon = isRtl
-        ? Icons.arrow_forward_rounded
-        : Icons.arrow_back_rounded;
+    // On Windows desktop, back button is placed on the left side and points left (<-)
+    const IconData backIcon = Icons.arrow_back_rounded;
 
     return Semantics(
       label: 'رجوع للصفحة السابقة',
@@ -832,6 +829,7 @@ class _WindowsDesktopShellState extends State<WindowsDesktopShell> {
               child: Center(
                 child: Icon(
                   backIcon,
+                  textDirection: TextDirection.ltr,
                   size: 20,
                   color: iconColor,
                 ),

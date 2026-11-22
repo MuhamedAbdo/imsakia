@@ -436,13 +436,309 @@ class _MushafScreenState extends State<MushafScreen>
   ) {
     final size = MediaQuery.of(context).size;
     final isLandscape = size.width > size.height;
+    final isWindows = !kIsWeb && Platform.isWindows;
 
     // In light mode the AppBar background uses the primary colour, so
-    // text/icons must be white.  In dark mode use the surface text colour.
+    // text/icons must be white. In dark mode use the surface text colour.
     final appBarTextColor = Theme.of(context).brightness == Brightness.light
         ? Colors.white
         : Theme.of(context).colorScheme.onSurface;
 
+    if (isWindows) {
+      return _buildDesktopAppBar(context, quranProvider, appBarTextColor);
+    }
+    return _buildMobileAppBar(context, quranProvider, appBarTextColor, isLandscape);
+  }
+
+  PreferredSizeWidget _buildDesktopAppBar(
+    BuildContext context,
+    QuranProvider quranProvider,
+    Color appBarTextColor,
+  ) {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight),
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: AppBar(
+          elevation: 2,
+          centerTitle: true,
+          foregroundColor: appBarTextColor,
+          leading: IconButton(
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              textDirection: TextDirection.ltr,
+            ),
+            tooltip: 'رجوع',
+            onPressed: () => Navigator.maybePop(context),
+          ),
+          title: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    _pageSurahNames,
+                    style: TextStyle(
+                      fontFamily: 'HafsSmart',
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: appBarTextColor,
+                    ),
+                  ),
+                ),
+                Text(
+                  'الجزء $_currentJuz | $_hizbInfo',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: appBarTextColor.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            // Mode toggle (Page mode vs Scroll mode)
+            IconButton(
+              icon: Icon(
+                _isVerticalMode
+                    ? Icons.import_contacts_rounded
+                    : Icons.view_day_outlined,
+              ),
+              tooltip: _isVerticalMode ? 'وضع الصفحات' : 'وضع التمرير',
+              onPressed: _toggleMode,
+            ),
+
+            // If vertical mode, auto-scroll toggle
+            if (_isVerticalMode)
+              IconButton(
+                icon: Icon(
+                  _autoScrollActive
+                      ? Icons.pause_circle_outline_rounded
+                      : Icons.play_circle_outline_rounded,
+                ),
+                tooltip: _autoScrollActive
+                    ? 'إيقاف القراءة التلقائية'
+                    : 'بدء القراءة التلقائية',
+                onPressed: () => _verticalKey.currentState?.toggleAutoScroll(),
+              ),
+
+            // Bookmark toggle
+            Consumer<QuranProvider>(
+              builder: (context, provider, child) {
+                final isMarked = provider.isBookmarked(_currentPage);
+                return IconButton(
+                  icon: Icon(
+                    isMarked ? Icons.bookmark : Icons.bookmark_border,
+                    color: isMarked ? Colors.amber : appBarTextColor,
+                  ),
+                  tooltip: isMarked ? 'إزالة العلامة' : 'حفظ الصفحة',
+                  onPressed: () => _toggleBookmark(context, provider),
+                );
+              },
+            ),
+
+            // Repeat modes
+            Consumer<QuranAudioProvider>(
+              builder: (context, audioProvider, child) {
+                final mode = audioProvider.loopMode;
+                final IconData repIcon;
+                final String repTooltip;
+                final Color repColor;
+
+                switch (mode) {
+                  case LoopMode.off:
+                    repIcon = Icons.repeat_rounded;
+                    repTooltip = 'بدون تكرار (انقر لتكرار الآية)';
+                    repColor = appBarTextColor.withValues(alpha: 0.65);
+                    break;
+                  case LoopMode.one:
+                    repIcon = Icons.repeat_one_rounded;
+                    repTooltip = 'تكرار الآية (انقر لتكرار السورة)';
+                    repColor = Colors.amber;
+                    break;
+                  case LoopMode.all:
+                    repIcon = Icons.repeat_on_rounded;
+                    repTooltip = 'تكرار السورة (انقر لإيقاف التكرار)';
+                    repColor = Colors.amber;
+                    break;
+                }
+
+                return IconButton(
+                  icon: Icon(repIcon, color: repColor),
+                  tooltip: repTooltip,
+                  onPressed: () {
+                    if (mode == LoopMode.off) {
+                      audioProvider.setRepeatMode(LoopMode.one);
+                    } else if (mode == LoopMode.one) {
+                      audioProvider.setRepeatMode(LoopMode.all);
+                    } else {
+                      audioProvider.setRepeatMode(LoopMode.off);
+                    }
+                  },
+                );
+              },
+            ),
+
+            // Change reciter
+            Consumer<QuranAudioProvider>(
+              builder: (context, audioProvider, child) {
+                return IconButton(
+                  icon: const Icon(Icons.record_voice_over_outlined),
+                  tooltip: 'تغيير القارئ',
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => const ReciterSelectionBottomSheet(),
+                    );
+                  },
+                );
+              },
+            ),
+
+            // Download / Delete Surah
+            Consumer<QuranAudioProvider>(
+              builder: (context, audioProvider, child) {
+                final totalAyahs = quran.getVerseCount(_currentMainSuraNumber);
+                return FutureBuilder<bool>(
+                  future: audioProvider.isSuraDownloaded(
+                    _currentMainSuraNumber,
+                    totalAyahs,
+                  ),
+                  builder: (context, snapshot) {
+                    final isDownloaded = snapshot.data ?? false;
+                    final isDownloading = audioProvider.isDownloading;
+                    final progress = audioProvider.downloadProgress;
+
+                    if (isDownloading) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Center(
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              value: progress > 0 ? progress : null,
+                              strokeWidth: 2.2,
+                              color: appBarTextColor,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    if (isDownloaded) {
+                      return IconButton(
+                        icon: Icon(
+                          Icons.delete_outline_rounded,
+                          color: Colors.red.shade300,
+                        ),
+                        tooltip: 'حذف السورة المحملة',
+                        onPressed: () => _confirmDeleteSura(
+                          context,
+                          audioProvider,
+                          totalAyahs,
+                        ),
+                      );
+                    }
+
+                    return IconButton(
+                      icon: const Icon(Icons.cloud_download_outlined),
+                      tooltip: 'تحميل السورة',
+                      onPressed: () {
+                        audioProvider.downloadSura(
+                          _currentMainSuraNumber,
+                          totalAyahs,
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+
+            // Audio Play / Pause
+            Consumer<QuranAudioProvider>(
+              builder: (context, audioProvider, child) {
+                final isSameSura =
+                    audioProvider.currentSuraNumber == _currentMainSuraNumber;
+                final isPlaying = isSameSura && audioProvider.player.playing;
+                final isLoading = audioProvider.isLoadingAudio;
+                final totalAyahs = quran.getVerseCount(_currentMainSuraNumber);
+
+                if (isLoading) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Center(
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: appBarTextColor,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                return IconButton(
+                  icon: Icon(
+                    isPlaying
+                        ? Icons.pause_circle_filled_rounded
+                        : Icons.play_circle_fill_rounded,
+                    color: isPlaying ? Colors.amber : appBarTextColor,
+                    size: 28,
+                  ),
+                  tooltip: isPlaying
+                      ? 'إيقاف مؤقت للتلاوة'
+                      : (isSameSura ? 'استئناف التلاوة' : 'تشغيل السورة'),
+                  onPressed: () async {
+                    if (isSameSura) {
+                      if (audioProvider.player.playing) {
+                        await audioProvider.pause();
+                      } else {
+                        await audioProvider.player.play();
+                      }
+                    } else {
+                      await audioProvider.loadAndPlaySura(
+                        _currentMainSuraNumber,
+                        totalAyahs,
+                        startAyah: _currentMainAyaNumber,
+                      );
+                    }
+                  },
+                );
+              },
+            ),
+
+            // Surah index
+            IconButton(
+              icon: const Icon(Icons.format_list_bulleted_rounded),
+              tooltip: 'فهرس السور',
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const IndexScreen()),
+                );
+              },
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildMobileAppBar(
+    BuildContext context,
+    QuranProvider quranProvider,
+    Color appBarTextColor,
+    bool isLandscape,
+  ) {
     return AppBar(
       elevation: 2,
       centerTitle: true,
@@ -503,14 +799,15 @@ class _MushafScreenState extends State<MushafScreen>
                   tooltip: 'خيارات التلاوة',
                   onSelected: (value) async {
                     if (value == 'play_pause') {
+                      if (audioProvider.isLoadingAudio) return;
                       if (isSameSura) {
                         if (audioProvider.player.playing) {
-                          audioProvider.pause();
+                          await audioProvider.pause();
                         } else {
-                          audioProvider.player.play();
+                          await audioProvider.player.play();
                         }
                       } else {
-                        audioProvider.loadAndPlaySura(
+                        await audioProvider.loadAndPlaySura(
                           _currentMainSuraNumber,
                           totalAyahs,
                           startAyah: _currentMainAyaNumber,
@@ -518,38 +815,7 @@ class _MushafScreenState extends State<MushafScreen>
                       }
                     } else if (value == 'download') {
                       if (isDownloaded) {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text(
-                              'حذف التلاوة',
-                              textAlign: TextAlign.right,
-                            ),
-                            content: const Text(
-                              'هل تريد حذف التلاوة الصوتية لهذه السورة لتوفير المساحة؟',
-                              textAlign: TextAlign.right,
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('إلغاء'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: const Text(
-                                  'حذف',
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirm == true) {
-                          audioProvider.deleteSuraAudio(
-                            _currentMainSuraNumber,
-                            totalAyahs,
-                          );
-                        }
+                        await _confirmDeleteSura(context, audioProvider, totalAyahs);
                       } else if (!isDownloading) {
                         audioProvider.downloadSura(
                           _currentMainSuraNumber,
@@ -589,6 +855,26 @@ class _MushafScreenState extends State<MushafScreen>
                             final currentIsPlaying =
                                 currentIsSameSura &&
                                 audioProvider.player.playing;
+                            final currentIsLoading =
+                                audioProvider.isLoadingAudio;
+
+                            if (currentIsLoading) {
+                              return Row(
+                                children: [
+                                  SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.0,
+                                      color: onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Text('جاري تحميل التلاوة...'),
+                                ],
+                              );
+                            }
+
                             return Row(
                               children: [
                                 Icon(
@@ -774,48 +1060,7 @@ class _MushafScreenState extends State<MushafScreen>
                   ),
                 ),
                 tooltip: isMarked ? 'إزالة العلامة' : 'حفظ الصفحة',
-                onPressed: () {
-                  final willAdd = !provider.isBookmarked(_currentPage);
-                  provider.toggleBookmark(_currentPage);
-                  ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(
-                      SnackBar(
-                        behavior: SnackBarBehavior.floating,
-                        duration: const Duration(seconds: 2),
-                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        backgroundColor: willAdd
-                            ? const Color(0xFF2E7D32)
-                            : const Color(0xFF5D4037),
-                        content: Row(
-                          children: [
-                            Icon(
-                              willAdd
-                                  ? Icons.bookmark_added_rounded
-                                  : Icons.bookmark_remove_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              willAdd
-                                  ? 'تم حفظ الصفحة بنجاح'
-                                  : 'تم إزالة العلامة المرجعية',
-                              style: const TextStyle(
-                                fontFamily: 'Tajawal',
-                                fontSize: 14,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                },
+                onPressed: () => _toggleBookmark(context, provider),
               );
             },
           ),
@@ -861,6 +1106,86 @@ class _MushafScreenState extends State<MushafScreen>
         ),
       ],
     );
+  }
+
+  void _toggleBookmark(BuildContext context, QuranProvider provider) {
+    final willAdd = !provider.isBookmarked(_currentPage);
+    provider.toggleBookmark(_currentPage);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          backgroundColor: willAdd
+              ? const Color(0xFF2E7D32)
+              : const Color(0xFF5D4037),
+          content: Row(
+            children: [
+              Icon(
+                willAdd
+                    ? Icons.bookmark_added_rounded
+                    : Icons.bookmark_remove_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                willAdd ? 'تم حفظ الصفحة بنجاح' : 'تم إزالة العلامة المرجعية',
+                style: const TextStyle(
+                  fontFamily: 'Tajawal',
+                  fontSize: 14,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+  }
+
+  Future<void> _confirmDeleteSura(
+    BuildContext context,
+    QuranAudioProvider audioProvider,
+    int totalAyahs,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'حذف التلاوة',
+          textAlign: TextAlign.right,
+        ),
+        content: const Text(
+          'هل تريد حذف التلاوة الصوتية لهذه السورة لتوفير المساحة؟',
+          textAlign: TextAlign.right,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'حذف',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      audioProvider.deleteSuraAudio(
+        _currentMainSuraNumber,
+        totalAyahs,
+      );
+    }
   }
 
   // ── Bottom page-number bar (horizontal mode only) ──────────────────────────

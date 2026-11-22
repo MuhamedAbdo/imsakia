@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
@@ -169,20 +169,35 @@ class QuranAudioProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('quran_reciter_folder', reciterFolder);
     
-    // إذا كان يعمل حاليا نقوم بالإيقاف (أو يمكن إعادة التحميل هنا)
+    // إذا كان يعمل حاليا نقوم بالإيقاف المؤقت بدون هدم المشغل على ويندوز
     if (_player.playing) {
-      await stop();
+      await _player.pause();
     }
+    _currentSuraNumber = null;
+    _currentPlayingAyaIndex = null;
     notifyListeners();
   }
 
   /// تحميل السورة وبدء التشغيل
   Future<void> loadAndPlaySura(int suraNumber, int totalAyahs, {int startAyah = 1}) async {
+    // Guard against concurrent overlapping loads for the same or different Surah
+    if (_isLoadingAudio) {
+      return;
+    }
+
     final gen = ++_loadGeneration;
     _isLoadingAudio = true;
     _isSingleAyah = false;
+    notifyListeners();
 
     try {
+      // Pause cleanly instead of calling stop() to prevent tearing down native player on Windows
+      if (_player.playing) {
+        await _player.pause();
+      }
+
+      await _player.setVolume(1.0);
+
       final List<AudioSource> audioSources = [];
       String suraStr = suraNumber.toString().padLeft(3, '0');
       
@@ -209,6 +224,7 @@ class QuranAudioProvider extends ChangeNotifier {
       
       if (gen != _loadGeneration) return;
 
+      // Publish active track state only after source is successfully loaded
       _currentSuraNumber = suraNumber;
       _currentPlayingAyaIndex = startAyah;
       _lastCompletedSuraHandled = null;
@@ -217,6 +233,15 @@ class QuranAudioProvider extends ChangeNotifier {
       notifyListeners();
 
       await _player.play();
+
+      // Windows retry guard: ensure playback has engaged on Windows Desktop where WinRT can drop play() during state transitions
+      if (!kIsWeb && Platform.isWindows && gen == _loadGeneration && !_player.playing) {
+        for (int retry = 0; retry < 3; retry++) {
+          await Future.delayed(const Duration(milliseconds: 200));
+          if (gen != _loadGeneration || _player.playing) break;
+          await _player.play();
+        }
+      }
     } catch (e) {
       if (_isCancellationException(e)) {
         debugPrint("Expected playback load cancellation: $e");
@@ -232,17 +257,27 @@ class QuranAudioProvider extends ChangeNotifier {
     } finally {
       if (gen == _loadGeneration && _isLoadingAudio) {
         _isLoadingAudio = false;
+        notifyListeners();
       }
     }
   }
 
   /// تحميل وتشغيل آية واحدة
   Future<void> playSingleAyah(int suraNumber, int ayaNumber) async {
+    if (_isLoadingAudio) return;
+
     final gen = ++_loadGeneration;
     _isLoadingAudio = true;
     _lastCompletedSuraHandled = null;
+    notifyListeners();
 
     try {
+      if (_player.playing) {
+        await _player.pause();
+      }
+
+      await _player.setVolume(1.0);
+
       String suraStr = suraNumber.toString().padLeft(3, '0');
       String ayaStr = ayaNumber.toString().padLeft(3, '0');
       String fileName = '$suraStr$ayaStr.mp3';
@@ -273,6 +308,14 @@ class QuranAudioProvider extends ChangeNotifier {
       notifyListeners();
 
       await _player.play();
+
+      if (!kIsWeb && Platform.isWindows && gen == _loadGeneration && !_player.playing) {
+        for (int retry = 0; retry < 3; retry++) {
+          await Future.delayed(const Duration(milliseconds: 200));
+          if (gen != _loadGeneration || _player.playing) break;
+          await _player.play();
+        }
+      }
     } catch (e) {
       if (_isCancellationException(e)) {
         debugPrint("Expected single ayah playback cancellation: $e");
@@ -288,6 +331,7 @@ class QuranAudioProvider extends ChangeNotifier {
     } finally {
       if (gen == _loadGeneration && _isLoadingAudio) {
         _isLoadingAudio = false;
+        notifyListeners();
       }
     }
   }
