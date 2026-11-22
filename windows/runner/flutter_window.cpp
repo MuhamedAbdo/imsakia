@@ -68,7 +68,7 @@ void FlutterWindow::CreateTrayIcon() {
   nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
   nid.uCallbackMessage = WM_TRAY_ICON;
   nid.hIcon = LoadIcon(GetModuleHandle(nullptr), MAKEINTRESOURCE(IDI_APP_ICON));
-  wcscpy_s(nid.szTip, L"زاد - المواقيت والقرآن الكريم");
+  wcscpy_s(nid.szTip, L"\x0632\x0627\x062F - \x0627\x0644\x0645\x0648\x0627\x0642\x064A\x062A \x0648\x0627\x0644\x0642\x0631\x0622\x0646 \x0627\x0644\x0643\x0631\x064A\x0645");
   Shell_NotifyIconW(NIM_ADD, &nid);
   tray_icon_created_ = true;
 }
@@ -218,9 +218,9 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
         POINT pt;
         GetCursorPos(&pt);
         HMENU hMenu = CreatePopupMenu();
-        InsertMenuW(hMenu, 0, MF_BYPOSITION | MF_STRING, ID_TRAY_OPEN, L"فتح زاد");
+        InsertMenuW(hMenu, 0, MF_BYPOSITION | MF_STRING, ID_TRAY_OPEN, L"\x0641\x062A\x062D \x0632\x0627\x062F");
         InsertMenuW(hMenu, 1, MF_BYPOSITION | MF_SEPARATOR, 0, nullptr);
-        InsertMenuW(hMenu, 2, MF_BYPOSITION | MF_STRING, ID_TRAY_EXIT, L"خروج من زاد");
+        InsertMenuW(hMenu, 2, MF_BYPOSITION | MF_STRING, ID_TRAY_EXIT, L"\x062E\x0631\x0648\x062C \x0645\x0646 \x0632\x0627\x062F");
         SetForegroundWindow(hwnd);
         int cmd = TrackPopupMenu(hMenu, TPM_RETURNCMD | TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, nullptr);
         DestroyMenu(hMenu);

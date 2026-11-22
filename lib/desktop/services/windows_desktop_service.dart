@@ -24,15 +24,26 @@ class WindowsDesktopService {
 
     _channel.setMethodCallHandler(_handleNativeCall);
 
-    // Sync startup state from native Windows registry
     try {
-      final bool registryState = await isAutoStartEnabled();
-      isAutoStartEnabledNotifier.value = registryState;
-
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_prefAutoStart, registryState);
+      final bool alreadyConfigured =
+          prefs.getBool('windows_auto_start_configured') ?? false;
+
+      if (!alreadyConfigured) {
+        // Auto-enable with Windows by default on first launch / setup
+        await setAutoStartEnabled(true);
+        await prefs.setBool('windows_auto_start_configured', true);
+        debugPrint(
+          '[WindowsDesktopService] Auto-start enabled automatically by default',
+        );
+      } else {
+        // Sync startup state from native Windows registry
+        final bool registryState = await isAutoStartEnabled();
+        isAutoStartEnabledNotifier.value = registryState;
+        await prefs.setBool(_prefAutoStart, registryState);
+      }
     } catch (e) {
-      debugPrint('[WindowsDesktopService] Error checking auto-start: $e');
+      debugPrint('[WindowsDesktopService] Error configuring auto-start: $e');
     }
   }
 
