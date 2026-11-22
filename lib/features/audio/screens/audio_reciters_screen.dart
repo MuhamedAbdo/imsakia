@@ -44,9 +44,18 @@ class _AudioRecitersScreenState extends State<AudioRecitersScreen> {
     _loadInitialData();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _dio.close();
+    super.dispose();
+  }
+
   Future<void> _loadInitialData() async {
     await _loadFavorites();
+    if (!mounted) return;
     await _loadCachedReciters();
+    if (!mounted) return;
     _fetchReciters(); // Silently update in background
   }
 
@@ -83,6 +92,7 @@ class _AudioRecitersScreenState extends State<AudioRecitersScreen> {
 
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _favoriteIds = prefs.getStringList('favorite_reciters') ?? [];
     });
@@ -100,12 +110,13 @@ class _AudioRecitersScreenState extends State<AudioRecitersScreen> {
       } else {
         _favoriteIds.add(id);
       }
-      _saveFavorites();
     });
+    _saveFavorites();
   }
 
   Future<void> _fetchReciters() async {
     if (_allReciters.isEmpty) {
+      if (!mounted) return;
       setState(() {
         _isLoading = true;
         _hasError = false;
@@ -194,6 +205,7 @@ class _AudioRecitersScreenState extends State<AudioRecitersScreen> {
                   builder: (context) => const FavoritesRecitersScreen(),
                 ),
               ).then((_) {
+                if (!mounted) return;
                 // Return refresh logic to catch any unwatched removals
                 _loadFavorites();
                 setState(() => _filteredReciters = _allReciters);

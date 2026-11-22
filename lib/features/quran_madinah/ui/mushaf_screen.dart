@@ -32,17 +32,18 @@ class MushafScreen extends StatefulWidget {
   State<MushafScreen> createState() => _MushafScreenState();
 }
 
-class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver {
+class _MushafScreenState extends State<MushafScreen>
+    with WidgetsBindingObserver {
   // ── Horizontal (PageView) state ────────────────────────────────────────────
   late PageController _pageController;
 
   // ── Shared ─────────────────────────────────────────────────────────────────
-  int    _currentPage     = 1;
-  String _pageSurahNames  = '';
-  int    _currentJuz      = 1;
-  String _hizbInfo        = '';
-  int    _currentMainSuraNumber = 1;
-  int    _currentMainAyaNumber  = 1;
+  int _currentPage = 1;
+  String _pageSurahNames = '';
+  int _currentJuz = 1;
+  String _hizbInfo = '';
+  int _currentMainSuraNumber = 1;
+  int _currentMainAyaNumber = 1;
 
   // ── Vertical mode ──────────────────────────────────────────────────────────
   bool _isVerticalMode = false;
@@ -72,9 +73,7 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
         DeviceOrientation.landscapeLeft,
       ]);
     } else {
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-      ]);
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     }
   }
 
@@ -84,11 +83,11 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
   void initState() {
     super.initState();
     if (!kIsWeb && Platform.isWindows) {
-      _isVerticalMode = true;
+      _isVerticalMode = false;
     }
     WidgetsBinding.instance.addObserver(this);
     _updateAllowedOrientations();
-    _currentPage    = widget.initialPage;
+    _currentPage = widget.initialPage;
     _pageController = PageController(initialPage: widget.initialPage - 1);
     _updatePageInfo(_currentPage);
 
@@ -100,11 +99,11 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
 
   void _onAudioProviderChanged() {
     if (!mounted) return;
-    
+
     final playing = _audioProvider.player.playing;
     final aya = _audioProvider.currentPlayingAyaIndex;
     final sura = _audioProvider.currentSuraNumber;
-    
+
     if (playing && aya != null && sura != null) {
       final page = quran.getPageNumber(sura, aya);
       if (page != _currentPage) {
@@ -127,10 +126,10 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
       final surahNames = ayahs.map((a) => a.suraNameAr).toSet().toList();
       setState(() {
         _pageSurahNames = surahNames.join(' | ');
-        _currentJuz     = QuranUtils.getJuzNumber(page);
-        _hizbInfo       = QuranUtils.getHizbInfo(page);
+        _currentJuz = QuranUtils.getJuzNumber(page);
+        _hizbInfo = QuranUtils.getHizbInfo(page);
         _currentMainSuraNumber = ayahs.first.suraNo;
-        _currentMainAyaNumber  = ayahs.first.ayaNo;
+        _currentMainAyaNumber = ayahs.first.ayaNo;
       });
     }
   }
@@ -150,7 +149,8 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.detached || state == AppLifecycleState.paused) {
+    if (state == AppLifecycleState.detached ||
+        state == AppLifecycleState.paused) {
       if (state == AppLifecycleState.detached) {
         _audioProvider.stopAndKillService();
       } else {
@@ -205,8 +205,10 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
   // ── Navigation helpers ─────────────────────────────────────────────────────
 
   void _navigateToPage(int targetPage) {
-    if (targetPage < 1 || targetPage > 604 || targetPage == _currentPage) return;
-    
+    if (targetPage < 1 || targetPage > 604 || targetPage == _currentPage) {
+      return;
+    }
+
     if (_isVerticalMode) {
       _verticalKey.currentState?.animateToPage(targetPage);
     } else {
@@ -247,7 +249,7 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
           )
         : PageView.builder(
             controller: _pageController,
-            reverse: isWindows ? false : true,
+            reverse: true,
             itemCount: 604,
             allowImplicitScrolling: true,
             onPageChanged: (i) => _onHorizontalPageChanged(i, quranProvider),
@@ -273,7 +275,10 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
               // Do not steal keyboard input if a text field or editable has focus
               final primaryFocus = FocusManager.instance.primaryFocus;
               if (primaryFocus != null && primaryFocus.context != null) {
-                final isEditable = primaryFocus.context!.findAncestorWidgetOfExactType<EditableText>() != null;
+                final isEditable =
+                    primaryFocus.context!
+                        .findAncestorWidgetOfExactType<EditableText>() !=
+                    null;
                 if (isEditable) {
                   return KeyEventResult.ignored;
                 }
@@ -286,7 +291,7 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
                 _goToNextPage();
                 return KeyEventResult.handled;
               } else if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                         event.logicalKey == LogicalKeyboardKey.pageUp) {
+                  event.logicalKey == LogicalKeyboardKey.pageUp) {
                 _goToPreviousPage();
                 return KeyEventResult.handled;
               }
@@ -303,24 +308,26 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
               child: Stack(
                 children: [
                   readingView,
-                  // Desktop Previous Page Control (Right side)
-                  Positioned(
-                    right: 20,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: _buildDesktopNavButton(isNext: false),
+                  if (!_isVerticalMode) ...[
+                    // Desktop Previous Page Control (Right side)
+                    Positioned(
+                      right: 20,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: _buildDesktopNavButton(isNext: false),
+                      ),
                     ),
-                  ),
-                  // Desktop Next Page Control (Left side)
-                  Positioned(
-                    left: 20,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: _buildDesktopNavButton(isNext: true),
+                    // Desktop Next Page Control (Left side)
+                    Positioned(
+                      left: 20,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: _buildDesktopNavButton(isNext: true),
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -331,15 +338,13 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
       appBar: _buildAppBar(context, quranProvider),
       body: bodyContent,
       // The page-number bar is only shown in horizontal mode.
-      bottomNavigationBar:
-          _isVerticalMode ? null : _buildPageNumberBar(context),
+      bottomNavigationBar: _isVerticalMode
+          ? null
+          : _buildPageNumberBar(context),
     );
 
     return isWindows
-        ? Directionality(
-            textDirection: TextDirection.rtl,
-            child: scaffold,
-          )
+        ? Directionality(textDirection: TextDirection.rtl, child: scaffold)
         : scaffold;
   }
 
@@ -349,15 +354,15 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
     final primaryColor = Theme.of(context).colorScheme.primary;
 
     final icon = isNext
-        ? Icons.chevron_left_rounded
-        : Icons.chevron_right_rounded;
+        ? Icons.arrow_forward_rounded
+        : Icons.arrow_back_rounded;
     final tooltip = isNext
         ? (_currentPage < 604
-            ? 'الصفحة التالية (صفحة ${_currentPage + 1}) [سهم يسار / PageDown]'
-            : 'نهاية المصحف')
+              ? 'الصفحة التالية (صفحة ${_currentPage + 1}) [سهم يسار / PageDown]'
+              : 'نهاية المصحف')
         : (_currentPage > 1
-            ? 'الصفحة السابقة (صفحة ${_currentPage - 1}) [سهم يمين / PageUp]'
-            : 'بداية المصحف');
+              ? 'الصفحة السابقة (صفحة ${_currentPage - 1}) [سهم يمين / PageUp]'
+              : 'بداية المصحف');
     final label = isNext ? 'الصفحة التالية' : 'الصفحة السابقة';
 
     return Semantics(
@@ -370,7 +375,9 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: canNavigate ? (isNext ? _goToNextPage : _goToPreviousPage) : null,
+            onTap: canNavigate
+                ? (isNext ? _goToNextPage : _goToPreviousPage)
+                : null,
             borderRadius: BorderRadius.circular(24),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
@@ -380,11 +387,11 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
                 shape: BoxShape.circle,
                 color: canNavigate
                     ? (isDark
-                        ? const Color(0xFF1E1E1E).withValues(alpha: 0.85)
-                        : Colors.white.withValues(alpha: 0.92))
+                          ? const Color(0xFF1E1E1E).withValues(alpha: 0.85)
+                          : Colors.white.withValues(alpha: 0.92))
                     : (isDark
-                        ? Colors.white.withValues(alpha: 0.05)
-                        : Colors.black.withValues(alpha: 0.04)),
+                          ? Colors.white.withValues(alpha: 0.05)
+                          : Colors.black.withValues(alpha: 0.04)),
                 border: Border.all(
                   color: canNavigate
                       ? primaryColor.withValues(alpha: isDark ? 0.35 : 0.25)
@@ -394,7 +401,9 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
                 boxShadow: canNavigate
                     ? [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+                          color: Colors.black.withValues(
+                            alpha: isDark ? 0.35 : 0.08,
+                          ),
                           blurRadius: 10,
                           offset: const Offset(0, 2),
                         ),
@@ -418,16 +427,17 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
   // ── AppBar ─────────────────────────────────────────────────────────────────
 
   PreferredSizeWidget _buildAppBar(
-      BuildContext context, QuranProvider quranProvider) {
+    BuildContext context,
+    QuranProvider quranProvider,
+  ) {
     final size = MediaQuery.of(context).size;
     final isLandscape = size.width > size.height;
 
     // In light mode the AppBar background uses the primary colour, so
     // text/icons must be white.  In dark mode use the surface text colour.
-    final appBarTextColor =
-        Theme.of(context).brightness == Brightness.light
-            ? Colors.white
-            : Theme.of(context).colorScheme.onSurface;
+    final appBarTextColor = Theme.of(context).brightness == Brightness.light
+        ? Colors.white
+        : Theme.of(context).colorScheme.onSurface;
 
     return AppBar(
       elevation: 2,
@@ -471,11 +481,15 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
         // ── Audio Options Menu ───────────────────────────────────────────────
         Consumer<QuranAudioProvider>(
           builder: (context, audioProvider, child) {
-            final isSameSura = audioProvider.currentSuraNumber == _currentMainSuraNumber;
+            final isSameSura =
+                audioProvider.currentSuraNumber == _currentMainSuraNumber;
             final totalAyahs = quran.getVerseCount(_currentMainSuraNumber);
-            
+
             return FutureBuilder<bool>(
-              future: audioProvider.isSuraDownloaded(_currentMainSuraNumber, totalAyahs),
+              future: audioProvider.isSuraDownloaded(
+                _currentMainSuraNumber,
+                totalAyahs,
+              ),
               builder: (context, snapshot) {
                 final isDownloaded = snapshot.data ?? false;
                 final isDownloading = audioProvider.isDownloading;
@@ -492,14 +506,21 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
                           audioProvider.player.play();
                         }
                       } else {
-                        audioProvider.loadAndPlaySura(_currentMainSuraNumber, totalAyahs, startAyah: _currentMainAyaNumber);
+                        audioProvider.loadAndPlaySura(
+                          _currentMainSuraNumber,
+                          totalAyahs,
+                          startAyah: _currentMainAyaNumber,
+                        );
                       }
                     } else if (value == 'download') {
                       if (isDownloaded) {
                         final confirm = await showDialog<bool>(
                           context: context,
                           builder: (context) => AlertDialog(
-                            title: const Text('حذف التلاوة', textAlign: TextAlign.right),
+                            title: const Text(
+                              'حذف التلاوة',
+                              textAlign: TextAlign.right,
+                            ),
                             content: const Text(
                               'هل تريد حذف التلاوة الصوتية لهذه السورة لتوفير المساحة؟',
                               textAlign: TextAlign.right,
@@ -511,16 +532,25 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
                               ),
                               TextButton(
                                 onPressed: () => Navigator.pop(context, true),
-                                child: const Text('حذف', style: TextStyle(color: Colors.red)),
+                                child: const Text(
+                                  'حذف',
+                                  style: TextStyle(color: Colors.red),
+                                ),
                               ),
                             ],
                           ),
                         );
                         if (confirm == true) {
-                          audioProvider.deleteSuraAudio(_currentMainSuraNumber, totalAyahs);
+                          audioProvider.deleteSuraAudio(
+                            _currentMainSuraNumber,
+                            totalAyahs,
+                          );
                         }
                       } else if (!isDownloading) {
-                        audioProvider.downloadSura(_currentMainSuraNumber, totalAyahs);
+                        audioProvider.downloadSura(
+                          _currentMainSuraNumber,
+                          totalAyahs,
+                        );
                       }
                     } else if (value == 'loop_off') {
                       audioProvider.setRepeatMode(LoopMode.off);
@@ -533,14 +563,15 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
                         context: context,
                         isScrollControlled: true,
                         backgroundColor: Colors.transparent,
-                        builder: (context) => const ReciterSelectionBottomSheet(),
+                        builder: (context) =>
+                            const ReciterSelectionBottomSheet(),
                       );
                     }
                   },
                   itemBuilder: (context) {
                     final primaryColor = Theme.of(context).colorScheme.primary;
                     final onSurface = Theme.of(context).colorScheme.onSurface;
-                    
+
                     return [
                       // Play/Pause Item
                       PopupMenuItem(
@@ -548,19 +579,34 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
                         child: ListenableBuilder(
                           listenable: audioProvider,
                           builder: (context, child) {
-                            final currentIsSameSura = audioProvider.currentSuraNumber == _currentMainSuraNumber;
-                            final currentIsPlaying = currentIsSameSura && audioProvider.player.playing;
+                            final currentIsSameSura =
+                                audioProvider.currentSuraNumber ==
+                                _currentMainSuraNumber;
+                            final currentIsPlaying =
+                                currentIsSameSura &&
+                                audioProvider.player.playing;
                             return Row(
                               children: [
-                                Icon(currentIsPlaying ? Icons.pause_circle_outline : Icons.play_circle_outline, color: onSurface),
+                                Icon(
+                                  currentIsPlaying
+                                      ? Icons.pause_circle_outline
+                                      : Icons.play_circle_outline,
+                                  color: onSurface,
+                                ),
                                 const SizedBox(width: 12),
-                                Text(currentIsPlaying ? 'إيقاف مؤقت' : (currentIsSameSura ? 'استئناف التلاوة' : 'تشغيل السورة')),
+                                Text(
+                                  currentIsPlaying
+                                      ? 'إيقاف مؤقت'
+                                      : (currentIsSameSura
+                                            ? 'استئناف التلاوة'
+                                            : 'تشغيل السورة'),
+                                ),
                               ],
                             );
                           },
                         ),
                       ),
-                      
+
                       // Download/Delete Item
                       PopupMenuItem(
                         value: 'download',
@@ -568,12 +614,18 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
                           listenable: audioProvider,
                           builder: (context, child) {
                             return FutureBuilder<bool>(
-                              future: audioProvider.isSuraDownloaded(_currentMainSuraNumber, totalAyahs),
+                              future: audioProvider.isSuraDownloaded(
+                                _currentMainSuraNumber,
+                                totalAyahs,
+                              ),
                               builder: (context, snapshot) {
-                                final currentIsDownloaded = snapshot.data ?? isDownloaded;
-                                final currentIsDownloading = audioProvider.isDownloading;
-                                final currentProgress = audioProvider.downloadProgress;
-                                
+                                final currentIsDownloaded =
+                                    snapshot.data ?? isDownloaded;
+                                final currentIsDownloading =
+                                    audioProvider.isDownloading;
+                                final currentProgress =
+                                    audioProvider.downloadProgress;
+
                                 return Row(
                                   children: [
                                     if (currentIsDownloading) ...[
@@ -581,18 +633,29 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
                                         width: 24,
                                         height: 24,
                                         child: CircularProgressIndicator(
-                                          value: currentProgress > 0 ? currentProgress : null,
+                                          value: currentProgress > 0
+                                              ? currentProgress
+                                              : null,
                                           strokeWidth: 2.0,
                                         ),
                                       ),
                                       const SizedBox(width: 12),
                                       const Text('جاري التحميل...'),
                                     ] else if (currentIsDownloaded) ...[
-                                      Icon(Icons.delete_outline, color: Colors.red.shade400),
+                                      Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.red.shade400,
+                                      ),
                                       const SizedBox(width: 12),
-                                      const Text('حذف السورة المحملة', style: TextStyle(color: Colors.red)),
+                                      const Text(
+                                        'حذف السورة المحملة',
+                                        style: TextStyle(color: Colors.red),
+                                      ),
                                     ] else ...[
-                                      Icon(Icons.cloud_download_outlined, color: onSurface),
+                                      Icon(
+                                        Icons.cloud_download_outlined,
+                                        color: onSurface,
+                                      ),
                                       const SizedBox(width: 12),
                                       const Text('تحميل السورة'),
                                     ],
@@ -621,9 +684,21 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
                         value: 'loop_off',
                         child: Row(
                           children: [
-                            Icon(Icons.repeat, color: audioProvider.loopMode == LoopMode.off ? primaryColor : Colors.grey),
+                            Icon(
+                              Icons.repeat,
+                              color: audioProvider.loopMode == LoopMode.off
+                                  ? primaryColor
+                                  : Colors.grey,
+                            ),
                             const SizedBox(width: 12),
-                            Text('بدون تكرار', style: TextStyle(color: audioProvider.loopMode == LoopMode.off ? primaryColor : onSurface)),
+                            Text(
+                              'بدون تكرار',
+                              style: TextStyle(
+                                color: audioProvider.loopMode == LoopMode.off
+                                    ? primaryColor
+                                    : onSurface,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -631,9 +706,21 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
                         value: 'loop_one',
                         child: Row(
                           children: [
-                            Icon(Icons.repeat_one, color: audioProvider.loopMode == LoopMode.one ? primaryColor : Colors.grey),
+                            Icon(
+                              Icons.repeat_one,
+                              color: audioProvider.loopMode == LoopMode.one
+                                  ? primaryColor
+                                  : Colors.grey,
+                            ),
                             const SizedBox(width: 12),
-                            Text('تكرار الآية', style: TextStyle(color: audioProvider.loopMode == LoopMode.one ? primaryColor : onSurface)),
+                            Text(
+                              'تكرار الآية',
+                              style: TextStyle(
+                                color: audioProvider.loopMode == LoopMode.one
+                                    ? primaryColor
+                                    : onSurface,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -641,9 +728,21 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
                         value: 'loop_all',
                         child: Row(
                           children: [
-                            Icon(Icons.loop, color: audioProvider.loopMode == LoopMode.all ? primaryColor : Colors.grey),
+                            Icon(
+                              Icons.loop,
+                              color: audioProvider.loopMode == LoopMode.all
+                                  ? primaryColor
+                                  : Colors.grey,
+                            ),
                             const SizedBox(width: 12),
-                            Text('تكرار السورة', style: TextStyle(color: audioProvider.loopMode == LoopMode.all ? primaryColor : onSurface)),
+                            Text(
+                              'تكرار السورة',
+                              style: TextStyle(
+                                color: audioProvider.loopMode == LoopMode.all
+                                    ? primaryColor
+                                    : onSurface,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -658,65 +757,64 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
         // ── Bookmark (hidden in landscape mode to avoid confusion) ───────
         if (!isLandscape)
           Consumer<QuranProvider>(
-          builder: (context, provider, child) {
-            final isMarked = provider.isBookmarked(_currentPage);
-            return IconButton(
-              icon: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                transitionBuilder: (child, anim) =>
-                    ScaleTransition(scale: anim, child: child),
-                child: Icon(
-                  isMarked ? Icons.bookmark : Icons.bookmark_border,
-                  key: ValueKey(isMarked),
+            builder: (context, provider, child) {
+              final isMarked = provider.isBookmarked(_currentPage);
+              return IconButton(
+                icon: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  transitionBuilder: (child, anim) =>
+                      ScaleTransition(scale: anim, child: child),
+                  child: Icon(
+                    isMarked ? Icons.bookmark : Icons.bookmark_border,
+                    key: ValueKey(isMarked),
+                  ),
                 ),
-              ),
-              tooltip: isMarked ? 'إزالة العلامة' : 'حفظ الصفحة',
-              onPressed: () {
-                final willAdd = !provider.isBookmarked(_currentPage);
-                provider.toggleBookmark(_currentPage);
-                ScaffoldMessenger.of(context)
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(
-                    SnackBar(
-                      behavior: SnackBarBehavior.floating,
-                      duration: const Duration(seconds: 2),
-                      margin:
-                          const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      backgroundColor: willAdd
-                          ? const Color(0xFF2E7D32)
-                          : const Color(0xFF5D4037),
-                      content: Row(
-                        children: [
-                          Icon(
-                            willAdd
-                                ? Icons.bookmark_added_rounded
-                                : Icons.bookmark_remove_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            willAdd
-                                ? 'تم حفظ الصفحة بنجاح'
-                                : 'تم إزالة العلامة المرجعية',
-                            style: const TextStyle(
-                              fontFamily: 'Tajawal',
-                              fontSize: 14,
+                tooltip: isMarked ? 'إزالة العلامة' : 'حفظ الصفحة',
+                onPressed: () {
+                  final willAdd = !provider.isBookmarked(_currentPage);
+                  provider.toggleBookmark(_currentPage);
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      SnackBar(
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 2),
+                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        backgroundColor: willAdd
+                            ? const Color(0xFF2E7D32)
+                            : const Color(0xFF5D4037),
+                        content: Row(
+                          children: [
+                            Icon(
+                              willAdd
+                                  ? Icons.bookmark_added_rounded
+                                  : Icons.bookmark_remove_rounded,
                               color: Colors.white,
-                              fontWeight: FontWeight.w500,
+                              size: 20,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 10),
+                            Text(
+                              willAdd
+                                  ? 'تم حفظ الصفحة بنجاح'
+                                  : 'تم إزالة العلامة المرجعية',
+                              style: const TextStyle(
+                                fontFamily: 'Tajawal',
+                                fontSize: 14,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-              },
-            );
-          },
-        ),
+                    );
+                },
+              );
+            },
+          ),
 
         // ── Vertical-mode extras (AutoScroll only) ───────────────────────
         if (_isVerticalMode) ...[
@@ -736,8 +834,7 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
             tooltip: _autoScrollActive
                 ? 'إيقاف القراءة التلقائية'
                 : 'بدء القراءة التلقائية',
-            onPressed: () =>
-                _verticalKey.currentState?.toggleAutoScroll(),
+            onPressed: () => _verticalKey.currentState?.toggleAutoScroll(),
           ),
         ],
 
@@ -749,8 +846,9 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
                 ScaleTransition(scale: anim, child: child),
             child: Icon(
               _isVerticalMode
-                  ? Icons.import_contacts_rounded // back to page mode
-                  : Icons.view_day_outlined,       // switch to scroll mode
+                  ? Icons
+                        .import_contacts_rounded // back to page mode
+                  : Icons.view_day_outlined, // switch to scroll mode
               key: ValueKey(_isVerticalMode),
             ),
           ),
@@ -771,7 +869,8 @@ class _MushafScreenState extends State<MushafScreen> with WidgetsBindingObserver
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
           border: Border(
-              top: BorderSide(color: Colors.grey.withValues(alpha: 0.2))),
+            top: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+          ),
         ),
         alignment: Alignment.center,
         child: Text(
