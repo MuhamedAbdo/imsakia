@@ -97,6 +97,10 @@ flutter_launcher_icons:
   image_path: "assets/images/app_icon_square.png"
   adaptive_icon_background: "#104a33" # أو أي درجة أخضر تفضلها
   adaptive_icon_foreground: "assets/images/app_icon_foreground.png"
+  windows:
+    generate: true
+    image_path: "assets/images/app_icon_square.png"
+    icon_size: 256
 
 flutter:
   uses-material-design: true
