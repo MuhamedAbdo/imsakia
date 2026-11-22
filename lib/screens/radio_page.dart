@@ -1,6 +1,14 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:audio_service/audio_service.dart';
+import 'package:provider/provider.dart';
+import '../features/audio/providers/audio_player_provider.dart';
 import '../features/audio/services/audio_handler.dart';
+import '../providers/quran_audio_provider.dart';
 
 class RadioPage extends StatefulWidget {
   const RadioPage({super.key});
@@ -10,11 +18,22 @@ class RadioPage extends StatefulWidget {
 }
 
 class _RadioPageState extends State<RadioPage> {
+  // Static player instance to preserve playback across tab navigation on Windows
+  static AudioPlayer? _windowsRadioPlayer;
+  AudioPlayer get _player =>
+      audioHandler?.player ?? (_windowsRadioPlayer ??= AudioPlayer());
+
+  StreamSubscription? _audioHandlerSubscription;
+  StreamSubscription? _playerSubscription;
+
   bool isPlaying = false;
+  bool isBuffering = false;
   List<dynamic> allRadios = [];
   List<dynamic> filteredRadios = [];
   bool isLoading = true;
   int currentIndex = -1;
+  String? currentRadioUrl;
+  dynamic currentRadioData;
   bool isSearching = false;
   final TextEditingController _searchController = TextEditingController();
 
@@ -25,15 +44,30 @@ class _RadioPageState extends State<RadioPage> {
     _fetchRadios();
   }
 
-  // ✅ تم توحيد المستمعات لتعمل مع النظام السيادي الجديد
   void _setupListeners() {
-    audioHandler?.playbackState.listen((state) {
-      if (mounted) {
-        setState(() {
-          isPlaying = state.playing;
-        });
-      }
-    });
+    if (audioHandler != null) {
+      _audioHandlerSubscription = audioHandler!.playbackState.listen((state) {
+        if (mounted) {
+          setState(() {
+            isPlaying = state.playing;
+            isBuffering =
+                state.processingState == AudioProcessingState.buffering;
+          });
+        }
+      });
+    } else {
+      _playerSubscription = _player.playerStateStream.listen((state) {
+        if (mounted) {
+          setState(() {
+            isPlaying = state.playing &&
+                state.processingState != ProcessingState.completed;
+            isBuffering =
+                state.processingState == ProcessingState.buffering ||
+                state.processingState == ProcessingState.loading;
+          });
+        }
+      });
+    }
   }
 
   Future<void> _fetchRadios() async {
@@ -64,35 +98,121 @@ class _RadioPageState extends State<RadioPage> {
     });
   }
 
-  void playRadio(int index, dynamic radioData) async {
+  Future<void> playRadio(int index, dynamic radioData) async {
     try {
-      final radioUrl = radioData['url'];
+      final radioUrl = radioData['url']?.toString();
+      if (radioUrl == null || radioUrl.isEmpty) {
+        showError('رابط الإذاعة غير متوفر');
+        return;
+      }
 
-      // إذا كانت نفس الإذاعة تعمل، نقوم بإيقافها
-      if (currentIndex == index && isPlaying) {
-        await audioHandler?.pause();
+      // إذا كانت نفس الإذاعة تعمل، نقوم بإيقافها مؤقتاً
+      final isSameRadio = currentRadioUrl == radioUrl;
+      if (isSameRadio && isPlaying) {
+        if (audioHandler != null) {
+          await audioHandler!.pause();
+        } else {
+          await _player.pause();
+        }
+        if (mounted) {
+          setState(() {
+            isPlaying = false;
+            isBuffering = false;
+          });
+        }
       } else {
-        // إعداد بيانات الإذاعة للنظام
-        audioHandler?.setMediaItem(
-          id: 'radio_${radioData['id']}',
-          title: radioData['name'],
-          artist: 'إذاعة القرآن الكريم',
-          artUri: Uri.parse(
-            'https://raw.githubusercontent.com/ryanheise/audio_service/master/example/web/media/art.jpg',
-          ),
-        );
+        // إيقاف أي تلاوة قرآنية تعمل حالياً لتجنب تداخل الأصوات
+        try {
+          final quranAudio =
+              Provider.of<QuranAudioProvider>(context, listen: false);
+          final audioPlayerProv =
+              Provider.of<AudioPlayerProvider>(context, listen: false);
 
-        // تشغيل الرابط المباشر
-        await audioHandler?.playRadio(radioUrl);
+          if (quranAudio.player.playing) {
+            await quranAudio.pause();
+          }
+          if (audioPlayerProv.isPlaying) {
+            await audioPlayerProv.pause();
+          }
+        } catch (_) {}
+
+        if (!mounted) return;
 
         setState(() {
           currentIndex = index;
+          currentRadioUrl = radioUrl;
+          currentRadioData = radioData;
+          isBuffering = true;
         });
 
         showMessage('جاري تشغيل: ${radioData['name']}', Colors.green);
+
+        if (audioHandler != null) {
+          // نظام أندرويد عبر خدمة الخلفية
+          audioHandler!.setMediaItem(
+            id: 'radio_${radioData['id']}',
+            title: radioData['name'],
+            artist: 'إذاعة القرآن الكريم',
+            artUri: Uri.parse(
+              'https://raw.githubusercontent.com/ryanheise/audio_service/master/example/web/media/art.jpg',
+            ),
+          );
+
+          await audioHandler!.playRadio(radioUrl);
+        } else {
+          // نظام ويندوز / سطح المكتب
+          if (_player.playing) {
+            await _player.pause();
+          }
+          await _player.setVolume(1.0);
+          final source = AudioSource.uri(
+            Uri.parse(radioUrl),
+            headers: {'User-Agent': 'ZadApp/1.0'},
+          );
+          await _player.setAudioSource(source);
+          await _player.play();
+
+          // حماية ويندوز للتأكد من انخراط المشغل وبدء البث
+          if (!kIsWeb && Platform.isWindows && !_player.playing) {
+            for (int retry = 0; retry < 3; retry++) {
+              await Future.delayed(const Duration(milliseconds: 250));
+              if (_player.playing) break;
+              await _player.play();
+            }
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            isPlaying = _player.playing;
+            isBuffering = false;
+          });
+        }
       }
     } catch (e) {
-      showError('خطأ في تشغيل الإذاعة: $e');
+      if (mounted) {
+        setState(() => isBuffering = false);
+        showError('خطأ في تشغيل الإذاعة: $e');
+      }
+    }
+  }
+
+  Future<void> _stopRadio() async {
+    try {
+      if (audioHandler != null) {
+        await audioHandler!.stop();
+      } else {
+        await _player.stop();
+      }
+    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        currentIndex = -1;
+        currentRadioUrl = null;
+        currentRadioData = null;
+        isPlaying = false;
+        isBuffering = false;
+      });
     }
   }
 
@@ -114,6 +234,14 @@ class _RadioPageState extends State<RadioPage> {
         ),
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _audioHandlerSubscription?.cancel();
+    _playerSubscription?.cancel();
+    super.dispose();
   }
 
   @override
@@ -166,12 +294,16 @@ class _RadioPageState extends State<RadioPage> {
                     constraints: const BoxConstraints(maxWidth: 850),
                     child: ListView.builder(
                       itemCount: filteredRadios.length,
-                      padding: const EdgeInsets.only(
-                        bottom: 80,
-                      ), // مساحة للبار السفلي
+                      padding: EdgeInsets.only(
+                        bottom: currentRadioData != null ? 85 : 20,
+                      ),
                       itemBuilder: (context, index) {
                         final radio = filteredRadios[index];
-                        bool isThisPlaying = currentIndex == index && isPlaying;
+                        final bool isThisSelected =
+                            currentRadioUrl == radio['url']?.toString();
+                        final bool isThisPlaying = isThisSelected && isPlaying;
+                        final bool isThisBuffering =
+                            isThisSelected && isBuffering;
 
                         return Card(
                           margin: const EdgeInsets.symmetric(
@@ -179,16 +311,37 @@ class _RadioPageState extends State<RadioPage> {
                             vertical: 6,
                           ),
                           child: ListTile(
-                            leading: Icon(
-                              isThisPlaying
-                                  ? Icons.pause_circle_filled
-                                  : Icons.play_circle_fill,
-                              color: accentColor,
-                              size: 40,
-                            ),
+                            leading: isThisBuffering
+                                ? SizedBox(
+                                    width: 40,
+                                    height: 40,
+                                    child: Center(
+                                      child: SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: accentColor,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : Icon(
+                                    isThisPlaying
+                                        ? Icons.pause_circle_filled
+                                        : Icons.play_circle_fill,
+                                    color: accentColor,
+                                    size: 40,
+                                  ),
                             title: Text(
-                              radio['name'],
-                              style: const TextStyle(fontFamily: 'Tajawal'),
+                              radio['name'] ?? '',
+                              style: TextStyle(
+                                fontFamily: 'Tajawal',
+                                fontWeight: isThisSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                color: isThisSelected ? accentColor : null,
+                              ),
                             ),
                             onTap: () => playRadio(index, radio),
                           ),
@@ -198,7 +351,7 @@ class _RadioPageState extends State<RadioPage> {
                   ),
                 ),
 
-          if (currentIndex != -1)
+          if (currentRadioData != null)
             Positioned(
               bottom: 0,
               left: 0,
@@ -219,11 +372,11 @@ class _RadioPageState extends State<RadioPage> {
           topLeft: Radius.circular(20),
           topRight: Radius.circular(20),
         ),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
             color: Colors.black26,
             blurRadius: 10,
-            offset: const Offset(0, -2),
+            offset: Offset(0, -2),
           ),
         ],
       ),
@@ -241,7 +394,7 @@ class _RadioPageState extends State<RadioPage> {
                     style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                   Text(
-                    filteredRadios[currentIndex]['name'],
+                    currentRadioData?['name']?.toString() ?? '',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
@@ -252,21 +405,40 @@ class _RadioPageState extends State<RadioPage> {
                 ],
               ),
             ),
-            IconButton(
-              icon: Icon(
-                isPlaying ? Icons.pause : Icons.play_arrow,
-                color: Colors.white,
-                size: 35,
+            if (isBuffering)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Colors.white,
+                  ),
+                ),
+              )
+            else
+              IconButton(
+                icon: Icon(
+                  isPlaying
+                      ? Icons.pause_circle_filled
+                      : Icons.play_circle_fill,
+                  color: Colors.white,
+                  size: 35,
+                ),
+                onPressed: () {
+                  if (currentRadioData != null) {
+                    playRadio(currentIndex, currentRadioData);
+                  }
+                },
               ),
-              onPressed: () =>
-                  playRadio(currentIndex, filteredRadios[currentIndex]),
-            ),
             IconButton(
-              icon: const Icon(Icons.stop, color: Colors.white, size: 30),
-              onPressed: () async {
-                await audioHandler?.stop();
-                setState(() => currentIndex = -1);
-              },
+              icon: const Icon(
+                Icons.stop_circle_outlined,
+                color: Colors.white,
+                size: 30,
+              ),
+              onPressed: _stopRadio,
             ),
           ],
         ),
