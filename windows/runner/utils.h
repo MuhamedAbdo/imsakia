@@ -4,6 +4,11 @@
 #include <string>
 #include <vector>
 
+// Unique window class name, single instance mutex, and IPC message for Zaad
+constexpr const wchar_t kAppWindowClassName[] = L"ZAAD_IMSAKIA_WIN32_WINDOW";
+constexpr const wchar_t kAppSingleInstanceMutex[] = L"Local\\Zaad_Imsakia_App_SingleInstance_Mutex";
+constexpr const wchar_t kAppShowWindowMessage[] = L"ZAAD_IMSAKIA_SHOW_WINDOW_MSG";
+
 // Creates a console for the process, and redirects stdout and stderr to
 // it for both the runner and the Flutter library.
 void CreateAndAttachConsole();

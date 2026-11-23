@@ -6,6 +6,7 @@
 
 #include "flutter/generated_plugin_registrant.h"
 #include "resource.h"
+#include "utils.h"
 
 #define WM_TRAY_ICON (WM_APP + 101)
 #define ID_TRAY_OPEN 1001
@@ -156,6 +157,16 @@ bool FlutterWindow::OnCreate() {
   // Create System Tray icon immediately
   CreateTrayIcon();
 
+  // Setup single-instance wakeup and taskbar recreation IPC messages
+  show_window_message_ = ::RegisterWindowMessageW(kAppShowWindowMessage);
+  taskbar_created_message_ = ::RegisterWindowMessageW(L"TaskbarCreated");
+  if (show_window_message_ != 0) {
+    ::ChangeWindowMessageFilter(show_window_message_, MSGFLT_ADD);
+  }
+  if (taskbar_created_message_ != 0) {
+    ::ChangeWindowMessageFilter(taskbar_created_message_, MSGFLT_ADD);
+  }
+
   // If launching minimized (auto-start with Windows), do not show window on first frame
   flutter_controller_->engine()->SetNextFrameCallback([this]() {
     if (!start_minimized_) {
@@ -189,6 +200,24 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     if (result) {
       return *result;
     }
+  }
+
+  // Handle single-instance wakeup from secondary launch
+  if (show_window_message_ != 0 && message == show_window_message_) {
+    ShowWindow(hwnd, SW_SHOW);
+    ShowWindow(hwnd, SW_RESTORE);
+    SetForegroundWindow(hwnd);
+    if (desktop_channel_) {
+      desktop_channel_->InvokeMethod("onWindowShown", nullptr);
+    }
+    return 0;
+  }
+
+  // Handle Windows Explorer restart so tray icon is restored
+  if (taskbar_created_message_ != 0 && message == taskbar_created_message_) {
+    tray_icon_created_ = false;
+    CreateTrayIcon();
+    return 0;
   }
 
   switch (message) {

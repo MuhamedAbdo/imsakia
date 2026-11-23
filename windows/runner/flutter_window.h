@@ -40,6 +40,9 @@ class FlutterWindow : public Win32Window {
   bool tray_icon_created_ = false;
   bool force_exit_ = false;
 
+  UINT show_window_message_ = 0;
+  UINT taskbar_created_message_ = 0;
+
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
 
