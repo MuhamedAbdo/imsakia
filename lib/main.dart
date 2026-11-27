@@ -81,15 +81,19 @@ void notificationBackgroundResponseHandler(
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // ═══════════════════════════════════════════════════════════════
   // 🛡️ SOVEREIGN PROTOCOL: Emergency Athan Mode Check
+  // — مع timeout صريح لتجنّب التجمّد إذا لم يردّ الـ native channel —
+  // ═══════════════════════════════════════════════════════════════
   const channel = MethodChannel('imsakia/notifications');
   bool isEmergencyAthan = false;
   if (Platform.isAndroid) {
     try {
-      isEmergencyAthan =
-          await channel.invokeMethod<bool>('isEmergencyAthanMode') ?? false;
+      isEmergencyAthan = await channel
+          .invokeMethod<bool>('isEmergencyAthanMode')
+          .timeout(const Duration(seconds: 2), onTimeout: () => false) ??
+          false;
     } on MissingPluginException {
-      // الـ method مش موجودة على الجانب الـ native — نتعامل كحالة طبيعية
       isEmergencyAthan = false;
     } catch (_) {
       isEmergencyAthan = false;
@@ -97,7 +101,6 @@ void main() async {
   }
 
   if (isEmergencyAthan) {
-    // We keep this true for now, but will override it below if overlayScreen == null
     MyApp.isAthanShowing = true;
     debugPrint(
       "!!! SOVEREIGN: Emergency Athan Mode Detected - Freezing Widget Sync !!!",
@@ -107,9 +110,9 @@ void main() async {
   // 🔔 Cold Start: التحقق من فتح التطبيق بالنقر على إشعار أذكار/مناسبة
   if (Platform.isAndroid) {
     try {
-      final notificationPayload = await channel.invokeMethod<String?>(
-        'getInitialNotificationPayload',
-      );
+      final notificationPayload = await channel
+          .invokeMethod<String?>('getInitialNotificationPayload')
+          .timeout(const Duration(seconds: 2), onTimeout: () => null);
       if (notificationPayload != null && notificationPayload.isNotEmpty) {
         if (notificationPayload.startsWith('azkar_') ||
             notificationPayload.startsWith('islamic_occasion') ||
@@ -129,15 +132,37 @@ void main() async {
   }
 
   // Copy Athan assets to local storage for background isolate access
-  await _prepareAthanAssets();
+  // — مع timeout لتجنّب التجمّد إذا تعطّل الـ FS أو الـ asset bundle —
+  await _prepareAthanAssets().timeout(
+    const Duration(seconds: 5),
+    onTimeout: () {
+      debugPrint('main: _prepareAthanAssets timed out — continuing anyway');
+    },
+  );
 
   // Initialize Arabic locale for date formatting
-  await initializeDateFormatting('ar', null);
+  await initializeDateFormatting('ar', null).timeout(
+    const Duration(seconds: 3),
+    onTimeout: () {
+      debugPrint('main: initializeDateFormatting timed out — continuing');
+    },
+  );
 
   // Критично: audio service and alarm manager MUST be initialized before the
   // notification plugin, so audioHandler is not null when the athan overlay opens.
-  await initAudioService();
-  await AthanManager.initialize();
+  // — مع timeout لكلٍّ منهما لمنع التجمّد قبل runApp() —
+  await initAudioService().timeout(
+    const Duration(seconds: 5),
+    onTimeout: () {
+      debugPrint('main: initAudioService timed out — continuing');
+    },
+  );
+  await AthanManager.initialize().timeout(
+    const Duration(seconds: 4),
+    onTimeout: () {
+      debugPrint('main: AthanManager.initialize timed out — continuing');
+    },
+  );
 
   if (Platform.isWindows) {
     await WindowsDesktopService.instance.initialize();
@@ -185,7 +210,7 @@ void main() async {
           // التوجيه المباشر إذا كان التطبيق مفتوحاً ومتجاوزاً الـ Splash Screen
           handleNotificationPayload(payload!);
         } else {
-          // التخزين في حال كان التطبيق في مرحلة الإقلاع أو הـ Splash
+          // التخزين في حال كان التطبيق في مرحلة الإقلاع أو الـ Splash
           pendingAzkarRoutePayload = payload;
         }
       }
@@ -215,7 +240,8 @@ void main() async {
       await AthanManager.clearPendingAthan();
     } else if (notificationAppLaunchDetails?.didNotificationLaunchApp ?? false) {
       // 2. تحقق من Notification Launch (Fallback)
-      final payload = notificationAppLaunchDetails?.notificationResponse?.payload;
+      final payload =
+          notificationAppLaunchDetails?.notificationResponse?.payload;
       if (payload != null) {
         if (payload.startsWith('athan_overlay|')) {
           final parts = payload.split('|');
@@ -240,7 +266,7 @@ void main() async {
     );
     MyApp.isAthanShowing = true;
   } else {
-    // 💡 صمام الأمان (Cold Start Reset): تفريغ الحالة تماماً إذا لم يكن الإقلاع لأجل الأذان
+    // 💡 صمام الأمان (Cold Start Reset)
     if (MyApp.isAthanShowing) {
       debugPrint(
         "!!! SAFEGUARD: False Athan flag detected on normal launch. Forcing reset. !!!",
@@ -248,37 +274,38 @@ void main() async {
       MyApp.isAthanShowing = false;
     }
 
-    // الحالة الطبيعية
+    // الحالة الطبيعية: تهيئة الخدمات غير الحرجة
     HadithService.instance.initialize();
     AzkarService.instance.initialize();
   }
 
+  // ─────────────────────────────────────────────────────────────────
+  // ⚡ FAST PATH: نُشغّل runApp() أسرع ما يمكن بحيث يرسم فلاتر أوّل
+  //    إطار وتختفي شاشة الإطلاق (launch_background) فوراً.
+  //    المهام الثقيلة (settingsProvider, migration, prefs.reload,
+  //    الجدولة الأولى) تنتقل إلى ما بعد runApp() عبر postFrameCallback.
+  // ─────────────────────────────────────────────────────────────────
   final settingsProvider = SettingsProvider();
-  await settingsProvider.initialize();
 
-  // 🔄 Migration خفية: نقل الـ Bookmarks القديمة من مسارات JSON إلى bookKey الجديد
-  await BookmarkService.migrateIfNeeded();
+  // نبدأ تهيئة الـ SettingsProvider بشكل متوازٍ مع بدء الـ runApp بحيث
+  // لا نضغط على خيط الواجهة في لحظة الإقلاع.
+  final settingsInitFuture = settingsProvider.initialize().timeout(
+    const Duration(seconds: 4),
+    onTimeout: () {
+      debugPrint('main: settingsProvider.initialize timed out — using defaults');
+    },
+  );
 
+  // SharedPreferences: نستهلك النسخة المحلية بدون reload() لتجنب round-trip
   final prefs = await SharedPreferences.getInstance();
-  await prefs.reload();
-
-  // 🔥 ONE-TIME CLEANUP: Clear orphaned alarms from other branches/versions
-  // This ensures the Sovereign Athan system starts with a clean slate.
-  if (Platform.isAndroid) {
-    final hasCleanedOrphans =
-        prefs.getBool('orphaned_alarms_cleaned_v1') ?? false;
-    if (!hasCleanedOrphans) {
-      debugPrint("!!! HARDENED: Performing one-time orphaned alarm cleanup !!!");
-      await AthanManager.cancelAllAlarms();
-      await prefs.setBool('orphaned_alarms_cleaned_v1', true);
-    }
-  }
-
   final hasCompletedSetup = prefs.getBool('setup_completed') ?? false;
 
   if (Platform.isAndroid) {
     await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   }
+
+  // انتظر تهيئة الـ SettingsProvider فعلياً قبل runApp لأن الـ UI يحتاجه
+  await settingsInitFuture;
 
   runApp(
     MyApp(
@@ -288,6 +315,31 @@ void main() async {
       showPermissionsGate: Platform.isAndroid && !hasCompletedSetup,
     ),
   );
+
+  // ══════════════════════════════════════════════════════════════════
+  // 🔄 POST-FRAME: المهام الثقيلة تُنفَّذ بعد رسم أوّل إطار فلاتر،
+  //    ما يمنع الشاشة السوداء الناتجة عن ضغط microtask قبل runApp().
+  // ══════════════════════════════════════════════════════════════════
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    // 🔄 Migration خفية: نقل الـ Bookmarks القديمة
+    await BookmarkService.migrateIfNeeded();
+
+    // reload() بعد رسم الإطار الأول — لا تأثير على الـ UI الأولي
+    await prefs.reload();
+
+    // 🔥 ONE-TIME CLEANUP: Clear orphaned alarms (Android only)
+    if (Platform.isAndroid) {
+      final hasCleanedOrphans =
+          prefs.getBool('orphaned_alarms_cleaned_v1') ?? false;
+      if (!hasCleanedOrphans) {
+        debugPrint(
+          "!!! HARDENED: Performing one-time orphaned alarm cleanup !!!",
+        );
+        await AthanManager.cancelAllAlarms();
+        await prefs.setBool('orphaned_alarms_cleaned_v1', true);
+      }
+    }
+  });
 }
 
 class MyApp extends StatefulWidget {
